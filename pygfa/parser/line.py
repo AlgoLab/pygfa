@@ -161,11 +161,13 @@ class Field:
 class OptField(Field):
 
     def __init__ (self, name, value, field_type):
-        super().__init__ (name, value)
-        if not re.fullmatch ('[A-Za-z0-9]' * 2, self.name):
+        if not re.fullmatch ('[A-Za-z0-9]' * 2, name):
             raise Exception ("Invalid optfield name, given".format (name))
+
+        self._name = name
         self._type = field_type
-        
+        self._value = fv.validate (value, field_type)
+    
 
     @property
     def type (self):
@@ -182,8 +184,7 @@ class OptField(Field):
         if len (groups) != 3:
             raise Exception ("OptField must have a name, a type and a value, given".format (string) )
 
-        value = fv.validate (groups[2], groups[1])
-        optfield = OptField (groups[0], value, groups[1])
+        optfield = OptField (groups[0], groups[2], groups[1])
         return optfield
     
     

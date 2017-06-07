@@ -25,7 +25,7 @@ class PyGFA:
                     elif line[0] == 'P':
                         pygfa.paths.append (path.Path.from_string (line))
                     elif line[0] == 'S':
-                        pygfa.segments.append (segment.Segment.from_string (line))
+                        pygfa.segments.append (segment.SegmentV1.from_string (line))
                     elif line[0] == 'L':
                         pygfa.links.append (link.Link.from_string (line))
                     elif line[0] == 'C':

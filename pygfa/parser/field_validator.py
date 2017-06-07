@@ -1,7 +1,6 @@
 import re
+from parser import error
 
-class UnknownDataTypeError (Exception): pass
-class FormatError (Exception): pass
 
 DATASTRING_VALIDATION_REGEXP = \
   {\
@@ -19,6 +18,7 @@ DATASTRING_VALIDATION_REGEXP = \
   'pos' : "^[0-9]*$", # positive integer \
   'cig' : "^(\*|(([0-9]+[MIDNSHPX=])+))$", # CIGAR string \
   'cgs' : "^(\*|(([0-9]+[MIDNSHPX=])+))(,(\*|(([0-9]+[MIDNSHPX=])+)))*$", # multiple CIGARs, comma-sep \
+  'cig2' : "^([0-9]+[MDIP])+$", #CIGAR string for GFA2 \
   'cmt' : ".*" # content of comment line, everything is allowed \
   }
 
@@ -28,9 +28,9 @@ def is_valid (string, datatype):
     @param datatype The type of data corresponding to the string
     @param fieldname The fieldname to use in the error message"""
     if not isinstance (string, str):
-        raise FormatError ("A string must be given to validate it, given:{0}".format (string))
+        raise error.FormatError ("A string must be given to validate it, given:{0}".format (string))
     if not datatype in DATASTRING_VALIDATION_REGEXP:
-        raise UnknownDataTypeError (\
+        raise error.UnknownDataTypeError (\
                                         "Invalid field datatype," + \
                                         "given: {0}".format (datatype) \
                                         )
@@ -45,7 +45,7 @@ def is_valid (string, datatype):
 def validate (string, datatype):
     """Return the value with the type closer to the one it's represented."""
     if not is_valid (string, datatype):
-        raise Exception ("The string cannot be validated within its datatype,\n" + \
+        raise error.InvalidFieldError ("The string cannot be validated within its datatype,\n" + \
                              "given string : {0}\ndatatype: {1}.".format (string, datatype))
 
     if datatype in ('i'):
@@ -58,9 +58,11 @@ def validate (string, datatype):
     
     elif datatype in ('f'):
         return float (string)
-    elif datatype in ('orn', 'A', 'Z', 'seq', 'lbl', 'cig'): #TODO?: for lbl check for path correctness
+    elif datatype in ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'H', 'B'): #TODO?: for lbl check for path correctness
         return string
     elif datatype in ('lbs', 'cgs'):
         return string.split(",")
+    elif datatype in ('J'):
+        return string # TODO: ask if the json must be manipulated
     else:
-        raise Exception ("Datatype to be validated not found.")
+        raise error.UnknownDataTypeError ("Datatype to be validated not found.")
