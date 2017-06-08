@@ -82,7 +82,7 @@ def validate (string, datatype):
 
     elif datatype in ('lbs', 'cgs'):
         return string.split(",")
-    elif datatype in ('aln'): # string is either * or trace or a cigar
+    elif datatype in ('aln'): # string is either * or a trace or a cigar
         if string == "*":
             return string
         elif is_valid (string, 'cig2'):
@@ -96,5 +96,5 @@ def validate (string, datatype):
         return string.split ()
         
 
-    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid') #TODO?: for lbl check for path correctness
+    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid')
         return string
