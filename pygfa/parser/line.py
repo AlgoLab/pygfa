@@ -67,40 +67,20 @@ class Line:
         @param field The field to add to the line
         @raise InvalidFieldError If a 'name' and a 'value' attributes are not found or
         the field has already been added"""
-        if not is_field (field):
+        if not (is_field (field) or is_optfield (field)):
             raise  error.InvalidFieldError ("A valid field must be attached")
 
         if field.name in self.fields:
             raise error.InvalidFieldError ("This field is already been added, field name: '{0}'.".format (field.name))
 
-        # cast to string for type compatibility with validation methods.
-        # for field whose value is a list, cast to a comma separated string with values
-        field_value = ""
-        if isinstance (field.value, list):
-            field_value = str.join(",", field.value)
-        else:
-            field_value = str (field.value)
-            
-        static_fields = self.get_static_fields ()
-        if field.name in static_fields:
-            field_type = static_fields[field.name]
-            if fv.is_valid (field_value, field_type):
-              validated_value = fv.validate (field_value, field_type)
-              self._fields[field.name] = Field (field.name, validated_value)
-            else:
-                raise error.InvalidFieldError ("Value must respect its type, given {0}, expected {1}".format (field.value, field_type))
+        if field.name in self.REQUIRED_FIELDS:
+            self._fields[field.name] = field
         else: # here we are appending an optfield
-            
               if not is_optfield (field):
                   raise error.InvalidFieldError ("The field given it's not a valid optfield nor a required field.")
 
-              if fv.is_valid (field_value, field.type):
-                  self._fields[field.name] = OptField (field.name, field_value, field.type)
-              else:
-                  raise error.InvalidFieldError (\
-                                                    "Value must respect its type, " + \
-                                                    "string given: {0}\n".format (field.value) + \
-                                                    "of type: {0}".format (field.type))
+              self._fields[field.name] = field
+
         return True
     
 
@@ -161,7 +141,7 @@ class OptField(Field):
 
     def __init__ (self, name, value, field_type):
         if not re.fullmatch ('[A-Za-z0-9]' * 2, name):
-            raise Exception ("Invalid optfield name, given".format (name))
+            raise Exception ("Invalid optfield name, given '{0}'".format (name))
 
         if not re.fullmatch ("^[ABHJZif]$", field_type):
             raise Exception ("Invalid type for an optional field.")
@@ -184,7 +164,7 @@ class OptField(Field):
         TYPE match [AiZfJHB]"""
         groups = re.split (":", string.strip ())
         if len (groups) != 3:
-            raise Exception ("OptField must have a name, a type and a value, given".format (string) )
+            raise Exception ("OptField must have a name, a type and a value, given{0}".format (string) )
 
         optfield = OptField (groups[0], groups[2], groups[1])
         return optfield
