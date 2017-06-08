@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '../pygfa')
 
-from parser.lines import header, segment, link, path, containment, fragment, edge
+from parser.lines import header, segment, link, path, containment, fragment, edge, gap
 from parser import error, line, field_validator as fv
 import re
 import unittest
@@ -213,12 +213,12 @@ class TestLine (unittest.TestCase):
         with self.assertRaises (error.InvalidFieldError):
             optf = TestField ('', 'seq2')
 
-        optf = TestField ('aa', 'opt_id')
-        optf = TestField ('*', 'opt_id')
+        optf = TestField ('aa', 'oid')
+        optf = TestField ('*', 'oid')
         with self.assertRaises (error.InvalidFieldError):
-            optf = TestField ('', 'opt_id')
+            optf = TestField ('', 'oid')
         with self.assertRaises (error.InvalidFieldError):
-            optf = TestField ('* ', 'opt_id')
+            optf = TestField ('* ', 'oid')
 
         optf = TestField ('42,42,42', 'aln')
         optf = TestField ('*', 'aln')
@@ -276,6 +276,15 @@ class TestLine (unittest.TestCase):
         self.assertTrue (edg.fields['end2'].value == "11")
         self.assertTrue (edg.fields['alignment'].value  == "11M")
 
+
+    def test_Gap (self):
+        gp = gap.Gap.from_string ("G\tg\tA+\tB-\t1000\t*") # example taken from gfapy doc: http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
+        self.assertTrue (gp.type == "E")
+        self.assertTrue (gp.fields['gid'].value == "g")
+        self.assertTrue (gp.fields['sid1'].value == "A+")
+        self.assertTrue (gp.fields['sid2'].value == "B-")
+        self.assertTrue (gp.fields['displacement'].value == "1000")
+        self.assertTrue (gp.fields['variance'].value  == "*")
 
 
 
