@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '../pygfa')
 
-from parser.lines import header, segment, link, path, containment
+from parser.lines import header, segment, link, path, containment, fragment
 from parser import error, line, field_validator as fv
 import re
 import unittest
@@ -235,8 +235,9 @@ class TestLine (unittest.TestCase):
         # 'cmt' : ".*", # conten
         # t of comment line, everything is allowed \
                                         
+
     def test_Segment (self):
-    """Test the parsing of a S line either following the GFA1 and the GFA2 specifications."""
+        """Test the parsing of a S line either following the GFA1 and the GFA2 specifications."""
         seg = segment.SegmentV1.from_string ("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         self.assertTrue (seg.type == "S")
         self.assertTrue (seg.fields['name'].value == "3")
@@ -249,6 +250,18 @@ class TestLine (unittest.TestCase):
         self.assertTrue (seg.fields['slen'].value == 21)
         self.assertTrue (seg.fields['sequence'].value  == "TGCAACGTATAGACTTGTCAC")
         self.assertTrue (seg.fields['RC'].value == 4)
+
+        
+    def test_Fragment (self):
+        frag = fragment.Fragment.from_string ("F\t12\t2-\t0\t140$\t0\t140\t11M")
+        self.assertTrue (frag.type == "F")
+        self.assertTrue (frag.fields['sid'].value == "12")
+        self.assertTrue (frag.fields['external'].value == "2-")
+        self.assertTrue (frag.fields['sbeg'].value == "0")
+        self.assertTrue (frag.fields['send'].value == "140$")
+        self.assertTrue (frag.fields['fbeg'].value == "0")
+        self.assertTrue (frag.fields['fend'].value == "140")
+        self.assertTrue (frag.fields['alignment'].value  == "11M")
 
     
 
