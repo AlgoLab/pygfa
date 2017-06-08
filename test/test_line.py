@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '../pygfa')
 
-from parser.lines import header, segment, link, path, containment, fragment
+from parser.lines import header, segment, link, path, containment, fragment, edge
 from parser import error, line, field_validator as fv
 import re
 import unittest
@@ -263,7 +263,19 @@ class TestLine (unittest.TestCase):
         self.assertTrue (frag.fields['fend'].value == "140")
         self.assertTrue (frag.fields['alignment'].value  == "11M")
 
-    
+
+    def test_Edge (self):
+        edg = edge.Edge.from_string ("E\t*\t23-\t16+\t0\t11\t0\t11\t11M")
+        self.assertTrue (edg.type == "E")
+        self.assertTrue (edg.fields['eid'].value == "*")
+        self.assertTrue (edg.fields['sid1'].value == "23-")
+        self.assertTrue (edg.fields['sid2'].value == "16+")
+        self.assertTrue (edg.fields['beg1'].value == "0")
+        self.assertTrue (edg.fields['end2'].value == "11")
+        self.assertTrue (edg.fields['beg1'].value == "0")
+        self.assertTrue (edg.fields['end2'].value == "11")
+        self.assertTrue (edg.fields['alignment'].value  == "11M")
+
 
 
 
