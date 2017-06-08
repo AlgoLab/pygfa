@@ -4,7 +4,7 @@ import re
 class Gap (line.Line):
 
     def __init__ (self):
-        super().__init__ ('E')
+        super().__init__ ('G')
     
     REQUIRED_FIELDS = { \
     'gid' : 'oid', \
