@@ -95,8 +95,7 @@ class Line:
                   raise error.InvalidFieldError ("The field given it's not a valid optfield nor a required field.")
 
               if fv.is_valid (field_value, field.type):
-                  validated_value = fv.validate (field_value, field.type)
-                  self._fields[field.name] = OptField (field.name, validated_value, field.type)
+                  self._fields[field.name] = OptField (field.name, field_value, field.type)
               else:
                   raise error.InvalidFieldError (\
                                                     "Value must respect its type, " + \
@@ -127,7 +126,7 @@ class Line:
 class Field:
     """This class represent any required field.
     The type of field is bound to the field name.
-    TODO: choose to add all the field name in the valdiator module so that it's
+    TODO: choose to add all the field name in the validator module so that it's
     possible to validate the value of the field here."""
     def __init__ (self, name, value):
         self._name = name
@@ -164,6 +163,9 @@ class OptField(Field):
         if not re.fullmatch ('[A-Za-z0-9]' * 2, name):
             raise Exception ("Invalid optfield name, given".format (name))
 
+        if not re.fullmatch ("^[ABHJZif]$", field_type):
+            raise Exception ("Invalid type for an optional field.")
+        
         self._name = name
         self._type = field_type
         self._value = fv.validate (value, field_type)

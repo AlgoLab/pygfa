@@ -23,7 +23,7 @@ def is_segmentv2 (string):
     if not isinstance (string, str):
         raise Exception ("The given parameter is not a string.")
     try:
-        if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['pos'], \
+        if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['pos2'], \
                        re.split("\t", string)[2]):
                        return True
     except: pass
@@ -36,7 +36,7 @@ class SegmentV1 (line.Line):
     
     REQUIRED_FIELDS = { \
     'name' : 'lbl', \
-    'seq' : 'seq' \
+    'sequence' : 'seq' \
     }
 
     PREDEFINED_OPTFIELDS = { \
@@ -64,8 +64,8 @@ class SegmentV1 (line.Line):
         name_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['name'])
         sfields.append (line.Field ('name', name_f))
 
-        seq_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['seq'])
-        sfields.append (line.Field ('seq', seq_f))
+        seq_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['sequence'])
+        sfields.append (line.Field ('sequence', seq_f))
 
         for field in fields[2:]:
             sfields.append (line.OptField.from_string (field))
@@ -82,9 +82,9 @@ class SegmentV2 (line.Line):
         super().__init__ ('S')
     
     REQUIRED_FIELDS = { \
-    'name' : 'lbl', \
-    'seq_len' : 'pos', \
-    'seq' : 'seq' \
+    'sid' : 'id', \
+    'slen' : 'int', \
+    'sequence' : 'seq2' \
     }
 
     @classmethod
@@ -99,15 +99,14 @@ class SegmentV2 (line.Line):
             
         segment = SegmentV2 ()
 
-        # the required fields are in the first two columns
-        name_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['name'])
-        sfields.append (line.Field ('name', name_f))
+        name_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['sid'])
+        sfields.append (line.Field ('sid', name_f))
 
-        seq_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['seq'])
-        sfields.append (line.Field ('seq', seq_f))
+        seq_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['slen'])
+        sfields.append (line.Field ('slen', seq_f))
 
-        seq_f = fv.validate (fields[2], cls.REQUIRED_FIELDS['seq_len'])
-        sfields.append (line.Field ('seq_len', seq_f))
+        seq_f = fv.validate (fields[2], cls.REQUIRED_FIELDS['sequence'])
+        sfields.append (line.Field ('sequence', seq_f))
         
         for field in fields[3:]:
             sfields.append (line.OptField.from_string (field))
