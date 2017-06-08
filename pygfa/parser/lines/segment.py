@@ -99,14 +99,14 @@ class SegmentV2 (line.Line):
             
         segment = SegmentV2 ()
 
-        name_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['sid'])
-        sfields.append (line.Field ('sid', name_f))
+        sid_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['sid'])
+        sfields.append (line.Field ('sid', sid_f))
 
-        seq_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['slen'])
-        sfields.append (line.Field ('slen', seq_f))
+        slen_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['slen'])
+        sfields.append (line.Field ('slen', slen_f))
 
-        seq_f = fv.validate (fields[2], cls.REQUIRED_FIELDS['sequence'])
-        sfields.append (line.Field ('sequence', seq_f))
+        sequence_f = fv.validate (fields[2], cls.REQUIRED_FIELDS['sequence'])
+        sfields.append (line.Field ('sequence', sequence_f))
         
         for field in fields[3:]:
             sfields.append (line.OptField.from_string (field))
@@ -115,5 +115,3 @@ class SegmentV2 (line.Line):
             segment.add_field (field)
 
         return segment
-
-
