@@ -1,4 +1,4 @@
-from parser import field_validator as fv
+from parser import error, field_validator as fv
 import re
 
 # support for duck typing
@@ -71,7 +71,7 @@ class Line:
             raise  error.InvalidFieldError ("A valid field must be attached")
 
         if field.name in self.fields:
-            raise error.InvalidFieldError ("This field is already been added.")
+            raise error.InvalidFieldError ("This field is already been added, field name: '{0}'.".format (field.name))
 
         # cast to string for type compatibility with validation methods.
         # for field whose value is a list, cast to a comma separated string with values
