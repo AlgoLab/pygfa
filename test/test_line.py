@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '../pygfa')
 
-from parser.lines import header, segment, link, path, containment, fragment, edge, gap
+from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
 from parser import error, line, field_validator as fv
 import re
 import unittest
@@ -199,7 +199,7 @@ class TestLine (unittest.TestCase):
             optf = TestField ('-42', 'trc')
 
         optf = TestField ('42', 'pos2')
-        self.assertTrue (optf.value == "42") # pos will be a string
+        self.assertTrue (optf.value == "42") # pos2 will be a string
         optf = TestField ('42$', 'pos2')
         with self.assertRaises (error.InvalidFieldError):
             optf = TestField ('', 'pos2')
@@ -232,9 +232,15 @@ class TestLine (unittest.TestCase):
         # 'pos' : "^[0-9]*$", # positive integer \ TODO: this way the empty string is allowed... could it be possibly a
         # mistake in the specification of GFA1? Ask for it.
         #
-        # 'cmt' : ".*", # conten
-        # t of comment line, everything is allowed \
-                                        
+        # 'cmt' : ".*"
+
+
+    def test_Fields (self):
+        field = line.OptField ("na", "test", "Z")
+        # TODO: add a specific error if optfield name is wrong
+        with self.assertRaises (Exception):
+            field = line.OptField ("aa", "test", "lbl")
+
 
     def test_Segment (self):
         """Test the parsing of a S line either following the GFA1 and the GFA2 specifications."""
@@ -279,12 +285,26 @@ class TestLine (unittest.TestCase):
 
     def test_Gap (self):
         gp = gap.Gap.from_string ("G\tg\tA+\tB-\t1000\t*") # example taken from gfapy doc: http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
-        self.assertTrue (gp.type == "E")
+        self.assertTrue (gp.type == "G")
         self.assertTrue (gp.fields['gid'].value == "g")
         self.assertTrue (gp.fields['sid1'].value == "A+")
         self.assertTrue (gp.fields['sid2'].value == "B-")
         self.assertTrue (gp.fields['displacement'].value == "1000")
         self.assertTrue (gp.fields['variance'].value  == "*")
+
+        
+    def test_OGroup (self):
+        ogroup = group.OGroup.from_string ("O\t1p\t12- 11+ 32+ 28- 20- 16+")
+        self.assertTrue (ogroup.type == "O")
+        self.assertTrue (ogroup.fields['oid'].value == "1p")
+        self.assertTrue (ogroup.fields['references'].value  == "12- 11+ 32+ 28- 20- 16+".split ())
+
+        
+    def test_UGroup (self):
+        ugroup = group.UGroup.from_string ("U\ts1\tA b_c g")
+        self.assertTrue (ugroup.type == "U")
+        self.assertTrue (ugroup.fields['uid'].value == "s1")
+        self.assertTrue (ugroup.fields['references'].value  == "A b_c g".split ())
 
 
 
