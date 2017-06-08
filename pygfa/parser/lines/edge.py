@@ -7,7 +7,7 @@ class Edge (line.Line):
         super().__init__ ('E')
     
     REQUIRED_FIELDS = { \
-    'eid' : 'opt_id', \
+    'eid' : 'oid', \
     'sid1' : 'ref', \
     'sid2' : 'ref', \
     'beg1' : 'pos2', \
@@ -60,5 +60,3 @@ class Edge (line.Line):
             edge.add_field (field)
 
         return edge
-
-
