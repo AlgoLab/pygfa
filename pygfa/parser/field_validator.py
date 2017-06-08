@@ -4,7 +4,7 @@ from parser import error
 
 """These are the type of value a field can assume, the tag is treated differently.
 These are the same as the ones in rgfa, I've extended the list to support GFA2.
-GFA2: 'id', 'ids', 'ref', 'rfs', 'cig2', 'opt_id', 'trc', 'aln', 'pos2', 'seq2', 'int'"""
+GFA2: 'id', 'ids', 'ref', 'rfs', 'cig2', 'oid' (opt_id), 'trc', 'aln', 'pos2', 'seq2', 'int', 'oint'"""
 DATASTRING_VALIDATION_REGEXP = \
   {\
   'A' : "^[!-~]", # any printable character \
@@ -32,7 +32,8 @@ DATASTRING_VALIDATION_REGEXP = \
   'pos2' : "^[0-9]+\$?$", # pos2 represent a position in GFA2, it's similar in NO WAY to pos which represent a positive integer in GFA1
   'cig2' : "^([0-9]+[MDIP])+$", # CIGAR string for GFA2 \
   'seq2' : "^\*$|^[!-~]+$", # seq2 is a GFA2 sequence, it's more flexible than GFA1 seq \ 
-  'opt_id' : "^\*$|^[!-~]+$" # optional id  for GFA2 \
+  'oid' : "^\*$|^[!-~]+$", # optional id  for GFA2 \
+  'oint' : "^\*$|^[0-9]+$" #optional int \
   }
 
 def is_valid (string, datatype):
@@ -70,6 +71,11 @@ def validate (string, datatype):
         # if position < 0:
         #     raise Exception ("Position must be >= 0.")
         return int (string)
+
+    elif datatype in ('oint'):
+        if string == "*":
+            return string
+        return int (string)
     
     elif datatype in ('f'):
         return float (string)
@@ -90,5 +96,5 @@ def validate (string, datatype):
         return string.split ()
         
 
-    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2') #TODO?: for lbl check for path correctness
+    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid') #TODO?: for lbl check for path correctness
         return string
