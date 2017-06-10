@@ -1,31 +1,39 @@
 from parser import line, error, field_validator as fv
 import re
 
-def is_segmentv1 (string):
-    """Checks wether a given string belongs to the first GFA version.
-    @param string A string that is supposed to represent an S line.
+def is_segmentv1 (line_repr):
+    """Checks wether a given string or line belongs to a Segment of the first GFA version.
+    @param string A string or a Line that is supposed to represent an S line.
     @exceptions Exception Launch a generic exception if the given parameter is
     not a string."""
-    if not isinstance (string, str):
-        raise Exception ("The given parameter is not a string.")
     try:
-        if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['seq'], \
-                       re.split("\t", string)[2]):
-                       return True
+        if isinstance (line_repr, str):        
+            fields = re.split("\t", line_repr)
+            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['seq'], \
+                                 fields[2]) and \
+                                 fields[0] == 'S':
+                                 return True
+        else:
+            return line_repr.type == 'S' and line_repr.fields['name'] != None
+        
     except: pass
     return False
 
-def is_segmentv2 (string):
-    """Checks wether a given string belongs to the second GFA version.
-    @param string A string that is supposed to represent an S line.
+def is_segmentv2 (line_repr):
+    """Checks wether a given string or line belongs to a Segment of the second GFA version.
+    @param string A string or a Line that is supposed to represent an S line.
     @exceptions Exception Launch a generic exception if the given parameter is
     not a string."""
-    if not isinstance (string, str):
-        raise Exception ("The given parameter is not a string.")
     try:
-        if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['pos2'], \
-                       re.split("\t", string)[2]):
-                       return True
+        if isinstance (line_repr, str):        
+            fields = re.split("\t", line_repr)
+            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['pos2'], \
+                                 fields[2]) and \
+                                 fields[0] == 'S':
+                                 return True
+        else:
+            return line_repr.type == 'S' and line_repr.fields['sid'] != None
+        
     except: pass
     return False
 
