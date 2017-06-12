@@ -1,11 +1,18 @@
 from parser.lines import segment
 
+class InvalidNodeError (Exception): pass
+
+def is_node (object):
+    """Check wheter the given object is a graph_element object."""
+    try:
+        return object.nid != None and object.sequence != None and hasattr (object, '_slen')
+    except: return False
 
 class Node:
 
     def __init__ (self, node_id, sequence, length):
-        if not isinstance (node_id, str):
-            raise Exception ("A Node has always a defined id of type string, " + \
+        if not isinstance (node_id, str) or node_id == '*':
+            raise InvalidNodeError ("A Node has always a defined id of type string, " + \
                                  "given {0} of type {1}".format (node_id, type (node_id)))
 
         if not isinstance (sequence, str):
@@ -16,7 +23,7 @@ class Node:
                      (isinstance (length, int) and int (length) >= 0) or \
                      length == None \
                 ):
-            raise Exception ("Sequence length must be a number >= 0, " + \
+            raise InvalidNodeError ("Sequence length must be a number >= 0, " + \
                                  "given {0} of type {1}".format (length, type (length)))
         self._nid = node_id
         self._sequence = sequence

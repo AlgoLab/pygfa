@@ -1,5 +1,17 @@
 from parser.lines import edge, fragment, containment, gap
 
+class InvalidEdgeError: pass
+
+def is_edge (object):
+    try:
+        return \
+          hasattr (object, '_eid') and \
+          object._from_node != None and \
+          object._to_node != None and \
+          hasattr (object, '_from_positions') and \
+          hasattr (object, '_to_positions') and \
+          hasattr(object, '_alignment')
+    except: return False
 
 class Edge:
 
