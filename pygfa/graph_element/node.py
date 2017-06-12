@@ -1,4 +1,6 @@
 from parser.lines import segment
+from parser import line
+import copy
 
 class InvalidNodeError (Exception): pass
 
@@ -10,7 +12,7 @@ def is_node (object):
 
 class Node:
 
-    def __init__ (self, node_id, sequence, length):
+    def __init__ (self, node_id, sequence, length, opt_fields={}):
         if not isinstance (node_id, str) or node_id == '*':
             raise InvalidNodeError ("A Node has always a defined id of type string, " + \
                                  "given {0} of type {1}".format (node_id, type (node_id)))
@@ -28,6 +30,11 @@ class Node:
         self._nid = node_id
         self._sequence = sequence
         self._slen = length
+        self._opt_fields = {}
+        for key, field in opt_fields.items ():
+            if line.is_field (field):
+                self._opt_fields[key] = copy.deepcopy (field)
+        
         
     @property
     def nid (self):
@@ -41,25 +48,38 @@ class Node:
     def slen (self):
         return self._slen
 
+    @property
+    def opt_fields (self):
+        return self._opt_fields
+    
     @classmethod
     def from_line (cls, line):
 
         try:
-
+            fields = copy.deepcopy (line.fields)
             if line.type == 'S':
                 if segment.is_segmentv1 (line):
-                   
+
+                    fields.pop ('name')
+                    fields.pop ('sequence')
+                    # fields.remove_field ('LN') # LN field will be kept as optional field also
+                    
                     return Node ( \
                             line.fields['name'].value, \
                             line.fields['sequence'].value, \
-                            None if 'LN' not in line.fields else line.fields['LN'].value)
+                            None if 'LN' not in line.fields else line.fields['LN'].value, \
+                            fields)
                     
                 else:
+                    fields.pop ('sid')
+                    fields.pop ('sequence')
+                    fields.pop ('slen')                    
 
                     return Node ( \
                             line.fields['sid'].value, \
                             line.fields['sequence'].value, \
-                            line.fields['slen'].value)
+                            line.fields['slen'].value, \
+                            fields)
                                 
                 
         except Exception as e:
