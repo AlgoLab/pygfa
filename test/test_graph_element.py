@@ -10,6 +10,8 @@ class TestGraphElement (unittest.TestCase):
 
     def test_node (self):
         nod = node.Node ("15", "acgt", 4)
+        with self.assertRaises (node.InvalidNodeError):
+            nod = node.Node ("*", "3", "aCGT")
         
     
     def test_node_from_segment (self):
