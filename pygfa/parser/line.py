@@ -83,7 +83,18 @@ class Line:
 
         return True
     
+    def remove_field (self, field):
+        """If the field is contained in the line it gets removed.
+        Othrewise it does nothing without raising exceptions."""
+        field_name = field
+        if is_field (field):
+            field_name = field.name
+        
+        if field_name in self.fields:
+            self.fields.pop (field_name)
+        
 
+    
     @classmethod
     def from_string (cls, string):
         raise NotImplementedError
