@@ -28,7 +28,7 @@ def is_optfield (field):
 class Line:
     """A generic Line, it's unlikely that it will be directly instantiated (but could be done so).
     Their sublcass should be used instead.
-    One could instatiated a Line to save a custom line in his gfa file."""
+    One could instatiate a Line to save a custom line in his gfa file."""
     REQUIRED_FIELDS = {}
     PREDEFINED_OPTFIELDS = {} # this will contain tha name of the required optfield for
         # each kind of line and the ralative type of value the value of the field must contains
@@ -37,6 +37,17 @@ class Line:
     def __init__ (self, line_type = None):
         self._fields = {}
         self._type = line_type
+
+
+    def is_valid (self):
+        """Check if the line is valid.
+        Defining the method here allows to have automatically validated all the line of the
+        specifications."""
+        for required_field in self.REQUIRED_FIELDS:
+            if not required_field in self.fields:
+                return False
+        return True
+
         
     @classmethod
     def get_static_fields (cls):
