@@ -17,7 +17,7 @@ def is_edge (object):
 
 class Edge:
 
-    def __init__ (self, edge_id, from_node, to_node, from_positions, to_positions, alignment, opt_fields={}):
+    def __init__ (self, edge_id, from_node, to_node, from_positions, to_positions, alignment, displacement = None, variance=None, opt_fields={}):
 
         if not (isinstance (from_positions, tuple) and len (from_positions) == 2):
             raise Exception ("Ivalid from_node tuple: given: {0}".format (str (from_positions)))
@@ -31,6 +31,10 @@ class Edge:
         self._from_positions = from_positions
         self._to_positions = to_positions
         self._alignment = alignment
+
+        self._displacement = displacement
+        self._variance = variance
+
         self._opt_fields = {}
         for key, field in opt_fields.items ():
             if line.is_field (field):
@@ -62,6 +66,14 @@ class Edge:
         return self._alignment
 
     @property
+    def displacement (self):
+        return self._displacement
+
+    @property
+    def variance (self):
+        return self._variance
+    
+    @property
     def opt_fields (self):
         return self._opt_fields
 
@@ -86,7 +98,7 @@ class Edge:
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value, \
-                    fields)
+                    opt_fields = fields)
 
             if line.type == 'C':
                 if 'ID' in line.fields:
@@ -103,7 +115,7 @@ class Edge:
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value,\
-                    fields) #TODO: test containment line
+                    opt_fields = fields)
 
             if line.type == 'F':
                 fields.pop ('sid')
@@ -120,7 +132,7 @@ class Edge:
                     (line.fields['sbeg'].value, line.fields['send'].value), \
                     (line.fields['fbeg'].value, line.fields['fend'].value), \
                     line.fields['alignment'].value, \
-                    fields)
+                    opt_fields = fields)
 
             if line.type == 'E':
                 fields.pop ('eid')
@@ -130,7 +142,8 @@ class Edge:
                 fields.pop ('end1')
                 fields.pop ('beg2')
                 fields.pop ('end2')
-                fields.pop ('alignment')
+                fields.pop ('alignment')                
+
                 return Edge ( \
                     line.fields['eid'].value, \
                     line.fields['sid1'].value, \
@@ -138,12 +151,15 @@ class Edge:
                     (line.fields['beg1'].value, line.fields['end1'].value), \
                     (line.fields['beg2'].value, line.fields['end2'].value), \
                     line.fields['alignment'].value, \
-                    fields)
+                    opt_fields = fields)
 
             if line.type == 'G':
                 fields.pop ('gid')
                 fields.pop ('sid1')
                 fields.pop ('sid2')
+                fields.pop ('displacement')
+                fields.pop ('variance')
+                
                 return Edge ( \
                     line.fields['gid'].value, \
                     line.fields['sid1'].value, \
@@ -151,7 +167,9 @@ class Edge:
                     (None, None), \
                     (None, None), \
                     None, \
-                    fields)
+                    line.fields['displacement'].value, \
+                    line.fields['variance'].value, \
+                    opt_fields = fields)
 
         except Exception as e:
             raise e

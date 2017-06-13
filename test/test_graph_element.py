@@ -30,6 +30,7 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (nod.sequence == seg.fields['sequence'].value)
         self.assertTrue (nod.opt_fields['RC'].value == seg.fields['RC'].value)
 
+        
     def test_edge_from_link (self):
         line = link.Link.from_string ("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line (line)
@@ -102,16 +103,13 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (ed.eid == line.fields['gid'].value)
         self.assertTrue (ed.from_node == line.fields['sid1'].value)
         self.assertTrue (ed.to_node == line.fields['sid2'].value)
-        self.assertTrue (len (ed.opt_fields) == 4)
-        self.assertTrue (ed.opt_fields['displacement'] == line.fields['displacement']) 
-        self.assertTrue (ed.opt_fields['displacement'].value == "1000")
+        self.assertTrue (len (ed.opt_fields) == 2)
 
-        self.assertTrue (ed.opt_fields['variance'] == line.fields['variance']) 
-        self.assertTrue (ed.opt_fields['variance'].value == "*")
+        self.assertTrue (ed.displacement == "1000")
+        self.assertTrue (ed.variance == "*")
                              
         self.assertTrue (ed.opt_fields['ui'].value == "test")
         self.assertTrue (ed.opt_fields['ab'].value == "another_test")
-
 
         
 if  __name__ == '__main__':
