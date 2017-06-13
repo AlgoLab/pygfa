@@ -26,7 +26,16 @@ class GFA (nx.MultiGraph):
     @property
     def node (self):
         return self._graph.node
-    
+
+    @property
+    def edge (self):
+        return self._graph.edge
+
+    def clear (self):
+        """Call networkx 'clear' method and reset the virtual id counter."""
+        self._graph.clear ()
+        self.next_virtual_id = 0
+           
     def add_node (self, new_node):
         """Add a graph_element Node to the GFA graph using the node id as key,
         its sequence and sequence length will be individual attribute on the graph and
@@ -35,8 +44,9 @@ class GFA (nx.MultiGraph):
         if not node.is_node (new_node):
             raise node.InvalidNodeError ("The object given is not a node.")
 
-        # TODO: add opt_fields
-        self._graph.add_node (new_node.nid, id=new_node.nid, sequence=new_node.sequence, slen=new_node.slen, opt_fields=[])
+        self._graph.add_node (\
+                                  new_node.nid, id=new_node.nid, sequence=new_node.sequence, \
+                                  slen=new_node.slen, opt_fields=new_node.opt_fields)
         return True
         
 
@@ -68,11 +78,13 @@ class GFA (nx.MultiGraph):
         self._graph.add_edge ( \
                                    from_node, to_node, key, \
                                    id=new_edge.eid, \
-                                   from_node=new_edge.from_node, \
-                                   to_node=new_edge.to_node, \
-                                   from_positions=new_edge.from_positions, \
-                                   to_positions=new_edge.to_positions, \
-                                   alignment=new_edge.alignment, \
-                                   opt_fields=[]  # TODO: add opt_fields \
+                                   from_node = new_edge.from_node, \
+                                   to_node = new_edge.to_node, \
+                                   from_positions = new_edge.from_positions, \
+                                   to_positions = new_edge.to_positions, \
+                                   alignment = new_edge.alignment, \
+                                   displacement = new_edge.displacement ,\
+                                   variance = new_edge.variance, \
+                                   opt_fields = new_edge.opt_fields \
                                    )
         return True
