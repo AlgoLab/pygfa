@@ -81,8 +81,8 @@ class Edge:
                     
                 return Edge ( \
                     '*' if 'ID' not in line.fields else line.fields['ID'].value, \
-                    line.fields['from'].value + line.field['from_orn'].value, \
-                    line.fields['to'].value + line.field['to_orn'].value, \
+                    line.fields['from'].value + line.fields['from_orn'].value, \
+                    line.fields['to'].value + line.fields['to_orn'].value, \
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value, \
@@ -98,8 +98,8 @@ class Edge:
                 fields.pop ('overlap')
                 return Edge ( \
                     '*' if 'ID' not in line.fields else line.fields['ID'].value, \
-                    line.fields['from'].value + line.field['from_orn'].value, \
-                    line.fields['to'].value + line.field['to_orn'].value, \
+                    line.fields['from'].value + line.fields['from_orn'].value, \
+                    line.fields['to'].value + line.fields['to_orn'].value, \
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value,\
