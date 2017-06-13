@@ -3,6 +3,7 @@ sys.path.insert(0, '../pygfa')
 
 from graph_element import node, edge as graph_edge
 from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
+from parser import line
 
 import unittest
 
@@ -12,7 +13,27 @@ class TestGraphElement (unittest.TestCase):
         nod = node.Node ("15", "acgt", 4)
         with self.assertRaises (node.InvalidNodeError):
             nod = node.Node ("*", "3", "aCGT")
+
+        correct_segment = segment.SegmentV1 ()
+        correct_segment.add_field (line.Field ('name', "3"))
+        correct_segment.add_field (line.Field ('sequence', "TGCAACGTATAGACTTGTCAC"))
+        self.assertTrue (correct_segment.is_valid ())
+
+        try:
+            node.Node.from_line (correct_segment)
+        except Exception as e:
+            self.fail (e)
         
+        fault_segment = segment.SegmentV1 ()
+        fault_segment.add_field (line.Field ('name', "3"))
+        # By not adding this, the segment hasn't got all the field required
+        # fault_segment.add_field (line.Field ('sequence', "TGCAACGTATAGACTTGTCAC"))
+        self.assertFalse (fault_segment.is_valid ())
+
+        with self.assertRaises (node.InvalidNodeError):
+            node.Node.from_line (fault_segment)
+        
+
     
     def test_node_from_segment (self):
         seg = segment.SegmentV1.from_string ("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
