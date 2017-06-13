@@ -282,6 +282,27 @@ class TestLine (unittest.TestCase):
         self.assertTrue (edg.fields['end2'].value == "11")
         self.assertTrue (edg.fields['alignment'].value  == "11M")
 
+        
+    def test_Link (self):
+        ln = link.Link.from_string ("L\t3\t+\t65\t-\t47M")
+        self.assertTrue (ln.type == "L")
+        self.assertTrue (ln.fields['from'].value == "3")
+        self.assertTrue (ln.fields['from_orn'].value == "+")
+        self.assertTrue (ln.fields['to'].value == "65")
+        self.assertTrue (ln.fields['to_orn'].value == "-")
+        self.assertTrue (ln.fields['overlap'].value == "47M")
+
+        
+    def test_Containment (self):
+        cn = containment.Containment.from_string ("C\ta\t+\tb\t-\t10\t*") # example taken from gfapy doc: http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
+        self.assertTrue (cn.type == "C")
+        self.assertTrue (cn.fields['from'].value == "a")
+        self.assertTrue (cn.fields['from_orn'].value == "+")
+        self.assertTrue (cn.fields['to'].value == "b")
+        self.assertTrue (cn.fields['to_orn'].value == "-")
+        self.assertTrue (cn.fields['pos'].value == 10)
+        self.assertTrue (cn.fields['overlap'].value == "*")
+
 
     def test_Gap (self):
         gp = gap.Gap.from_string ("G\tg\tA+\tB-\t1000\t*") # example taken from gfapy doc: http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
@@ -292,6 +313,14 @@ class TestLine (unittest.TestCase):
         self.assertTrue (gp.fields['displacement'].value == "1000")
         self.assertTrue (gp.fields['variance'].value  == "*")
 
+
+    def test_Path (self):
+        pt = path.Path.from_string ("P\tP1\tA+,X+,B+\t4M,4M")
+        self.assertTrue (pt.type == "P")
+        self.assertTrue (pt.fields['path_name'].value == "P1")
+        self.assertTrue (pt.fields['seqs_names'].value  == "A+,X+,B+".split (","))
+        self.assertTrue (pt.fields['overlaps'].value  == "4M,4M".split (","))
+        
         
     def test_OGroup (self):
         ogroup = group.OGroup.from_string ("O\t1p\t12- 11+ 32+ 28- 20- 16+")
