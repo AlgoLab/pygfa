@@ -1,5 +1,6 @@
 from parser.lines import header, segment, link, containment, path
 from parser.lines import edge, gap, fragment, group
+from parser import line
 from graph_element import node, edge as ge
 import copy
 import networkx as nx
@@ -38,7 +39,9 @@ class GFA (nx.MultiGraph):
     # If this modifications are accepted we could
     # change the name of get_node and get_edge to node and
     # edge like above
-    def get_node (self, node_id):
+    def get_node (self, node_id='*'):
+        if node_id == '*':
+            return self._graph.node
         if node_id in self._graph.node:
             return self._graph.node[node_id]
         return None
@@ -90,6 +93,12 @@ class GFA (nx.MultiGraph):
         """Call networkx 'clear' method and reset the virtual id counter."""
         self._graph.clear ()
         self.next_virtual_id = 0
+
+    def add (self, element):
+        if isinstance (element, node.Node):
+            self.add_node (element)
+        elif isinstance (element, ge.Edge):
+            self.add_edge (element)
            
     def add_node (self, new_node):
         """Add a graph_element Node to the GFA graph using the node id as key,
@@ -100,7 +109,7 @@ class GFA (nx.MultiGraph):
             raise node.InvalidNodeError ("The object given is not a node.")
 
         self._graph.add_node (\
-                                  new_node.nid, id=new_node.nid, sequence=new_node.sequence, \
+                                  new_node.nid, nid=new_node.nid, sequence=new_node.sequence, \
                                   slen=new_node.slen, **new_node.opt_fields)
         return True
         
@@ -131,7 +140,7 @@ class GFA (nx.MultiGraph):
         
         self._graph.add_edge ( \
                                    from_node, to_node, key=key, \
-                                   id=new_edge.eid, \
+                                   eid=new_edge.eid, \
                                    from_node = new_edge.from_node, \
                                    to_node = new_edge.to_node, \
                                    from_positions = new_edge.from_positions, \
@@ -142,3 +151,24 @@ class GFA (nx.MultiGraph):
                                    **new_edge.opt_fields \
                                    )
         return True
+
+
+    def pprint (self):
+        """A basic pretty print function for nodes and edges."""
+        string = "\nNodes: [\n"
+        for node, datas in self._graph.nodes_iter (data=True):
+            string += str (node) + "\t: {"
+            for name, data in datas.items():
+                string += str(name) + ": " + str (data) + "\t"
+            string += "}\n"
+        string += "]\n"
+
+        string += "\nEdges: [\n"    
+        for from_node, to_node, key, datas in self._graph.edges_iter (keys=True, data=True):
+            string += str (key) + "\t: {"
+            for name, data in datas.items():
+                string += str(name) + ": " + str (data) + "\t"
+            string += "}\n"
+        string += "]\n"
+        return string
+
