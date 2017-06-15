@@ -16,13 +16,13 @@ class Path (line.Line):
 
     @classmethod
     def from_string (cls, string):
-        """Extract the containment fields from the string.
-        The string can contain the C character at the begin or can only contains the fields
-        of the containment directly."""
+        """Extract the path fields from the string.
+        The string can contain the P character at the begin or can only contains the fields
+        of the path directly."""
         fields = re.split ('\t', string) #add the strip
         pfields = []
         if fields[0] == 'P':
-            fields = fields[1:] #skip the first field (the C)
+            fields = fields[1:] #skip the first field (the P)
             
         path = Path ()
 

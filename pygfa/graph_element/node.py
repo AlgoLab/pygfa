@@ -55,6 +55,9 @@ class Node:
     @classmethod
     def from_line (cls, line):
 
+        if not line.is_valid ():
+            raise InvalidNodeError ("The line to be added must have all the required fields. Line type: '{0}'".format (line.type))
+        
         try:
             fields = copy.deepcopy (line.fields)
             if line.type == 'S':
