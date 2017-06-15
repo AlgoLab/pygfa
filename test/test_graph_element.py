@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '../pygfa')
 
-from graph_element import node, edge as graph_edge
+from graph_element import node, edge as graph_edge, subgraph
 from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
 from parser import line
 
@@ -132,6 +132,35 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (ed.opt_fields['ui'].value == "test")
         self.assertTrue (ed.opt_fields['ab'].value == "another_test")
 
+
+    def test_subgraph_from_path (self):
+        line = path.Path.from_string ("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
+        sb = subgraph.Subgraph.from_line (line)
+
+        self.assertTrue (sb.sub_id == line.fields['path_name'].value)
+        self.assertTrue (sb.elements == line.fields['seqs_names'].value)
+        self.assertTrue (sb.opt_fields['overlaps'].value == line.fields['overlaps'].value)
+
+
+    def test_subgraph_from_ogroup (self):
+        line = group.OGroup.from_string ("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
+        sb = subgraph.Subgraph.from_line (line)
+
+        self.assertTrue (sb.sub_id == line.fields['oid'].value)
+        self.assertTrue (sb.elements == line.fields['references'].value)
+        self.assertTrue (sb.opt_fields['xx'].value == line.fields['xx'].value)
+
+        
+    def test_subgraph_from_ugroup (self):
+        line = group.UGroup.from_string ("U\t16sub\t2 3\txx:i:-1")
+        sb = subgraph.Subgraph.from_line (line)
+
+        self.assertTrue (sb.sub_id == line.fields['uid'].value)
+        self.assertTrue (sb.elements == line.fields['references'].value)
+        self.assertTrue (sb.opt_fields['xx'].value == line.fields['xx'].value)
+
+
+        
         
 if  __name__ == '__main__':
     unittest.main()
