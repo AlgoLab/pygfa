@@ -193,12 +193,12 @@ class OptField(Field):
     
     
     def __eq__ (self, other):
-        if isinstance (other, self.__class__):
+        try:
             return self.name == other.name and \
               self.value == other.value and \
               self.type == other.type
 
-        return NotImplemented
+        except: return False
 
     
     def __neq__ (self, other):
