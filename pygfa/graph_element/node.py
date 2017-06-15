@@ -87,3 +87,27 @@ class Node:
                 
         except Exception as e:
             raise e
+
+    def __eq__ (self, other):
+        try:
+            if self.nid != other.nid or \
+              self.sequence != other.sequence or \
+              self.slen != other.slen:
+                return False
+                
+            for key, item in self.opt_fields.items ():
+                if not key in other.opt_fields or \
+                  not self.opt_fields[key] == other.opt_fields[key]:
+                    return False
+                    
+        except: return False
+        return True
+
+    # TODO: change this
+    def __str__ (self):
+        string = "nid: " + str (self.nid)
+        string += "\tsequence: " + str (self.sequence)
+        string += "\tslen: " + str (self.slen)
+        string += "\topt_fields: " + str.join ("\t", [str(field) for key, field in self.opt_fields.items()])
+        return string
+            

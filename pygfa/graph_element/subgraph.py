@@ -74,3 +74,12 @@ class Subgraph:
         except Exception as e:
             raise e
 
+
+    def __str__ (self):
+        return str.join(",\t", [ \
+                                     self.sub_id, \
+                                     str.join (", ", self.elements), \
+                                     str.join ("\t", [str(field) + ": " + str(item) \
+                                               for field, item in self.opt_fields.items ()])\
+                                ])
+

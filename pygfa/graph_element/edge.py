@@ -173,3 +173,30 @@ class Edge:
 
         except Exception as e:
             raise e
+
+
+    def __eq__ (self, other):
+        try:
+
+            if self.eid != other.eid or \
+              self.from_node != other.from_node or \
+              self.to_node != other.to_node or \
+              self.from_positions != other.from_positions or \
+              self.to_positions != other.to_positions or \
+              self.alignment != other.alignment or \
+              self.displacement != other.displacement or \
+              self.variance != other.variance:
+                return False
+
+            for key, field in self.opt_fields.items ():
+                if not key in other.opt_fields or \
+                  self.opt_fields[key] != other.opt_fields[key]:
+                  return False
+
+        except: return False
+        return True
+
+    # TODO: complete me
+    def __str__ (self):
+        string = "eid: " + self.eid
+        return string
