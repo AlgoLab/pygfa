@@ -90,6 +90,8 @@ class GFA (nx.MultiGraph):
             raise InvalidElementError ("No graph element has the given key.")
 
         tmp_list = copy.deepcopy (element)
+        if isinstance (element, sg.Subgraph):
+            return copy.deepcopy (element)
         if 'nid' in element:
             tmp_list.pop ('nid')
             tmp_list.pop ('sequence')
@@ -111,9 +113,6 @@ class GFA (nx.MultiGraph):
                                 element['variance'], \
                                 opt_fields=tmp_list\
                             )
-                            
-        if isinstance (element, sg.Subgraph):
-            return copy.deepcopy (element)
         
     def search_edge_by_key (self, key):
         for from_node, to_node, edge_key in self._graph.edges_iter (keys=True):
@@ -233,7 +232,7 @@ class GFA (nx.MultiGraph):
         specified in the elements attributes of the subgraph object pointed by the id.
         Return None if the subgraph id doesn't exist."""
         if not sub_key in self._subgraphs:
-            return None
+            raise InvalidSubgraphError ("There is no subgraph pointed by this key.")
 
         subgraph = self._subgraphs[sub_key]
         subGFA = GFA()
