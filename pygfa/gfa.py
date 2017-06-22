@@ -267,7 +267,7 @@ class GFA (nx.MultiGraph):
 
         string += "\nSubgraphs: [\n"    
         for key, datas in self.subgraphs.items ():
-            string += str (key) + "\t: {" + str (datas) + "}\n"
+            string += str (key) + "\t: {sub_id:" + str (datas.sub_id) + "\t elements:" + str.join (", ", datas.elements) + "}\n"
         string += "]\n"
         return string
 

@@ -53,7 +53,7 @@ if __name__ == '__main__':
         print (tmp_pygfa.pprint ())
         node_color = "r"
         
-        if (args.subgraph[0]):
+        if (args.subgraph):
             tmp_pygfa = tmp_pygfa.get_subgraph (args.subgraph[0])
             print ("\nSUBGRAPH {0}\n".format (args.subgraph[0]))
             print (tmp_pygfa.pprint ())
