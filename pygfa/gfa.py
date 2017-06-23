@@ -8,7 +8,7 @@ import networkx as nx
 class InvalidSearchParameters (Exception): pass
 class InvalidElementError (Exception): pass
 
-class GFA (nx.MultiGraph):
+class GFA ():
     """GFA will use a networkx MultiGraph as structure to contain the elements
     of the specification. GFA graphs accept only instances coming from
     the graph_elements package."""
@@ -17,7 +17,7 @@ class GFA (nx.MultiGraph):
         # a virtual id assigned to edges (graph edges) that don't have an id.
         # Their id will be 'virtual_#' where # will be given by next_virtual_id.
         self._next_virtual_id = 0;
-        self._graph = nx.MultiGraph ()
+        self._graph = nx.MultiDiGraph ()
         self._subgraphs = {}
 
     # Simulate networkx graph behaviour with composition.
@@ -57,7 +57,7 @@ class GFA (nx.MultiGraph):
         """Return the element pointed by the specified key."""
         try:
             if key in self._graph.node:
-                return self._graph.node[key]
+                return self.node(key)
 
             if key in self._subgraphs:
                 return self._subgraphs[key]

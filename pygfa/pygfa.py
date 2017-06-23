@@ -66,7 +66,7 @@ if __name__ == '__main__':
                                    ])
 
         layout = nx.spring_layout (tmp_pygfa._graph)
-        nx.draw (tmp_pygfa, layout, with_labels = True, node_color=node_color)
+        nx.draw (tmp_pygfa._graph, layout, with_labels = True, node_color=node_color)
         nx.draw_networkx_edge_labels (tmp_pygfa, layout, edge_labels = edge_labels)
         plt.show ()
 

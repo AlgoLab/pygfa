@@ -17,12 +17,12 @@ In the grid are indicated the lines and the associated elements of the graph tha
 could represent them better.
 
 | Line (GFA1) | Graph element |
-|------|---------------|
-| H    | **None**      |
-| S    | Node          |
-| L    | Edge          |
-| C    | Edge          |
-| Path | **?**         |
+|-------------|---------------|
+| H           | **None**      |
+| S    	      | Node	      |
+| L    	      | Edge          |
+| C    	      | Edge          |
+| Path 	      | Subgraph      |
 
 
 | Line (GFA2) | Graph element |
@@ -32,8 +32,8 @@ could represent them better.
 | F           | Edge          |
 | E           | Edge          |
 | G           | Edge          |
-| O           | **?**         |
-| U           | **?**         |
+| O           | Subgraph      |
+| U           | Subgraph      |
 
 ________________________________________________________________________________
 
@@ -77,8 +77,10 @@ to represent the link not all the Edge field are required to be set.
 | GFA1 Field                   | GFA2 Field | Edge Attribute |
 |------------------------------|------------|----------------|
 | ID (Edge identifier) or None | eid        | eid (edge id)  |
-| From + From Orientation      | sid1       | from_node      |
-| To + To Orientation          | sid2       | to_node        |
+| From 	   	       	       | sid1       | from_node      |
+| From Orientation	       | None	    | from_orn	     |
+| To   			       | sid2       | to_node        |
+| To Orientation	       | None	    | to_orn	     |
 | Overlap                      | alignment  | alignment      |
 
 
@@ -87,13 +89,15 @@ to represent the link not all the Edge field are required to be set.
 The Containment is very similar to the Link line, GFA2 in fact represents both with
 an Edge line.
 
-| GFA1 Field                   | GFA2 Field | Edge Attribute |
-|------------------------------|------------|----------------|
-| ID (Edge identifier) or None | eid        | eid (edge id)  |
-| From + From Orientation      | sid1       | from_node      |
-| To + To Orientation          | sid2       | to_node        |
-| pos                          | **?**      | **scaffold ?** |
-| Overlap                      | alignment  | alignment      |
+| GFA1 Field                   | GFA2 Field | Edge Attribute	   |
+|------------------------------|------------|----------------------|
+| ID (Edge identifier) or None | eid        | eid (edge id)        |
+| From 	   	       	       | sid1       | from_node            |
+| From Orientation	       | None	    | from_orn	           |
+| To   			       | sid2       | to_node              |
+| To Orientation	       | None	    | to_orn	           |
+| pos                          | None       | **opt_field['pos']** |
+| Overlap                      | alignment  | alignment            |
 
 ### Path line
 
@@ -150,16 +154,16 @@ types of informations.
 For the Edge line are valid the same considerations explained for the Fragment line,
 except that an Edge always has an id different from **None**.
 
-| GFA2 Field | Edge Attribute |
-|------------|----------------|
-| eid        | eid (edge id)  |
-| sid1       | from_node      |
-| sid2       | to_node        |
-| beg1       | from_begin     |
-| end1       | from_end       |
-| beg2       | to_begin       |
-| end2       | to_end         |
-| alignment  | alignment      |
+| GFA2 Field | Edge Attribute  	     	|
+|------------|--------------------------|
+| eid        | eid (edge id)		|
+| sid1       | from_node + from_orn     |
+| sid2       | to_node + to_orn         |
+| beg1       | from_begin               |
+| end1       | from_end                 |
+| beg2       | to_begin                 |
+| end2       | to_end                   |
+| alignment  | alignment                |
 
 
 ### Gap line
@@ -171,13 +175,13 @@ This 2 additional fields are required only for gaps, so it could possibly
 be implemented creating class propery at runtime (bad), or add this information
 as user defined tags(?).
 
-| GFA2 Field                      | Edge Attribute |
-|---------------------------------|----------------|
-| gid                             | eid (edge id)  |
-| sid1                            | from_node      |
-| sid2                            | to_node        |
-| disp (displacement)             | **?**          |
-| var (variance) or **None**      | **?**          |
+| GFA2 Field                      | Edge Attribute         |
+|---------------------------------|------------------------|
+| gid                             | eid (edge id)          |
+| sid1                            | from_node + from_orn   |
+| sid2                            | to_node                |
+| disp (displacement)             | displacement	   |
+| var (variance) or **None**      | variance               |
 
 
 ### Groups lines
@@ -192,7 +196,15 @@ specifications.
 | oid or uid        | sub_id             |
 | references or ids | elements           |
 
+###### A note on the separation of the Graph Element Edge from/to:
+The Edge from/to fields have been splitted over two fields, the from/to
+that will contain the clear id of the node and from_orn/to_orn that wil contain
+the orientation of the node relative the link that the edge is describing.
 
+This is needed to solve a conflict during the add_edge method of the gfa implementation
+caused by the add of a fragment. Due to the fact that a fragment from_node is
+represented by an **id** it wasn't possible to generalize the fragment with the other
+type of lines that use the reference.
 
 ________________________________________________________________________________
 
