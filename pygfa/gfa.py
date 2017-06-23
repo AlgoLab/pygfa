@@ -23,43 +23,30 @@ class GFA (nx.MultiGraph):
     # Simulate networkx graph behaviour with composition.
     def nodes (self, **kwargs):
         """Return a copy list of all the nodes in the graph."""
-        return copy.deepcopy (self._graph.nodes (**kwargs))
+        return self._graph.nodes (**kwargs)
 
     def edges (self, **kwargs):
         """Return a copy list of all the edges in the graph."""
-        return copy.deepcopy (self._graph.edges (**kwargs))
+        return self._graph.edges (**kwargs)
 
     @property
     def subgraphs (self):
         return self._subgraphs
 
-#    @property
-#    def node (self):
-#        return self._graph.node
-
-#    @property
-#    def edge (self):
-#        return self._graph.edge
-
-    # TODO:
-    # If these modifications are accepted we could
-    # change the name of get_node and get_edge to node and
-    # edge like above
-    def get_node (self, node_id='*'):
-        if node_id == '*':
+    # removed the property accessor to make it coherent with the edge accessor
+    def node (self, identifier=None):
+        """An interface to access the node method of the netwrokx graph."""
+        if identifier == None:
             return self._graph.node
-        if node_id in self._graph.node:
-            return self._graph.node[node_id]
-        return None
-
-    def get_edges (self, **kwargs):
-        return selg._graph.edges (**kwargs)
-    
-    def get_edge (self, identifier='*'):
+        else:
+            return self._graph.node[identifier]
+        
+    def edge (self, identifier=None):
         """An interface to the edge method present in networkx.
-        If '*' is given returns all the individual edges in the graph.
+        It's different from the networkx accessor in that it's not a property, so empty brackets
+        are needed to call the networkx edge property.
         """
-        if identifier == '*':
+        if identifier == None:
             return self._graph.edge
         if isinstance (identifier, tuple) and len (identifier) >= 2:
             return self.search_edge_by_nodes (identifier)
@@ -182,6 +169,9 @@ class GFA (nx.MultiGraph):
         if not ge.is_edge (new_edge):
             raise ge.InvalidEdgeError ("The object is not a valid edge.")
 
+        # TODO: check that it's not possible not to have a reference at this point
+        # making the next comment not problematic.
+        
         # this approach is not so good, the id regexp allows to have a + or -
         # so this way we could cut off a part of the id and to the orientation
         from_node = new_edge.from_node
