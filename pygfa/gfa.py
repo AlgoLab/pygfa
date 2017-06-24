@@ -74,7 +74,7 @@ class GFA ():
         graph element object."""
         element = self.get (key)
         if element == None:
-            raise InvalidElementError ("No graph element has the given key.")
+            raise InvalidElementError ("No graph element has the given key: {0}".format (key))
 
         tmp_list = copy.deepcopy (element)
         if isinstance (element, sg.Subgraph):
@@ -87,14 +87,18 @@ class GFA ():
         if 'eid' in element:
             tmp_list.pop ('eid')
             tmp_list.pop ('from_node')
+            tmp_list.pop ('from_orn')
             tmp_list.pop ('to_node')
+            tmp_list.pop ('to_orn')
             tmp_list.pop ('from_positions')
             tmp_list.pop ('to_positions')
             tmp_list.pop ('alignment')
             tmp_list.pop ('variance')
             tmp_list.pop ('displacement')
             return ge.Edge (\
-                                element['eid'], element['from_node'], element['to_node'], \
+                                element['eid'], \
+                                element['from_node'], element['from_orn'], \
+                                element['to_node'], element['to_orn'], \
                                 element['from_positions'], element['to_positions'], \
                                 element['alignment'], element['displacement'], \
                                 element['variance'], \
@@ -169,28 +173,17 @@ class GFA ():
         if not ge.is_edge (new_edge):
             raise ge.InvalidEdgeError ("The object is not a valid edge.")
 
-        # TODO: check that it's not possible not to have a reference at this point
-        # making the next comment not problematic.
-        
-        # this approach is not so good, the id regexp allows to have a + or -
-        # so this way we could cut off a part of the id and to the orientation
-        from_node = new_edge.from_node
-        if from_node[-1] in ('+', '-'):
-            from_node = from_node[0:-1]
-
-        to_node = new_edge.to_node
-        if to_node[-1] in ('+', '-'):
-            to_node = to_node[0:-1]
-
         key = new_edge.eid
         if new_edge.eid == None or new_edge.eid == '*':
             key = "virtual_{0}".format (self._get_virtual_id ())
         
         self._graph.add_edge ( \
-                                   from_node, to_node, key=key, \
+                                   new_edge.from_node, new_edge.to_node, key=key, \
                                    eid=new_edge.eid, \
                                    from_node = new_edge.from_node, \
+                                   from_orn = new_edge.from_orn, \
                                    to_node = new_edge.to_node, \
+                                   to_orn = new_edge.to_orn, \
                                    from_positions = new_edge.from_positions, \
                                    to_positions = new_edge.to_positions, \
                                    alignment = new_edge.alignment, \
@@ -227,12 +220,9 @@ class GFA ():
         subgraph = self._subgraphs[sub_key]
         subGFA = GFA()
 
-        for element in subgraph.elements:
+        for id, orn in subgraph.elements.items():
             # creating a new GFA graph and the add method, the virtual id are recomputed
-            if element[-1] in ('+', '-'):
-                element = element[0:-1]
-                
-            subGFA.add_graph_element (self.as_graph_element (element))
+            subGFA.add_graph_element (self.as_graph_element (id))
 
         return subGFA
             
@@ -257,7 +247,11 @@ class GFA ():
 
         string += "\nSubgraphs: [\n"    
         for key, datas in self.subgraphs.items ():
-            string += str (key) + "\t: {sub_id:" + str (datas.sub_id) + "\t elements:" + str.join (", ", datas.elements) + "}\n"
+            string += str (key) + "\t: {sub_id:" + str (datas.sub_id) + \
+              	      "\t elements:" + \
+              	      str.join (", ", [id + ("" if orn == None else orn) \
+                      	       	      	    for id, orn in datas.elements.items()]) + "}\n"
+                                   
         string += "]\n"
         return string
 
