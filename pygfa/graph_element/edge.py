@@ -11,13 +11,15 @@ def is_edge (object):
           object._from_node != None and \
           object._to_node != None and \
           hasattr (object, '_from_positions') and \
+          hasattr (object, '_from_orn') and \
           hasattr (object, '_to_positions') and \
+          hasattr (object, '_to_orn') and \
           hasattr(object, '_alignment')
     except: return False
 
 class Edge:
 
-    def __init__ (self, edge_id, from_node, to_node, from_positions, to_positions, alignment, displacement = None, variance=None, opt_fields={}):
+    def __init__ (self, edge_id, from_node, from_orn, to_node, to_orn, from_positions, to_positions, alignment, displacement = None, variance=None, opt_fields={}):
 
         if not (isinstance (from_positions, tuple) and len (from_positions) == 2):
             raise Exception ("Ivalid from_node tuple: given: {0}".format (str (from_positions)))
@@ -27,7 +29,9 @@ class Edge:
 
         self._eid = edge_id
         self._from_node = from_node
+        self._from_orn = from_orn
         self._to_node = to_node
+        self._to_orn = to_orn
         self._from_positions = from_positions
         self._to_positions = to_positions
         self._alignment = alignment
@@ -49,6 +53,14 @@ class Edge:
     def from_node (self):
         return self._from_node
 
+    @property
+    def from_orn (self):
+        return self._from_orn
+
+    @property
+    def to_orn (self):
+        return self._to_orn
+    
     @property
     def to_node (self):
         return self._to_node
@@ -93,8 +105,8 @@ class Edge:
                     
                 return Edge ( \
                     '*' if 'ID' not in line.fields else line.fields['ID'].value, \
-                    line.fields['from'].value + line.fields['from_orn'].value, \
-                    line.fields['to'].value + line.fields['to_orn'].value, \
+                    line.fields['from'].value, line.fields['from_orn'].value, \
+                    line.fields['to'].value, line.fields['to_orn'].value, \
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value, \
@@ -110,8 +122,8 @@ class Edge:
                 fields.pop ('overlap')
                 return Edge ( \
                     '*' if 'ID' not in line.fields else line.fields['ID'].value, \
-                    line.fields['from'].value + line.fields['from_orn'].value, \
-                    line.fields['to'].value + line.fields['to_orn'].value, \
+                    line.fields['from'].value, line.fields['from_orn'].value, \
+                    line.fields['to'].value, line.fields['to_orn'].value, \
                     (None, None), \
                     (None, None), \
                     line.fields['overlap'].value,\
@@ -127,8 +139,8 @@ class Edge:
                 fields.pop ('alignment')
                 return Edge ( \
                     None, \
-                    line.fields['sid'].value, \
-                    line.fields['external'].value, \
+                    line.fields['sid'].value, None, \
+                    line.fields['external'].value[0:-1], line.fields['external'].value[-1:], \
                     (line.fields['sbeg'].value, line.fields['send'].value), \
                     (line.fields['fbeg'].value, line.fields['fend'].value), \
                     line.fields['alignment'].value, \
@@ -146,8 +158,8 @@ class Edge:
 
                 return Edge ( \
                     line.fields['eid'].value, \
-                    line.fields['sid1'].value, \
-                    line.fields['sid2'].value, \
+                    line.fields['sid1'].value[0:-1], line.fields['sid1'].value[-1:], \
+                    line.fields['sid2'].value[0:-1], line.fields['sid2'].value[-1:], \
                     (line.fields['beg1'].value, line.fields['end1'].value), \
                     (line.fields['beg2'].value, line.fields['end2'].value), \
                     line.fields['alignment'].value, \
@@ -162,8 +174,8 @@ class Edge:
                 
                 return Edge ( \
                     line.fields['gid'].value, \
-                    line.fields['sid1'].value, \
-                    line.fields['sid2'].value, \
+                    line.fields['sid1'].value[0:-1], line.fields['sid1'].value[-1:], \
+                    line.fields['sid2'].value[0:-1], line.fields['sid2'].value[-1:], \
                     (None, None), \
                     (None, None), \
                     None, \
@@ -180,7 +192,9 @@ class Edge:
 
             if self.eid != other.eid or \
               self.from_node != other.from_node or \
+              self.from_orn != other.from_orn or \
               self.to_node != other.to_node or \
+              self.from_orn != other.from_orn or \
               self.from_positions != other.from_positions or \
               self.to_positions != other.to_positions or \
               self.alignment != other.alignment or \
