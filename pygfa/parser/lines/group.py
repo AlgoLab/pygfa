@@ -47,7 +47,7 @@ class UGroup (line.Line):
     
     REQUIRED_FIELDS = { \
     'uid' : 'oid', \
-    'references' : 'ids' \
+    'ids' : 'ids' \
     }
 
     @classmethod
@@ -65,8 +65,8 @@ class UGroup (line.Line):
         uid_f = fv.validate (fields[0], cls.REQUIRED_FIELDS['uid'])
         ugfields.append (line.Field ('uid', uid_f))
 
-        references_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['references'])
-        ugfields.append (line.Field ('references', references_f))
+        references_f = fv.validate (fields[1], cls.REQUIRED_FIELDS['ids'])
+        ugfields.append (line.Field ('ids', references_f))
 
         for field in fields[2:]:
             ugfields.append (line.OptField.from_string (field))

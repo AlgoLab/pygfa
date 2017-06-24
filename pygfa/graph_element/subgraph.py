@@ -1,6 +1,6 @@
 from parser.lines import path, group
 from parser import line
-import copy
+import copy, collections
 
 class InvalidSubgraphError (Exception): pass
 
@@ -11,8 +11,8 @@ class Subgraph:
             raise InvalidSubgraphError ("A  has always an id of type string, " + \
                                  "given {0} of type {1}".format (node_id, type (node_id)))
 
-        if not isinstance (elements, list):
-            raise InvalidSubgraphError ("A list of elements is required.")
+        if not isinstance (elements, dict):
+            raise InvalidSubgraphError ("A dictionary of elements id:orientation is required.")
 
         self._sub_id = graph_id
         self._elements = elements
@@ -46,10 +46,10 @@ class Subgraph:
             if line.type == 'P':
                 fields.pop ('path_name')
                 fields.pop ('seqs_names')
-
+                
                 return Subgraph ( \
                                 line.fields['path_name'].value, \
-                                line.fields['seqs_names'].value, \
+                                collections.OrderedDict ((ref[0:-1], ref[-1:]) for ref in line.fields['seqs_names'].value), \
                                 fields)
 
             if line.type == 'O':
@@ -58,16 +58,16 @@ class Subgraph:
 
                 return Subgraph ( \
                                 line.fields['oid'].value, \
-                                line.fields['references'].value, \
+                                collections.OrderedDict ((ref[0:-1], ref[-1:]) for ref in line.fields['references'].value), \
                                 fields)
 
             if line.type == 'U':
                 fields.pop ('uid')
-                fields.pop ('references')
+                fields.pop ('ids')
 
                 return Subgraph ( \
                                 line.fields['uid'].value, \
-                                line.fields['references'].value, \
+                                collections.OrderedDict ((id,None) for id in line.fields['ids'].value), \
                                 fields)
                             
                 
@@ -78,7 +78,7 @@ class Subgraph:
     def __str__ (self):
         return str.join(",\t", [ \
                                      self.sub_id, \
-                                     str.join (", ", self.elements), \
+                                     str.join ("\t", [id+orn for id, orn in self.elements.items()]), \
                                      str.join ("\t", [str(field) + ": " + str(item) \
                                                for field, item in self.opt_fields.items ()])\
                                 ])

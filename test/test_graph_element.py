@@ -148,7 +148,7 @@ class TestGraphElement (unittest.TestCase):
         sb = subgraph.Subgraph.from_line (line)
 
         self.assertTrue (sb.sub_id == line.fields['path_name'].value)
-        self.assertTrue (sb.elements == line.fields['seqs_names'].value)
+        self.assertTrue ([u+v for u,v in sb.elements.items()] == line.fields['seqs_names'].value)
         self.assertTrue (sb.opt_fields['overlaps'].value == line.fields['overlaps'].value)
 
 
@@ -157,7 +157,7 @@ class TestGraphElement (unittest.TestCase):
         sb = subgraph.Subgraph.from_line (line)
 
         self.assertTrue (sb.sub_id == line.fields['oid'].value)
-        self.assertTrue (sb.elements == line.fields['references'].value)
+        self.assertTrue ([u+v for u,v in sb.elements.items()] == line.fields['references'].value)
         self.assertTrue (sb.opt_fields['xx'].value == line.fields['xx'].value)
 
         
@@ -166,7 +166,7 @@ class TestGraphElement (unittest.TestCase):
         sb = subgraph.Subgraph.from_line (line)
 
         self.assertTrue (sb.sub_id == line.fields['uid'].value)
-        self.assertTrue (sb.elements == line.fields['references'].value)
+        self.assertTrue ([u+("" if v == None else v) for u,v in sb.elements.items()] == line.fields['ids'].value)
         self.assertTrue (sb.opt_fields['xx'].value == line.fields['xx'].value)
 
 
