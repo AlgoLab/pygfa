@@ -310,7 +310,7 @@ class TestLine (unittest.TestCase):
         self.assertTrue (gp.fields['gid'].value == "g")
         self.assertTrue (gp.fields['sid1'].value == "A+")
         self.assertTrue (gp.fields['sid2'].value == "B-")
-        self.assertTrue (gp.fields['displacement'].value == "1000")
+        self.assertTrue (gp.fields['distance'].value == 1000)
         self.assertTrue (gp.fields['variance'].value  == "*")
 
 
@@ -333,7 +333,7 @@ class TestLine (unittest.TestCase):
         ugroup = group.UGroup.from_string ("U\ts1\tA b_c g")
         self.assertTrue (ugroup.type == "U")
         self.assertTrue (ugroup.fields['uid'].value == "s1")
-        self.assertTrue (ugroup.fields['references'].value  == "A b_c g".split ())
+        self.assertTrue (ugroup.fields['ids'].value  == "A b_c g".split ())
 
 
 

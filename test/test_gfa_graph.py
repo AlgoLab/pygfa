@@ -125,6 +125,7 @@ class TestLine (unittest.TestCase):
 
         p = path.Path.from_string("P\t15\t11+,16_to_12+,13+\t120M")
         sb = sg.Subgraph.from_line (p)
+        print ("SB\n"+str (sb))
         self.graph.add_subgraph (sb)
 
         print (self.graph.get_subgraph('15').pprint() )

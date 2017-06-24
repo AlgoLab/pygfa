@@ -136,7 +136,7 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (ed.to_orn == line.fields['sid2'].value[-1:])
         self.assertTrue (len (ed.opt_fields) == 2)
 
-        self.assertTrue (ed.displacement == "1000")
+        self.assertTrue (ed.distance == 1000)
         self.assertTrue (ed.variance == "*")
                              
         self.assertTrue (ed.opt_fields['ui'].value == "test")

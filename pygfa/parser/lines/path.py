@@ -27,7 +27,8 @@ class Path (line.Line):
         path = Path ()
 
         path_name = fv.validate (fields[0], cls.REQUIRED_FIELDS['path_name'])
-        sequences_names = fv.validate (fields[1], cls.REQUIRED_FIELDS['seqs_names'])
+        # sequences_names = fv.validate (fields[1], cls.REQUIRED_FIELDS['seqs_names'])
+        sequences_names = [fv.validate (label, cls.REQUIRED_FIELDS['seqs_names']) for label in fields[1].split(",")]
         overlaps = fv.validate (fields[2], cls.REQUIRED_FIELDS['overlaps'])
 
         pfields.append (line.Field ('path_name', path_name))

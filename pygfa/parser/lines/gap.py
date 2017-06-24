@@ -10,7 +10,7 @@ class Gap (line.Line):
     'gid' : 'oid', \
     'sid1' : 'ref', \
     'sid2' : 'ref', \
-    'displacement' : 'pos2', \
+    'distance' : 'int', \
     'variance' : 'oint' \
     }
 
@@ -35,8 +35,8 @@ class Gap (line.Line):
         sid2_f = fv.validate (fields[2], cls.REQUIRED_FIELDS['sid2'])
         gfields.append (line.Field ('sid2', sid2_f))
 
-        disp_f = fv.validate (fields[3], cls.REQUIRED_FIELDS['displacement'])
-        gfields.append (line.Field ('displacement', disp_f))
+        disp_f = fv.validate (fields[3], cls.REQUIRED_FIELDS['distance'])
+        gfields.append (line.Field ('distance', disp_f))
         
         variance_f = fv.validate (fields[4], cls.REQUIRED_FIELDS['variance'])
         gfields.append (line.Field ('variance', variance_f))

@@ -20,7 +20,13 @@ DATASTRING_VALIDATION_REGEXP = \
   'ref' : "^[!-~]+[+-]$", \
   'rfs' : "^[!-~]+[+-]([ ][!-~]+[+-])*$", # array of references \
   'orn' : "^\+|-$", #segment orientation \
-  'lbs' : "^[!-)+-<>-~][!-~]*[+-](,[!-)+-<>-~][!-~]*[+-])+$", # multiple labels with orientations, comma-sep \
+  #
+  #'lbs' : "^[!-)+-<>-~][!-~]*[+-](,[!-)+-<>-~][!-~]*[+-])+$", # multiple labels with orientations, comma-sep \
+  # Changed according to issue 59, since the comma is accepted by [!-~], it's not possible
+  # to make a clear regexp for an array of labels, so the implementation has been modified to reflect
+  # this behaviour, splitting the labels and checking them one by one with the new lbs regexp beyond.
+  #
+  'lbs' : "^[!-)+-<>-~][!-~]*[+-]$", \
   'seq' : "^\*$|^[A-Za-z=.]+$", # nucleotide sequence (segment sequence) \
   'pos' : "^[0-9]*$", # positive integer \
   'cig' : "^(\*|(([0-9]+[MIDNSHPX=])+))$", # CIGAR string \
@@ -80,7 +86,7 @@ def validate (string, datatype):
     elif datatype in ('f'):
         return float (string)
 
-    elif datatype in ('lbs', 'cgs'):
+    elif datatype in ('cgs'): # ,'lbs')
         return string.split(",")
     elif datatype in ('aln'): # string is either * or a trace or a cigar
         if string == "*":
@@ -96,5 +102,5 @@ def validate (string, datatype):
         return string.split ()
         
 
-    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid')
+    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid', 'lbs')
         return string

@@ -94,13 +94,13 @@ class GFA ():
             tmp_list.pop ('to_positions')
             tmp_list.pop ('alignment')
             tmp_list.pop ('variance')
-            tmp_list.pop ('displacement')
+            tmp_list.pop ('distance')
             return ge.Edge (\
                                 element['eid'], \
                                 element['from_node'], element['from_orn'], \
                                 element['to_node'], element['to_orn'], \
                                 element['from_positions'], element['to_positions'], \
-                                element['alignment'], element['displacement'], \
+                                element['alignment'], element['distance'], \
                                 element['variance'], \
                                 opt_fields=tmp_list\
                             )
@@ -187,7 +187,7 @@ class GFA ():
                                    from_positions = new_edge.from_positions, \
                                    to_positions = new_edge.to_positions, \
                                    alignment = new_edge.alignment, \
-                                   displacement = new_edge.displacement ,\
+                                   distance = new_edge.distance ,\
                                    variance = new_edge.variance, \
                                    **new_edge.opt_fields \
                                    )

@@ -14,12 +14,12 @@ def is_edge (object):
           hasattr (object, '_from_orn') and \
           hasattr (object, '_to_positions') and \
           hasattr (object, '_to_orn') and \
-          hasattr(object, '_alignment')
+          hasattr (object, '_alignment')
     except: return False
 
 class Edge:
 
-    def __init__ (self, edge_id, from_node, from_orn, to_node, to_orn, from_positions, to_positions, alignment, displacement = None, variance=None, opt_fields={}):
+    def __init__ (self, edge_id, from_node, from_orn, to_node, to_orn, from_positions, to_positions, alignment, distance = None, variance=None, opt_fields={}):
 
         if not (isinstance (from_positions, tuple) and len (from_positions) == 2):
             raise Exception ("Ivalid from_node tuple: given: {0}".format (str (from_positions)))
@@ -36,7 +36,7 @@ class Edge:
         self._to_positions = to_positions
         self._alignment = alignment
 
-        self._displacement = displacement
+        self._distance = distance
         self._variance = variance
 
         self._opt_fields = {}
@@ -78,8 +78,8 @@ class Edge:
         return self._alignment
 
     @property
-    def displacement (self):
-        return self._displacement
+    def distance (self):
+        return self._distance
 
     @property
     def variance (self):
@@ -169,7 +169,7 @@ class Edge:
                 fields.pop ('gid')
                 fields.pop ('sid1')
                 fields.pop ('sid2')
-                fields.pop ('displacement')
+                fields.pop ('distance')
                 fields.pop ('variance')
                 
                 return Edge ( \
@@ -179,7 +179,7 @@ class Edge:
                     (None, None), \
                     (None, None), \
                     None, \
-                    line.fields['displacement'].value, \
+                    line.fields['distance'].value, \
                     line.fields['variance'].value, \
                     opt_fields = fields)
 
@@ -198,7 +198,7 @@ class Edge:
               self.from_positions != other.from_positions or \
               self.to_positions != other.to_positions or \
               self.alignment != other.alignment or \
-              self.displacement != other.displacement or \
+              self.distance != other.distance or \
               self.variance != other.variance:
                 return False
 
