@@ -210,4 +210,4 @@ ________________________________________________________________________________
 
 ## A rough concept of a design class diagram
 
-![Design class diagram for GFA lines representation](images/graph_representation_design_class_diagram.png)
+![Design class diagram for GFA lines representation](images/design_class_diagram.png)
