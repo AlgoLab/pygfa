@@ -8,6 +8,26 @@ import networkx as nx
 class InvalidSearchParameters (Exception): pass
 class InvalidElementError (Exception): pass
 
+class Element:
+    NODE = 0
+    EDGE = 1
+    SUBGRAPH = 2
+
+def VALUE_EQUALITY_COMPARATOR (obj, value):
+    """!
+    A standard comparator to get the value from the majority of the graph
+    elements present in the GFA graph, if a line.field is found then its
+    value is taken into account.
+    """
+    if line.is_field (obj):
+        return obj.value == value
+    else:
+        return obj == value
+
+def IGNORE_VALUE_COMPARATOR (obj, value):
+    return True
+
+    
 class GFA ():
     """
     GFA will use a networkx MultiGraph as structure to contain the elements
@@ -15,6 +35,7 @@ class GFA ():
     the graph_elements package.
     """
 
+    
     def __init__ (self):
         # a virtual id assigned to edges (graph edges) that don't have an id.
         # Their id will be 'virtual_#' where # will be given by next_virtual_id.
@@ -273,6 +294,65 @@ class GFA ():
         @params nid The id of the selected node
         """
         return self._graph.neighbors (nid)
+
+
+    def get_all_reachables (self, nid):
+        """!
+        Returns a subgraph of the same type of the main one used by
+        GFA obejcts with the connected component belonging
+        to the given node.
+
+        @param nid The id of the node to find the reachable nodes.
+        """
+        nodes = nx.dfs_tree (self._graph, nid).nodes ()
+        return self.subgraph (nodes)
+
+    def search (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR, limit_type=None):
+        """!
+        Performs a query on the field searching for the value specified.
+        """
+        retval = []
+        if limit_type == None:
+            retval.extend (self.search_on_nodes (field, value, comparator))
+            retval.extend (self.search_on_edges (field, value, comparator))
+            retval.extend (self.search_on_subgraph (field, value, comparator))
+
+        elif limit_type == Element.NODE:
+            return self.search_on_nodes (field, value, comparator)
+
+        elif limit_type == Element.EDGE:
+            return self.search_on_edges (field, value, comparator)
+
+        elif limit_type == Element.SUBGRAPH:
+            return self.search_on_subgraph (field, value, comparator)
+                                      
+        return retval
+            
+        
+    def search_on_nodes (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
+        retval = []
+        for key, data in self._graph.nodes_iter (data=True):
+            if field in data and comparator (data[field], value):
+                retval.append (key)
+        return retval
+
+    
+    def search_on_edges (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
+        retval = []
+        for u,v, data, key in self._graph.edges_iter (data=True, keys=True):
+            if field in data and comparator (data[field], value):
+                retval.append (key)
+        return retval
+
+    
+    def search_on_subgraph (self, field, value, operator=VALUE_EQUALITY_COMPARATOR):
+        retval = []
+        for key, data in self.subgraphs.items ():
+            data = data.as_dict ()
+            if field in data and operator (data[field], value):
+                retval.append (key)
+        return retval
+
     
 
     def pprint (self):
