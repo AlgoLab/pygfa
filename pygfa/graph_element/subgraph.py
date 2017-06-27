@@ -74,11 +74,26 @@ class Subgraph:
         except Exception as e:
             raise e
 
+    def as_dict (self):
+        """!
+        A custom method to get all the method fields and the optional fields
+        into a dictionary.
+        """
+        
+        retval = {}
+        retval['sub_id'] = self.sub_id
+        retval['elements'] =  self.elements
+
+        for key, value in self.opt_fields:
+            retval[key] = value
+
+        return retval
+
 
     def __str__ (self):
         return str.join(",\t", [ \
                                      self.sub_id, \
-                                     str.join ("\t", [id+orn for id, orn in self.elements.items()]), \
+                                     str.join ("\t", [id+(orn if orn != None else "") for id, orn in self.elements.items()]), \
                                      str.join ("\t", [str(field) + ": " + str(item) \
                                                for field, item in self.opt_fields.items ()])\
                                 ])
