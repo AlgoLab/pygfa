@@ -3,7 +3,7 @@ import re
 
 # support for duck typing
 def is_field (field):
-    """A field is valid if it has at least a name and a value attribute/property."""
+    """! A field is valid if it has at least a name and a value attribute/property."""
     for attr in ('_name', '_value'):
         if not hasattr (field, attr):
             return False
@@ -15,8 +15,10 @@ def is_field (field):
 
 
 def is_optfield (field):
-    """A field is an optfield if it's a field with name that match a given expression
-    and its type is defined"""
+    """!
+    A field is an optfield if it's a field with name that match a given expression
+    and its type is defined
+    """
     return is_field (field) and \
       re.fullmatch ('[A-Za-z0-9]' * 2, field.name) and \
       hasattr (field, '_type') and \
@@ -26,9 +28,11 @@ def is_optfield (field):
       
 
 class Line:
-    """A generic Line, it's unlikely that it will be directly instantiated (but could be done so).
+    """!
+    A generic Line, it's unlikely that it will be directly instantiated (but could be done so).
     Their sublcass should be used instead.
-    One could instatiate a Line to save a custom line in his gfa file."""
+    One could instatiate a Line to save a custom line in his gfa file.
+    """
     REQUIRED_FIELDS = {}
     PREDEFINED_OPTFIELDS = {} # this will contain tha name of the required optfield for
         # each kind of line and the ralative type of value the value of the field must contains
@@ -74,10 +78,12 @@ class Line:
         
     
     def add_field (self, field):
-        """
+        """!
         @param field The field to add to the line
-        @raise InvalidFieldError If a 'name' and a 'value' attributes are not found or
-        the field has already been added"""
+        
+        @exceptions InvalidFieldError If a 'name' and a 'value' attributes are not found or
+        the field has already been added
+        """
         if not (is_field (field) or is_optfield (field)):
             raise  error.InvalidFieldError ("A valid field must be attached")
 
@@ -126,10 +132,12 @@ class Line:
     
             
 class Field:
-    """This class represent any required field.
+    """
+    This class represent any required field.
     The type of field is bound to the field name.
-    TODO: choose to add all the field name in the validator module so that it's
-    possible to validate the value of the field here."""
+    """
+    # TODO: choose to add all the field name in the validator module so that it's
+    # possible to validate the value of the field here.
     def __init__ (self, name, value):
         self._name = name
         self._value = value

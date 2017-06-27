@@ -9,9 +9,11 @@ class InvalidSearchParameters (Exception): pass
 class InvalidElementError (Exception): pass
 
 class GFA ():
-    """GFA will use a networkx MultiGraph as structure to contain the elements
+    """
+    GFA will use a networkx MultiGraph as structure to contain the elements
     of the specification. GFA graphs accept only instances coming from
-    the graph_elements package."""
+    the graph_elements package.
+    """
 
     def __init__ (self):
         # a virtual id assigned to edges (graph edges) that don't have an id.
@@ -35,14 +37,17 @@ class GFA ():
 
     # removed the property accessor to make it coherent with the edge accessor
     def node (self, identifier=None):
-        """An interface to access the node method of the netwrokx graph."""
+        """
+        An interface to access the node method of the netwrokx graph.
+        """
         if identifier == None:
             return self._graph.node
         else:
             return self._graph.node[identifier]
         
     def edge (self, identifier=None):
-        """An interface to the edge method present in networkx.
+        """
+        An interface to the edge method present in networkx.
         It's different from the networkx accessor in that it's not a property, so empty brackets
         are needed to call the networkx edge property.
         """
@@ -70,8 +75,10 @@ class GFA ():
 
 
     def as_graph_element (self, key):
-        """Given a key of an existing node, edge or subgraph, return its equivalent
-        graph element object."""
+        """
+        Given a key of an existing node, edge or subgraph, return its equivalent
+        graph element object.
+        """
         element = self.get (key)
         if element == None:
             raise InvalidElementError ("No graph element has the given key: {0}".format (key))
@@ -104,19 +111,23 @@ class GFA ():
                                 element['variance'], \
                                 opt_fields=tmp_list\
                             )
-        
+
+                            
     def search_edge_by_key (self, key):
         for from_node, to_node, edge_key in self._graph.edges_iter (keys=True):
             if key == edge_key:
                 return self._graph.edge[from_node][to_node][edge_key]
         return None
 
+    
     def search_edge_by_nodes (self, nodes):
-        """If given a tuple with from_node and to_node return all the edges
+        """
+        If given a tuple with from_node and to_node return all the edges
         between the two nodes.
         If a third element is present in the tuple it return the exact edge between
         the two nodes with the key specified by the third element.
-        If no match is found return None."""
+        If no match is found return None.
+        """
         if len (nodes) < 2:
             raise InvalidSearchParameters ()
         from_node = nodes [0]
@@ -134,8 +145,10 @@ class GFA ():
 
 
     def clear (self):
-        """Call networkx 'clear' method, reset the virtual id counter and
-        delete all the subgraphs."""
+        """
+        Call networkx 'clear' method, reset the virtual id counter and
+        delete all the subgraphs.
+        """
         self._graph.clear ()
         self._next_virtual_id = 0
         self._subgraphs = {}
@@ -150,11 +163,14 @@ class GFA ():
         elif isinstance (element, sg.Subgraph):
             self.add_subgraph (element)
            
+
     def add_node (self, new_node):
-        """Add a graph_element Node to the GFA graph using the node id as key,
+        """
+        Add a graph_element Node to the GFA graph using the node id as key,
         its sequence and sequence length will be individual attribute on the graph and
         all the remained optional field will be stored on a single list as a node attributes
-        'opt_fields'."""
+        'opt_fields'.
+        """
         if not node.is_node (new_node):
             raise node.InvalidNodeError ("The object given is not a node.")
 
@@ -165,11 +181,13 @@ class GFA ():
         
 
     def add_edge (self, new_edge):
-        """Add a graph_element Edge or a networkx edge to the GFA graph using  the edge id as key, if its
+        """
+        Add a graph_element Edge or a networkx edge to the GFA graph using  the edge id as key, if its
         id is '*' or None the edge will be given a virtual_id, in either case the original
         edge id will be preserved as edge attribute. All edge attributes will be stored as
         netwrorkx edge attributes and its optfields will be store as a separate list in the edge
-        within the attribute 'opt_fields'."""
+        within the attribute 'opt_fields'.
+        """
         if not ge.is_edge (new_edge):
             raise ge.InvalidEdgeError ("The object is not a valid edge.")
 
@@ -211,9 +229,15 @@ class GFA ():
         return key
 
     def get_subgraph (self, sub_key):
-        """Returns a new GFA graph structure with the nodes, edges and subgraphs
+        """!
+        Returns a new GFA graph structure with the nodes, edges and subgraphs
         specified in the elements attributes of the subgraph object pointed by the id.
-        Return None if the subgraph id doesn't exist."""
+        Return None if the subgraph id doesn't exist.
+
+        The returned GFA is independent from the original object.
+        
+        @param sub_key The id of a subgraph present in the GFA graph.
+        """
         if not sub_key in self._subgraphs:
             raise InvalidSubgraphError ("There is no subgraph pointed by this key.")
 
@@ -225,7 +249,31 @@ class GFA ():
             subGFA.add_graph_element (self.as_graph_element (id))
 
         return subGFA
-            
+
+
+    def subgraph (self, nbunch):
+        """!
+        Interface to the networkx subgraph method.
+        Given a collection of nodes returns a subgraph with the nodes
+        given and all the edges between each pair of nodes.
+
+        All changes apported to the subgraph are reflected to the original
+        GFA graph.
+
+        @param nbunch The nodes
+        """
+        return self._graph.subgraph (nbunch)
+
+
+    def neighbors (self, nid):
+        """!
+        Return all the nodes id of the nodes connected to
+        the given node.
+        
+        @params nid The id of the selected node
+        """
+        return self._graph.neighbors (nid)
+    
 
     def pprint (self):
         """A basic pretty print function for nodes and edges."""
