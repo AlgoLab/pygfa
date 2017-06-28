@@ -64,7 +64,8 @@ class GFA ():
         if identifier == None:
             return self._graph.node
         else:
-            return self._graph.node[identifier]
+            if identifier in self._graph.node:
+                return self._graph.node[identifier]
         
     def edge (self, identifier=None):
         """
@@ -183,7 +184,7 @@ class GFA ():
             self.add_edge (element)
         elif isinstance (element, sg.Subgraph):
             self.add_subgraph (element)
-           
+            
 
     def add_node (self, new_node):
         """
@@ -296,15 +297,20 @@ class GFA ():
         return self._graph.neighbors (nid)
 
 
-    def get_all_reachables (self, nid):
+    def get_all_reachables (self, nid, weakly=True):
         """!
         Returns a subgraph of the same type of the main one used by
         GFA obejcts with the connected component belonging
         to the given node.
 
         @param nid The id of the node to find the reachable nodes.
+        @param weakly If set to False computes the weakly connected component
+        for the given node.
         """
-        nodes = nx.dfs_tree (self._graph, nid).nodes ()
+        if weakly == True:
+            nodes = nx.dfs_tree (self._graph, nid).nodes ()
+        else:
+            nodes = nx.dfs_tree (nx.MultiGraph(self.graph), nid).nodes ()
         return self.subgraph (nodes)
 
     def search (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR, limit_type=None):
@@ -339,7 +345,7 @@ class GFA ():
     
     def search_on_edges (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
         retval = []
-        for u,v, data, key in self._graph.edges_iter (data=True, keys=True):
+        for u,v, key, data in self._graph.edges_iter (data=True, keys=True):
             if field in data and comparator (data[field], value):
                 retval.append (key)
         return retval
