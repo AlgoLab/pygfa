@@ -6,6 +6,28 @@ The graph is an abstract representation of the data coming from GFA
 file, allowing to use the two specifications at the same time.
 
 
+## Use cases
+
+The library will allow users to manage the same informations stored
+in a GFA file using a graph structure. The graph used is a multi-directed graph.
+
+On the graph the user will be able to perform query operation, to extend
+the graph by adding new GFA informations and to dump the graph back to a GFA
+file.
+
+Note that the graph accepts a Graph Element (GFA Edges, Nodes or Subgraphs)
+to extend its informations, but indirectly (accessing the *_graph* attribute
+of a GFA object) it's possible to add any type of object.
+
+In addition it's possible to get a subgraph either by specifying the
+required nodes or by getting all the nodes reachable from
+a source node. This feature allows users to split useful information from
+a very large GFA file.
+
+![Use cases diagram](images/use_cases_diagram.png)
+
+________________________________________________________________________________
+
 ## Graph elements
 
 The graph is composed by three main elements:
@@ -36,7 +58,7 @@ ________________________________________________________________________________
 ## Interaction with the Graph
 
 The interaction with the graph has been tought to be the most coherent as
-possible with the NetworkX MultiGraph object, trying to replicate its behaviour
+possible with the NetworkX MultiDiGraph object, trying to replicate its behaviour
 and naming convention.
 
 A main difference compared with GFA is the importance of the key
