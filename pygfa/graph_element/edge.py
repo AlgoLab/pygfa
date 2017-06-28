@@ -194,7 +194,7 @@ class Edge:
               self.from_node != other.from_node or \
               self.from_orn != other.from_orn or \
               self.to_node != other.to_node or \
-              self.from_orn != other.from_orn or \
+              self.to_orn != other.to_orn or \
               self.from_positions != other.from_positions or \
               self.to_positions != other.to_positions or \
               self.alignment != other.alignment or \
@@ -210,7 +210,17 @@ class Edge:
         except: return False
         return True
 
-    # TODO: complete me
+    
     def __str__ (self):
-        string = "eid: " + self.eid
+        string = \
+          "eid: " + str (self.eid) + "," + \
+          "from_node: " + str (self.from_node)  + ", " + \
+          "from_orn: " + str (self.from_orn)  + ", " + \
+          "to_node: " + str (self.to_node)  + ", " + \
+          "to_orn: " + str (self.to_orn)  + ", " + \
+          "from_positions: " + str (self.to_positions)  + ", " + \
+          "alignment: " + str (self.alignment)  + ", " + \
+          "distrance: " + str (self.distance)  + ", " + \
+          "variance: " + str (self.variance)  + ", " + \
+          "opt_fields: " + str (self.opt_fields)
         return string
