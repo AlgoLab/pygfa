@@ -179,9 +179,9 @@ as user defined tags(?).
 |---------------------------------|------------------------|
 | gid                             | eid (edge id)          |
 | sid1                            | from_node + from_orn   |
-| sid2                            | to_node                |
-| disp (displacement)             | displacement	   |
-| var (variance) or **None**      | variance               |
+| sid2                            | to_node + to_orn       |
+| dist (distance)		  | distance  		   |
+| var (variance) or \*    	  | variance               |
 
 
 ### Groups lines
