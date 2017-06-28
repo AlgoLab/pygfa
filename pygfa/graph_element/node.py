@@ -7,7 +7,10 @@ class InvalidNodeError (Exception): pass
 def is_node (object):
     """Check wheter the given object is a graph_element object."""
     try:
-        return object.nid != None and object.sequence != None and hasattr (object, '_slen')
+        return object.nid != None and \
+          object.sequence != None and \
+          hasattr (object, '_slen') and \
+          hasattr (object, '_opt_fields')
     except: return False
 
 class Node:
