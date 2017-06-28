@@ -61,7 +61,25 @@ def is_valid (string, datatype):
 
     return True
 
+def is_dazzler_trace (string):
+    return is_valid (string, 'trc')
 
+def is_cigar1 (string):
+    """!
+    Checks if the given string is a valid CIGAR string
+    as defined in the GFA1 specification.
+    """
+    return string != "*" and is_valid (string, 'cig')
+
+
+def is_cigar2 (string):
+    """!
+    Checks if the given string is a valid CIGAR string
+    as defined in the GFA2 specification.
+    """
+    return string != "*" and is_valid (string, 'cig2')
+
+    
 def validate (string, datatype):
     """Return the value with the type closer to the one it's represented."""
     if not is_valid (string, datatype):
