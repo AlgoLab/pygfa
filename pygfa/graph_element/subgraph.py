@@ -84,7 +84,7 @@ class Subgraph:
         retval['sub_id'] = self.sub_id
         retval['elements'] =  self.elements
 
-        for key, value in self.opt_fields:
+        for key, value in self.opt_fields.items ():
             retval[key] = value
 
         return retval
