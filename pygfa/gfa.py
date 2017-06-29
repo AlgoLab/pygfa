@@ -2,6 +2,7 @@ from parser.lines import header, segment, link, containment, path
 from parser.lines import edge, gap, fragment, group
 from parser import line
 from graph_element import node, edge as ge, subgraph as sg
+import gfa1_serializer as gs1
 import copy
 import networkx as nx
 import re
@@ -28,6 +29,7 @@ def VALUE_EQUALITY_COMPARATOR (obj, value):
 def IGNORE_VALUE_COMPARATOR (obj, value):
     return True
 
+class GFAError (Exception): pass
     
 class GFA ():
     """!
@@ -37,12 +39,24 @@ class GFA ():
     """
 
     # SUPER TODO: allow initialization from nx.DiGraph and nx.MultiDiGraph
-    def __init__ (self):
+    def __init__ (self, base_graph=None):
+        """!
+        Creates a GFA graph. If \p base_graph is not None use the graph provided
+        as base for the graph.
+
+        @param base graph An instance of a networkx.DiGraph or its derivative classes.
+        """
         # a virtual id assigned to edges (graph edges) that don't have an id.
         # Their id will be 'virtual_#' where # will be given by next_virtual_id.
-        self._next_virtual_id = 0;
-        self._graph = nx.MultiDiGraph ()
+
+        if base_graph != None and not isinstance (base_graph, nx.DiGraph):
+            raise GFAError ("{0} cannot be used as base graph, ".format (type (base_graph)) + \
+                                "use networkx.DiGraph or networkx.MultiDiGraph instead.")
+        
+        self._graph = nx.MultiDiGraph (base_graph)
         self._subgraphs = {}
+        self._next_virtual_id = 0 if base_graph == None else self._find_max_virtual_id ();
+
 
     def _get_virtual_id (self, increment=True):
         key = self._next_virtual_id
@@ -72,15 +86,15 @@ class GFA ():
 
     # Simulate networkx graph behaviour with composition.
     def nodes (self, **kwargs):
-        """Return a copy list of all the nodes in the graph."""
+        """! Return a copy list of all the nodes in the graph."""
         return self._graph.nodes (**kwargs)
 
     def edges (self, **kwargs):
-        """Return a copy list of all the edges in the graph."""
+        """! Return a copy list of all the edges in the graph."""
         return self._graph.edges (**kwargs)
 
     def subgraphs (self, identifier=None):
-        """
+        """!
         An interface to access the node method of the netwrokx graph.
         """
         if identifier == None:
@@ -91,7 +105,7 @@ class GFA ():
 
     # removed the property accessor to make it coherent with the edge accessor
     def node (self, identifier=None):
-        """
+        """!
         An interface to access the node method of the netwrokx graph.
         """
         if identifier == None:
@@ -101,7 +115,7 @@ class GFA ():
                 return self._graph.node[identifier]
         
     def edge (self, identifier=None):
-        """
+        """!
         An interface to the edge method present in networkx.
         It's different from the networkx accessor in that it's not a property, so empty brackets
         are needed to call the networkx edge property.
@@ -114,7 +128,7 @@ class GFA ():
             return self.search_edge_by_key (identifier)
 
     def get (self, key):
-        """Return the element pointed by the specified key."""
+        """! Return the element pointed by the specified key."""
         try:
             if key in self._graph.node:
                 return self.node(key)
@@ -130,7 +144,7 @@ class GFA ():
 
 
     def as_graph_element (self, key):
-        """
+        """!
         Given a key of an existing node, edge or subgraph, return its equivalent
         graph element object.
         """
@@ -176,7 +190,7 @@ class GFA ():
 
     
     def search_edge_by_nodes (self, nodes):
-        """
+        """!
         If given a tuple with from_node and to_node return all the edges
         between the two nodes.
         If a third element is present in the tuple it return the exact edge between
@@ -200,7 +214,7 @@ class GFA ():
 
 
     def clear (self):
-        """
+        """!
         Call networkx 'clear' method, reset the virtual id counter and
         delete all the subgraphs.
         """
@@ -210,7 +224,7 @@ class GFA ():
 
         
     def add_graph_element (self, element):
-        """Add a graph element (Node, Edge or Subgraph) to the graph."""
+        """! Add a graph element (Node, Edge or Subgraph) to the graph."""
         if isinstance (element, node.Node):
             self.add_node (element)
         elif isinstance (element, ge.Edge):
@@ -220,7 +234,7 @@ class GFA ():
             
 
     def add_node (self, new_node):
-        """
+        """!
         Add a graph_element Node to the GFA graph using the node id as key,
         its sequence and sequence length will be individual attribute on the graph and
         all the remained optional field will be stored on a single list as a node attributes
@@ -236,7 +250,7 @@ class GFA ():
         
 
     def add_edge (self, new_edge):
-        """
+        """!
         Add a graph_element Edge or a networkx edge to the GFA graph using  the edge id as key, if its
         id is '*' or None the edge will be given a virtual_id, in either case the original
         edge id will be preserved as edge attribute. All edge attributes will be stored as
@@ -415,3 +429,11 @@ class GFA ():
         return string
 
 
+    def dump (self, gfa_version=1):
+        if gfa_version == 1:
+            return gs1.serialize_gfa (self)
+        elif gfa_version == 2:
+            raise NotImplementedError ('Not implemented yet!')
+
+        raise ValueError ("Invalid GFA output version.")
+            
