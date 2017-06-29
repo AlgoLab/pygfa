@@ -4,6 +4,7 @@ import copy, collections
 
 class InvalidSubgraphError (Exception): pass
 
+
 class Subgraph:
 
     def __init__ (self, graph_id, elements, opt_fields={}):

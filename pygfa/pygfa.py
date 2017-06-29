@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 from graph_element import node, edge as ge, subgraph as sg
 import argparse
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
 # -------------------------CLI-ARGUMENT-MANAGEMENT-------------------------------- #
 parser = argparse.ArgumentParser (description = "Compute graph structure from GFA file.")
 parser.add_argument ('-f', '--file',  metavar='file', type=str, nargs=1, required=True)
