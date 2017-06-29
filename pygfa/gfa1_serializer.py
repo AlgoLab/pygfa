@@ -245,10 +245,51 @@ def _serialize_to_link (link):
 def serialize_subgraph (subgraph):
     """!
     """
+    # TODO: describe me
     if isinstance (subgraph, dict):
-        pass
-    # TODO: complete me, but first refactor my graph element so that I can store
-    # overlaps from PATHs
+        try:
+            subgraph_dict = copy.deepcopy (subgraph)
+            subgraph_dict.pop ('sub_id')
+            subgraph_dict.pop ('elements')
+
+            fields = ["P"]
+            fields.append (subgraph['sub_id'])
+            fields.append (str.join (",", [name + orn for name, orn in subgraph['elements'].items ()]))
+
+            if 'overlaps' in subgraph:
+                subgraph_dict.pop ('overlaps')
+                fields.append (str.join (",", subgraph['overlaps'].value))
+
+            for key, opt_field in subgraph_dict.items ():
+                if line.is_optfield (opt_field):
+                    fields.append (str (opt_field))
+
+            return str.join ("\t", fields)
+
+        except KeyError as ke:
+            serializer_logger.debug (ke.print_exc ())            
+            return ""
+    else:
+        try:
+            opt_fields = copy.deepcopy (subgraph.opt_fields)
+
+            fields = ["P"]
+            fields.append (subgraph.sub_id)
+            fields.append (str.join (",", [name + orn for name, orn in subgraph.elements.items ()]))
+
+            if 'overlaps' in subgraph.opt_fields:
+                opt_fields.pop ('overlaps')
+                fields.append (str.join (",", subgraph.opt_fields['overlaps'].value))
+
+            for key, opt_field in opt_fields.items ():
+                if line.is_optfield (opt_field):
+                    fields.append (str (opt_field))
+
+            return str.join ("\t", fields)
+            
+        except AttributeError as ae:
+            serializer_logger.debug (ae.print_exc ())            
+            return ""
 
     
 ################################################################################
@@ -262,13 +303,13 @@ def serialize (object):
         elif 'eid' in object:
             return serialize_edge (object)
         elif 'sub_id' in object:
-            return "" # TODO: add serialize_subgraph here
+            return serialize_subgraph (object)
     else:
         if hasattr (object, '_nid') or hasattr (object, 'nid'):
             return serialize_node (object)
         elif hasattr (object, '_eid') or hasattr (object, 'eid'):
             return serialize_edge (object)
         elif hasattr (object, '_sub_id') or hasattr (object, 'sub_nid'):
-            return "" # TODO: add serialize_subgraph (object) here
+            return serialize_subgraph (object)
 
     return "" # if it's not possible to serialize, return an empty string 
