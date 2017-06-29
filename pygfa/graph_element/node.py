@@ -1,5 +1,5 @@
 from parser.lines import segment
-from parser import line
+from parser import line, field_validator as fv
 import copy
 
 class InvalidNodeError (Exception): pass
@@ -20,9 +20,11 @@ class Node:
             raise InvalidNodeError ("A Node has always a defined id of type string, " + \
                                  "given {0} of type {1}".format (node_id, type (node_id)))
 
-        if not isinstance (sequence, str):
-            raise Exception ("A sequence must be of type string, " + \
-                                 "given {0} of type {1}".format (sequence, type (sequence)))
+        # checks sequence validation against GFA2 sequence specification
+        # (more permissive than the GFA1 one)
+        if not (isinstance (sequence, str) and fv.is_valid(sequence, 'seq2')):
+            raise Exception ("A sequence must be of type string and must be a valid GFA2 sequence, " + \
+                                 "given '{0}' of type {1}".format (sequence, type (sequence)))
 
         if not ( \
                      (isinstance (length, int) and int (length) >= 0) or \
