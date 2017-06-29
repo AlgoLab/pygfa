@@ -4,6 +4,7 @@ from parser import line
 from graph_element import node, edge as ge, subgraph as sg
 import copy
 import networkx as nx
+import re
 
 class InvalidSearchParameters (Exception): pass
 class InvalidElementError (Exception): pass
@@ -29,19 +30,45 @@ def IGNORE_VALUE_COMPARATOR (obj, value):
 
     
 class GFA ():
-    """
+    """!
     GFA will use a networkx MultiGraph as structure to contain the elements
     of the specification. GFA graphs accept only instances coming from
     the graph_elements package.
     """
 
-    
+    # SUPER TODO: allow initialization from nx.DiGraph and nx.MultiDiGraph
     def __init__ (self):
         # a virtual id assigned to edges (graph edges) that don't have an id.
         # Their id will be 'virtual_#' where # will be given by next_virtual_id.
         self._next_virtual_id = 0;
         self._graph = nx.MultiDiGraph ()
         self._subgraphs = {}
+
+    def _get_virtual_id (self, increment=True):
+        key = self._next_virtual_id
+        if increment == True:
+            self._next_virtual_id += 1
+        return key
+
+    def _find_max_virtual_id (self):
+        # nodes cannot have a virtual_id, so don't search inside them
+        virtual_rxp = "^virtual_([\d]+)$"
+        regexp = re.compile (virtual_rxp)
+        virtual_keys = [0]
+        
+        for u,v, key in self._graph.edges_iter (keys=True):
+            match = regexp.fullmatch (key)
+            if match:
+                virtual_keys.append (int (match.group(1)))
+
+        for key, data in self._subgraphs.items ():
+            match = regexp.fullmatch (key)
+            if match:
+                virtual_keys.append (int (match.group(1)))
+
+                
+        return max (virtual_keys)
+            
 
     # Simulate networkx graph behaviour with composition.
     def nodes (self, **kwargs):
@@ -52,9 +79,15 @@ class GFA ():
         """Return a copy list of all the edges in the graph."""
         return self._graph.edges (**kwargs)
 
-    @property
-    def subgraphs (self):
-        return self._subgraphs
+    def subgraphs (self, identifier=None):
+        """
+        An interface to access the node method of the netwrokx graph.
+        """
+        if identifier == None:
+            return self._subgraphs
+        else:
+            if identifier in self._subgraphs:
+                return self._subgraphs[identifier]
 
     # removed the property accessor to make it coherent with the edge accessor
     def node (self, identifier=None):
@@ -243,12 +276,7 @@ class GFA ():
             key = "virtual_{0}".format (self._get_virtual_id ())
         
         self._subgraphs[key] = copy.deepcopy (subgraph)
-
-
-    def _get_virtual_id (self):
-        key = self._next_virtual_id
-        self._next_virtual_id += 1
-        return key
+        
 
     def get_subgraph (self, sub_key):
         """!
@@ -380,11 +408,8 @@ class GFA ():
         string += "]\n"
 
         string += "\nSubgraphs: [\n"    
-        for key, datas in self.subgraphs.items ():
-            string += str (key) + "\t: {sub_id:" + str (datas.sub_id) + \
-              	      "\t elements:" + \
-              	      str.join (", ", [id + ("" if orn == None else orn) \
-                      	       	      	    for id, orn in datas.elements.items()]) + "}\n"
+        for key, data in self._subgraphs.items ():
+            string += str (key) + "\t: {" + str (data) +  "}\n"
                                    
         string += "]\n"
         return string
