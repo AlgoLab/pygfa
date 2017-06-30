@@ -44,9 +44,11 @@ class Line:
 
 
     def is_valid (self):
-        """Check if the line is valid.
+        """!
+        Check if the line is valid.
         Defining the method here allows to have automatically validated all the line of the
-        specifications."""
+        specifications.
+        """
         for required_field in self.REQUIRED_FIELDS:
             if not required_field in self.fields:
                 return False
@@ -101,8 +103,10 @@ class Line:
         return True
     
     def remove_field (self, field):
-        """If the field is contained in the line it gets removed.
-        Othrewise it does nothing without raising exceptions."""
+        """!
+        If the field is contained in the line it gets removed.
+        Othrewise it does nothing without raising exceptions.
+        """
         field_name = field
         if is_field (field):
             field_name = field.name
@@ -132,12 +136,10 @@ class Line:
     
             
 class Field:
-    """
+    """!
     This class represent any required field.
     The type of field is bound to the field name.
     """
-    # TODO: choose to add all the field name in the validator module so that it's
-    # possible to validate the value of the field here.
     def __init__ (self, name, value):
         self._name = name
         self._value = value
@@ -171,10 +173,10 @@ class OptField(Field):
 
     def __init__ (self, name, value, field_type):
         if not re.fullmatch ('[A-Za-z0-9]' * 2, name):
-            raise Exception ("Invalid optfield name, given '{0}'".format (name))
+            raise ValueError ("Invalid optfield name, given '{0}'".format (name))
 
         if not re.fullmatch ("^[ABHJZif]$", field_type):
-            raise Exception ("Invalid type for an optional field.")
+            raise ValueError ("Invalid type for an optional field.")
         
         self._name = name
         self._type = field_type
@@ -188,13 +190,15 @@ class OptField(Field):
 
     @classmethod
     def from_string (cls, string):
-        """Create an OptField with a given string that respects the form
+        """!
+        Create an OptField with a given string that respects the form
         TAG:TYPE:VALUE, where:
         TAG match [A-Za-z0-9][A-Za-z0-9]
-        TYPE match [AiZfJHB]"""
+        TYPE match [AiZfJHB]
+        """
         groups = re.split (":", string.strip ())
         if len (groups) != 3:
-            raise Exception ("OptField must have a name, a type and a value, given{0}".format (string) )
+            raise ValueError ("OptField must have a name, a type and a value, given{0}".format (string) )
 
         optfield = OptField (groups[0], groups[2], groups[1])
         return optfield

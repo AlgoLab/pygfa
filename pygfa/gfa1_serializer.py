@@ -1,3 +1,6 @@
+"""@package gfa1_serializer
+"""
+
 from parser import line, field_validator as fv
 from parser.lines import segment, edge, group, containment, path, fragment, link
 from graph_element import edge as ge, node, subgraph
@@ -151,7 +154,7 @@ def _serialize_to_containment (containment, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (containment['to_orn']))
             fields.append (str (containment['pos'].value))
 
-            if fv.is_cigar1 (containment['alignment']):
+            if fv.is_gfa1_cigar (containment['alignment']):
                 fields.append (str (containment['alignment']))
             else:
                 fields.append ("*")
@@ -180,7 +183,7 @@ def _serialize_to_containment (containment, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (containment.to_orn))
             fields.append (str (containment.opt_fields['pos'].value))
 
-            if fv.is_cigar1 (containment.alignment):
+            if fv.is_gfa1_cigar (containment.alignment):
                 fields.append (str (containment.alignment))
             else:
                 fields.append ("*")
@@ -226,7 +229,7 @@ def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (link['to_node']))
             fields.append (str (link['to_orn']))
 
-            if fv.is_cigar1 (link['alignment']):
+            if fv.is_gfa1_cigar (link['alignment']):
                 fields.append (str (link['alignment']))
             else:
                 fields.append ("*")
@@ -252,7 +255,7 @@ def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (link.to_node))
             fields.append (str (link.to_orn))
 
-            if fv.is_cigar1 (link.alignment):
+            if fv.is_gfa1_cigar (link.alignment):
                 fields.append (str (link.alignment))
             else:
                 fields.append ("*")
