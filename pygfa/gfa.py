@@ -5,7 +5,7 @@ from parser.lines import header, segment, link, containment, path
 from parser.lines import edge, gap, fragment, group
 from parser import line
 from graph_element import node, edge as ge, subgraph as sg
-import gfa1_serializer as gs1
+import gfa1_serializer as gs1, gfa2_serializer as gs2
 import copy
 import networkx as nx
 import re
@@ -436,7 +436,6 @@ class GFA ():
         if gfa_version == 1:
             return gs1.serialize_gfa (self)
         elif gfa_version == 2:
-            raise NotImplementedError ('Not implemented yet!')
+            return gs2.serialize_gfa (self)
 
         raise ValueError ("Invalid GFA output version.")
-            

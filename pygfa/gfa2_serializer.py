@@ -18,7 +18,65 @@ serializer_logger.setLevel(logging.DEBUG)
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 DEFAULT_IDENTIFIER = "no identifier given."
 
+def _remove_common_edge_fields (edge_dict):
+    edge_dict.pop ('eid')
+    edge_dict.pop ('from_node')
+    edge_dict.pop ('from_orn')
+    edge_dict.pop ('to_node')
+    edge_dict.pop ('to_orn')
+    edge_dict.pop ('from_positions')
+    edge_dict.pop ('to_positions')
+    edge_dict.pop ('alignment')
+    edge_dict.pop ('distance')
+    edge_dict.pop ('variance')
 
+    
+def _serialize_opt_fields (opt_fields):
+    fields = []
+    for key, opt_field in opt_fields.items ():
+        if line.is_optfield (opt_field):
+            fields.append (str (opt_field))
+    return fields
+
+
+SEGMENT_FIELDS = [fv.GFA2_ID, fv.GFA2_INT, fv.GFA2_SEQUENCE]
+EDGE_FIELDS = [fv.GFA2_OPTIONAL_ID, fv.GFA2_REFERENCE, fv.GFA2_REFERENCE, \
+            fv.GFA2_POSITION, fv.GFA2_POSITION, fv.GFA2_POSITION, fv.GFA2_POSITION, fv.GFA2_ALIGNMENT]
+
+FRAGMENT_FIELDS = [fv.GFA2_ID, fv.GFA2_REFERENCE, fv.GFA2_POSITION, \
+                fv.GFA2_POSITION, fv.GFA2_POSITION, fv.GFA2_POSITION, fv.GFA2_ALIGNMENT]
+
+GAP_FIELDS = [fv.GFA2_OPTIONAL_ID, fv.GFA2_REFERENCE, fv.GFA2_REFERENCE, \
+            fv.GFA2_INT, fv.GFA2_OPTIONAL_INT]
+
+UGROUP_FIELDS = [fv.GFA2_OPTIONAL_ID, fv.GFA2_IDS]
+OGROUP_FIELDS = [fv.GFA2_OPTIONAL_ID, fv.GFA2_REFERENCES]
+
+def _check_fields (fields, required_fields):
+    """!
+    Check if each field has the correct format as stated from the specification.
+    """
+    try:
+        for field in range (0, len (required_fields)):
+            if not fv.is_valid (fields[field], required_fields[field]):
+                return False
+        return True
+    except Exception:
+        return False
+
+    
+def _are_fields_defined (fields):
+    try:
+        for field in fields:
+            if field == None:
+                return False
+    except Exception:
+        return False
+    return True
+
+
+class GFA2SerializationError (Exception): pass
+    
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
@@ -37,58 +95,53 @@ def serialize_node (node, identifier=DEFAULT_IDENTIFIER):
                                                              str (identifier), \
                                                              type (identifier) \
                                                         )
-
-    if isinstance (node, dict):
-        try:
+    try:
+        if isinstance (node, dict):
+        
             node_dict = copy.deepcopy (node)
-            node_dict.pop ('nid')
-            node_dict.pop ('sequence')
-            node_dict.pop ('slen')
+
+            defined_fields = [ \
+                                   node_dict.pop ('nid'), \
+                                   node_dict.pop ('sequence'), \
+                                   node_dict.pop ('slen') \
+                            ]
             
             fields = ["S"]
             fields.append (str (node['nid']))
 
-            if node['slen'] = None:
-                raise ValueError ("GFA2 sequence must have a length.")
-
-            fields.append (str (node['slen']))
+            fields.append (str (node['slen'] if node['slen'] != None else 0))
             fields.append (str (node['sequence']))
             
-            for key, opt_field in node_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (node_dict))
+            
+        else:
 
-            return str.join ("\t", fields)
-
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
-            return ""
-        except ValueError as ve:
-            serializer_logger.debug (ve + "sequence id:" + str (identifier))
-            return ""
-        
-    else:
-        try:
+            defined_fields = [ \
+                                   node.nid, \
+                                   node.sequence, \
+                                   node.slen \
+                            ]
+            
             fields = ["S"]
             fields.append (str (node.nid))
             
-            if node.slen == None:
-                raise ValueError ("GFA2 sequence must have a length.")
-
-            fields.append (str (node['slen']))
+            fields.append (str (node.slen if node.slen != None else 0))
             fields.append (str (node.sequence))
-            for key, opt_field in node.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
 
-            return str.join ("\t", fields)
+            fields.extend (_serialize_opt_fields (node.opt_fields))
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-        except ValueError as ve:
-            serializer_logger.debug (ve + "sequence id:" + str (identifier))
-            return ""
+
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], SEGMENT_FIELDS):
+            raise GFA2SerializationError ()
+
+        return str.join ("\t", fields)
+
+    # TODO: see if ValueError is ever raised
+    except (AttributeError, KeyError, ValueError, GFA2SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
+
 
 ################################################################################
 # EDGE SERIALIZER
@@ -108,24 +161,22 @@ def serialize_edge (edge, identifier=DEFAULT_IDENTIFIER):
     if isinstance (edge, dict):
         try:
             if edge['eid'] == None: # edge is a fragment
-                return ""
+                return _serialize_to_fragment (edge, identifier)
             elif edge['distance'] != None or \
               edge['variance'] != None: # edge is a gap
-                return ""
-            elif 'pos' in edge: # edge is a containment
-                return _serialize_to_containment (edge, identifier)
+                return _serialize_to_gap (edge, identifier)
             else:
-                return _serialize_to_link (edge, identifier)
+                return _serialize_to_edge (edge, identifier)
         except KeyError as ke:
             serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
             return ""
     else:
         try:
             if edge.eid == None: # edge is a fragment
-                return ""
+                return _serialize_to_fragment (edge, identifier)
             elif edge.distance != None or \
               edge.variance != None: # edge is a gap
-                return ""
+                return _serialize_to_gap (edge, identifier)
             else:
                 return _serialize_to_edge (edge)
             
@@ -133,6 +184,7 @@ def serialize_edge (edge, identifier=DEFAULT_IDENTIFIER):
             serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
             return ""
 
+        
 def _serialize_to_fragment (edge, identifier=DEFAULT_IDENTIFIER):
     if not isinstance (identifier, str):
         identifier = "'{0}' - id of type {1}.".format (\
@@ -140,47 +192,45 @@ def _serialize_to_fragment (edge, identifier=DEFAULT_IDENTIFIER):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (edge, dict):
-        try:
+    try:
+        if isinstance (edge, dict):
+
             edge_dict = copy.deepcopy (edge)
-            edge_dict.pop ('eid')
-            edge_dict.pop ('from_node')
-            edge_dict.pop ('from_orn')
-            edge_dict.pop ('to_node')
-            edge_dict.pop ('to_orn')
-            edge_dict.pop ('from_positions')
-            edge_dict.pop ('to_positions')
-            edge_dict.pop ('alignment')
-            edge_dict.pop ('distance')
-            edge_dict.pop ('variance')
+
+            _remove_common_edge_fields (edge_dict)
+
+
+            defined_fields = [\
+                                edge['from_node'], \
+                                edge['to_node'], \
+                                edge['to_orn'], \
+                                edge['from_positions'][0], edge['from_positions'][1], \
+                                edge['to_positions'][0], edge['to_positions'][1], \
+                                edge['alignment'] \
+                            ]
 
             fields = ["F"]
-
             fields.append (str (edge['from_node']))
             fields.append (str (edge['to_node']) + str (edge['to_orn']))
             fields.append (str (edge['from_positions'][0]))
             fields.append (str (edge['from_positions'][1]))
             fields.append (str (edge['to_positions'][0]))
             fields.append (str (edge['to_positions'][1]))
-
             fields.append (str (edge['alignment']))
-                
-            for key, opt_field in edge_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
 
-            return str.join ("\t", fields)
+            fields.extend (_serialize_opt_fields (edge_dict))
             
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-    else:
-        try:
+        else:
+
+            defined_fields = [\
+                                edge.from_node, \
+                                edge.to_node, \
+                                edge.to_orn, \
+                                edge.from_positions[0], edge.from_positions[1], \
+                                edge.to_positions[0], edge.to_positions[1], \
+                            ]
+            
             fields = ["F"]
-
-            if edge.eid == None:
-                raise ValueError ("Edge id must be defined or '*'.")
-
             fields.append (str (edge.from_node))
             fields.append (str (edge.to_node) + str (edge.to_orn))
 
@@ -188,91 +238,88 @@ def _serialize_to_fragment (edge, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (edge.from_positions[1]))
             fields.append (str (edge.to_positions[0]))
             fields.append (str (edge.to_positions[1]))
+
+            fields.extend (_serialize_opt_fields (edge.opt_fields))
+
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], FRAGMENT_FIELDS):
+            raise GFA2SerializationError ()
             
-            for key, opt_field in edge.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+        return str.join ("\t", fields)
 
-            return str.join ("\t", fields)
+    except (KeyError, ValueError, AttributeError, GFA2SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
+    
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-
-def _serialize_to_edge (edge, identifier=DEFAULT_IDENTIFIER):
+def _serialize_to_gap (edge, identifier=DEFAULT_IDENTIFIER):
     if not isinstance (identifier, str):
         identifier = "'{0}' - id of type {1}.".format (\
                                                              str (identifier), \
                                                              type (identifier) \
                                                         )
 
-    if isinstance (edge, dict):
-        try:
+    try:
+        if isinstance (edge, dict):
+
             edge_dict = copy.deepcopy (edge)
-            edge_dict.pop ('eid')
-            edge_dict.pop ('from_node')
-            edge_dict.pop ('from_orn')
-            edge_dict.pop ('to_node')
-            edge_dict.pop ('to_orn')
-            edge_dict.pop ('from_positions')
-            edge_dict.pop ('to_positions')
-            edge_dict.pop ('alignment')
-            edge_dict.pop ('distance')
-            edge_dict.pop ('variance')
+            _remove_common_edge_fields (edge_dict)
 
-            fields = ["G"]
 
-            if edge['eid'] == None:
-                raise ValueError ("Edge id must be defined or '*'.")
+            defined_fields = [\
+                                edge['eid'], \
+                                edge['from_node'], \
+                                edge['from_orn'], \
+                                edge['to_node'], \
+                                edge['to_orn'], \
+                                edge['distance'], \
+                                edge['variance'] \
+                            ]
             
-            fields.append ('eid')
+            fields = ["G"]
+            
+            fields.append (str (edge['eid']))
             fields.append (str (edge['from_node']) + str (edge['from_orn']))
             fields.append (str (edge['to_node']) + str (edge['to_orn']))
-            fields.append (str (edge['from_positions'][0]))
-            fields.append (str (edge['from_positions'][1]))
-            fields.append (str (edge['to_positions'][0]))
-            fields.append (str (edge['to_positions'][1]))
 
             fields.append (str (edge['distance']))
             fields.append (str (edge['variance']))
 
-            for key, opt_field in edge_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
-
+            fields.extend (_serialize_opt_fields (edge_dict))
             return str.join ("\t", fields)
-            
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-    else:
-        try:
-            fields = ["G"]
+        
+        else:
 
-            if edge.eid == None:
-                raise ValueError ("Edge id must be defined or '*'.")
+            defined_fields = [\
+                                edge.eid, \
+                                edge.from_node, \
+                                edge.from_orn, \
+                                edge.to_node, \
+                                edge.to_orn, \
+                                edge.distance, \
+                                edge.variance \
+                            ]
+
+            fields = ["G"]
 
             fields.append (str (edge.eid))
             fields.append (str (edge.from_node) + str (edge.from_orn))
             fields.append (str (edge.to_node) + str (edge.to_orn))
 
-            fields.append (str (edge.from_positions[0]))
-            fields.append (str (edge.from_positions[1]))
-            fields.append (str (edge.to_positions[0]))
-            fields.append (str (edge.to_positions[1]))
-            
             fields.append (str (edge.distance))
             fields.append (str (edge.variance))
+
+            fields.extend (_serialize_opt_fields (edge.opt_fields))
+
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], GAP_FIELDS):
+            raise GFA2SerializationError ()
             
-            for key, opt_field in edge.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+        return str.join ("\t", fields)
 
-            return str.join ("\t", fields)
-
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+    except (AttributeError, KeyError, GFA2SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
 
             
 def _serialize_to_edge (edge, identifier=DEFAULT_IDENTIFIER):
@@ -282,50 +329,51 @@ def _serialize_to_edge (edge, identifier=DEFAULT_IDENTIFIER):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (edge, dict):
-        try:
+    try:                                                        
+        if isinstance (edge, dict):
+
             edge_dict = copy.deepcopy (edge)
-            edge_dict.pop ('eid')
-            edge_dict.pop ('from_node')
-            edge_dict.pop ('from_orn')
-            edge_dict.pop ('to_node')
-            edge_dict.pop ('to_orn')
-            edge_dict.pop ('from_positions')
-            edge_dict.pop ('to_positions')
-            edge_dict.pop ('alignment')
-            edge_dict.pop ('distance')
-            edge_dict.pop ('variance')
+            _remove_common_edge_fields (edge_dict)
 
-            fields = ["E"]
-
-            if edge['eid'] == None:
-                raise ValueError ("Edge id must be defined or '*'.")
+            defined_fields = [ \
+                                edge['eid'], \
+                                edge['from_node'], \
+                                edge['from_orn'], \
+                                edge['to_node'], \
+                                edge['to_orn'], \
+                                edge['from_positions'][0], edge['from_positions'][1], \
+                                edge['to_positions'][0], edge['to_positions'][1], \
+                                edge['alignment'] \
+                             ]
             
-            fields.append ('eid')
+            fields = ["E"]
+            
+            fields.append (str (edge['eid']))
             fields.append (str (edge['from_node']) + str (edge['from_orn']))
             fields.append (str (edge['to_node']) + str (edge['to_orn']))
             fields.append (str (edge['from_positions'][0]))
             fields.append (str (edge['from_positions'][1]))
             fields.append (str (edge['to_positions'][0]))
             fields.append (str (edge['to_positions'][1]))
-
             fields.append (str (edge['alignment']))
-                
-            for key, opt_field in edge_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
 
-            return str.join ("\t", fields)
+            fields.extend (_serialize_opt_fields (edge_dict))
             
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-    else:
-        try:
-            fields = ["E"]
+        
+        else:
 
-            if edge.eid == None:
-                raise ValueError ("Edge id must be defined or '*'.")
+            defined_fields = [ \
+                                edge.eid, \
+                                edge.from_node, \
+                                edge.from_orn, \
+                                edge.to_node, \
+                                edge.to_orn, \
+                                edge.from_positions[0], edge.from_positions[1], \
+                                edge.to_positions[0], edge.to_positions[1], \
+                                edge.alignment \
+                            ]
+            
+            fields = ["E"]
 
             fields.append (str (edge.eid))
             fields.append (str (edge.from_node) + str (edge.from_orn))
@@ -337,28 +385,29 @@ def _serialize_to_edge (edge, identifier=DEFAULT_IDENTIFIER):
             fields.append (str (edge.to_positions[1]))
             
             fields.append (str (edge.alignment))
-            
-            for key, opt_field in edge.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
 
-            return str.join ("\t", fields)
+            fields.extend (_serialize_opt_fields (edge.opt_fields))
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+        
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], EDGE_FIELDS):
+            raise GFA2SerializationError ()
+        
+        return str.join ("\t", fields)
+
+    except (KeyError, AttributeError, GFA2SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
 
 
 ################################################################################
 # SUBGRAPH SERIALIZER
 ################################################################################
-
-def point_to_node (gfa, node_id):
-    """!
-    Check if the given \p node_id point
-    to a node.Node object into the \p gfa GFA object.
-    """
-    return gfa.node (node_id) != None
+def are_elements_oriented (subgraph_elements):
+    for id, orientation in subgraph_elements.items ():
+        if orientation == None:
+            return False
+    return True
 
 def _serialize_subgraph_elements (subgraph_elements, gfa=None):
     """!
@@ -366,29 +415,12 @@ def _serialize_subgraph_elements (subgraph_elements, gfa=None):
     Check if the orientation is provided for each element of the
     subgraph.
 
-    If \p gfa is set, each element can be tested wheter it
-    is a node or another element of the GFA graph.
-    Only nodes (segments) will be (and could be) serialized
-    to elements of the Path.
-
-    @param subgraph A Graph Element Subgraph
-    @param gfa The GFA object that contain the \p subgraph
+    @param subgraph_elements The elements of a Subgraph
     """
-    try:
-        elements = []
-        for id, orientation in subgraph_elements.items ():
-            if orientation != None and \
-               gfa != None and \
-               point_to_node (gfa, id):
-
-               elements.append (str (id) + str (orientation))
-
-        return str.join (",", elements)
-            
-    except Exception as e:
-        raise ValueError (e) # This exception will be caught from serialize_subgraph
-
-def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER, gfa=None):
+    return str.join (" ", [str (id) + ((str (orientation)) if orientation != None else "") \
+                               for id, orientation in subgraph_elements.items ()])
+    
+def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER):
     """!
     """
     # TODO: describe me
@@ -398,54 +430,54 @@ def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER, gfa=None):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (subgraph, dict):
-        try:
-            subgraph_dict = copy.deepcopy (subgraph)
-            subgraph_dict.pop ('sub_id')
-            subgraph_dict.pop ('elements')
+    try:
+        if isinstance (subgraph, dict):
 
-            fields = ["P"]
-            fields.append (subgraph['sub_id'])
+            subgraph_dict = copy.deepcopy (subgraph)
+
+            defined_fields = [\
+                                subgraph_dict.pop ('sub_id'), \
+                                subgraph_dict.pop ('elements') \
+                             ]
+                                
+            fields = ["O"] if are_elements_oriented (subgraph['elements']) else ["U"] 
+            fields.append (str (subgraph['sub_id']))
             fields.append (_serialize_subgraph_elements (subgraph['elements'], gfa))
 
             if 'overlaps' in subgraph:
                 subgraph_dict.pop ('overlaps')
-                fields.append (str.join (",", subgraph['overlaps'].value))
-            else:
-                fields.append ("*")
 
-            for key, opt_field in subgraph_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (subgraph_dict))
 
-            return str.join ("\t", fields)
-
-        except (ValueError, KeyError) as e:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
-            return ""
-    else:
-        try:
+        else:
+        
             opt_fields = copy.deepcopy (subgraph.opt_fields)
 
-            fields = ["P"]
-            fields.append (subgraph.sub_id)
+            defined_fields = [\
+                                subgraph.sub_id, \
+                                subgraph.elements \
+                             ]
+            
+
+            fields = ["O"] if are_elements_oriented (subgraph.elements) else ["U"] 
+            fields.append (str (subgraph.sub_id))
             fields.append (_serialize_subgraph_elements (subgraph.elements, gfa))
 
             if 'overlaps' in subgraph.opt_fields:
                 opt_fields.pop ('overlaps')
-                fields.append (str.join (",", subgraph.opt_fields['overlaps'].value))
-            else:
-                fields.append ("*")
 
-            for key, opt_field in opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (subgraph.opt_fields))
 
-            return str.join ("\t", fields)
+        group_fields = OGROUP_FIELDS if fields[0] == "O" else UGROUP_FIELDS
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], group_fields):
+            raise GFA2SerializationError ()
+        
+        return str.join ("\t", fields)
             
-        except (ValueError, AttributeError) as e:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+    except (KeyError, ValueError, AttributeError, GFA2SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
+        return ""
 
     
 ################################################################################
@@ -482,13 +514,13 @@ def serialize_graph (graph, write_header=True):
     Serialize a networkx.DiGraph or a derivative object.
 
     @param graph A networkx.DiGraph instance.
-    @write_header If set to True put a GFA1 header as first line.
+    @write_header If set to True put a GFA2 header as first line.
     """
     if not is_graph_serializable (graph):
         raise ValueError ("The object to serialize must be an instance of a networkx.DiGraph.")
 
     if write_header == True:
-        string_serialize = "H\tVN:Z:1.0\n"
+        string_serialize = "H\tVN:Z:2.0\n"
 
     for node_id, node in graph.nodes_iter (data=True):
         node_serialize = serialize_node (node, node_id)
@@ -505,16 +537,15 @@ def serialize_graph (graph, write_header=True):
 
 def serialize_gfa (gfa):
     """!
-    Serialize a GFA object into a GFA1 file.
+    Serialize a GFA object into a GFA2 file.
     """
 
-    # TODO: may be process header her, maybe header optional fields
-    # could be saved... think about it
+    # TODO: maybe process  the header fields here
 
     gfa_serialize = serialize_graph (gfa._graph, write_header=True) # header=True?
 
     for sub_id, subgraph in gfa.subgraphs().items ():
-        subgraph_serialize = serialize_subgraph (subgraph, sub_id, gfa)
+        subgraph_serialize = serialize_subgraph (subgraph, sub_id)
         if len (subgraph_serialize) > 0:
             gfa_serialize += subgraph_serialize + "\n"
 
