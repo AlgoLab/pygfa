@@ -7,20 +7,22 @@ class Fragment (line.Line):
         super().__init__ ('F')
     
     REQUIRED_FIELDS = { \
-    'sid' : 'id', \
-    'external' : 'ref', \
-    'sbeg' : 'pos2', \
-    'send' : 'pos2', \
-    'fbeg' : 'pos2', \
-    'fend' : 'pos2', \
-    'alignment' : 'aln'
+    'sid' : fv.GFA2_ID, \
+    'external' : fv.GFA2_REFERENCE, \
+    'sbeg' : fv.GFA2_POSITION, \
+    'send' : fv.GFA2_POSITION, \
+    'fbeg' : fv.GFA2_POSITION, \
+    'fend' : fv.GFA2_POSITION, \
+    'alignment' : fv.GFA2_ALIGNMENT \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the fragment fields from the string.
+        """!
+        Extract the fragment fields from the string.
         The string can contain the F character at the begin or can only contains the fields
-        of the fragment directly."""
+        of the fragment directly.
+        """
         fields = re.split ('\t', string)
         ffields = []
         if fields[0] == 'F':
@@ -56,5 +58,3 @@ class Fragment (line.Line):
             fragment.add_field (field)
 
         return fragment
-
-

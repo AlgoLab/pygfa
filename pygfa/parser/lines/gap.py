@@ -7,18 +7,20 @@ class Gap (line.Line):
         super().__init__ ('G')
     
     REQUIRED_FIELDS = { \
-    'gid' : 'oid', \
-    'sid1' : 'ref', \
-    'sid2' : 'ref', \
-    'distance' : 'int', \
-    'variance' : 'oint' \
+    'gid' : fv.GFA2_OPTIONAL_ID, \
+    'sid1' : fv.GFA2_REFERENCE, \
+    'sid2' : fv.GFA2_REFERENCE, \
+    'distance' : fv.GFA2_INT, \
+    'variance' : fv.GFA2_OPTIONAL_INT \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the Gap fields from the string.
+        """!
+        Extract the Gap fields from the string.
         The string can contain the G character at the begin or can only contains the fields
-        of the Gap directly."""
+        of the Gap directly.
+        """
         fields = re.split ('\t', string)
         gfields = []
         if fields[0] == 'G':

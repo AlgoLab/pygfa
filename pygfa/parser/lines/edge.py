@@ -7,21 +7,23 @@ class Edge (line.Line):
         super().__init__ ('E')
     
     REQUIRED_FIELDS = { \
-    'eid' : 'oid', \
-    'sid1' : 'ref', \
-    'sid2' : 'ref', \
-    'beg1' : 'pos2', \
-    'end1' : 'pos2', \
-    'beg2' : 'pos2', \
-    'end2' : 'pos2', \
-    'alignment' : 'aln'
+    'eid' : fv.GFA2_OPTIONAL_ID, \
+    'sid1' : fv.GFA2_REFERENCE, \
+    'sid2' : fv.GFA2_REFERENCE, \
+    'beg1' : fv.GFA2_POSITION, \
+    'end1' : fv.GFA2_POSITION, \
+    'beg2' : fv.GFA2_POSITION, \
+    'end2' : fv.GFA2_POSITION, \
+    'alignment' : fv.GFA2_ALIGNMENT \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the Edge fields from the string.
+        """!
+        Extract the Edge fields from the string.
         The string can contain the E character at the begin or can only contains the fields
-        of the Edge directly."""
+        of the Edge directly.
+        """
         fields = re.split ('\t', string)
         efields = []
         if fields[0] == 'E':

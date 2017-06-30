@@ -7,27 +7,28 @@ class Path (line.Line):
         super().__init__ ('P')
     
     REQUIRED_FIELDS = { \
-    'path_name' : 'lbl', \
-    'seqs_names' : 'lbs', \
-    'overlaps': 'cgs'
+    'path_name' : fv.GFA1_NAME, \
+    'seqs_names' : fv.GFA1_NAMES, \
+    'overlaps': fv.GFA1_CIGARS \
     }
 
     PREDEFINED_OPTFIELDS = {}
 
     @classmethod
     def from_string (cls, string):
-        """Extract the path fields from the string.
+        """!
+        Extract the path fields from the string.
         The string can contain the P character at the begin or can only contains the fields
-        of the path directly."""
+        of the path directly.
+        """
         fields = re.split ('\t', string) #add the strip
         pfields = []
         if fields[0] == 'P':
-            fields = fields[1:] #skip the first field (the P)
+            fields = fields[1:]
             
         path = Path ()
 
         path_name = fv.validate (fields[0], cls.REQUIRED_FIELDS['path_name'])
-        # sequences_names = fv.validate (fields[1], cls.REQUIRED_FIELDS['seqs_names'])
         sequences_names = [fv.validate (label, cls.REQUIRED_FIELDS['seqs_names']) for label in fields[1].split(",")]
         overlaps = fv.validate (fields[2], cls.REQUIRED_FIELDS['overlaps'])
 

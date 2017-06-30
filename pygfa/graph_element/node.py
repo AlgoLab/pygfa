@@ -22,7 +22,7 @@ class Node:
 
         # checks sequence validation against GFA2 sequence specification
         # (more permissive than the GFA1 one)
-        if not (isinstance (sequence, str) and fv.is_valid(sequence, 'seq2')):
+        if not (isinstance (sequence, str) and fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
             raise Exception ("A sequence must be of type string and must be a valid GFA2 sequence, " + \
                                  "given '{0}' of type {1}".format (sequence, type (sequence)))
 

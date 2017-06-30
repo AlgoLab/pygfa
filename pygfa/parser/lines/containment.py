@@ -7,25 +7,27 @@ class Containment (line.Line):
         super().__init__ ('C')
     
     REQUIRED_FIELDS = { \
-    'from' : 'lbl', \
-    'from_orn' : 'orn', \
-    'to': 'lbl', \
-    'to_orn' : 'orn', \
-    'pos' : 'pos', \
-    'overlap' : 'cig' \
+    'from' : fv.GFA1_NAME, \
+    'from_orn' : fv.GFA1_ORIENTATION, \
+    'to': fv.GFA1_NAME, \
+    'to_orn' : fv.GFA1_ORIENTATION, \
+    'pos' : fv.GFA1_INT, \
+    'overlap' : fv.GFA1_CIGAR \
     }
 
     PREDEFINED_OPTFIELDS = { \
-    'NM' : 'i', \
-    'RC' : 'i', \
-    'ID' : 'Z' \
+    'NM' : fv.TYPE_i, \
+    'RC' : fv.TYPE_i, \
+    'ID' : fv.TYPE_Z \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the containment fields from the string.
+        """!
+        Extract the containment fields from the string.
         The string can contain the C character at the begin or can only contains the fields
-        of the containment directly."""
+        of the containment directly.
+        """
         fields = re.split ('\t', string) #add the strip
         cfields = []
         if fields[0] == 'C':

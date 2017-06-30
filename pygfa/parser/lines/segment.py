@@ -9,7 +9,7 @@ def is_segmentv1 (line_repr):
     try:
         if isinstance (line_repr, str):        
             fields = re.split("\t", line_repr)
-            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['seq'], \
+            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP[fv.GFA1_SEQUENCE], \
                                  fields[2]) and \
                                  fields[0] == 'S':
                                  return True
@@ -27,7 +27,7 @@ def is_segmentv2 (line_repr):
     try:
         if isinstance (line_repr, str):        
             fields = re.split("\t", line_repr)
-            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP['pos2'], \
+            if re.fullmatch (fv.DATASTRING_VALIDATION_REGEXP[fv.GFA2_POSITION], \
                                  fields[2]) and \
                                  fields[0] == 'S':
                                  return True
@@ -43,17 +43,17 @@ class SegmentV1 (line.Line):
         super().__init__ ('S')
     
     REQUIRED_FIELDS = { \
-    'name' : 'lbl', \
-    'sequence' : 'seq' \
+    'name' : fv.GFA1_NAME, \
+    'sequence' : fv.GFA1_SEQUENCE \
     }
 
     PREDEFINED_OPTFIELDS = { \
-    'LN' : 'i', \
-    'RC' : 'i', \
-    'FC' : 'i', \
-    'KC' : 'i', \
-    'SH' : 'H', \
-    'UR' : 'Z' \
+    'LN' : fv.TYPE_i, \
+    'RC' : fv.TYPE_i, \
+    'FC' : fv.TYPE_i, \
+    'KC' : fv.TYPE_i, \
+    'SH' : fv.HEX_BYTE_ARRAY, \
+    'UR' : fv.TYPE_Z \
     }
 
     @classmethod
@@ -90,9 +90,9 @@ class SegmentV2 (line.Line):
         super().__init__ ('S')
     
     REQUIRED_FIELDS = { \
-    'sid' : 'id', \
-    'slen' : 'int', \
-    'sequence' : 'seq2' \
+    'sid' : fv.GFA2_ID, \
+    'slen' : fv.GFA2_INT, \
+    'sequence' : fv.GFA2_SEQUENCE \
     }
 
     @classmethod

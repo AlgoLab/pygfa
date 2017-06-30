@@ -7,15 +7,17 @@ class OGroup (line.Line):
         super().__init__ ('O')
     
     REQUIRED_FIELDS = { \
-    'oid' : 'oid', \
-    'references' : 'rfs' \
+    'oid' : fv.GFA2_OPTIONAL_ID, \
+    'references' : fv.GFA2_REFERENCES \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the OGroup fields from the string.
+        """!
+        Extract the OGroup fields from the string.
         The string can contain the O character at the begin or can only contains the fields
-        of the OGroup directly."""
+        of the OGroup directly.
+        """
         fields = re.split ('\t', string)
         ogfields = []
         if fields[0] == 'O':
@@ -46,15 +48,17 @@ class UGroup (line.Line):
         super().__init__ ('U')
     
     REQUIRED_FIELDS = { \
-    'uid' : 'oid', \
-    'ids' : 'ids' \
+    'uid' : fv.GFA2_OPTIONAL_ID, \
+    'ids' : fv.GFA2_IDS \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the UGroup fields from the string.
+        """!
+        Extract the UGroup fields from the string.
         The string can contain the U character at the begin or can only contains the fields
-        of the UGroup directly."""
+        of the UGroup directly.
+        """
         fields = re.split ('\t', string)
         ugfields = []
         if fields[0] == 'U':
@@ -75,4 +79,4 @@ class UGroup (line.Line):
             ugroup.add_field (field)
         
         return ugroup
-    
+

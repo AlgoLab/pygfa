@@ -7,35 +7,35 @@ class Link (line.Line):
         super().__init__ ('L')
     
     REQUIRED_FIELDS = { \
-    'from' : 'lbl', \
-    'from_orn' : 'orn', \
-    'to': 'lbl', \
-    'to_orn' : 'orn', \
-    'overlap' : 'cig' \
+    'from' : fv.GFA1_NAME, \
+    'from_orn' : fv.GFA1_ORIENTATION, \
+    'to': fv.GFA1_NAME, \
+    'to_orn' : fv.GFA1_ORIENTATION, \
+    'overlap' : fv.GFA1_CIGAR \
     }
 
     PREDEFINED_OPTFIELDS = { \
-    'MQ' : 'i', \
-    'NM' : 'i', \
-    'RC' : 'i', \
-    'FC' : 'i', \
-    'KC' : 'i', \
-    'ID' : 'Z' \
+    'MQ' : fv.TYPE_i, \
+    'NM' : fv.TYPE_i, \
+    'RC' : fv.TYPE_i, \
+    'FC' : fv.TYPE_i, \
+    'KC' : fv.TYPE_i, \
+    'ID' : fv.TYPE_Z \
     }
 
     @classmethod
     def from_string (cls, string):
-        """Extract the link fields from the string.
-        The string can contain the S character at the begin or can only contains the fields
-        of the link directly."""
+        """!
+        Extract the link fields from the string.
+        The string can contain the L character at the begin or can only contains the fields
+        of the link directly.
+        """
         fields = re.split ('\t', string)
         lfields = []
         if fields[0] == 'L':
-            fields = fields[1:] #skip the first field (the H)
+            fields = fields[1:]
             
         link = Link ()
-
-        # the required fields are in the first two columns
 
         from_name = fv.validate (fields[0], cls.REQUIRED_FIELDS['from'])
         from_orn = fv.validate (fields[1], cls.REQUIRED_FIELDS['from_orn'])
@@ -54,5 +54,5 @@ class Link (line.Line):
             
         for field in lfields:
             link.add_field (field)
-        # header._fields.extend (sfields)
+
         return link

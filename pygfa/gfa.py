@@ -1,3 +1,6 @@
+"""@package gfa
+"""
+
 from parser.lines import header, segment, link, containment, path
 from parser.lines import edge, gap, fragment, group
 from parser import line

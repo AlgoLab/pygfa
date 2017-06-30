@@ -5,23 +5,23 @@ class Header(line.Line):
 
     PREDEFINED_OPTFIELDS = \
       { \
-            'VN' : 'Z', \
-            'TS' : 'i' \
+            'VN' : fv.TYPE_Z, \
+            'TS' : fv.TYPE_i \
       }
                                 
     
     
     def __init__ (self):
         super().__init__ ('H')
-        self.PREDEFINED_OPTFIELDS['VN'] = 'Z'
-        self.PREDEFINED_OPTFIELDS['TS'] = 'i'
 
 
     @classmethod
     def from_string (cls, string):
-        """Extract the header fields from the string.
+        """!
+        Extract the header fields from the string.
         The string can contain the H character at the begin or can only contains the fields
-        of the header directly."""
+        of the header directly.
+        """
         fields = re.split ('\t', string)
         hfields = []
         if fields[0] == 'H':
@@ -34,7 +34,6 @@ class Header(line.Line):
 
         for field in hfields:
             header.add_field (field)
-#        header._fields.extend (hfields)
 
         return header
         
