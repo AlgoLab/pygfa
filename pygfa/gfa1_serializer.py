@@ -15,6 +15,58 @@ serializer_logger.setLevel(logging.DEBUG)
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 DEFAULT_IDENTIFIER = "no identifier given."
 
+SEGMENT_FIELDS = [fv.GFA1_NAME, fv.GFA1_SEQUENCE]
+LINK_FIELDS = [fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_NAME, \
+               fv.GFA1_ORIENTATION, fv.GFA1_CIGAR]
+               
+CONTAINMENT_FIELDS = [fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_NAME, \
+                      fv.GFA1_ORIENTATION, fv.GFA1_INT, fv.GFA1_CIGAR]
+PATH_FIELDS = [fv.GFA1_NAME, fv.GFA1_NAMES]
+
+
+def _remove_common_edge_fields (edge_dict):
+    edge_dict.pop ('eid')
+    edge_dict.pop ('from_node')
+    edge_dict.pop ('from_orn')
+    edge_dict.pop ('to_node')
+    edge_dict.pop ('to_orn')
+    edge_dict.pop ('from_positions')
+    edge_dict.pop ('to_positions')
+    edge_dict.pop ('alignment')
+    edge_dict.pop ('distance')
+    edge_dict.pop ('variance')
+
+    
+def _serialize_opt_fields (opt_fields):
+    fields = []
+    for key, opt_field in opt_fields.items ():
+        if line.is_optfield (opt_field):
+            fields.append (str (opt_field))
+    return fields
+
+
+def _are_fields_defined (fields):
+    try:
+        for field in fields:
+            if field == None:
+                return False
+    except Exception:
+        return False
+    return True
+
+def _check_fields (fields, required_fields):
+    """!
+    Check if each field has the correct format as stated from the specification.
+    """
+    try:
+        for field in range (0, len (required_fields)):
+            if not fv.is_valid (fields[field], required_fields[field]):
+                return False
+        return True
+    except Exception:
+        return False
+
+class GFA1SerializationError (Exception): pass
 
 ################################################################################
 # NODE SERIALIZER
@@ -35,11 +87,16 @@ def serialize_node (node, identifier=DEFAULT_IDENTIFIER):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (node, dict):
-        try:
+    try:
+        if isinstance (node, dict):
+
             node_dict = copy.deepcopy (node)
-            node_dict.pop ('nid')
-            node_dict.pop ('sequence')
+
+            defined_fields = [ \
+                                node_dict.pop ('nid'), \
+                                node_dict.pop ('sequence') \
+                             ]
+
             node_dict.pop ('slen')
             
             fields = ["S"]
@@ -48,33 +105,32 @@ def serialize_node (node, identifier=DEFAULT_IDENTIFIER):
             if node['slen'] != None:
                 fields.append ("LN:i:" + str (node['slen']))
 
-            for key, opt_field in node_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (node_dict)
+        else:
 
-            return str.join ("\t", fields)
-
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
-            return ""
-        
-    else:
-        try:
+            defined_fields = [ \
+                                node.nid, \
+                                node.sequence
+                             ]
+            
             fields = ["S"]
             fields.append (str (node.nid))
             fields.append (str (node.sequence))
             if node.slen != None:
                 fields.append (str (node.slen))
 
-            for key, opt_field in node.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (node.opt_fields)
+            
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], SEGMENT_FIELDS):
+            raise GFA1SerializationError ()
 
-            return str.join ("\t", fields)
+            
+        return str.join ("\t", fields)
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
 
 ################################################################################
 # EDGE SERIALIZER
@@ -132,21 +188,23 @@ def _serialize_to_containment (containment, identifier=DEFAULT_IDENTIFIER):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (containment, dict):
-        try:
+    try:
+        if isinstance (containment, dict):
+
             containment_dict = copy.deepcopy (containment)
-            containment_dict.pop ('eid')
-            containment_dict.pop ('from_node')
-            containment_dict.pop ('from_orn')
-            containment_dict.pop ('to_node')
-            containment_dict.pop ('to_orn')
-            containment_dict.pop ('from_positions')
-            containment_dict.pop ('to_positions')
-            containment_dict.pop ('alignment')
-            containment_dict.pop ('distance')
-            containment_dict.pop ('variance')
+
+            _remove_common_edge_fields (containment_dict)
             containment_dict.pop ('pos')
 
+            defined_fields = [ \
+                                containment['from_node'], \
+                                containment['from_orn'], \
+                                containment['to_node'], \
+                                containment['to_orn'], \
+                                containment['alignment'], \
+                                containment['pos'].value
+                             ]
+            
             fields = ["C"]
             fields.append (str (containment['from_node']))
             fields.append (str (containment['from_orn']))
@@ -162,17 +220,19 @@ def _serialize_to_containment (containment, identifier=DEFAULT_IDENTIFIER):
             if not containment['eid'] in (None, '*'):
                 fields.append ("ID:Z:" + str (containment['eid']))
 
-            for key, opt_field in containment_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (containment_dict))
+        else:
 
-            return str.join ("\t", fields)
+            defined_fields = [ \
+                                containment.from_node, \
+                                containment.from_orn, \
+                                containment.to_node, \
+                                containment.to_orn, \
+                                containment.alignment, \
+                                containment.opt_fields['pos'].value \
+                             ]
             
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-    else:
-        try:
+        
             fields = ["C"]
             opt_fields = copy.deepcopy (containment.opt_fields)
             opt_fields.pop ('pos')
@@ -191,15 +251,17 @@ def _serialize_to_containment (containment, identifier=DEFAULT_IDENTIFIER):
             if not containment.eid in (None, '*'):
                 fields.append ("ID:Z:" + str (containment.eid))
                                
-            for key, opt_field in opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (opt_fields)
 
-            return str.join ("\t", fields)
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], CONTAINMENT_FIELDS):
+            raise GFA1SerializationError ()
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+        return str.join ("\t", fields)
+
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
         
 
 def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
@@ -208,21 +270,20 @@ def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
                                                              str (identifier), \
                                                              type (identifier) \
                                                         )
-
-    if isinstance (link, dict):
-        try:
+    try:
+        if isinstance (link, dict):
             link_dict = copy.deepcopy (link)
-            link_dict.pop ('eid')
-            link_dict.pop ('from_node')
-            link_dict.pop ('from_orn')
-            link_dict.pop ('to_node')
-            link_dict.pop ('to_orn')
-            link_dict.pop ('from_positions')
-            link_dict.pop ('to_positions')
-            link_dict.pop ('alignment')
-            link_dict.pop ('distance')
-            link_dict.pop ('variance')
 
+            _remove_common_edge_fields (link_dict)
+            
+            defined_fields = [ \
+                                link['from_node'], \
+                                link['from_orn'], \
+                                link['to_node'], \
+                                link['to_orn'], \
+                                link['alignment'] \
+                             ]
+            
             fields = ["L"]
             fields.append (str (link['from_node']))
             fields.append (str (link['from_orn']))
@@ -237,17 +298,16 @@ def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
             if not link['eid'] in (None, '*'):
                 fields.append ("ID:Z:" + str (link['eid']))
 
-            for key, opt_field in link_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (link_dict))
 
-            return str.join ("\t", fields)
-            
-        except KeyError as ke:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
-    else:
-        try:
+        else:
+            defined_fields = [ \
+                                link.from_node, \
+                                link.from_orn, \
+                                link.to_node, \
+                                link.to_orn, \
+                                link.alignment \
+                             ]
             fields = ["L"]
 
             fields.append (str (link.from_node))
@@ -263,15 +323,19 @@ def _serialize_to_link (link, identifier=DEFAULT_IDENTIFIER):
             if not link.eid in (None, '*'):
                 fields.append ("ID:Z:" + str (link.eid))
                                
-            for key, opt_field in link.opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (link.opt_fields))
 
-            return str.join ("\t", fields)
+        print (str.join ("\t", fields))
+        
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], LINK_FIELDS):
+            raise GFA1SerializationError ()
+            
+        return str.join ("\t", fields)
 
-        except AttributeError as ae:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
+        return ""
 
 
 ################################################################################
@@ -323,11 +387,14 @@ def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER, gfa=None):
                                                              type (identifier) \
                                                         )
 
-    if isinstance (subgraph, dict):
-        try:
+    try:
+        if isinstance (subgraph, dict):
+
             subgraph_dict = copy.deepcopy (subgraph)
-            subgraph_dict.pop ('sub_id')
-            subgraph_dict.pop ('elements')
+            defined_fields = [\
+                                subgraph_dict.pop ('sub_id'), \
+                                subgraph_dict.pop ('elements') \
+                             ]
 
             fields = ["P"]
             fields.append (subgraph['sub_id'])
@@ -339,17 +406,15 @@ def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER, gfa=None):
             else:
                 fields.append ("*")
 
-            for key, opt_field in subgraph_dict.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (subgraph_dict))
 
-            return str.join ("\t", fields)
+        else:
+            defined_fields = [\
+                                subgraph.sub_id, \
+                                subgraph.elements \
+                             ]
 
-        except (ValueError, KeyError) as e:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))
-            return ""
-    else:
-        try:
+
             opt_fields = copy.deepcopy (subgraph.opt_fields)
 
             fields = ["P"]
@@ -362,15 +427,17 @@ def serialize_subgraph (subgraph, identifier=DEFAULT_IDENTIFIER, gfa=None):
             else:
                 fields.append ("*")
 
-            for key, opt_field in opt_fields.items ():
-                if line.is_optfield (opt_field):
-                    fields.append (str (opt_field))
+            fields.extend (_serialize_opt_fields (opt_fields))
 
-            return str.join ("\t", fields)
+        if not _are_fields_defined (defined_fields) or \
+           not _check_fields (fields[1:], PATH_FIELDS):
+            raise GFA1SerializationError ()
+ 
+        return str.join ("\t", fields)
             
-        except (ValueError, AttributeError) as e:
-            serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
-            return ""
+    except (KeyError, ValueError, AttributeError, GFA1SerializationError) as e:
+        serializer_logger.debug (SERIALIZATION_ERROR_MESSAGGE + str (identifier))            
+        return ""
 
     
 ################################################################################

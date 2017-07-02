@@ -196,7 +196,7 @@ class GFA ():
         """!
         If given a tuple with from_node and to_node return all the edges
         between the two nodes.
-        If a third element is present in the tuple it return the exact edge between
+        If a third element is present in the tuple return the exact edge between
         the two nodes with the key specified by the third element.
         If no match is found return None.
         """
@@ -297,7 +297,7 @@ class GFA ():
 
     def get_subgraph (self, sub_key):
         """!
-        Returns a new GFA graph structure with the nodes, edges and subgraphs
+        Return a new GFA graph structure with the nodes, edges and subgraphs
         specified in the elements attributes of the subgraph object pointed by the id.
         Return None if the subgraph id doesn't exist.
 
@@ -321,7 +321,7 @@ class GFA ():
     def subgraph (self, nbunch):
         """!
         Interface to the networkx subgraph method.
-        Given a collection of nodes returns a subgraph with the nodes
+        Given a collection of nodes return a subgraph with the nodes
         given and all the edges between each pair of nodes.
 
         All changes apported to the subgraph are reflected to the original
@@ -342,25 +342,24 @@ class GFA ():
         return self._graph.neighbors (nid)
 
 
-    def get_all_reachables (self, nid, weakly=True):
+    def get_all_reachables (self, nid, weakly=False):
         """!
-        Returns a subgraph of the same type of the main one used by
-        GFA obejcts with the connected component belonging
+        Returns a GFA subgraph with the connected component belonging
         to the given node.
 
         @param nid The id of the node to find the reachable nodes.
-        @param weakly If set to False computes the weakly connected component
+        @param weakly If set to True computes the weakly connected component
         for the given node.
         """
         if weakly == True:
-            nodes = nx.dfs_tree (self._graph, nid).nodes ()
+            nodes = nx.dfs_tree (nx.MultiGraph(self._graph), nid).nodes ()
         else:
-            nodes = nx.dfs_tree (nx.MultiGraph(self.graph), nid).nodes ()
-        return self.subgraph (nodes)
+            nodes = nx.dfs_tree (self._graph, nid).nodes ()
+        return GFA (self.subgraph (nodes))
 
     def search (self, field, value, comparator=VALUE_EQUALITY_COMPARATOR, limit_type=None):
         """!
-        Performs a query on the field searching for the value specified.
+        Perform a query on the field searching for the value specified.
         """
         retval = []
         if limit_type == None:
@@ -398,7 +397,7 @@ class GFA ():
     
     def search_on_subgraph (self, field, value, operator=VALUE_EQUALITY_COMPARATOR):
         retval = []
-        for key, data in self.subgraphs.items ():
+        for key, data in self._subgraphs.items ():
             data = data.as_dict ()
             if field in data and operator (data[field], value):
                 retval.append (key)
@@ -407,7 +406,9 @@ class GFA ():
     
 
     def pprint (self):
-        """A basic pretty print function for nodes and edges."""
+        """!
+        A basic pretty print function for nodes and edges.
+        """
         string = "\nGRAPH:\nNodes: [\n"
         for node, datas in self._graph.nodes_iter (data=True):
             string += str (node) + "\t: {"
