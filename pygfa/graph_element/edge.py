@@ -2,7 +2,7 @@ from parser.lines import edge, fragment, containment, gap
 from parser import line
 import copy
 
-class InvalidEdgeError: pass
+class InvalidEdgeError(Exception): pass
 
 def is_edge (object):
     try:

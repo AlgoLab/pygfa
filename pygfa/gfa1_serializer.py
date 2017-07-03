@@ -10,7 +10,6 @@ import gfa
 
 # TODO: is this a good idea?
 serializer_logger = logging.getLogger(__name__)
-serializer_logger.setLevel(logging.DEBUG)
 
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 DEFAULT_IDENTIFIER = "no identifier given."
