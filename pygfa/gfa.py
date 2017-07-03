@@ -9,6 +9,10 @@ import gfa1_serializer as gs1, gfa2_serializer as gs2
 import copy
 import networkx as nx
 import re
+import logging
+
+gfa_logger = logging.getLogger (__name__)
+
 
 class InvalidSearchParameters (Exception): pass
 class InvalidElementError (Exception): pass
@@ -83,7 +87,6 @@ class GFA ():
             if match:
                 virtual_keys.append (int (match.group(1)))
 
-                
         return max (virtual_keys)
             
 
@@ -243,9 +246,17 @@ class GFA ():
         all the remained optional field will be stored on a single list as a node attributes
         'opt_fields'.
         """
+
+        
+        if isinstance (new_node, str) and new_node[0] == "S":
+            if segment.is_segmentv1 (new_node):
+                new_node = node.Node.from_line (segment.SegmentV1.from_string (new_node.strip ()))
+            else:
+                new_node = node.Node.from_line (segment.SegmentV2.from_string (new_node.strip ()))
+        
         if not node.is_node (new_node):
             raise node.InvalidNodeError ("The object given is not a node.")
-
+        
         self._graph.add_node (\
                                   new_node.nid, nid=new_node.nid, sequence=new_node.sequence, \
                                   slen=new_node.slen, **new_node.opt_fields)
@@ -260,6 +271,22 @@ class GFA ():
         netwrorkx edge attributes and its optfields will be store as a separate list in the edge
         within the attribute 'opt_fields'.
         """
+
+        if isinstance (new_edge, str):
+          if new_edge[0] == 'L':
+              new_edge = ge.Edge.from_line (link.Link.from_string (new_edge.strip ()))
+          elif new_edge[0] == 'C':
+              new_edge = ge.Edge.from_line (containment.Containment.from_string (new_edge.strip ()))
+          elif new_edge[0] == 'E':
+              new_edge =  ge.Edge.from_line (edge.Edge.from_string (new_edge.strip ()))
+          elif new_edge[0] == 'G':
+              new_edge = ge.Edge.from_line (gap.Gap.from_string (new_edge.strip ()))
+          elif new_edge[0] == 'F':
+              new_edge = ge.Edge.from_line (fragment.Fragment.from_string (new_edge.strip ()))
+          else:
+              raise ge.InvalidEdgeError ("The string given doesn't represent a GFA line that could be represented as an edge,\n" + \
+                                         "given: {0}".format (new_edge))
+              
         if not ge.is_edge (new_edge):
             raise ge.InvalidEdgeError ("The object is not a valid edge.")
 
@@ -285,9 +312,21 @@ class GFA ():
 
 
     def add_subgraph (self, subgraph):
+
+        if isinstance (subgraph, str):
+            if subgraph[0] == "P":
+                subgraph = sg.Subgraph.from_line (path.Path.from_string (subgraph))
+            elif subgraph[0] == "O":
+                subgraph = sg.Subgraph.from_line (group.OGroup.from_string (subgraph))
+            elif subgraph[0] == "U":
+                subgraph = sg.Subgraph.from_line (group.UGroup.from_string (subgraph))
+            else:
+                raise sg.IvalidSubgraphError ("The string given cannot be represented as a subgraph,\n" + \
+                                                  "given: {0}".format (subgraph))
+        
         if not isinstance (subgraph, sg.Subgraph):
             raise sg.InvalidSubgraphError ("The object given is not a subgraph.")
-
+        
         key = subgraph.sub_id
         if key == '*':
             key = "virtual_{0}".format (self._get_virtual_id ())
@@ -403,8 +442,41 @@ class GFA ():
                 retval.append (key)
         return retval
 
-    
 
+    @classmethod
+    def from_file (cls, filepath):
+        """!
+        Parse the given file and return a GFA object.
+        """
+        pygfa = GFA ()
+        with open (filepath) as file:
+            for line in file:
+                line = line.strip ()
+                if line[0] == 'S':
+                    if segment.is_segmentv1 (line):
+                        pygfa.add_graph_element (node.Node.from_line (segment.SegmentV1.from_string (line)))
+                    else:
+                        pygfa.add_graph_element (node.Node.from_line (segment.SegmentV2.from_string (line)))
+                elif line[0] == 'L':
+                    pygfa.add_graph_element (ge.Edge.from_line (link.Link.from_string (line)))
+                elif line[0] == 'C':
+                    pygfa.add_graph_element (ge.Edge.from_line (containment.Containment.from_string (line)))
+                elif line[0] == 'E':
+                    pygfa.add_graph_element (ge.Edge.from_line (edge.Edge.from_string (line)))
+                elif line[0] == 'G':
+                    pygfa.add_graph_element (ge.Edge.from_line (gap.Gap.from_string (line)))
+                elif line[0] == 'F':
+                    pygfa.add_graph_element (ge.Edge.from_line (fragment.Fragment.from_string (line)))
+                elif line[0] == 'P':
+                    pygfa.add_graph_element (sg.Subgraph.from_line (path.Path.from_string (line)))
+                elif line[0] == 'O':
+                    pygfa.add_graph_element (sg.Subgraph.from_line (group.OGroup.from_string (line)))
+                elif line[0] == 'U':
+                    pygfa.add_graph_element (sg.Subgraph.from_line (group.UGroup.from_string (line)))
+
+        return pygfa
+
+    
     def pprint (self):
         """!
         A basic pretty print function for nodes and edges.
