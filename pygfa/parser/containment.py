@@ -1,4 +1,4 @@
-from parser import line, error, field_validator as fv
+import line, error, field_validator as fv
 import re
 
 class Containment (line.Line):

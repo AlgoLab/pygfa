@@ -1,4 +1,4 @@
-from parser import error, field_validator as fv
+import error, field_validator as fv
 import re
 
 # support for duck typing

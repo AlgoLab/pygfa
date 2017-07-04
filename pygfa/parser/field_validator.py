@@ -4,7 +4,7 @@ Package used for the validation of each field.
 """
 
 import re
-from parser import error
+import error
 
 TYPE_A = 'A'
 TYPE_i = 'i'
