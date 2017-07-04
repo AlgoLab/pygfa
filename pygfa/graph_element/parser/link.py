@@ -57,3 +57,6 @@ class Link(line.Line):
             link.add_field(field)
 
         return link
+
+if __name__ == '__main__':
+    pass

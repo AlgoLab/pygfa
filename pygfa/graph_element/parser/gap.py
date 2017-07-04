@@ -51,3 +51,6 @@ class Gap(line.Line):
             gap.add_field(field)
 
         return gap
+
+if __name__ == '__main__':
+    pass

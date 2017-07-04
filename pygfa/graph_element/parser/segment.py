@@ -132,3 +132,6 @@ class SegmentV2(line.Line):
             segment.add_field(field)
 
         return segment
+
+if __name__ == '__main__':
+    pass

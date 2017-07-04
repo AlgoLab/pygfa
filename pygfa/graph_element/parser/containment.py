@@ -58,3 +58,7 @@ class Containment(line.Line):
             containment.add_field(field)
             
         return containment
+
+if __name__ == '__main__':
+    pass
+ 

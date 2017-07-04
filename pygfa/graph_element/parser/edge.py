@@ -63,3 +63,6 @@ class Edge(line.Line):
             edge.add_field(field)
 
         return edge
+
+if __name__ == '__main__':
+    pass

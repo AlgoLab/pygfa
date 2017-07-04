@@ -173,3 +173,6 @@ def validate(string, datatype):
         # 'orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H',
         # 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid', 'lbs'
         return string
+
+if __name__ == '__main__':
+    pass

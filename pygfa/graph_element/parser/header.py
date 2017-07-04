@@ -33,3 +33,6 @@ class Header(line.Line):
             header.add_field (field)
 
         return header
+
+if __name__ == '__main__':
+    pass

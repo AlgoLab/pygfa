@@ -229,3 +229,6 @@ class OptField(Field):
     
     def __str__ (self):
         return str.join (":", (self.name, self.type, str (self.value)))
+
+if __name__ == '__main__':
+    pass

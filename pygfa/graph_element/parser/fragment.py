@@ -59,3 +59,6 @@ class Fragment(line.Line):
             fragment.add_field(field)
 
         return fragment
+
+if __name__ == '__main__':
+    pass

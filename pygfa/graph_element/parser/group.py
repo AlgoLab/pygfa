@@ -80,3 +80,6 @@ class UGroup(line.Line):
             ugroup.add_field(field)
         
         return ugroup
+
+if __name__ == '__main__':
+    pass
