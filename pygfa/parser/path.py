@@ -1,5 +1,6 @@
-from parser import line, error, field_validator as fv
 import re
+
+from parser import line, field_validator as fv
 
 class Path (line.Line):
 
@@ -16,12 +17,12 @@ class Path (line.Line):
 
     @classmethod
     def from_string (cls, string):
-        """!
-        Extract the path fields from the string.
-        The string can contain the P character at the begin or can only contains the fields
-        of the path directly.
         """
-        fields = re.split ('\t', string) #add the strip
+        Extract the path fields from the string.
+        The string can contains the P character at the begin or can
+        only contains the fields of the path directly.
+        """
+        fields = re.split ('\t', string)
         pfields = []
         if fields[0] == 'P':
             fields = fields[1:]
@@ -29,7 +30,11 @@ class Path (line.Line):
         path = Path ()
 
         path_name = fv.validate (fields[0], cls.REQUIRED_FIELDS['path_name'])
-        sequences_names = [fv.validate (label, cls.REQUIRED_FIELDS['seqs_names']) for label in fields[1].split(",")]
+        sequences_names = [ fv.validate (label, \
+                            cls.REQUIRED_FIELDS['seqs_names']) \
+                            for label in fields[1].split(",")
+                          ]
+
         overlaps = fv.validate (fields[2], cls.REQUIRED_FIELDS['overlaps'])
 
         pfields.append (line.Field ('path_name', path_name))

@@ -1,10 +1,12 @@
-"""@package field_validator
-
-Package used for the validation of each field.
 """
-
+Field validation module to check each field string against GFA1
+and GFA2 specification.
+"""
 import re
-import error
+
+class InvalidFieldError(Exception): pass
+class UnknownDataTypeError(Exception): pass
+class FormatError(Exception): pass
 
 TYPE_A = 'A'
 TYPE_i = 'i'
@@ -36,14 +38,13 @@ GFA2_OPTIONAL_INT = 'oint'
 GFA2_OPTIONAL_ID =  'oid'
 
 
-
-"""These are the types of value a field can assume.
-These are the same as the ones in rgfa, I've extended the list to support GFA2.
-GFA2: 'id', 'ids', 'ref', 'rfs', 'cig2', 'oid' (opt_id), 'trc', 'aln', 'pos2', 'seq2', 'int', 'oint'"""
-
-## Fields regexps dictionary
+# These are the types of value a field can assume.
+# These are the same as the ones in rgfa, I've extended
+# the list to support GFA2.
 #
-# Contains all the regexps for each type of field from GFA1 and GFA2.
+# GFA2: 'id', 'ids', 'ref', 'rfs', 'cig2', 'oid'(opt_id),
+# 'trc', 'aln', 'pos2', 'seq2', 'int', 'oint'
+
 DATASTRING_VALIDATION_REGEXP = \
   {\
   TYPE_A : "^[!-~]", # any printable character \
@@ -53,7 +54,7 @@ DATASTRING_VALIDATION_REGEXP = \
   JSON : "^[ !-~]+$",  # JSON, excluding new-line and tab characters \
   HEX_BYTE_ARRAY : "^[0-9A-F]+$", # Byte array in the Hex format \
   DEC_ARRAY : "^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)+$", # Integer or numeric array \
-  GFA1_NAME : "^[!-)+-<>-~][!-~]*$", # segment/path label (segment name) \
+  GFA1_NAME : "^[!-)+-<>-~][!-~]*$", # segment/path label(segment name) \
   GFA1_ORIENTATION : "^\+|-$", #segment orientation \
   #
   #'lbs' : "^[!-)+-<>-~][!-~]*[+-](,[!-)+-<>-~][!-~]*[+-])+$", # multiple labels with orientations, comma-sep \
@@ -62,8 +63,8 @@ DATASTRING_VALIDATION_REGEXP = \
   # this behaviour, splitting the labels and checking them one by one with the new lbs regexp beyond.
   #
   GFA1_NAMES : "^[!-)+-<>-~][!-~]*[+-]$", \
-  GFA1_SEQUENCE : "^\*$|^[A-Za-z=.]+$", # nucleotide sequence (segment sequence) \
-  GFA1_INT : "^[0-9]*$", # positive integer (CLAIM ISSUE HERE, MOVE TO -> int) \ 
+  GFA1_SEQUENCE : "^\*$|^[A-Za-z=.]+$", # nucleotide sequence(segment sequence) \
+  GFA1_INT : "^[0-9]*$", # positive integer(CLAIM ISSUE HERE, MOVE TO -> int) \ 
   GFA1_CIGAR : "^(\*|(([0-9]+[MIDNSHPX=])+))$", # CIGAR string \
   GFA1_CIGARS : "^(\*|(([0-9]+[MIDNSHPX=])+))(,(\*|(([0-9]+[MIDNSHPX=])+)))*$", # multiple CIGARs, comma-sep \
   'cmt' : ".*", # content of comment line, everything is allowed \
@@ -82,84 +83,93 @@ DATASTRING_VALIDATION_REGEXP = \
   GFA2_OPTIONAL_INT : "^\*$|^[0-9]+$" #optional int \
   }
 
-def is_valid (string, datatype):
-    """!
-    Checks if the string respects the datatype.
-    @param datatype The type of data corresponding to the string
-    @param fieldname The fieldname to use in the error message
+
+def is_valid(string, datatype):
     """
-    if not isinstance (string, str):
-        raise error.FormatError ("A string must be given to validate it, given:{0}".format (string))
+    Check if the string respects the datatype.
+
+    :param datatype: The type of data corresponding to the string
+    :param fieldname: The fieldname to use in the fv message
+    :returns: True if the string respect the type defined by the datatype
+    :raises UnknownDataTypeError: if the datatype is not presents in DATASTRING_VALIDATION_REGEXP
+    """
+    if not isinstance(string, str):
+        raise FormatError("A string must be given to validate it, given:{0}".format(string))
     if not datatype in DATASTRING_VALIDATION_REGEXP:
-        raise error.UnknownDataTypeError (\
+        raise UnknownDataTypeError(\
                                         "Invalid field datatype," + \
-                                        "given: {0}".format (datatype) \
+                                        "given: {0}".format(datatype) \
                                         )
                                         
     regexp = DATASTRING_VALIDATION_REGEXP[datatype]
-    if not re.fullmatch(regexp, string): # moved from match to fullmatch, see if this makes any problems (as of now it doesn't)
+    if not re.fullmatch(regexp, string):
         return False
 
     return True
 
-def is_dazzler_trace (string):
-    return is_valid (string, GFA2_TRACE)
+def is_dazzler_trace(string):
+    return is_valid(string, GFA2_TRACE)
 
-def is_gfa1_cigar (string):
-    """!
-    Checks if the given string is a valid CIGAR string
+def is_gfa1_cigar(string):
+    """
+    Check if the given string is a valid CIGAR string
     as defined in the GFA1 specification.
     """
-    return string != "*" and is_valid (string, GFA1_CIGAR)
+    return string != "*" and is_valid(string, GFA1_CIGAR)
 
 
-def is_gfa2_cigar (string):
-    """!
-    Checks if the given string is a valid CIGAR string
+def is_gfa2_cigar(string):
+    """
+    Check if the given string is a valid CIGAR string
     as defined in the GFA2 specification.
     """
-    return string != "*" and is_valid (string, GFA2_CIGAR)
+    return string != "*" and is_valid(string, GFA2_CIGAR)
 
     
-def validate (string, datatype):
-    """Return the value with the type closer to the one it's represented."""
-    if not is_valid (string, datatype):
-        raise error.InvalidFieldError ("The string cannot be validated within its datatype,\n" + \
-                             "given string : {0}\ndatatype: {1}.".format (string, datatype))
+def validate(string, datatype):
+    """
+    Return the value with the type closer to the one it's represented.
+    """
+    if not is_valid(string, datatype):
+        raise InvalidFieldError("The string cannot be validated within its datatype,\n" + \
+                             "given string : {0}\ndatatype: {1}.".format(string, datatype))
 
-    if datatype in (TYPE_i):
-        return int (string)
-    elif datatype in (GFA1_INT, GFA2_INT):
+    if datatype in(TYPE_i):
+        return int(string)
+    elif datatype in(GFA1_INT, GFA2_INT):
         # fullmatch grants that we have a string whose int value is >= 0
         
-        # position = int (string)
+        # position = int(string)
         # if position < 0:
-        #     raise Exception ("Position must be >= 0.")
-        return int (string)
+        #     raise Exception("Position must be >= 0.")
+        return int(string)
 
-    elif datatype in (GFA2_OPTIONAL_INT):
+    elif datatype in(GFA2_OPTIONAL_INT):
         if string == "*":
             return string
-        return int (string)
+        return int(string)
     
-    elif datatype in (TYPE_f):
-        return float (string)
+    elif datatype in(TYPE_f):
+        return float(string)
 
-    elif datatype in (GFA1_CIGARS): # ,'lbs')
+    elif datatype in(GFA1_CIGARS):
         return string.split(",")
-    elif datatype in (GFA2_ALIGNMENT): # string is either * or a trace or a cigar
+    elif datatype in(GFA2_ALIGNMENT):
+        # string is either * or a trace or a cigar
         if string == "*":
             return string
-        elif is_valid (string, GFA2_CIGAR):
-            return validate (string, GFA2_CIGAR)
+        elif is_valid(string, GFA2_CIGAR):
+            return validate(string, GFA2_CIGAR)
         else:
-            return validate (string, GFA2_TRACE)
+            return validate(string, GFA2_TRACE)
             
-    elif datatype in (JSON):
+    elif datatype in(JSON):
         return string # TODO: ask if the json must be manipulated
-    elif datatype in (GFA2_IDS, GFA2_REFERENCES):
-        return string.split ()
+    elif datatype in(GFA2_IDS, GFA2_REFERENCES):
+        return string.split()
         
 
-    else: # ('orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H', 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid', 'lbs')
+    else:
+        # 'orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H',
+        # 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid', 'lbs'
         return string
