@@ -1,10 +1,10 @@
 import sys
-sys.path.insert(0, '../pygfa')
+sys.path.insert(0, '../')
 
-from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
-from parser import error, line, field_validator as fv
-from graph_element import node, edge as ge, subgraph as sg
-import gfa
+from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
+from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element import node, edge as ge, subgraph as sg
+from pygfa import gfa
 import unittest
 
 class TestLine (unittest.TestCase):

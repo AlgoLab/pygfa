@@ -1,8 +1,8 @@
 import sys
-sys.path.insert(0, '../pygfa')
+sys.path.insert(0, '../')
 
-from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
-from parser import error, line, field_validator as fv
+from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
+from pygfa.graph_element.parser import line, field_validator as fv
 import re
 import unittest
 
@@ -31,13 +31,13 @@ class TestLine (unittest.TestCase):
         """Use TestField to check how the different field data types
         are managed."""
 
-        with self.assertRaises (error.UnknownDataTypeError):
+        with self.assertRaises (fv.UnknownDataTypeError):
             optf = TestField ('bb', 'c') # c is an invalid type of field
 
         optf = TestField ('A', 'A')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('aa', 'A')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'A')
         
         optf = TestField ('-42', 'i')
@@ -45,189 +45,189 @@ class TestLine (unittest.TestCase):
         optf = TestField ('+42', 'i')
         optf = TestField ('42', 'i')
         self.assertTrue (optf.value == +42)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('aa', 'i')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'i')
 
         optf = TestField ('-1.4241e-11', 'f')
         optf = TestField ('+1.4241E+11', 'f')
         optf = TestField ('42', 'f')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('A', 'f')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('042e0.5', 'f')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'f')
 
         optf = TestField ('The gray fox jumped from somewhere...', 'Z')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('力 - is the force', 'Z')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('\n - is the force', 'Z')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'Z')
 
         # TODO: check for json parser/verifier existence within python (should exists)
         # this test should fail
         optf = TestField ('The gray fox jumped from somewhere...', 'J')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('力 - is the force', 'J')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('\n - is the force', 'J')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'J')
 
         ##################################################################
 
         optf = TestField ('A5F', 'H')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('a5f', 'H')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('g', 'H')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'H')
 
 
         optf = TestField ('c,15,17,21,-32', 'B')
         optf = TestField ('f,15,.05e4', 'B')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('f15,i.05e4', 'B')
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', 'B')
 
 
         optf = TestField ('(12', fv.GFA1_NAME)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_NAME)
 
         optf = TestField ('+', fv.GFA1_ORIENTATION)
         optf = TestField ('-', fv.GFA1_ORIENTATION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_ORIENTATION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('++', fv.GFA1_ORIENTATION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('a', fv.GFA1_ORIENTATION)
         
         optf = TestField ('(12-,14+,17-', fv.GFA1_NAMES)
         optf = TestField ('(12-,14,17-', fv.GFA1_NAMES) # no sign orientation near 14
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('(12-, 14+,17-', fv.GFA1_NAMES) # space is not allowed
                 # even for separating elements in the array
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_NAMES)
 
         optf = TestField ('acgt', fv.GFA1_SEQUENCE)
         optf = TestField ('*', fv.GFA1_SEQUENCE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('*acgt', fv.GFA1_SEQUENCE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_SEQUENCE)
 
         optf = TestField ('0', fv.GFA1_INT)
         optf = TestField ('100', fv.GFA1_INT)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('-1', fv.GFA1_INT)
         # TODO: Solve asking for clearance
-        # with self.assertRaises (error.InvalidFieldError):
+        # with self.assertRaises (fv.InvalidFieldError):
         #    optf = TestField ('', 'pos')
 
         optf = TestField ('*', fv.GFA1_CIGAR)
         optf = TestField ('5I2M', fv.GFA1_CIGAR)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_CIGAR)
 
         optf = TestField ('*,*,*', fv.GFA1_CIGARS)
         optf = TestField ('*', fv.GFA1_CIGARS)
         optf = TestField ('5I2M,*,3X,22M', fv.GFA1_CIGARS)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA1_CIGARS)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('5I2M,*,3,22M', fv.GFA1_CIGARS) # operation not specified (M, I, D...)
 
         optf = TestField ('5I2M', fv.GFA2_CIGAR)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_CIGAR)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('*', fv.GFA2_CIGAR)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('5I3X', fv.GFA2_CIGAR)
 
         optf = TestField ('aa', fv.GFA2_ID)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_ID)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('a a', fv.GFA2_ID)
 
         optf = TestField ('aa', fv.GFA2_IDS)
         self.assertTrue (optf.value == ['aa'])
         optf = TestField ('aa bb cc dd', fv.GFA2_IDS)
         self.assertTrue (optf.value == ['aa', 'bb', 'cc', 'dd'])
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_IDS)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('a  b', fv.GFA2_IDS) # there are 2 spaces between the a and the b
 
         optf = TestField ('aa+', fv.GFA2_REFERENCE)
         optf = TestField ('aa-', fv.GFA2_REFERENCE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_REFERENCE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('aa', fv.GFA2_REFERENCE)
 
         optf = TestField ('aa+', fv.GFA2_REFERENCES)
         self.assertTrue (optf.value == ['aa+'])
         optf = TestField ('aa+ bb- cc+ dd-', fv.GFA2_REFERENCES)
         self.assertTrue (optf.value == ['aa+', 'bb-', 'cc+', 'dd-'])
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_REFERENCES)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('aa bb+', fv.GFA2_REFERENCES)
 
         optf = TestField ('42', fv.GFA2_INT)
         self.assertTrue (optf.value == 42)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_INT)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('-42', fv.GFA2_INT)
 
         optf = TestField ('42', fv.GFA2_TRACE)
         optf = TestField ('42,42', fv.GFA2_TRACE)
         optf = TestField ('42,42,42', fv.GFA2_TRACE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_TRACE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('-42', fv.GFA2_TRACE)
 
         optf = TestField ('42', fv.GFA2_POSITION)
         self.assertTrue (optf.value == "42") # pos2 will be a string
         optf = TestField ('42$', fv.GFA2_POSITION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_POSITION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('$', fv.GFA2_POSITION)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('1$$', fv.GFA2_POSITION)
 
         optf = TestField ('*', fv.GFA2_SEQUENCE)
         optf = TestField ('acgtACGTXYZ', fv.GFA2_SEQUENCE)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_SEQUENCE)
 
         optf = TestField ('aa', fv.GFA2_OPTIONAL_ID)
         optf = TestField ('*', fv.GFA2_OPTIONAL_ID)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_OPTIONAL_ID)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('* ', fv.GFA2_OPTIONAL_ID)
 
         optf = TestField ('42,42,42', fv.GFA2_ALIGNMENT)
         optf = TestField ('*', fv.GFA2_ALIGNMENT)
         optf = TestField ('2I3M', fv.GFA2_ALIGNMENT)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('', fv.GFA2_ALIGNMENT)
-        with self.assertRaises (error.InvalidFieldError):
+        with self.assertRaises (fv.InvalidFieldError):
             optf = TestField ('42,13M', fv.GFA2_ALIGNMENT)
 
         # Missing field type tests
