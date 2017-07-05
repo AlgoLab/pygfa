@@ -1,7 +1,6 @@
 import re
 
-from parser import line, field_validator as fv
-
+from pygfa.graph_element.parser import line, field_validator as fv
 
 class Containment(line.Line):
 

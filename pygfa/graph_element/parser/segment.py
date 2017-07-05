@@ -1,6 +1,6 @@
 import re
 
-from parser import line, field_validator as fv
+from pygfa.graph_element.parser import line, field_validator as fv
 
 def is_segmentv1(line_repr):
     """Check wether a given string or line belongs to a Segment of

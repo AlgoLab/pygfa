@@ -1,5 +1,5 @@
-from parser.lines import path, group
-from parser import line
+from pygfa.graph_element.parser import path, group
+from pygfa.graph_element.parser import line
 import copy, collections
 
 class InvalidSubgraphError (Exception): pass
@@ -99,3 +99,5 @@ class Subgraph:
                                                for field, item in self.opt_fields.items ()])\
                                 ])
 
+if __name__ == '__main__':
+    pass

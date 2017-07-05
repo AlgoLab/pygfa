@@ -1,6 +1,7 @@
 import re
 
-from parser import line, field_validator as fv
+from pygfa.graph_element.parser import line
+from pygfa.graph_element.parser import field_validator as fv
 
 class Edge(line.Line):
 

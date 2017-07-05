@@ -10,11 +10,10 @@ import logging
 
 import networkx as nx
 
-from parser import header, segment, link, containment, path
-from parser import edge, gap, fragment, group
-from parser import line
-from graph_element import node, edge as ge, subgraph as sg
-import gfa1_serializer as gs1, gfa2_serializer as gs2
+from pygfa.graph_element.parser import header, segment, link, containment, path
+from pygfa.graph_element.parser import edge, gap, fragment, group
+from pygfa.graph_element import node, edge as ge, subgraph as sg
+from pygfa import gfa1_serializer as gs1, gfa2_serializer as gs2
 
 
 gfa_logger = logging.getLogger(__name__)
@@ -560,3 +559,6 @@ class GFA():
             return gs2.serialize_gfa(self)
 
         raise ValueError("Invalid GFA output version.")
+
+if __name__ == '__main__':
+    pass

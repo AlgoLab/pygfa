@@ -1,5 +1,5 @@
-from parser.lines import segment
-from parser import line, field_validator as fv
+from pygfa.graph_element.parser import segment
+from pygfa.graph_element.parser import line, field_validator as fv
 import copy
 
 class InvalidNodeError (Exception): pass
@@ -116,3 +116,5 @@ class Node:
         string += "\topt_fields: " + str.join ("\t", [str(field) for key, field in self.opt_fields.items()])
         return string
             
+if __name__ == '__main__':
+    pass

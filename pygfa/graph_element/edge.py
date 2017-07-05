@@ -1,6 +1,7 @@
-from parser.lines import edge, fragment, containment, gap
-from parser import line
 import copy
+
+from pygfa.graph_element.parser import edge, fragment, containment, gap
+from pygfa.graph_element.parser import line
 
 class InvalidEdgeError(Exception): pass
 
@@ -224,3 +225,6 @@ class Edge:
           "variance: " + str (self.variance)  + ", " + \
           "opt_fields: " + str (self.opt_fields)
         return string
+
+if __name__ == '__main__':
+    pass
