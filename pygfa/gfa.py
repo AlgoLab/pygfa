@@ -412,11 +412,11 @@ class GFA():
         return self._graph.neighbors(nid)
 
     def get_all_reachables(self, nid, weakly=False):
-        """Returns a GFA subgraph with the connected component
+        """Return a GFA subgraph with the connected component
         belonging to the given node.
 
         :param nid: The id of the node to find the reachable nodes.
-        :param weakly: If set to True computes the weakly connected
+        :param weakly: If set to `True` computes the weakly connected
         component for the given node.
         """
         if weakly == True:
@@ -425,7 +425,11 @@ class GFA():
             nodes = nx.dfs_tree(self._graph, nid).nodes()
         return GFA(self.subgraph(nodes))
 
-    def search(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR, limit_type=None):
+    def search(self, \
+               field, \
+               value, \
+               comparator=VALUE_EQUALITY_COMPARATOR, \
+               limit_type=None):
         """Perform a query on the field searching for the value
         specified.
         """
