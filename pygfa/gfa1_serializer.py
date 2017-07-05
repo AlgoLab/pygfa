@@ -1,12 +1,12 @@
 """@package gfa1_serializer
 """
 
-from parser import line, field_validator as fv
-from parser.lines import segment, edge, group, containment, path, fragment, link
-from graph_element import edge as ge, node, subgraph
+from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import segment, edge, group, containment, path, fragment, link
+from pygfa.graph_element import edge as ge, node, subgraph
 import copy, logging
 import networkx as nx
-import gfa
+import pygfa.gfa
 
 # TODO: is this a good idea?
 serializer_logger = logging.getLogger(__name__)
@@ -510,3 +510,6 @@ def serialize_gfa (gfa):
             gfa_serialize += subgraph_serialize + "\n"
 
     return gfa_serialize
+
+if __name__ == '__main__':
+    pass

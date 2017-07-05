@@ -1,9 +1,9 @@
 import sys
-sys.path.insert(0, '../pygfa')
+sys.path.insert(0, '../')
 
-from graph_element import node, edge as graph_edge, subgraph
-from parser.lines import header, segment, link, path, containment, fragment, edge, gap, group
-from parser import line
+from pygfa.graph_element import node, edge as graph_edge, subgraph
+from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
+from pygfa.graph_element.parser import line
 
 import unittest
 
