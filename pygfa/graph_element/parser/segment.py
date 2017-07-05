@@ -3,11 +3,10 @@ import re
 from pygfa.graph_element.parser import line, field_validator as fv
 
 def is_segmentv1(line_repr):
-    """Check wether a given string or line belongs to a Segment of
+    """Check wether a given gfa line string belongs to a Segment of
     the first GFA version.
     
-    :param string: A string or a Line that is supposed to represent
-    an S line.
+    :param string: A string or a Line that is supposed to represent an S line.
     """
     try:
         if isinstance(line_repr, str):        
@@ -27,7 +26,9 @@ def is_segmentv2(line_repr):
     """Check wether a given string or line belongs to a Segment of
     the second GFA version.
     
-    :param string: A string or a Line that is supposed to represent an S line.
+    :param string: A string or a Line that is supposed to represent
+        an S line.
+
     """
     try:
         if isinstance(line_repr, str):        
@@ -43,8 +44,8 @@ def is_segmentv2(line_repr):
     return False
 
 class SegmentV1(line.Line):
-    # TODO: add description
-
+    """A GFA1 Segment line.
+    """
     def __init__(self):
         super().__init__('S')
     
@@ -92,8 +93,8 @@ class SegmentV1(line.Line):
 
 
 class SegmentV2(line.Line):
-    # TODO add description
-
+    """A GFA2 Segment line.
+    """
     def __init__(self):
         super().__init__('S')
     

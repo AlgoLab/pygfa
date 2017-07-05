@@ -85,8 +85,7 @@ DATASTRING_VALIDATION_REGEXP = \
 
 
 def is_valid(string, datatype):
-    """
-    Check if the string respects the datatype.
+    """Check if the string respects the datatype.
 
     :param datatype: The type of data corresponding to the string
     :param fieldname: The fieldname to use in the fv message
@@ -111,24 +110,22 @@ def is_dazzler_trace(string):
     return is_valid(string, GFA2_TRACE)
 
 def is_gfa1_cigar(string):
-    """
-    Check if the given string is a valid CIGAR string
+    """Check if the given string is a valid CIGAR string
     as defined in the GFA1 specification.
     """
     return string != "*" and is_valid(string, GFA1_CIGAR)
 
 
 def is_gfa2_cigar(string):
-    """
-    Check if the given string is a valid CIGAR string
+    """Check if the given string is a valid CIGAR string
     as defined in the GFA2 specification.
     """
     return string != "*" and is_valid(string, GFA2_CIGAR)
 
     
 def validate(string, datatype):
-    """
-    Return the value with the type closer to the one it's represented.
+    """Return a value from the given string with the type closer to the
+    one it's represented.
     """
     if not is_valid(string, datatype):
         raise InvalidFieldError("The string cannot be validated within its datatype,\n" + \

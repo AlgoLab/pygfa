@@ -60,4 +60,3 @@ class Containment(line.Line):
 
 if __name__ == '__main__':
     pass
- 

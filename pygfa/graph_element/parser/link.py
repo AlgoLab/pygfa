@@ -26,8 +26,8 @@ class Link(line.Line):
 
     @classmethod
     def from_string(cls, string):
-        """
-        Extract the link fields from the string.
+        """Extract the link fields from the string.
+        
         The string can contains the L character at the begin or can
         only contains the fields of the link directly.
         """

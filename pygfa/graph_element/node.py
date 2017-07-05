@@ -17,21 +17,26 @@ class Node:
 
     def __init__ (self, node_id, sequence, length, opt_fields={}):
         if not isinstance (node_id, str) or node_id == '*':
-            raise InvalidNodeError ("A Node has always a defined id of type string, " + \
-                                 "given {0} of type {1}".format (node_id, type (node_id)))
+            raise InvalidNodeError (\
+                "A Node has always a defined id of type string, " \
+                + "given {0} of type {1}".format (node_id, type (node_id)))
 
         # checks sequence validation against GFA2 sequence specification
         # (more permissive than the GFA1 one)
-        if not (isinstance (sequence, str) and fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
-            raise Exception ("A sequence must be of type string and must be a valid GFA2 sequence, " + \
-                                 "given '{0}' of type {1}".format (sequence, type (sequence)))
+        if not (isinstance (sequence, str) and \
+            fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
+            raise Exception (\
+                "A sequence must be of type string and must be a " \
+                + "valid GFA2 sequence," \
+                + "given '{0}' of type {1}".format (sequence, type (sequence)))
 
         if not ( \
                      (isinstance (length, int) and int (length) >= 0) or \
                      length == None \
                 ):
-            raise InvalidNodeError ("Sequence length must be a number >= 0, " + \
-                                 "given {0} of type {1}".format (length, type (length)))
+            raise InvalidNodeError (\
+                "Sequence length must be a number >= 0, " + \
+                "given {0} of type {1}".format (length, type (length)))
         self._nid = node_id
         self._sequence = sequence
         self._slen = length
@@ -59,9 +64,10 @@ class Node:
     
     @classmethod
     def from_line (cls, line):
-
         if not line.is_valid ():
-            raise InvalidNodeError ("The line to be added must have all the required fields. Line type: '{0}'".format (line.type))
+            raise InvalidNodeError (\
+                "The line to be added must have all the required fields."
+                + " Line type: '{0}'".format (line.type))
         
         try:
             fields = copy.deepcopy (line.fields)
@@ -70,12 +76,13 @@ class Node:
 
                     fields.pop ('name')
                     fields.pop ('sequence')
-                    # fields.remove_field ('LN') # LN field will be kept as optional field also
                     
                     return Node ( \
                             line.fields['name'].value, \
                             line.fields['sequence'].value, \
-                            None if 'LN' not in line.fields else line.fields['LN'].value, \
+                            None if 'LN' not in line.fields else \
+                            line.fields['LN'].value, \
+                            
                             fields)
                     
                 else:
@@ -113,7 +120,8 @@ class Node:
         string = "nid: " + str (self.nid)
         string += "\tsequence: " + str (self.sequence)
         string += "\tslen: " + str (self.slen)
-        string += "\topt_fields: " + str.join ("\t", [str(field) for key, field in self.opt_fields.items()])
+        string += "\topt_fields: " + str.join ("\t", \
+            [str(field) for key, field in self.opt_fields.items()])
         return string
             
 if __name__ == '__main__':

@@ -17,8 +17,8 @@ class Path (line.Line):
 
     @classmethod
     def from_string (cls, string):
-        """
-        Extract the path fields from the string.
+        """Extract the path fields from the string.
+        
         The string can contains the P character at the begin or can
         only contains the fields of the path directly.
         """

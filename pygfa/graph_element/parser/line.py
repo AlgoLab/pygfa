@@ -4,7 +4,7 @@ from pygfa.graph_element.parser import field_validator as fv
 
 # support for duck typing
 def is_field (field):
-    """Check if the fiven object is a valid field
+    """Check if the given object is a valid field
 
     A field is valid if it has at least a name and a value
     attribute/property.
@@ -37,8 +37,9 @@ class Line:
     """
     A generic Line, it's unlikely that it will be directly instantiated
     (but could be done so).
-    Their sublcass should be used instead.
-    One could instatiate a Line to save a custom line in his gfa file.
+    Its subclasses should be used instead.
+
+    It's possible to instatiate a Line to save a custom line in a gfa file.
     """
     
     REQUIRED_FIELDS = {}
@@ -90,7 +91,8 @@ class Line:
         
     
     def add_field (self, field):
-        """
+        """Add a field to the line.
+
         :param field: The field to add to the line
         
         :raises InvalidFieldError: If a 'name' and a 'value' attributes are
@@ -116,7 +118,7 @@ class Line:
     def remove_field (self, field):
         """
         If the field is contained in the line it gets removed.
-        Othrewise it does nothing without raising exceptions.
+        Otherwise it does nothing, without raising any exception.
         """
         field_name = field
         if is_field (field):
@@ -180,7 +182,10 @@ class Field:
     
 
 class OptField(Field):
-    # TODO: describe me   
+    """An Optional field of the form `TAG:TYPE:VALUE`, where:  
+    TAG match [A-Za-z0-9][A-Za-z0-9]  
+    TYPE match [AiZfJHB]
+    """  
     def __init__ (self, name, value, field_type):
         if not re.fullmatch ('[A-Za-z0-9]' * 2, name):
             raise ValueError ("Invalid optfield name, given '{0}'".format (name))
@@ -200,11 +205,7 @@ class OptField(Field):
 
     @classmethod
     def from_string (cls, string):
-        """
-        Create an OptField with a given string that respects the form
-        TAG:TYPE:VALUE, where:
-        TAG match [A-Za-z0-9][A-Za-z0-9]
-        TYPE match [AiZfJHB]
+        """Create an OptField with a given string.
         """
         groups = re.split (":", string.strip ())
         if len (groups) != 3:
