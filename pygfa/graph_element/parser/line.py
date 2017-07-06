@@ -2,7 +2,12 @@ import re
 
 from pygfa.graph_element.parser import field_validator as fv
 
-class InvalidLineError(Exception): pass
+class InvalidLineError(Exception):
+    """Exception raised when making a Line object from a string.
+    The number of fields gained by splittin the string
+    must be equal to or great than the number of required field
+    ecluding the optional first field indicating the type of the line.
+    """
 
 # support for duck typing
 def is_field (field):

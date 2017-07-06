@@ -39,7 +39,20 @@ class BadField():
 
 class TestLine(unittest.TestCase):
 
-    def test_Field(self):
+
+    def test_field_validator(self):
+        """Test the field validator methods.
+        The different types a datatype can assume are tested in
+        other methods.
+        """
+        self.assertTrue(fv.is_valid("3", fv.TYPE_i))
+        with self.assertRaises(fv.FormatError):
+            fv.is_valid(3, fv.TYPE_i)
+        with self.assertRaises(fv.UnknownDataTypeError):
+            fv.is_valid("3", "a custom datatype")
+
+    
+    def test_field_type(self):
         """Use TestField to check how the different field data types
         are managed.
 
@@ -76,7 +89,7 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', 'f')
 
-        optf = TestField('The gray fox jumped from somewhere...', 'Z')
+        optf = TestField('The gray fox jumped from somewhere.', 'Z')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('力 - is the force', 'Z')
         with self.assertRaises(fv.InvalidFieldError):
@@ -85,15 +98,13 @@ class TestLine(unittest.TestCase):
             optf = TestField('', 'Z')
 
         # this test should fail
-        optf = TestField('The gray fox jumped from somewhere...', 'J')
+        optf = TestField('The gray fox jumped from somewhere.', 'J')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('力 - is the force', 'J')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('\n - is the force', 'J')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', 'J')
-
-        ##################################################################
 
         optf = TestField('A5F', 'H')
         with self.assertRaises(fv.InvalidFieldError):
@@ -103,14 +114,12 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', 'H')
 
-
         optf = TestField('c,15,17,21,-32', 'B')
         optf = TestField('f,15,.05e4', 'B')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('f15,i.05e4', 'B')
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', 'B')
-
 
         optf = TestField('(12', fv.GFA1_NAME)
         with self.assertRaises(fv.InvalidFieldError):
@@ -127,7 +136,7 @@ class TestLine(unittest.TestCase):
         
         optf = TestField('(12-,14+,17-', fv.GFA1_NAMES)
 
-         # no sign orientation near 14
+        # no sign orientation near 14
         optf = TestField('(12-,14,17-', fv.GFA1_NAMES)
         
         # space is not allowed
@@ -152,6 +161,7 @@ class TestLine(unittest.TestCase):
         
         optf = TestField('*', fv.GFA1_CIGAR)
         optf = TestField('5I2M', fv.GFA1_CIGAR)
+        self.assertTrue(fv.is_gfa1_cigar(optf.value))
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', fv.GFA1_CIGAR)
 
@@ -164,6 +174,7 @@ class TestLine(unittest.TestCase):
             optf = TestField('5I2M,*,3,22M', fv.GFA1_CIGARS)
 
         optf = TestField('5I2M', fv.GFA2_CIGAR)
+        self.assertTrue(fv.is_gfa2_cigar(optf.value))
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', fv.GFA2_CIGAR)
         with self.assertRaises(fv.InvalidFieldError):
@@ -203,6 +214,11 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('aa bb+', fv.GFA2_REFERENCES)
 
+        optf = TestField('42', fv.GFA2_OPTIONAL_INT)
+        self.assertTrue(optf.value == 42)
+        optf = TestField('*', fv.GFA2_OPTIONAL_INT)
+        self.assertTrue(optf.value == "*")
+
         optf = TestField('42', fv.GFA2_INT)
         self.assertTrue(optf.value == 42)
         with self.assertRaises(fv.InvalidFieldError):
@@ -213,14 +229,17 @@ class TestLine(unittest.TestCase):
         optf = TestField('42', fv.GFA2_TRACE)
         optf = TestField('42,42', fv.GFA2_TRACE)
         optf = TestField('42,42,42', fv.GFA2_TRACE)
+        dazz_trace = fv.validate(optf.value, fv.GFA2_TRACE)
+        self.assertTrue(fv.is_dazzler_trace(dazz_trace))
+        
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('', fv.GFA2_TRACE)
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField('-42', fv.GFA2_TRACE)
 
         optf = TestField('42', fv.GFA2_POSITION)
-         # fv.GFA2_POSITION will be validated and converted
-         # to a string
+        # fv.GFA2_POSITION will be validated and converted
+        # to a string
         self.assertTrue(optf.value == "42")
         optf = TestField('42$', fv.GFA2_POSITION)
         with self.assertRaises(fv.InvalidFieldError):
@@ -252,7 +271,7 @@ class TestLine(unittest.TestCase):
 
         # Missing field type tests
         # 'pos' : "^[0-9]*$", # positive integer \
-        # TODO: this way the empty string is allowed... could it be possibly a
+        # TODO: this way the empty string is allowed. could it be possibly a
         # mistake in the specification of GFA1? Ask for it.
         #
         # 'cmt' : ".*"
