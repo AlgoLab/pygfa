@@ -22,11 +22,16 @@ class Gap(line.Line):
         The string can contains the G character at the begin or can
         only contains the fields of the Gap directly.
         """
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split('\t', string)
         gfields = []
         if fields[0] == 'G':
             fields = fields[1:]
-            
+
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Gap line is not reached.")
         gap = Gap()
 
         gid_f = fv.validate(fields[0], cls.REQUIRED_FIELDS['gid'])
@@ -52,5 +57,5 @@ class Gap(line.Line):
 
         return gap
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

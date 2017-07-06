@@ -29,10 +29,12 @@ class Containment(line.Line):
         The string can contains the C character at the begin or can
         only contains the fields of the containment directly.
         """
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split('\t', string)
         cfields = []
         if fields[0] == 'C':
-            fields = fields[1:] #skip the first field (the C)
+            fields = fields[1:] #skip the first field(the C)
 
         if len(fields) < len(cls.REQUIRED_FIELDS):
             raise line.InvalidLineError("The minimum number of field for "

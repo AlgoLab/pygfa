@@ -24,6 +24,8 @@ class Fragment(line.Line):
         The string can contains the F character at the begin or can
         only contains the fields of the fragment directly.
         """
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split('\t', string)
         ffields = []
         if fields[0] == 'F':

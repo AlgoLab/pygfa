@@ -26,6 +26,8 @@ class Edge(line.Line):
         The string can contains the E character at the begin or can
         only contains the fields of the Edge directly.
         """
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split('\t', string)
         efields = []
         if fields[0] == 'E':
