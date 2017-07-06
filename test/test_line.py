@@ -1,15 +1,17 @@
 import sys
 sys.path.insert(0, '../')
 
-from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
-from pygfa.graph_element.parser import line, field_validator as fv
 import re
 import unittest
+import copy
 
-"""
-Tips: How to TDD with regex
-https://stackoverflow.com/questions/488601/how-do-you-unit-test-regular-expressions
-"""
+from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
+from pygfa.graph_element.parser import line, field_validator as fv
+
+# Tips: How to TDD with regex
+# https://stackoverflow.com/questions/488601/ (continue...)
+# how-do-you-unit-test-regular-expressions
+
 
 class TestField():
     """
@@ -367,27 +369,83 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.InvalidFieldError):
             seg.add_field(line.OptField('AA', 'a', 'i'))
 
+        # if a Field is passed, the method just remove
+        # the value associated with the Field name
+        seg_copy = copy.deepcopy(seg)
         seg.remove_field(line.Field('name', '4'))
         self.assertTrue('name' not in seg.fields)
+        self.assertTrue(seg != seg_copy)
+        
+        seg.add_field(line.Field('name', '3'))
+        # if a string is passed, remove the value associated
+        # with name of the key given        
+        seg.remove_field('name')
+        self.assertTrue('name' not in seg.fields)
 
+        seg_copy = copy.deepcopy(seg)
+        seg.remove_field('non_existent_field')
+        self.assertTrue(seg_copy == seg)
+
+        fields_copy = copy.deepcopy(seg.fields)
+        self.assertTrue(seg != fields_copy)
+
+        
         segment_fields = segment.SegmentV1.get_static_fields()
         for field in ('name', 'sequence', 'LN', \
                       'RC', 'FC', 'KC', 'SH', 'UR'):
             self.assertTrue(field in segment_fields)
 
+            
+    def test_header(self):
+        with self.assertRaises(line.InvalidLineError):
+            header.Header.from_string("    ")
 
+        head = header.Header.from_string("VN:Z:1.0")
+        self.assertTrue(head.type == "H")
+        self.assertTrue(head.fields['VN'].value == "1.0")
+        self.assertTrue(head.is_valid())
         
+        head = header.Header.from_string("H\tVN:Z:1.0")
+        self.assertTrue(head.type == "H")
+        self.assertTrue(head.fields['VN'].value == "1.0")
+        self.assertTrue(head.is_valid())
+        
+
     def test_Segment(self):
         """Test the parsing of a S line either following the
         GFA1 and the GFA2 specifications.
         """
+        with self.assertRaises(line.InvalidLineError):
+            segment.SegmentV1.from_string("  ")
+        with self.assertRaises(line.InvalidLineError):
+            segment.SegmentV1.from_string("TGCAACGTATAGACTTGTCAC")
+        with self.assertRaises(fv.InvalidFieldError):
+            segment.SegmentV1.from_string("TGCAACGTATAGACTTGTCAC\tRC:i:4")
+
         seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         self.assertTrue(seg.type == "S")
         self.assertTrue(seg.fields['name'].value == "3")
         self.assertTrue(seg.fields['sequence'].value  == "TGCAACGTATAGACTTGTCAC")
         self.assertTrue(seg.fields['RC'].value == 4)
         self.assertTrue(seg.is_valid())
+        self.assertTrue(\
+                segment.is_segmentv1("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4"))
+        self.assertFalse(segment.is_segmentv1(""))
+        self.assertTrue(segment.is_segmentv1(seg))
+        self.assertFalse(segment.is_segmentv1("tab0\ttab1\tACGT"))
+        
+        # the function should just try to identify if the given object
+        # probably is a GFA1 segment, the full check will be done
+        # by another function/method if necessary
+        self.assertTrue(segment.is_segmentv1("S\ttab1\tACGT"))
 
+        with self.assertRaises(line.InvalidLineError):
+            segment.SegmentV2.from_string("  ")
+        with self.assertRaises(line.InvalidLineError):
+            segment.SegmentV2.from_string("t3\tTGCAACGTATAGACTTG")
+        with self.assertRaises(fv.InvalidFieldError):
+            segment.SegmentV2.from_string("t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
+            
         seg = segment.SegmentV2.from_string("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         self.assertTrue(seg.type == "S")
         self.assertTrue(seg.fields['sid'].value == "3")
@@ -395,16 +453,22 @@ class TestLine(unittest.TestCase):
         self.assertTrue(seg.fields['sequence'].value  == "TGCAACGTATAGACTTGTCAC")
         self.assertTrue(seg.fields['RC'].value == 4)
         self.assertTrue(seg.is_valid())
+        self.assertFalse(segment.is_segmentv2(""))
+        self.assertTrue(segment.is_segmentv2(seg))
+        self.assertFalse(segment.is_segmentv2("tab0\ttab1\t21\tACGT"))
+        # the same proposition above for the GFA1 is valid here. 
+        self.assertTrue(\
+                segment.is_segmentv2("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4"))
 
         
     def test_Fragment(self):
         with self.assertRaises(line.InvalidLineError):
+            fragment.Fragment.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
             fragment.Fragment.from_string("12\t2-\t0\t")
-
         with self.assertRaises(fv.InvalidFieldError):
             fragment.Fragment.from_string("2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
-            
-        
+                    
         frag = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
         self.assertTrue(frag.type == "F")
         self.assertTrue(frag.fields['sid'].value == "12")
@@ -418,13 +482,13 @@ class TestLine(unittest.TestCase):
 
 
     def test_Edge(self):
-
+        with self.assertRaises(line.InvalidLineError):
+            edge.Edge.from_string("    ")
         with self.assertRaises(line.InvalidLineError):
             edge.Edge.from_string("*\t23-\t16+\t0\t11\t0\t11")
 
         with self.assertRaises(fv.InvalidFieldError):
             edge.Edge.from_string("23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
-
             
         edg = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
         self.assertTrue(edg.type == "E")
@@ -440,7 +504,14 @@ class TestLine(unittest.TestCase):
 
         
     def test_Link(self):
-        ln = link.Link.from_string("L\t3\t+\t65\t-\t47M")
+        with self.assertRaises(line.InvalidLineError):
+            link.Link.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
+            link.Link.from_string("t3\t+\t65\t-")
+        with self.assertRaises(fv.InvalidFieldError):
+            link.Link.from_string("L\t+\t65\t-\t47M\tAA:Z:test")
+        
+        ln = link.Link.from_string("L\t3\t+\t65\t-\t47M\tAA:Z:test")
         self.assertTrue(ln.type == "L")
         self.assertTrue(ln.fields['from'].value == "3")
         self.assertTrue(ln.fields['from_orn'].value == "+")
@@ -456,6 +527,8 @@ class TestLine(unittest.TestCase):
             http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
         """
         # give a string with three fields instead of 4
+        with self.assertRaises(line.InvalidLineError):
+            containment.Containment.from_string("    ")
         with self.assertRaises(line.InvalidLineError):
             containment.Containment.from_string("a\t+\tb\t-\t10")
 
@@ -478,11 +551,16 @@ class TestLine(unittest.TestCase):
         """
         Example taken from gfapy doc:
         http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html_
-
-        TODO:
-            check this out
         """
-        gp = gap.Gap.from_string("G\tg\tA+\tB-\t1000\t*")
+        with self.assertRaises(line.InvalidLineError):
+            gap.Gap.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
+            gap.Gap.from_string("A+\tB-\t1000\t*")
+
+        with self.assertRaises(fv.InvalidFieldError):
+            gap.Gap.from_string("\G\tg\tA+\tB-\t*\tAA:Z:test")
+        
+        gp = gap.Gap.from_string("G\tg\tA+\tB-\t1000\t*\tAA:Z:test")
         self.assertTrue(gp.type == "G")
         self.assertTrue(gp.fields['gid'].value == "g")
         self.assertTrue(gp.fields['sid1'].value == "A+")
@@ -493,7 +571,14 @@ class TestLine(unittest.TestCase):
 
 
     def test_Path(self):
-        pt = path.Path.from_string("P\tP1\tA+,X+,B+\t4M,4M")
+        with self.assertRaises(line.InvalidLineError):
+            path.Path.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
+            path.Path.from_string("A+,X+,B+\t4M,4M")
+        with self.assertRaises(fv.InvalidFieldError):
+            path.Path.from_string("A+,X+,B+\t4M,4M\tAA:Z:test")
+        
+        pt = path.Path.from_string("P\tP1\tA+,X+,B+\t4M,4M\tAA:Z:test")
         self.assertTrue(pt.type == "P")
         self.assertTrue(pt.fields['path_name'].value == "P1")
         self.assertTrue(pt.fields['seqs_names'].value  == "A+,X+,B+".split(","))
@@ -502,14 +587,30 @@ class TestLine(unittest.TestCase):
         
         
     def test_OGroup(self):
-        ogroup = group.OGroup.from_string("O\t1p\t12- 11+ 32+ 28- 20- 16+")
+        with self.assertRaises(line.InvalidLineError):
+            group.OGroup.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
+            group.OGroup.from_string("12- 11+ 32+ 28- 20- 16+")
+
+        with self.assertRaises(fv.InvalidFieldError):
+            group.OGroup.from_string("1p\tAA:Z:test")
+        
+        ogroup = group.OGroup.from_string("O\t1p\t12- 11+ 32+ 28- 20- 16+\tAA:Z:test")
         self.assertTrue(ogroup.type == "O")
         self.assertTrue(ogroup.fields['oid'].value == "1p")
         self.assertTrue(ogroup.fields['references'].value  == "12- 11+ 32+ 28- 20- 16+".split())
         self.assertTrue(ogroup.is_valid())
         
     def test_UGroup(self):
-        ugroup = group.UGroup.from_string("U\ts1\tA b_c g")
+        with self.assertRaises(line.InvalidLineError):
+            group.UGroup.from_string("    ")
+        with self.assertRaises(line.InvalidLineError):
+            group.UGroup.from_string("A b_c g")
+
+        with self.assertRaises(fv.InvalidFieldError):
+            group.UGroup.from_string("s1\t\tAA:Z:test")
+
+        ugroup = group.UGroup.from_string("U\ts1\tA b_c g\tAA:Z:test")
         self.assertTrue(ugroup.type == "U")
         self.assertTrue(ugroup.fields['uid'].value == "s1")
         self.assertTrue(ugroup.fields['ids'].value  == "A b_c g".split())
