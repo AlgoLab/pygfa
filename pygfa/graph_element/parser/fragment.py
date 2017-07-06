@@ -28,9 +28,12 @@ class Fragment(line.Line):
         ffields = []
         if fields[0] == 'F':
             fields = fields[1:]
+
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Fragment line is not reached.")
             
         fragment = Fragment()
-
         sid_f = fv.validate(fields[0], cls.REQUIRED_FIELDS['sid'])
         ffields.append(line.Field('sid', sid_f))
 
@@ -60,5 +63,5 @@ class Fragment(line.Line):
 
         return fragment
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

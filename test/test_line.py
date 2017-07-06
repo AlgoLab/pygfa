@@ -398,7 +398,14 @@ class TestLine(unittest.TestCase):
 
         
     def test_Fragment(self):
-        frag = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M")
+        with self.assertRaises(line.InvalidLineError):
+            fragment.Fragment.from_string("12\t2-\t0\t")
+
+        with self.assertRaises(fv.InvalidFieldError):
+            fragment.Fragment.from_string("2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
+            
+        
+        frag = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
         self.assertTrue(frag.type == "F")
         self.assertTrue(frag.fields['sid'].value == "12")
         self.assertTrue(frag.fields['external'].value == "2-")
