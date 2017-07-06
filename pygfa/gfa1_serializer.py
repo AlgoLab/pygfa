@@ -1,4 +1,8 @@
-"""@package gfa1_serializer
+"""
+GFA1 Serializer for nodes, edge, Subgraphs and networkx graphs.
+
+Can serialize either one of the object from the group mentioned
+before or from a dictionary with equivalent key.
 """
 
 from pygfa.graph_element.parser import line, field_validator as fv

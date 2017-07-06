@@ -1,8 +1,8 @@
 """
-    GFA2 Serializer for nodes, edge, Subgraphs and networkx graphs.
+GFA2 Serializer for nodes, edge, Subgraphs and networkx graphs.
 
-    Can serialize either one of the object from the group mentioned
-    before or from a dictionary with equivalent key.
+Can serialize either one of the object from the group mentioned
+before or from a dictionary with equivalent key.
 """
 
 # SUPER TODO: refactor this code and gfa1_serialzer to avoid the HORDES
@@ -14,6 +14,8 @@ from pygfa.graph_element import edge as ge, node, subgraph
 import copy, logging
 import networkx as nx
 from pygfa import gfa
+
+class GFA2SerializationError(Exception): pass
 
 # TODO: is this a good idea?
 serializer_logger = logging.getLogger(__name__)
@@ -78,9 +80,7 @@ def _are_fields_defined(fields):
         return False
     return True
 
-
-class GFA2SerializationError(Exception): pass
-    
+   
 ################################################################################
 # NODE SERIALIZER
 ################################################################################

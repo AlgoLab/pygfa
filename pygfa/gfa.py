@@ -417,7 +417,7 @@ class GFA():
 
         :param nid: The id of the node to find the reachable nodes.
         :param weakly: If set to `True` computes the weakly connected
-        component for the given node.
+            component for the given node.
         """
         if weakly == True:
             nodes = nx.dfs_tree(nx.MultiGraph(self._graph), nid).nodes()
