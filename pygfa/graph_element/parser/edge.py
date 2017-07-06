@@ -30,6 +30,11 @@ class Edge(line.Line):
         efields = []
         if fields[0] == 'E':
             fields = fields[1:]
+
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Edge line is not reached.")
+
             
         edge = Edge()
 
@@ -65,5 +70,5 @@ class Edge(line.Line):
 
         return edge
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

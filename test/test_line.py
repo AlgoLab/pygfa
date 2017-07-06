@@ -392,7 +392,15 @@ class TestLine(unittest.TestCase):
 
 
     def test_Edge(self):
-        edg = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M")
+
+        with self.assertRaises(line.InvalidLineError):
+            edge.Edge.from_string("*\t23-\t16+\t0\t11\t0\t11")
+
+        with self.assertRaises(fv.InvalidFieldError):
+            edge.Edge.from_string("23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
+
+            
+        edg = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
         self.assertTrue(edg.type == "E")
         self.assertTrue(edg.fields['eid'].value == "*")
         self.assertTrue(edg.fields['sid1'].value == "23-")
