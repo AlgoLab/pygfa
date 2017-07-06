@@ -33,6 +33,10 @@ class Containment(line.Line):
         cfields = []
         if fields[0] == 'C':
             fields = fields[1:] #skip the first field (the C)
+
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Containment line is not reached.")
             
         containment = Containment()
 
@@ -58,5 +62,5 @@ class Containment(line.Line):
             
         return containment
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

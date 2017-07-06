@@ -2,6 +2,8 @@ import re
 
 from pygfa.graph_element.parser import field_validator as fv
 
+class InvalidLineError(Exception): pass
+
 # support for duck typing
 def is_field (field):
     """Check if the given object is a valid field
@@ -9,7 +11,7 @@ def is_field (field):
     A field is valid if it has at least a name and a value
     attribute/property.
     """
-    for attr in ('_name', '_value'):
+    for attr in ('name', 'value'):
         if not hasattr (field, attr):
             return False
     if field.name == None or field.value == None:
@@ -107,11 +109,7 @@ class Line:
         if field.name in self.REQUIRED_FIELDS:
             self._fields[field.name] = field
         else: # here we are appending an optfield
-              if not is_optfield (field):
-                  raise fv.InvalidFieldError ("The field given it's not a valid optfield nor a required field.")
-
               self._fields[field.name] = field
-
         return True
     
 
@@ -129,11 +127,11 @@ class Line:
         
 
     @classmethod
-    def from_string (cls, string):
+    def from_string (cls, string): # pragma: no cover
         raise NotImplementedError
 
     
-    def __str__ (self):
+    def __str__ (self): # pragma: no cover
         tmp_str = "line_type: {0}, fields: [".format (str (self.type))
         field_strings = []
         
@@ -142,7 +140,6 @@ class Line:
         
         tmp_str += str.join (", ", field_strings) + "]"
         return tmp_str
-
 
 
     
@@ -166,16 +163,16 @@ class Field:
 
     
     def __eq__ (self, other):
-        if isinstance (other, self.__class__):
+        try:
             return self.name == other.name and \
               self.value == other.value
-
-        return NotImplemented
+        except:
+            return False
 
     def __neq__ (self, other):
         return not self ==  other
 
-    def __str__ (self):
+    def __str__ (self): # pragma: no cover
         return str.join (":", (self.name, str (self.value)))
 
     
@@ -220,15 +217,15 @@ class OptField(Field):
             return self.name == other.name and \
               self.value == other.value and \
               self.type == other.type
-
-        except: return False
+        except:
+            return False
 
     
     def __neq__ (self, other):
         return not self == other;
 
     
-    def __str__ (self):
+    def __str__ (self): # pragma: no cover
         return str.join (":", (self.name, self.type, str (self.value)))
 
 if __name__ == '__main__':
