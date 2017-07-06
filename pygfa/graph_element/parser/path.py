@@ -2,10 +2,10 @@ import re
 
 from pygfa.graph_element.parser import line, field_validator as fv
 
-class Path (line.Line):
+class Path(line.Line):
 
-    def __init__ (self):
-        super().__init__ ('P')
+    def __init__(self):
+        super().__init__('P')
     
     REQUIRED_FIELDS = { \
     'path_name' : fv.GFA1_NAME, \
@@ -16,38 +16,42 @@ class Path (line.Line):
     PREDEFINED_OPTFIELDS = {}
 
     @classmethod
-    def from_string (cls, string):
+    def from_string(cls, string):
         """Extract the path fields from the string.
         
         The string can contains the P character at the begin or can
-        only contains the fields of the path directly.
+        just contains the fields of the path directly.
         """
-        fields = re.split ('\t', string)
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
+        fields = re.split('\t', string)
         pfields = []
         if fields[0] == 'P':
             fields = fields[1:]
-            
-        path = Path ()
 
-        path_name = fv.validate (fields[0], cls.REQUIRED_FIELDS['path_name'])
-        sequences_names = [ fv.validate (label, \
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Path line is not reached.")
+        path = Path()
+        path_name = fv.validate(fields[0], cls.REQUIRED_FIELDS['path_name'])
+        sequences_names = [ fv.validate(label, \
                             cls.REQUIRED_FIELDS['seqs_names']) \
                             for label in fields[1].split(",")
                           ]
 
-        overlaps = fv.validate (fields[2], cls.REQUIRED_FIELDS['overlaps'])
+        overlaps = fv.validate(fields[2], cls.REQUIRED_FIELDS['overlaps'])
 
-        pfields.append (line.Field ('path_name', path_name))
-        pfields.append (line.Field ('seqs_names', sequences_names))
-        pfields.append (line.Field ('overlaps', overlaps))
+        pfields.append(line.Field('path_name', path_name))
+        pfields.append(line.Field('seqs_names', sequences_names))
+        pfields.append(line.Field('overlaps', overlaps))
 
         for field in fields[3:]:
-            pfields.append (line.OptField.from_string (field))
+            pfields.append(line.OptField.from_string(field))
             
         for field in pfields:
-            path.add_field (field)
+            path.add_field(field)
             
         return path
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

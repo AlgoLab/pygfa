@@ -29,15 +29,19 @@ class Link(line.Line):
         """Extract the link fields from the string.
         
         The string can contains the L character at the begin or can
-        only contains the fields of the link directly.
+        just contains the fields of the link directly.
         """
+        if len(string.split()) == 0:
+            raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split('\t', string)
         lfields = []
         if fields[0] == 'L':
             fields = fields[1:]
-            
-        link = Link()
 
+        if len(fields) < len(cls.REQUIRED_FIELDS):
+            raise line.InvalidLineError("The minimum number of field for "
+                                        + "Link line is not reached.")
+        link = Link()
         from_name = fv.validate(fields[0], cls.REQUIRED_FIELDS['from'])
         from_orn = fv.validate(fields[1], cls.REQUIRED_FIELDS['from_orn'])
         to_name = fv.validate(fields[2], cls.REQUIRED_FIELDS['to'])
@@ -58,5 +62,5 @@ class Link(line.Line):
 
         return link
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass
