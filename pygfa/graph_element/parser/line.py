@@ -60,18 +60,26 @@ class Line:
         self._fields = {}
         self._type = line_type
 
-
-    def is_valid(self):
+    @classmethod
+    def is_valid(cls, line_):
         """Check if the line is valid.
 
         Defining the method here allows to have automatically validated
         all the line of the specifications.
         """
-        for required_field in self.REQUIRED_FIELDS:
-            if not required_field in self.fields:
+        # use polymorphism to get the type and the required fields of a
+        # specific kind of line.
+        instance = cls()
+        try:
+            if line_.type != cls().type:
                 return False
-        return True
-
+            for required_field in instance.REQUIRED_FIELDS:
+                if not required_field in line_.fields:
+                    return False
+            return True
+        except (AttributeError, KeyError):
+            return False
+        
         
     @classmethod
     def get_static_fields(cls):

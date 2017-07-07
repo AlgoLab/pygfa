@@ -320,7 +320,7 @@ class TestLine(unittest.TestCase):
         seg = segment.SegmentV1()
         seg.add_field(line.Field('name', '3'))
         seg.add_field(line.OptField('AC', '3', 'i'))
-        self.assertFalse(seg.is_valid())
+        self.assertFalse(segment.SegmentV1.is_valid(seg))
 
 
     def test_is_field(self):
@@ -389,11 +389,27 @@ class TestLine(unittest.TestCase):
         fields_copy = copy.deepcopy(seg.fields)
         self.assertTrue(seg != fields_copy)
 
-        
         segment_fields = segment.SegmentV1.get_static_fields()
         for field in ('name', 'sequence', 'LN', \
                       'RC', 'FC', 'KC', 'SH', 'UR'):
             self.assertTrue(field in segment_fields)
+
+        invalid_segment = segment.SegmentV1()
+        invalid_segment.add_field(line.Field("name", "3"))
+        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
+
+        # test against duck typing.
+        # So in the case the user is trying to replicate the line class
+        # (maybe to extend it)
+        invalid_segment = line.Line()
+        del(invalid_segment._type)
+        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
+
+        invalid_segment = line.Line()
+        invalid_segment.add_field(line.Field("name", "3"))
+        invalid_segment.add_field(line.Field("sequence", "acgt"))
+        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
+        
 
             
     def test_header(self):
@@ -403,12 +419,12 @@ class TestLine(unittest.TestCase):
         head = header.Header.from_string("VN:Z:1.0")
         self.assertTrue(head.type == "H")
         self.assertTrue(head.fields['VN'].value == "1.0")
-        self.assertTrue(head.is_valid())
+        self.assertTrue(header.Header.is_valid(head))
         
         head = header.Header.from_string("H\tVN:Z:1.0")
         self.assertTrue(head.type == "H")
         self.assertTrue(head.fields['VN'].value == "1.0")
-        self.assertTrue(head.is_valid())
+        self.assertTrue(header.Header.is_valid(head))
         
 
     def test_Segment(self):
@@ -427,7 +443,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(seg.fields['name'].value == "3")
         self.assertTrue(seg.fields['sequence'].value  == "TGCAACGTATAGACTTGTCAC")
         self.assertTrue(seg.fields['RC'].value == 4)
-        self.assertTrue(seg.is_valid())
+        self.assertTrue(segment.SegmentV1.is_valid(seg))
         self.assertTrue(\
                 segment.is_segmentv1("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4"))
         self.assertFalse(segment.is_segmentv1(""))
@@ -452,7 +468,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(seg.fields['slen'].value == 21)
         self.assertTrue(seg.fields['sequence'].value  == "TGCAACGTATAGACTTGTCAC")
         self.assertTrue(seg.fields['RC'].value == 4)
-        self.assertTrue(seg.is_valid())
+        self.assertTrue(segment.SegmentV2.is_valid(seg))
         self.assertFalse(segment.is_segmentv2(""))
         self.assertTrue(segment.is_segmentv2(seg))
         self.assertFalse(segment.is_segmentv2("tab0\ttab1\t21\tACGT"))
@@ -478,7 +494,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(frag.fields['fbeg'].value == "0")
         self.assertTrue(frag.fields['fend'].value == "140")
         self.assertTrue(frag.fields['alignment'].value  == "11M")
-        self.assertTrue(frag.is_valid())
+        self.assertTrue(fragment.Fragment.is_valid(frag))
 
 
     def test_Edge(self):
@@ -500,7 +516,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(edg.fields['beg1'].value == "0")
         self.assertTrue(edg.fields['end2'].value == "11")
         self.assertTrue(edg.fields['alignment'].value  == "11M")
-        self.assertTrue(edg.is_valid())
+        self.assertTrue(edge.Edge.is_valid(edg))
 
         
     def test_Link(self):
@@ -518,7 +534,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(ln.fields['to'].value == "65")
         self.assertTrue(ln.fields['to_orn'].value == "-")
         self.assertTrue(ln.fields['overlap'].value == "47M")
-        self.assertTrue(ln.is_valid())
+        self.assertTrue(link.Link.is_valid(ln))
 
         
     def test_Containment(self):
@@ -544,7 +560,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(cn.fields['pos'].value == 10)
         self.assertTrue(cn.fields['overlap'].value == "*")
         self.assertTrue(cn.fields['AA'].value == "an optional field")
-        self.assertTrue(cn.is_valid())
+        self.assertTrue(containment.Containment.is_valid(cn))
 
 
     def test_Gap(self):
@@ -567,7 +583,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(gp.fields['sid2'].value == "B-")
         self.assertTrue(gp.fields['distance'].value == 1000)
         self.assertTrue(gp.fields['variance'].value  == "*")
-        self.assertTrue(gp.is_valid())
+        self.assertTrue(gap.Gap.is_valid(gp))
 
 
     def test_Path(self):
@@ -583,7 +599,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(pt.fields['path_name'].value == "P1")
         self.assertTrue(pt.fields['seqs_names'].value  == "A+,X+,B+".split(","))
         self.assertTrue(pt.fields['overlaps'].value  == "4M,4M".split(","))
-        self.assertTrue(pt.is_valid())
+        self.assertTrue(path.Path.is_valid(pt))
         
         
     def test_OGroup(self):
@@ -599,7 +615,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(ogroup.type == "O")
         self.assertTrue(ogroup.fields['oid'].value == "1p")
         self.assertTrue(ogroup.fields['references'].value  == "12- 11+ 32+ 28- 20- 16+".split())
-        self.assertTrue(ogroup.is_valid())
+        self.assertTrue(group.OGroup.is_valid(ogroup))
         
     def test_UGroup(self):
         with self.assertRaises(line.InvalidLineError):
@@ -614,7 +630,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(ugroup.type == "U")
         self.assertTrue(ugroup.fields['uid'].value == "s1")
         self.assertTrue(ugroup.fields['ids'].value  == "A b_c g".split())
-        self.assertTrue(ugroup.is_valid())
+        self.assertTrue(group.UGroup.is_valid(ugroup))
 
 
 
