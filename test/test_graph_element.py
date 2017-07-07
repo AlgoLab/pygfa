@@ -41,6 +41,15 @@ class BadEdge:
         self.variance = variance
         self.opt_fields = copy.deepcopy(opt_fields)
 
+class BadSubgraph:
+    """A class that mimic the Subgraph class"""
+
+    def __init__(self, sub_id, elements, opt_fields):
+        self.sub_id = sub_id
+        self.elements = copy.deepcopy(elements)
+        self.opt_fields = copy.deepcopy(opt_fields)
+        
+
 class CustomLine(line.Line):
     """A custom line."""
     def __init__(self):
@@ -187,7 +196,49 @@ class TestGraphElement (unittest.TestCase):
         with self.assertRaises(line.InvalidLineError):
             graph_edge.Edge.from_line(custom_line)
         
-    
+
+    def test_subgraph(self):
+        path_ = path.Path.from_string ("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
+        sb = subgraph.Subgraph.from_line (path_)
+
+        self.assertTrue(subgraph.is_subgraph(sb))
+
+        # check duck typing for subgraph
+        bad_graph = BadSubgraph(sb.sub_id, sb.elements, sb.opt_fields)
+        self.assertTrue(subgraph.is_subgraph(bad_graph))
+
+        del(bad_graph.sub_id)
+        self.assertFalse(subgraph.is_subgraph(bad_graph))
+        bad_graph.sub_id = sb.sub_id # restore previous state
+        
+        # check for init exceptions
+        with self.assertRaises(subgraph.InvalidSubgraphError):
+            subgraph.Subgraph(42, sb.elements, sb.opt_fields)
+
+        with self.assertRaises(subgraph.InvalidSubgraphError):
+            subgraph.Subgraph(sb.sub_id, 42, sb.opt_fields)
+
+        # insert an invalid OptField and check it won't be added
+        sb._opt_fields['AA'] = 42
+        sb_ = subgraph.Subgraph(sb.sub_id, sb.elements, sb.opt_fields)
+        self.assertFalse('AA' in sb_.opt_fields)
+
+        # check unexpected line type in from_line
+        custom_line = CustomLine.from_string("R\ta\tcustom\tline")
+        self.assertTrue(subgraph.Subgraph.from_line(custom_line) == None)
+
+        # check exception in from_line
+        custom_line._type = "P"
+        with self.assertRaises(line.InvalidLineError):
+            subgraph.Subgraph.from_line(custom_line)
+
+        subgraph_dict = sb.as_dict()
+        self.assertTrue(subgraph_dict['sub_id'] == sb.sub_id)
+        self.assertTrue(subgraph_dict['elements'] == sb.elements)
+        self.assertTrue(subgraph_dict['ab'] == sb.opt_fields['ab'])
+        
+
+            
     def test_node_from_segment (self):
         seg = segment.SegmentV1.from_string ("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         node_ = node.Node.from_line (seg)

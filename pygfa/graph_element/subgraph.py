@@ -1,22 +1,57 @@
+"""TODO: add equality and unequality operator
+"""
+
+
+import copy
+import collections
+
 from pygfa.graph_element.parser import path, group
 from pygfa.graph_element.parser import line
-import copy, collections
+
 
 class InvalidSubgraphError (Exception): pass
 
+def is_subgraph(obj):
+    try:
+        return obj.sub_id != None and \
+          obj.elements != None and \
+          hasattr(obj, 'opt_fields')
+    except: return False
 
 class Subgraph:
 
     def __init__ (self, graph_id, elements, opt_fields={}):
+        """Create a Subgraph object.
+
+        Subgraphs can be created from the following lines:
+        * Path
+        * OGroup
+        * UGroup
+
+        :param graph_id: The id of the subgraph. It can be '*', but
+            cannot be None.
+        :param elements: An ordered dictionary of node id and orientations.
+        :param opt_fields: A dictionary of Fields or OptFields.
+
+        :note:
+            In case of Path line, the `overlaps` won't be represented as
+            an explicit Subgraph attribute, but it will be added
+            into the opt_fields dictionary with the name `overlaps`.
+
+            This choice has been done since the overlaps can be computed
+            with the alignment of each edge in the Subgraph.
+        """
         if not isinstance (graph_id, str):
-            raise InvalidSubgraphError ("A  has always an id of type string, " + \
-                                 "given {0} of type {1}".format (node_id, type (node_id)))
-
+            raise InvalidSubgraphError ("A subgraph has always an id " \
+                                       + "of type string, " \
+                                       +"given {0} of type {1}".format( \
+                                                                graph_id, \
+                                                                type (graph_id)))
         if not isinstance (elements, dict):
-            raise InvalidSubgraphError ("A dictionary of elements id:orientation is required.")
-
+            raise InvalidSubgraphError(\
+                    "A dictionary of elements id:orientation is required.")
         self._sub_id = graph_id
-        self._elements = elements
+        self._elements = copy.deepcopy(elements)
         self._opt_fields = {}
         for key, field in opt_fields.items ():
             if line.is_field (field):
@@ -36,68 +71,76 @@ class Subgraph:
         return self._opt_fields
 
     @classmethod
-    def from_line (cls, line):
-
-        if not line.is_valid ():
-            raise InvalidSubgraphError ("The line to be added must have all the required fields. Line type: '{0}'".format (line.type))
-
+    def from_line (cls, line_):
         try:
-            fields = copy.deepcopy (line.fields)
-
-            if line.type == 'P':
+            fields = copy.deepcopy (line_.fields)
+            if line_.type == 'P':
                 fields.pop ('path_name')
                 fields.pop ('seqs_names')
-                
+                names = collections.OrderedDict (\
+                            (ref[0:-1], ref[-1:]) \
+                                for ref in line_.fields['seqs_names'].value)
                 return Subgraph ( \
-                                line.fields['path_name'].value, \
-                                collections.OrderedDict ((ref[0:-1], ref[-1:]) for ref in line.fields['seqs_names'].value), \
+                                line_.fields['path_name'].value, \
+                                names, \
                                 fields)
-
-            if line.type == 'O':
+            if line_.type == 'O':
                 fields.pop ('oid')
                 fields.pop ('references')
-
+                refs = collections.OrderedDict(\
+                            (ref[0:-1], ref[-1:]) \
+                                for ref in line_.fields['references'].value)
                 return Subgraph ( \
-                                line.fields['oid'].value, \
-                                collections.OrderedDict ((ref[0:-1], ref[-1:]) for ref in line.fields['references'].value), \
+                                line_.fields['oid'].value, \
+                                refs, \
                                 fields)
-
-            if line.type == 'U':
+            if line_.type == 'U':
                 fields.pop ('uid')
                 fields.pop ('ids')
-
+                ids = collections.OrderedDict(\
+                            (id,None) \
+                                for id in line_.fields['ids'].value)
                 return Subgraph ( \
-                                line.fields['uid'].value, \
-                                collections.OrderedDict ((id,None) for id in line.fields['ids'].value), \
+                                line_.fields['uid'].value, \
+                                ids, \
                                 fields)
-                            
-                
-        except Exception as e:
-            raise e
+        except (KeyError, AttributeError):
+            raise line.InvalidLineError("The given line cannot be "\
+                                        + "a Subgraph.")
 
+                                       
     def as_dict (self):
-        """!
-        A custom method to get all the method fields and the optional fields
-        into a dictionary.
-        """
+        """Turn the Subgraph into a dictionary,
         
+        Put all fields and the optional fields into a dictionary.
+        """
         retval = {}
         retval['sub_id'] = self.sub_id
         retval['elements'] =  self.elements
-
         for key, value in self.opt_fields.items ():
             retval[key] = value
-
         return retval
 
 
-    def __str__ (self):
-        return str.join(",\t", [ \
-                                     self.sub_id, \
-                                     str.join ("\t", [id+(orn if orn != None else "") for id, orn in self.elements.items()]), \
-                                     str.join ("\t", [str(field) + ": " + str(item) \
-                                               for field, item in self.opt_fields.items ()])\
-                                ])
+    def __str__ (self): # pragma: no cover
+        fields = ("sub_id", "elements", "opt_fields")
+        opt_fields_ = []
+        if len(self.opt_fields) > 0:
+            opt_fields_ = str.join (\
+                                   ",\t", \
+                                   [str(field) for key, field in self.opt_fields.items()])
+        elements_ = str.join(\
+                        "\t", \
+                        [id+(orn if orn != None else "") \
+                             for id, orn in self.elements.items()])
+                                   
+        values = [self.sub_id, \
+                  elements_, \
+                  "{" + opt_fields_ + "}" \
+                 ]
+        assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
+        return str.join(",\t", assoc)
 
-if __name__ == '__main__':
+    
+if __name__ == '__main__': # pragma: no cover
     pass
