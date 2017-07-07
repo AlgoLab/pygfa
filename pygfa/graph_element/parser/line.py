@@ -122,6 +122,9 @@ class Line:
         if field.name in self.REQUIRED_FIELDS:
             self._fields[field.name] = field
         else: # here we are appending an optfield
+              if not is_optfield(field):
+                  raise fv.InvalidFieldError(\
+                        "Cannot add an invalid OptField.")
               self._fields[field.name] = field
         return True
     

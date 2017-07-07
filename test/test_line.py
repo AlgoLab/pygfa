@@ -405,10 +405,14 @@ class TestLine(unittest.TestCase):
         del(invalid_segment._type)
         self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
 
-        invalid_segment = line.Line()
+        invalid_segment = segment.SegmentV1()
+        invalid_segment._type = None
         invalid_segment.add_field(line.Field("name", "3"))
         invalid_segment.add_field(line.Field("sequence", "acgt"))
         self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
+
+        with self.assertRaises(fv.InvalidFieldError):
+            invalid_segment.add_field(line.Field("AA", "3"))
         
 
             
