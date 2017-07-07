@@ -1,14 +1,28 @@
 import sys
+import unittest
+import copy
 sys.path.insert(0, '../')
 
 from pygfa.graph_element import node, edge as graph_edge, subgraph
-from pygfa.graph_element.parser import header, segment, link, path, containment, fragment, edge, gap, group
+from pygfa.graph_element.parser import header, segment, link, path, containment
+from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element.parser import line
 
-import unittest
+
+class BadNode:
+    """A class that mimic the Node class."""
+
+    def __init__(self, nid, sequence, slen, opt_fields):
+        self.nid = nid
+        self.sequence = sequence
+        self.slen = slen
+        self.opt_fields = copy.deepcopy(opt_fields)
+        
 
 class TestGraphElement (unittest.TestCase):
 
+    
+    
     def test_node (self):
         nod = node.Node ("15", "acgt", 4)
         with self.assertRaises (node.InvalidNodeError):
@@ -17,39 +31,77 @@ class TestGraphElement (unittest.TestCase):
         correct_segment = segment.SegmentV1 ()
         correct_segment.add_field (line.Field ('name', "3"))
         correct_segment.add_field (line.Field ('sequence', "TGCAACGTATAGACTTGTCAC"))
-        self.assertTrue (correct_segment.is_valid ())
+        correct_segment.add_field (line.OptField ('AA', "test", "Z"))
+        correct_segment.add_field (line.OptField ('AB', "test2", "Z"))
+        self.assertTrue(segment.SegmentV1.is_valid(correct_segment))
 
-        try:
-            node.Node.from_line (correct_segment)
-        except Exception as e:
-            self.fail (e)
-        
+        node_ = node.Node.from_line(correct_segment)
+
+        self.assertTrue(node.is_node(node_))
+
+        bad_node = BadNode(node_.nid, node_.sequence, node_.slen, node_.opt_fields)
+        self.assertTrue(node.is_node(bad_node))
+        self.assertTrue(bad_node == node_)
+
+        # if all the opt_fields of the left operand are not
+        # in the opt_fields of the right operand the
+        # nodes are not equal
+        del(bad_node.opt_fields["AA"])
+        self.assertFalse(bad_node == node_)
+
+        bad_node.nid = "5"
+        self.assertFalse(bad_node == node_)
+
+        del(bad_node.nid)
+        self.assertFalse(node.is_node(bad_node))
+        self.assertTrue(bad_node != node_)
+        # self.assertTrue(str(node_) == "nid : 3,\t" \
+        #                                       + "sequence : TGCAACGTATAGACTTGTCAC,\t" \
+        #                                       + "slen : None,\t" \
+        #                                       + "opt_fields : []")
+
         fault_segment = segment.SegmentV1 ()
-        fault_segment.add_field (line.Field ('name', "3"))
+        fault_segment.add_field (line.Field ("name", "3"))
         # By not adding this, the segment hasn't got all the field required
-        # fault_segment.add_field (line.Field ('sequence', "TGCAACGTATAGACTTGTCAC"))
-        self.assertFalse (fault_segment.is_valid ())
+        self.assertFalse (segment.SegmentV1.is_valid(fault_segment))
 
-        with self.assertRaises (node.InvalidNodeError):
-            node.Node.from_line (fault_segment)
+        fault_line = segment.SegmentV1()
+        fault_line._fields["name_"] = line.Field ("name", "3")
+        fault_line._fields["sequence"] = line.Field ("sequence", "TGCAACGTATAGACTTGTCAC")
+        with self.assertRaises (line.InvalidLineError):
+            node.Node.from_line (fault_line)
+
+        # inserting a wrong field to opt_fields
+        seg = segment.SegmentV2.from_string ("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
+        seg.fields['wrong_field'] = 42
+        self.assertTrue('wrong_field' in seg.fields)
+        node_ = node.Node.from_line (seg)
+        self.assertFalse('wrong_field' in node_.opt_fields)
+
+        with self.assertRaises(node.InvalidNodeError):
+            node.Node("3", 3, "acgt")
+
+        with self.assertRaises(node.InvalidNodeError):
+            node.Node("3", "3", "acgt acgt")
+
+
         
-
     
     def test_node_from_segment (self):
         seg = segment.SegmentV1.from_string ("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
-        nod = node.Node.from_line (seg)
-        self.assertTrue (nod.nid == seg.fields['name'].value)
-        self.assertTrue (nod.slen == None)
-        self.assertTrue (nod.sequence == seg.fields['sequence'].value)
-        self.assertTrue (nod.opt_fields['RC'].value == seg.fields['RC'].value)
+        node_ = node.Node.from_line (seg)
+        self.assertTrue (node_.nid == seg.fields['name'].value)
+        self.assertTrue (node_.slen == None)
+        self.assertTrue (node_.sequence == seg.fields['sequence'].value)
+        self.assertTrue (node_.opt_fields['RC'].value == seg.fields['RC'].value)
         
         seg = segment.SegmentV2.from_string ("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
-        nod = node.Node.from_line (seg)
+        node_ = node.Node.from_line (seg)
 
-        self.assertTrue (nod.nid == seg.fields['sid'].value)
-        self.assertTrue (nod.slen == seg.fields['slen'].value)
-        self.assertTrue (nod.sequence == seg.fields['sequence'].value)
-        self.assertTrue (nod.opt_fields['RC'].value == seg.fields['RC'].value)
+        self.assertTrue (node_.nid == seg.fields['sid'].value)
+        self.assertTrue (node_.slen == seg.fields['slen'].value)
+        self.assertTrue (node_.sequence == seg.fields['sequence'].value)
+        self.assertTrue (node_.opt_fields['RC'].value == seg.fields['RC'].value)
 
         
     def test_edge_from_link (self):
