@@ -89,8 +89,8 @@ class Edge:
         self._from_orn = from_orn
         self._to_node = to_node
         self._to_orn = to_orn
-        self._from_positions = from_positions
-        self._to_positions = to_positions
+        self._from_positions = copy.deepcopy(from_positions)
+        self._to_positions = copy.deepcopy(to_positions)
         self._alignment = alignment
 
         self._distance = distance
