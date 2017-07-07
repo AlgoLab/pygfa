@@ -108,10 +108,19 @@ class Line:
     def add_field(self, field):
         """Add a field to the line.
 
+        It's possible to add a Field if an only if its name
+        is in the `REQUIRED_FIELDS` dictionary. Otherwise
+        the field will be considered as an optional field and
+        an InvalidFieldError will be raised.
+
         :param field: The field to add to the line
-        
         :raises InvalidFieldError: If a 'name' and a 'value' attributes are
-        not found or the field has already been added.
+	        not found or the field has already been added.
+
+        :note:
+	        If you want to add a Field for a custom Line object be
+	        sure to add its name to the REQUIRED_FIELDS dictionary
+	        for that particular Line subclass.
         """
         if not(is_field(field) or is_optfield(field)):
             raise  fv.InvalidFieldError("A valid field must be attached")
