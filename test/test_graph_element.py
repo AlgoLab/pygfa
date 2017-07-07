@@ -1,6 +1,7 @@
 import sys
 import unittest
 import copy
+import re
 sys.path.insert(0, '../')
 
 from pygfa.graph_element import node, edge as graph_edge, subgraph
@@ -17,12 +18,46 @@ class BadNode:
         self.sequence = sequence
         self.slen = slen
         self.opt_fields = copy.deepcopy(opt_fields)
+
+
+class BadEdge:
+    """A class that mimic the Edge class."""
+
+    def __init__(self, eid, \
+                 from_node, from_orn, \
+                 to_node, to_orn, \
+                 from_positions, to_positions, \
+                 alignment, distance, variance, \
+                 opt_fields):
+        self.eid = eid
+        self.from_node = from_node
+        self.from_orn = from_orn
+        self.to_node = to_node
+        self.to_orn = to_orn
+        self.from_positions = copy.deepcopy(from_positions)
+        self.to_positions = copy.deepcopy(to_positions)
+        self.alignment = alignment
+        self.distance = distance
+        self.variance = variance
+        self.opt_fields = copy.deepcopy(opt_fields)
+
+class CustomLine(line.Line):
+    """A custom line."""
+    def __init__(self):
+        super().__init__('R')
+
+    @classmethod
+    def from_string(self, string):
+        fields = re.split("\t", string)
+
+        custom = CustomLine()
+        for field in fields:
+            custom._fields[field] = field
+        return custom
         
 
 class TestGraphElement (unittest.TestCase):
 
-    
-    
     def test_node (self):
         nod = node.Node ("15", "acgt", 4)
         with self.assertRaises (node.InvalidNodeError):
@@ -85,6 +120,72 @@ class TestGraphElement (unittest.TestCase):
             node.Node("3", "3", "acgt acgt")
 
 
+    def test_edge(self):
+        edge_ = graph_edge.Edge.from_line(\
+                    edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test"))
+        self.assertTrue(graph_edge.is_edge(edge_))
+
+        # add an invalid OptField to the opt_fields dictionary and check
+        # that the Edge init just ignores it.
+        edge_._opt_fields['not_valid'] = 42
+        self.assertTrue('not_valid' in edge_.opt_fields)
+        new_edge = graph_edge.Edge(edge_.eid, \
+                           edge_.from_node, edge_.from_orn, \
+                           edge_.to_node, edge_.to_orn, \
+                           edge_.from_positions, edge_.to_positions, \
+                           edge_.alignment, edge_.distance, edge_.variance, \
+                           edge_.opt_fields)
+        self.assertFalse('not_valid' in new_edge.opt_fields)
+
+        # check duck typing
+        bad_edge = BadEdge(edge_.eid, \
+                           edge_.from_node, edge_.from_orn, \
+                           edge_.to_node, edge_.to_orn, \
+                           edge_.from_positions, edge_.to_positions, \
+                           edge_.alignment, edge_.distance, edge_.variance, \
+                           edge_.opt_fields)
+        self.assertTrue(bad_edge == edge_)
+        self.assertTrue(graph_edge.is_edge(bad_edge))
+
+        bad_edge.from_node = "42"
+        self.assertFalse(edge_ == bad_edge)
+
+        #insert the correct from_node back
+        bad_edge.from_node = edge_.from_node
+        del(bad_edge.opt_fields['ab'])
+        self.assertFalse(edge_ == bad_edge)
+
+        #insert the opt field previously deleted
+        bad_edge.opt_fields['ab'] = copy.deepcopy(edge_.opt_fields['ab'])
+        del(bad_edge.from_node)
+        self.assertFalse(graph_edge.is_edge(bad_edge))
+        self.assertTrue(bad_edge != edge_)
+
+        # check tuple length in Edge init
+        with self.assertRaises(graph_edge.InvalidEdgeError):
+             bad_edge = graph_edge.Edge(edge_.eid, \
+                           edge_.from_node, edge_.from_orn, \
+                           edge_.to_node, edge_.to_orn, \
+                           ("42", "42", "42"), edge_.to_positions, \
+                           edge_.alignment, edge_.distance, edge_.variance, \
+                           edge_.opt_fields)
+
+        with self.assertRaises(graph_edge.InvalidEdgeError):
+             bad_edge = graph_edge.Edge(edge_.eid, \
+                           edge_.from_node, edge_.from_orn, \
+                           edge_.to_node, edge_.to_orn, \
+                           edge_.from_positions, ("42", "42", "42"), \
+                           edge_.alignment, edge_.distance, edge_.variance, \
+                           edge_.opt_fields)
+
+        # if line cannot be converted to an Edge object just return None
+        custom_line = CustomLine.from_string("R\ta\tcustom\tline")
+        self.assertTrue(graph_edge.Edge.from_line(custom_line) == None)
+
+        # check raising exceptions if line hasn't the correct fields.
+        custom_line._type = "E"
+        with self.assertRaises(line.InvalidLineError):
+            graph_edge.Edge.from_line(custom_line)
         
     
     def test_node_from_segment (self):
@@ -107,7 +208,6 @@ class TestGraphElement (unittest.TestCase):
     def test_edge_from_link (self):
         line = link.Link.from_string ("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line (line)
-
         self.assertTrue (ed.eid == "*")
         self.assertTrue (ed.from_node == line.fields['from'].value)
         self.assertTrue (ed.from_orn == line.fields['from_orn'].value)
@@ -121,11 +221,14 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (ed.opt_fields['ui'].value == "test")
         self.assertTrue (ed.opt_fields['ab'].value == "another_test")
 
+        line = link.Link.from_string ("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test\tID:Z:3_to_65")
+        ed = graph_edge.Edge.from_line (line)
+        self.assertTrue (ed.eid == "3_to_65")
+
 
     def test_edge_from_containment (self):
         line = containment.Containment.from_string ("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line (line)
-
         self.assertTrue (ed.eid == "*")
         self.assertTrue (ed.from_node == line.fields['from'].value)
         self.assertTrue (ed.from_orn == line.fields['from_orn'].value)
@@ -139,7 +242,11 @@ class TestGraphElement (unittest.TestCase):
         self.assertTrue (ed.opt_fields['ui'] == line.fields['ui'])
         self.assertTrue (ed.opt_fields['ui'].value == "test")
         self.assertTrue (ed.opt_fields['ab'].value == "another_test")
-    
+
+        line = containment.Containment.from_string ("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test\tID:Z:a_to_b")
+        ed = graph_edge.Edge.from_line (line)
+        self.assertTrue (ed.eid == "a_to_b")
+        
         
     def test_edge_from_fragment (self):
         line = fragment.Fragment.from_string ("F\t12\t2-\t0\t140$\t0\t140\t11M\tui:Z:test\tab:Z:another_test")
