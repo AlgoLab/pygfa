@@ -12,6 +12,7 @@ import networkx as nx
 
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group
+from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa import gfa1_serializer as gs1, gfa2_serializer as gs2
 
