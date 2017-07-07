@@ -140,7 +140,11 @@ class Node:
         except: return False
         return True
 
+    
+    def __neq__(self, other):
+        return not self == other
 
+    
     def __str__ (self): # pragma: no cover
         fields = ("nid", "sequence", "slen", "opt_fields")
         opt_fields = []
@@ -151,7 +155,7 @@ class Node:
         values = (str(self.nid), \
                   str(self.sequence), \
                   str(self.slen), \
-                  str(opt_fields) \
+                   "{" + opt_fields + "}" \
                   )
         assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
         return str.join(",\t", assoc)
