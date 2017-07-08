@@ -102,7 +102,7 @@ def serialize_node(node, identifier=DEFAULT_IDENTIFIER):
             if node['slen'] != None:
                 fields.append("LN:i:" + str(node['slen']))
 
-            fields.extend(node_dict)
+            fields.extend(_serialize_opt_fields(node_dict))
         else:
             defined_fields = [ \
                                 node.nid, \
