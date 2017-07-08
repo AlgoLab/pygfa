@@ -295,7 +295,7 @@ class Edge:
                   str(self.to_node), str(self.to_orn), \
                   str(self.from_positions), str(self.to_positions), \
                   str(self.alignment), str(self.distance), \
-                  str(self.variance), "{" + opt_fields + "}")
+                  str(self.variance), "{" + str(opt_fields) + "}")
         assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
         return str.join(",\t", assoc)
 

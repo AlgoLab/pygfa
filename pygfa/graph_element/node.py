@@ -155,7 +155,7 @@ class Node:
         values = (str(self.nid), \
                   str(self.sequence), \
                   str(self.slen), \
-                   "{" + opt_fields + "}" \
+                   "{" + str(opt_fields) + "}" \
                   )
         assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
         return str.join(",\t", assoc)

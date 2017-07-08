@@ -150,7 +150,7 @@ class Subgraph:
                                    
         values = [self.sub_id, \
                   elements_, \
-                  "{" + opt_fields_ + "}" \
+                  "{" + str(opt_fields_) + "}" \
                  ]
         assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
         return str.join(",\t", assoc)
