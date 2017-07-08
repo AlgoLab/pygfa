@@ -109,7 +109,7 @@ Open a terminal emulator of your choice and go to
 the root of the library. To start the demo of the program and keep
 the interactive cli opened type:
 
-> python3 -i pygfa/pygfa.py -f data/sample1.gfa
+> python3 -i demo.py -f data/sample1.gfa
 
 A window with a graphical representation of the graph processed is
 displayed and a pretty print representation of it is written into the
