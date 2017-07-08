@@ -1,7 +1,3 @@
-"""TODO: add equality and unequality operator
-"""
-
-
 import copy
 import collections
 
@@ -11,6 +7,7 @@ from pygfa.graph_element.parser import line
 
 class InvalidSubgraphError (Exception): pass
 
+    
 def is_subgraph(obj):
     try:
         return obj.sub_id != None and \
@@ -121,6 +118,23 @@ class Subgraph:
             retval[key] = value
         return retval
 
+
+    def __eq__(self, other):
+        try:
+            if self.sub_id != other.sub_id \
+              or self.elements != other.elements:
+                return False
+            for key, field in self.opt_fields.items():
+                if not key in other.opt_fields \
+                  or field != other.opt_fields[key]:
+                    return False
+            return True
+        except: return False
+
+
+    def __neq__(self, other):
+        return not self == other
+    
 
     def __str__ (self): # pragma: no cover
         fields = ("sub_id", "elements", "opt_fields")

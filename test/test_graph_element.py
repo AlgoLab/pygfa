@@ -200,17 +200,26 @@ class TestGraphElement (unittest.TestCase):
     def test_subgraph(self):
         path_ = path.Path.from_string ("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
         sb = subgraph.Subgraph.from_line (path_)
-
         self.assertTrue(subgraph.is_subgraph(sb))
 
         # check duck typing for subgraph
         bad_graph = BadSubgraph(sb.sub_id, sb.elements, sb.opt_fields)
         self.assertTrue(subgraph.is_subgraph(bad_graph))
+        # check for equality
+        self.assertTrue(bad_graph == sb)
 
         del(bad_graph.sub_id)
         self.assertFalse(subgraph.is_subgraph(bad_graph))
+        #check for unequality
+        self.assertTrue(bad_graph != sb)
         bad_graph.sub_id = sb.sub_id # restore previous state
-        
+        del(bad_graph.opt_fields['ui'])
+        self.assertTrue(bad_graph != sb)
+        bad_graph.opt_fields['ui'] = sb.opt_fields['ui'] # restore previous state
+        bad_graph.sub_id = "42"
+        self.assertTrue(bad_graph != sb)
+        bad_graph.sub_id = sb.sub_id # restore previous state
+
         # check for init exceptions
         with self.assertRaises(subgraph.InvalidSubgraphError):
             subgraph.Subgraph(42, sb.elements, sb.opt_fields)
