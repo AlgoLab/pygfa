@@ -2,6 +2,12 @@
 
 GFA representation through a networkx MulitDiGraph.
 
+:TODO:
+    * Add methods to get all the edge that enter and exit from a node.
+    * Add method to get all the connected components of a graph.
+
+    * Rewrite pprint method.
+    * Refactor the serializers.
 """
 
 import copy
@@ -149,10 +155,10 @@ class GFA():
     def edge(self, identifier=None):
         """GFA edge accessor.
 
-        *. If `identifier` is `None` all the graph edges are returned.
-        *. If `identifier` is a tuple perform a search by nodes with
+        * If `identifier` is `None` all the graph edges are returned.
+        * If `identifier` is a tuple perform a search by nodes with
            the tuple values as nodes id.
-        *. If `identifier' is a single defined value then perform
+        * If `identifier` is a single defined value then perform
            a search by edge key, where the edge key is the given value.
         """
         if identifier == None:
@@ -394,14 +400,14 @@ class GFA():
         """Remove an edge or all edges identified by an id
         or by a tuple with end node, respectively.
 
-        *. If `identifier` is a two elements tuple remove all the
+        * If `identifier` is a two elements tuple remove all the
             all the edges between the two nodes.
 
-        *. If `identifier` is a three elements tuple remove the edge
+        * If `identifier` is a three elements tuple remove the edge
             specified by the third element of the tuple with end nodes
             given by the first two elements of the tuple itself.
 
-        *. If `identifier` is not a tuple, treat it as it should be
+        * If `identifier` is not a tuple, treat it as it should be
             an edge id.
 
         :raise InvalidEdgeError: If `identifier` is not in the cases
@@ -483,25 +489,23 @@ class GFA():
         edges and subgraphs specified in the elements attributes
         of the subgraph object pointed by the id.
         
-        The returned GFA is independent from the original object.
+        The returned GFA is *independent* from the original object.
         
         :param sub_key: The id of a subgraph present in the GFA graph.
         :returns None: if the subgraph id doesn't exist.
         """
         if not sub_key in self._subgraphs:
-            raise InvalidSubgraphError(\
+            raise sg.InvalidSubgraphError(\
                 "There is no subgraph pointed by this key.")
-
         subgraph = self._subgraphs[sub_key]
         subGFA = GFA()
-
         for id, orn in subgraph.elements.items():
             # creating a new GFA graph and the add method,
             # the virtual id are recomputed
             subGFA.add_graph_element(self.as_graph_element(id))
-
         return subGFA
 
+    
     def subgraph(self, nbunch):
         """Given a bunch of nodes return a graph with
         all the given nodes and the edges between them.
@@ -540,6 +544,7 @@ class GFA():
             nodes = nx.dfs_tree(self._graph, nid).nodes()
         return GFA(self.subgraph(nodes))
 
+    
     def search(self, \
                field, \
                value, \
@@ -548,21 +553,20 @@ class GFA():
         """Perform a query on the field searching for the value
         specified.
         """
-        retval = []
-        if limit_type == None:
-            retval.extend(self.search_on_nodes(field, value, comparator))
-            retval.extend(self.search_on_edges(field, value, comparator))
-            retval.extend(self.search_on_subgraph(field, value, comparator))
-
-        elif limit_type == Element.NODE:
+        if limit_type == Element.NODE:
             return self.search_on_nodes(field, value, comparator)
 
         elif limit_type == Element.EDGE:
             return self.search_on_edges(field, value, comparator)
 
         elif limit_type == Element.SUBGRAPH:
-            return self.search_on_subgraph(field, value, comparator)               
-        return retval
+            return self.search_on_subgraph(field, value, comparator)
+        else:
+            retval = []
+            retval.extend(self.search_on_nodes(field, value, comparator))
+            retval.extend(self.search_on_edges(field, value, comparator))
+            retval.extend(self.search_on_subgraph(field, value, comparator))
+            return retval
             
         
     def search_on_nodes(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):

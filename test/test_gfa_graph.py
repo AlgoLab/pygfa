@@ -46,7 +46,7 @@ sample_gfa2 = str.join("", ['# File used for the collections test\n#', \
                 'E\t1_to_5\t1+\t5+\t0\t122$\t2\t124\t*\tzz:Z:tag\n'])
 
                 
-sample_gfa1 = ['S\t1\t*\n', \
+sample_gfa1 = str.join("", ['S\t1\t*\n', \
                 'S\t3\tCGATGCTAGCTGACTGTCGATGCTGTGTG\n', \
                 'L\t1\t+\t2\t+\t12M\tID:Z:1_to_2\n', \
                 'S\t5\t*\n', \
@@ -58,8 +58,15 @@ sample_gfa1 = ['S\t1\t*\n', \
                 'S\t12\t*\n', \
                 'S\t4\t*\n', \
                 'H\tVN:Z:1.0\n', \
-                'L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\nL\t11\t+\t12\t+\t122M\tID:Z:11_to_12\nS\t6\t*\nL\t11\t+\t13\t+\t120M\tID:Z:11_to_13\nP\t15\t11+,13+\t120M\nS\t2\t*\txx:Z:sometag\nH\taa:i:12\tab:Z:test1\nH\taa:i:15\nC\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\n'
-    ]
+                'L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\n', \
+                'L\t11\t+\t12\t+\t122M\tID:Z:11_to_12\n', \
+                'S\t6\t*\n', \
+                'L\t11\t+\t13\t+\t120M\tID:Z:11_to_13\n', \
+                'P\t15\t11+,13+\t120M\n', \
+                'S\t2\t*\txx:Z:sometag\n', \
+                'H\taa:i:12\tab:Z:test1\n', \
+                'H\taa:i:15\n', \
+                'C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\n'])
 
 
 class TestLine (unittest.TestCase):
@@ -343,17 +350,150 @@ class TestLine (unittest.TestCase):
     def test_from_string (self):
         self.graph.clear()
         self.graph.from_string(sample_gfa2)
-        print(len(self.graph.nodes()))
         # 9 effective nodes and 2 node for the external fields in
         # the fragments
         self.assertTrue(len(self.graph.nodes()) ==  11)
         self.assertTrue(len(self.graph.edges()) ==  10)
         self.assertTrue(len(self.graph.subgraphs()) ==  4)
+
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+        self.assertTrue(len(self.graph.nodes()) ==  9)
+        self.assertTrue(len(self.graph.edges()) ==  6)
+        self.assertTrue(len(self.graph.subgraphs()) ==  2)
+
+
+    def test_get_subgraph(self):
+        """Get the subgraph labelled 15 from samplefa2."""
+        self.graph.clear()
+        self.graph.from_string(sample_gfa2)
+
+        subgraph_15 = self.graph.get_subgraph("15")
+        self.assertTrue(subgraph_15 is not None)
+        self.assertTrue(len(subgraph_15.nodes()) == 2)
+        self.assertTrue(len(subgraph_15.edges()) == 1)
+        self.assertTrue(subgraph_15.edge("11_to_13")['alignment'] == "120M")
+        self.assertTrue(subgraph_15.edge("11_to_13")['alignment'] == \
+                            self.graph.edge("11_to_13")['alignment'])
+
+        subgraph_15.edge("11_to_13")['alignment'] = "42M"
+        self.assertTrue(subgraph_15.edge("11_to_13")['alignment'] != \
+                            self.graph.edge("11_to_13")['alignment'])
+
+        with self.assertRaises(sg.InvalidSubgraphError):
+            self.graph.get_subgraph("id42")
+
+
+    def test_subgraph(self):
+        """Test the subgraph interface to networkx method
+        `subgraph`."""
+        self.graph.clear()
+        self.graph.from_string(sample_gfa2)
+        subgraph_ = self.graph.subgraph(["1", "3", "11"])
+        self.assertTrue(subgraph_ is not None)
+        self.assertTrue(isinstance(subgraph_, nx.MultiDiGraph))
+        self.assertTrue(len(subgraph_.nodes()) == 3)
+        self.assertTrue(len(subgraph_.edges()) == 2)
+        self.assertTrue(subgraph_.edge["1"]["11"]["1_to_11"] is not None)
+        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] is not None)
+
+        # create a GFA graph using the subgraph as base graph
+        gfa_ = gfa.GFA(subgraph_)
+        self.assertTrue(gfa_.edge("1_to_3") is not None)
+        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] == \
+                             gfa_.edge("1_to_3"))
+
+
+    def test_get_reachable(self):
+        """Test the different behavior of `get_all_reachables`.
         
+        Consider the sample_gfa1 graph.
+        * Get the strong connected component with node "1" as source.
+
+        * Get the strong connected component with node "2" as source.
+            Note that eventhough the two nodes belong to the same
+            connected component the results differ.
+
+        * Now get the weakly connected component with node "2" as source.
+            Now the result for node "1" and "2" are the same.
+
+        This is due to the fact that the graph is directed and to perform
+        the reachability analysis the DFS on edges is performed.
+
+        .. _DFS: en.wikipedia.org/wiki/Depth-first_search
+        DFS_ on edges returns all the nodes connected to the connected component
+        belonging to the source node.
+        """
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+
+        sub_1 = self.graph.get_all_reachables("1")
+        self.assertTrue(sub_1.node("1") is not None)
+        self.assertTrue(sub_1.node("5") is not None)
+        self.assertTrue(sub_1.node("2") is not None)
+        self.assertTrue(sub_1.node("6") is not None)
+        self.assertTrue(sub_1.node("3") is not None)
+
+        sub_2 = self.graph.get_all_reachables("2")
+        self.assertTrue(sub_2.node("1") is None)
+        self.assertTrue(sub_2.node("5") is None)
+        self.assertTrue(sub_2.node("2") is not None)
+        self.assertTrue(sub_2.node("6") is not None)
+        self.assertTrue(sub_2.node("3") is None)
+
+        sub2_weak = self.graph.get_all_reachables("2", weakly=True)
+        self.assertTrue(sub2_weak.node("1") is not None)
+        self.assertTrue(sub2_weak.node("5") is not None)
+        self.assertTrue(sub2_weak.node("2") is not None)
+        self.assertTrue(sub2_weak.node("6") is not None)
+        self.assertTrue(sub2_weak.node("3") is not None)
+
+
+    def test_search(self):
+        """Perform some query operation on the graph,
+        define custom iterator and see the results.
+
+        1. Obtain all edges where `from_node` is 1.
+        2. Obtain all the elements that have an xx optfield,
+            ignoring its value.
+        3. Perform the same operation as point2, but limit the search
+            operation on subgraphs.
+
+        4. Obtain all the nodes with 'slen' greater than
+            or equal to 140.
+        """
+        self.graph.clear()
+        self.graph.from_string(sample_gfa2)
+
+        result = self.graph.search("from_node", "1", limit_type=gfa.Element.EDGE)
+        self.assertTrue("1_to_3" in result)
+        self.assertTrue("1_to_11" in result)
+        self.assertTrue("1_to_5" in result)
+        self.assertTrue("1_to_2" in result)
+        self.assertTrue(len(result) == 4)
+
+        result = self.graph.search("xx", "_", gfa.IGNORE_VALUE_COMPARATOR)
+        self.assertTrue("11" in result)
+        self.assertTrue("15" in result)
+        self.assertTrue("2" in result)
+        self.assertTrue(len(result) == 3)
+        # A custom line also has xx, but it hasn't been added to the
+        # graph.
+
+        result = self.graph.search("xx", "_", gfa.IGNORE_VALUE_COMPARATOR, \
+                                    limit_type=gfa.Element.SUBGRAPH)
+        self.assertTrue("15" in result)
+        self.assertTrue(len(result) == 1)
+
+        greater_than_comparator = lambda obj, value: int(obj) >= value
+        result = self.graph.search("slen", 140, greater_than_comparator, \
+                                    limit_type=gfa.Element.NODE)
+        self.assertTrue("13" in result)
+        self.assertTrue("11" in result)
+        self.assertTrue("12" in result)
+        self.assertTrue("6" in result)
+        self.assertTrue(len(result) == 4)
 
         
-        
-
-
 if  __name__ == '__main__':
     unittest.main()
