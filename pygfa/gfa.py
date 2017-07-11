@@ -663,7 +663,7 @@ class GFA():
         return pygfa
 
     
-    def pprint(self):
+    def pprint(self): # pragma: no cover
         """A basic pretty print function for nodes and edges.
         """
         string = "\nGRAPH:\nNodes: [\n"
