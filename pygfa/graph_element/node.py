@@ -105,11 +105,16 @@ class Node:
             if segment.is_segmentv1 (segment_line):
                 fields.pop ('name')
                 fields.pop ('sequence')
+
+                length = None
+                if 'LN' in segment_line.fields:
+                    length = segment_line.fields['LN'].value
+                    fields.pop('LN')
+                
                 return Node( \
                             segment_line.fields['name'].value, \
                             segment_line.fields['sequence'].value, \
-                            None if 'LN' not in segment_line.fields else \
-                            segment_line.fields['LN'].value, \
+                            length, \
                             fields)
             else:
                 fields.pop ('sid')
