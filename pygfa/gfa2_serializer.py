@@ -389,96 +389,68 @@ def _serialize_subgraph_elements(subgraph_elements, gfa=None):
       Refactor list comprehension to function or cycle. 
 
     """
-    return str.join(" ", [str(id) + ((str(orientation)) if orientation != None else "") \
-                               for id, orientation in subgraph_elements.items()])
-    
-def serialize_subgraph(subgraph, identifier=DEFAULT_IDENTIFIER):
+    return str.join(" ", \
+                    [str(id) \
+                         + ((str(orientation)) if orientation != None \
+                        else "") \
+                            for id, orientation in subgraph_elements.items()])
+
+                            
+def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa=None):
     """Serialize a Subgraph object or an equivalent dictionary.
 
     :returns "": If subgraph cannot be serialized. 
-    """
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
-    try:
-        if isinstance(subgraph, dict):
 
-            subgraph_dict = copy.deepcopy(subgraph)
+    :TODO:
+        Check with `gfa` for OGroup in UGroup.
+        See GFA2 spec.
+    """
+    identifier = _check_identifier(identifier)
+    try:
+        if isinstance(subgraph_, dict):
+            subgraph_dict = copy.deepcopy(subgraph_)
             defined_fields = [\
                                 subgraph_dict.pop('sub_id'), \
                                 subgraph_dict.pop('elements') \
-                             ]             
-            fields = ["O"] if are_elements_oriented(subgraph['elements']) else \
-                     ["U"] 
-            fields.append(str(subgraph['sub_id']))
-            fields.append(_serialize_subgraph_elements(subgraph['elements'], gfa))
-            if 'overlaps' in subgraph:
+                             ]           
+            fields = ["O"] if are_elements_oriented(\
+                                        subgraph_['elements']) else \
+                     ["U"]
+            fields.append(str(subgraph_['sub_id']))
+            fields.append(_serialize_subgraph_elements(\
+                                        subgraph_['elements'], gfa))
+            if 'overlaps' in subgraph_:
                 subgraph_dict.pop('overlaps')
             fields.extend(_serialize_opt_fields(subgraph_dict))
-
         else:
-            opt_fields = copy.deepcopy(subgraph.opt_fields)
+            opt_fields = copy.deepcopy(subgraph_.opt_fields)
             defined_fields = [\
-                                subgraph.sub_id, \
-                                subgraph.elements \
+                                subgraph_.sub_id, \
+                                subgraph_.elements \
                              ]
-            fields = ["O"] if are_elements_oriented(subgraph.elements) else \
+            fields = ["O"] if are_elements_oriented(subgraph_.elements) else \
                      ["U"] 
-            fields.append(str(subgraph.sub_id))
-            fields.append(_serialize_subgraph_elements(subgraph.elements, gfa))
-            if 'overlaps' in subgraph.opt_fields:
+            fields.append(str(subgraph_.sub_id))
+            fields.append(_serialize_subgraph_elements(subgraph_.elements, gfa))
+            if 'overlaps' in subgraph_.opt_fields:
                 opt_fields.pop('overlaps')
-
-            fields.extend(_serialize_opt_fields(subgraph.opt_fields))
+            fields.extend(_serialize_opt_fields(subgraph_.opt_fields))
 
         group_fields = OGROUP_FIELDS if fields[0] == "O" else \
                        UGROUP_FIELDS
         if not _are_fields_defined(defined_fields) or \
            not _check_fields(fields[1:], group_fields):
-            raise GFA2SerializationError()
+            raise GFA2SerializationError("Required Subgraph elements " \
+                                        + "missing or invalid.")
         
         return str.join("\t", fields)
-            
     except(KeyError, ValueError, AttributeError, GFA2SerializationError) as e:
-        serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE + str(identifier))
+        serializer_logger.debug(_format_exception(identifier, e))
         return ""
-
-    
-################################################################################
-# OBJECT SERIALIZER
-################################################################################
-def serialize(object, identifier=DEFAULT_IDENTIFIER):
-    """
-    :returns "": If it's not possible to serialize the object.
-    TODO
-        rename function.
-    """
-    if isinstance(object, dict):
-        
-        if 'nid' in object:
-            return serialize_node(object, identifier)
-        elif 'eid' in object:
-            return serialize_edge(object, identifier)
-        elif 'sub_id' in object:
-            return serialize_subgraph(object, identifier)
-    else:
-        if hasattr(object, '_nid') or hasattr(object, 'nid'):
-            return serialize_node(object, identifier)
-        elif hasattr(object, '_eid') or hasattr(object, 'eid'):
-            return serialize_edge(object, identifier)
-        elif hasattr(object, '_sub_id') or hasattr(object, 'sub_nid'):
-            return serialize_subgraph(object, identifier)
-    return ""
 
 ################################################################################
 # SERIALIZE GRAPH
 ################################################################################
-
-def is_graph_serializable(object):
-    return isinstance(object, nx.DiGraph)
-
 def serialize_graph(graph, write_header=True):
     """Serialize a networkx.DiGraph or a derivative object.
 
@@ -486,9 +458,9 @@ def serialize_graph(graph, write_header=True):
     :param write_header: If set to True put a GFA2 header as first
         line.
     """
-    if not is_graph_serializable(graph):
+    if not isinstance(graph, nx.MulitDiGraph):
         raise ValueError("The object to serialize must be an instance" \
-                        +" of a networkx.DiGraph.")
+                        +" of a networkx.MultiDiGraph.")
 
     if write_header == True:
         string_serialize = "H\tVN:Z:2.0\n"

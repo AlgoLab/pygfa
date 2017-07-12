@@ -390,49 +390,60 @@ class TestLine (unittest.TestCase):
         path_ = sg.Subgraph.from_line(\
                                 path.Path.from_string(\
                                     "P\t15\t11+,13+\t120M"))
-
         ogroup = sg.Subgraph.from_line(\
                                group.OGroup.from_string(\
                                     "O\t15\t11+ 11_to_13+ 13+\txx:i:-1"))
-
         ugroup = sg.Subgraph.from_line(\
                                group.UGroup.from_string(\
                                     "U\t16\t11 13 11_to_13 16sub"))
+        self.assertTrue(gs2.serialize_subgraph(\
+                            path_, \
+                            "gfa2 path id:15") == \
+                        "O\t15\t11+ 13+")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            ogroup, \
+                            "gfa2 ogroup: 15") == \
+                        "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            ogroup, \
+                            "gfa2 ogroup: 15", \
+                            self.graph) == \
+                        "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
 
-        self.assertTrue(gs1.serialize_subgraph(path_, "path id:15") == \
-                            "P\t15\t11+,13+\t120M")
-        # overlaps are not defined, so a * is placed instead
-        self.assertTrue(gs1.serialize_subgraph(ogroup, "ogroup: 15") == \
-                            "P\t15\t11+,11_to_13+,13+\t*\txx:i:-1")
-        # elements that don't point to node are removed if a gfa is
-        # provided
-        self.assertTrue(gs1.serialize_subgraph(ogroup, "ogroup: 15", self.graph) == \
-                            "P\t15\t11+,13+\t*\txx:i:-1")
-
-        self.assertTrue(gs1.serialize_subgraph(ugroup, "ugroup: 16", self.graph) == \
-                            "")                            
+        self.assertTrue(gs2.serialize_subgraph(\
+                            ugroup, \
+                            "ugroup: 16",
+                            self.graph) == \
+                            "U\t16\t11 13 11_to_13 16sub")
 
         # test with dictionaries
         self.graph.add_subgraph("P\t15\t11+,13+\t120M")
-        self.assertTrue(gs1.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "graph -> path id:15") == \
-                            "P\t15\t11+,13+\t120M")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            self.graph.subgraphs("15").as_dict(), \
+                            "gfa2 graph -> path id:15") == \
+                        "O\t15\t11+ 13+")
         self.graph.remove_subgraph("15")
 
         self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        self.assertTrue(gs1.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "graph -> ogroup id:15") == \
-                           "P\t15\t11+,11_to_13+,13+\t*\txx:i:-1")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            self.graph.subgraphs("15").as_dict(), \
+                            "graph -> ogroup id:15") == \
+                        "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.graph.remove_subgraph("15")
 
-        self.graph.add_subgraph( "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        self.assertTrue(gs1.serialize_subgraph(self.graph.subgraphs("15").as_dict(), \
-                                                   "graph -> ogroup id:15", \
-                                                   self.graph) == "P\t15\t11+,13+\t*\txx:i:-1")
+        self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            self.graph.subgraphs("15").as_dict(), \
+                            "graph -> ogroup id:15", \
+                            self.graph) == \
+                        "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.graph.remove_subgraph("15")
 
-        self.graph.add_subgraph( "U\t16\t11 13 11_to_13 16sub")
-        self.assertTrue(gs1.serialize_subgraph(self.graph.subgraphs("16").as_dict(), \
+        self.graph.add_subgraph("U\t16\t11 13 11_to_13 16sub")
+        self.assertTrue(gs2.serialize_subgraph(\
+                            self.graph.subgraphs("16").as_dict(), \
                             "graph -> ugroup id:16") == \
-                                "")
+                        "U\t16\t11 13 11_to_13 16sub")
         self.graph.remove_subgraph("16")
 
 
@@ -451,11 +462,6 @@ class TestLine (unittest.TestCase):
         self.assertTrue(self.graph.node() == same_graph.node())
         self.assertTrue(self.graph.edge() == same_graph.edge())
         self.assertTrue(self.graph.subgraphs() == same_graph.subgraphs())
-
-
-        
-            
-            
 
             
 if  __name__ == '__main__':
