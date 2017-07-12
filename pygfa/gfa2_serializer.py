@@ -458,7 +458,7 @@ def serialize_graph(graph, write_header=True):
     :param write_header: If set to True put a GFA2 header as first
         line.
     """
-    if not isinstance(graph, nx.MulitDiGraph):
+    if not isinstance(graph, nx.MultiDiGraph):
         raise ValueError("The object to serialize must be an instance" \
                         +" of a networkx.MultiDiGraph.")
 

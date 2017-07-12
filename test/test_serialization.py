@@ -371,7 +371,7 @@ class TestLine (unittest.TestCase):
         self.assertTrue(gs2.serialize_edge(\
                             self.graph.edge("2_to_12"), \
                             "gfa2 gap: 2_to_12") == \
-                "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
+               "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
         self.assertTrue(gs2.serialize_edge(\
                             self.graph.edge("virtual_1"), \
                             "gfa2 containment without id: virtual_1") == "")
@@ -449,13 +449,12 @@ class TestLine (unittest.TestCase):
 
     def test_serialize_gfa2_graph(self):
         self.graph.clear()
-
-        mini_graph = str.join("", ["S\t11\t*\txx:i:11\n", \
-                                       "S\t13\t*\n", \
-                                       "L\t11\t+\t13\t+\t120M\n", \
-                                       "P\t15\t11+,13+\t120M\n"])
+        mini_graph = str.join("", ["S\t11\t42\t*\txx:i:11\n", \
+                                    "S\t21\t13\t*\n", \
+                                    "E\t15\t11+\t13+\t21\t42\t42\t21\t120M\n", \
+                                    "O\t33\t11+ 13+\n"])
         self.graph.from_string(mini_graph)
-        same_graph_repr = gs1.serialize_gfa(self.graph)
+        same_graph_repr = gs2.serialize_gfa(self.graph)
         same_graph = gfa.GFA()
         same_graph.from_string(same_graph_repr)
 
@@ -463,6 +462,15 @@ class TestLine (unittest.TestCase):
         self.assertTrue(self.graph.edge() == same_graph.edge())
         self.assertTrue(self.graph.subgraphs() == same_graph.subgraphs())
 
-            
-if  __name__ == '__main__':
+        another_equal_graph_repr = gs2.serialize_gfa(same_graph)
+        another_equal_graph = gfa.GFA()
+        another_equal_graph.from_string(another_equal_graph_repr)
+
+        self.assertTrue(another_equal_graph.node() == same_graph.node())
+        self.assertTrue(another_equal_graph.edge() == same_graph.edge())
+        self.assertTrue(another_equal_graph.subgraphs() == \
+                            same_graph.subgraphs())
+
+                    
+if  __name__ == '__main__': # pragma: no cover
     unittest.main()
