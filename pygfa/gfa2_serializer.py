@@ -162,234 +162,213 @@ def serialize_node(node_, identifier=DEFAULT_IDENTIFIER):
 ################################################################################
 # EDGE SERIALIZER
 ################################################################################
-def serialize_edge(edge, identifier=DEFAULT_IDENTIFIER):
+def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
     """Converts to a GFA2 line the given edge.
-    TODO:
-        explain better
     """
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
-
-    if isinstance(edge, dict):
-        try:
-            if edge['eid'] == None: # edge is a fragment
-                return _serialize_to_fragment(edge, identifier)
-            elif edge['distance'] != None or \
-              edge['variance'] != None: # edge is a gap
-                return _serialize_to_gap(edge, identifier)
+    identifier = _check_identifier(identifier)
+    try:
+        if isinstance(edge_, dict):
+            if edge_['eid'] == None: # edge_ is a fragment
+                return _serialize_to_fragment(edge_, identifier)
+            elif edge_['distance'] != None or \
+              edge_['variance'] != None: # edge_ is a gap
+                return _serialize_to_gap(edge_, identifier)
             else:
-                return _serialize_to_edge(edge, identifier)
-        except KeyError as ke:
-            serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE \
-                                    + str(identifier))
-            return ""
-    else:
-        try:
-            if edge.eid == None: # edge is a fragment
-                return _serialize_to_fragment(edge, identifier)
-            elif edge.distance != None or \
-              edge.variance != None: # edge is a gap
-                return _serialize_to_gap(edge, identifier)
+                return _serialize_to_edge(edge_, identifier)
+        else:
+            if edge_.eid == None: # edge_ is a fragment
+                return _serialize_to_fragment(edge_, identifier)
+            elif edge_.distance != None or \
+              edge_.variance != None: # edge_ is a gap
+                return _serialize_to_gap(edge_, identifier)
             else:
-                return _serialize_to_edge(edge)
+                return _serialize_to_edge(edge_)
             
-        except AttributeError as ae:
-            serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE \
-                                    + str(identifier))
-            return ""
+    except (KeyError, AttributeError) as e:
+        serializer_logger.debug(_format_exception(identifier, e))
+        return ""
 
         
-def _serialize_to_fragment(edge, identifier=DEFAULT_IDENTIFIER):
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
+def _serialize_to_fragment(fragment_, identifier=DEFAULT_IDENTIFIER):
+    identifier = _check_identifier(identifier)
     try:
-        if isinstance(edge, dict):
+        if isinstance(fragment_, dict):
 
-            edge_dict = copy.deepcopy(edge)
-            _remove_common_edge_fields(edge_dict)
-           
+            fragment_dict = copy.deepcopy(fragment_)
+            _remove_common_edge_fields(fragment_dict)           
             defined_fields = [\
-                                edge['from_node'], \
-                                edge['to_node'], \
-                                edge['to_orn'], \
-                                edge['from_positions'][0], edge['from_positions'][1], \
-                                edge['to_positions'][0], edge['to_positions'][1], \
-                                edge['alignment'] \
+                                fragment_['from_node'], \
+                                fragment_['to_node'], \
+                                fragment_['to_orn'], \
+                                fragment_['from_positions'][0], \
+                                fragment_['from_positions'][1], \
+                                fragment_['to_positions'][0], \
+                                fragment_['to_positions'][1], \
+                                fragment_['alignment'] \
                             ]
             fields = ["F"]
-            fields.append(str(edge['from_node']))
-            fields.append(str(edge['to_node']) + str(edge['to_orn']))
-            fields.append(str(edge['from_positions'][0]))
-            fields.append(str(edge['from_positions'][1]))
-            fields.append(str(edge['to_positions'][0]))
-            fields.append(str(edge['to_positions'][1]))
-            fields.append(str(edge['alignment']))
-
-            fields.extend(_serialize_opt_fields(edge_dict)) 
+            fields.append(str(fragment_['from_node']))
+            fields.append(str(fragment_['to_node']) + str(fragment_['to_orn']))
+            fields.append(str(fragment_['from_positions'][0]))
+            fields.append(str(fragment_['from_positions'][1]))
+            fields.append(str(fragment_['to_positions'][0]))
+            fields.append(str(fragment_['to_positions'][1]))
+            fields.append(str(fragment_['alignment']))
+            fields.extend(_serialize_opt_fields(fragment_dict)) 
         else:
-
             defined_fields = [\
-                                edge.from_node, \
-                                edge.to_node, \
-                                edge.to_orn, \
-                                edge.from_positions[0], \
-                                edge.from_positions[1], \
-                                edge.to_positions[0], \
-                                edge.to_positions[1], \
+                                fragment_.from_node, \
+                                fragment_.to_node, \
+                                fragment_.to_orn, \
+                                fragment_.from_positions[0], \
+                                fragment_.from_positions[1], \
+                                fragment_.to_positions[0], \
+                                fragment_.to_positions[1], \
+                                fragment_.alignment \
                              ]
             fields = ["F"]
-            fields.append(str(edge.from_node))
-            fields.append(str(edge.to_node) + str(edge.to_orn))
-            fields.append(str(edge.from_positions[0]))
-            fields.append(str(edge.from_positions[1]))
-            fields.append(str(edge.to_positions[0]))
-            fields.append(str(edge.to_positions[1]))
-            fields.extend(_serialize_opt_fields(edge.opt_fields))
+            fields.append(str(fragment_.from_node))
+            fields.append(str(fragment_.to_node) + str(fragment_.to_orn))
+            fields.append(str(fragment_.from_positions[0]))
+            fields.append(str(fragment_.from_positions[1]))
+            fields.append(str(fragment_.to_positions[0]))
+            fields.append(str(fragment_.to_positions[1]))
+            fields.append(str(fragment_.alignment))
+            fields.extend(_serialize_opt_fields(fragment_.opt_fields))
 
         if not _are_fields_defined(defined_fields) or \
            not _check_fields(fields[1:], FRAGMENT_FIELDS):
-            raise GFA2SerializationError()
+            raise GFA2SerializationError("Required Fragment elements " \
+                                        + "missing or invalid.")
             
-        return str.join("\t", fields)
-
-    except(KeyError, ValueError, AttributeError, GFA2SerializationError) as e:
-        serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE + str(identifier))            
-        return ""
-    
-
-def _serialize_to_gap(edge, identifier=DEFAULT_IDENTIFIER):
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
-    try:
-        if isinstance(edge, dict):
-            edge_dict = copy.deepcopy(edge)
-            _remove_common_edge_fields(edge_dict)
-            defined_fields = [\
-                                edge['eid'], \
-                                edge['from_node'], \
-                                edge['from_orn'], \
-                                edge['to_node'], \
-                                edge['to_orn'], \
-                                edge['distance'], \
-                                edge['variance'] \
-                            ]
-            fields = ["G"]
-            fields.append(str(edge['eid']))
-            fields.append(str(edge['from_node']) + str(edge['from_orn']))
-            fields.append(str(edge['to_node']) + str(edge['to_orn']))
-            fields.append(str(edge['distance']))
-            fields.append(str(edge['variance']))
-
-            fields.extend(_serialize_opt_fields(edge_dict))
-            return str.join("\t", fields)
-        else:
-            defined_fields = [\
-                                edge.eid, \
-                                edge.from_node, \
-                                edge.from_orn, \
-                                edge.to_node, \
-                                edge.to_orn, \
-                                edge.distance, \
-                                edge.variance \
-                            ]
-            fields = ["G"]
-            fields.append(str(edge.eid))
-            fields.append(str(edge.from_node) + str(edge.from_orn))
-            fields.append(str(edge.to_node) + str(edge.to_orn))
-            fields.append(str(edge.distance))
-            fields.append(str(edge.variance))
-            fields.extend(_serialize_opt_fields(edge.opt_fields))
-
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], GAP_FIELDS):
-            raise GFA2SerializationError()
-            
-        return str.join("\t", fields)
-
-    except(AttributeError, KeyError, GFA2SerializationError) as e:
-        serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE + str(identifier))            
-        return ""
-
-            
-def _serialize_to_edge(edge, identifier=DEFAULT_IDENTIFIER):
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
-    try:                                                        
-        if isinstance(edge, dict):
-
-            edge_dict = copy.deepcopy(edge)
-            _remove_common_edge_fields(edge_dict)
-            defined_fields = [ \
-                                edge['eid'], \
-                                edge['from_node'], \
-                                edge['from_orn'], \
-                                edge['to_node'], \
-                                edge['to_orn'], \
-                                edge['from_positions'][0], edge['from_positions'][1], \
-                                edge['to_positions'][0], edge['to_positions'][1], \
-                                edge['alignment'] \
-                             ]
-            fields = ["E"]
-            fields.append(str(edge['eid']))
-            fields.append(str(edge['from_node']) + str(edge['from_orn']))
-            fields.append(str(edge['to_node']) + str(edge['to_orn']))
-            fields.append(str(edge['from_positions'][0]))
-            fields.append(str(edge['from_positions'][1]))
-            fields.append(str(edge['to_positions'][0]))
-            fields.append(str(edge['to_positions'][1]))
-            fields.append(str(edge['alignment']))
-            fields.extend(_serialize_opt_fields(edge_dict))
-        else:
-            defined_fields = [ \
-                                edge.eid, \
-                                edge.from_node, \
-                                edge.from_orn, \
-                                edge.to_node, \
-                                edge.to_orn, \
-                                edge.from_positions[0], edge.from_positions[1], \
-                                edge.to_positions[0], edge.to_positions[1], \
-                                edge.alignment \
-                             ]
-            
-            fields = ["E"]
-            fields.append(str(edge.eid))
-            fields.append(str(edge.from_node) + str(edge.from_orn))
-            fields.append(str(edge.to_node) + str(edge.to_orn))
-            fields.append(str(edge.from_positions[0]))
-            fields.append(str(edge.from_positions[1]))
-            fields.append(str(edge.to_positions[0]))
-            fields.append(str(edge.to_positions[1]))     
-            fields.append(str(edge.alignment))
-            fields.extend(_serialize_opt_fields(edge.opt_fields))
-        
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], EDGE_FIELDS):
-            raise GFA2SerializationError()
-        
         return str.join("\t", fields)
 
     except(KeyError, AttributeError, GFA2SerializationError) as e:
-        serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE + str(identifier))            
+        serializer_logger.debug(_format_exception(identifier, e))
+        return ""
+    
+
+def _serialize_to_gap(gap_, identifier=DEFAULT_IDENTIFIER):
+    identifier = _check_identifier(identifier)
+    try:
+        if isinstance(gap_, dict):
+            gap_dict = copy.deepcopy(gap_)
+            _remove_common_edge_fields(gap_dict)
+            defined_fields = [\
+                                gap_['eid'], \
+                                gap_['from_node'], \
+                                gap_['from_orn'], \
+                                gap_['to_node'], \
+                                gap_['to_orn'], \
+                                gap_['distance'], \
+                                gap_['variance'] \
+                            ]
+            fields = ["G"]
+            fields.append(str(gap_['eid']))
+            fields.append(str(gap_['from_node']) + str(gap_['from_orn']))
+            fields.append(str(gap_['to_node']) + str(gap_['to_orn']))
+            fields.append(str(gap_['distance']))
+            fields.append(str(gap_['variance']))
+
+            fields.extend(_serialize_opt_fields(gap_dict))
+            return str.join("\t", fields)
+        else:
+            defined_fields = [\
+                                gap_.eid, \
+                                gap_.from_node, \
+                                gap_.from_orn, \
+                                gap_.to_node, \
+                                gap_.to_orn, \
+                                gap_.distance, \
+                                gap_.variance \
+                            ]
+            fields = ["G"]
+            fields.append(str(gap_.eid))
+            fields.append(str(gap_.from_node) + str(gap_.from_orn))
+            fields.append(str(gap_.to_node) + str(gap_.to_orn))
+            fields.append(str(gap_.distance))
+            fields.append(str(gap_.variance))
+            fields.extend(_serialize_opt_fields(gap_.opt_fields))
+
+        if not _are_fields_defined(defined_fields) or \
+           not _check_fields(fields[1:], GAP_FIELDS):
+            raise GFA2SerializationError("Required Gap elements " \
+                                        + "missing or invalid.")
+        return str.join("\t", fields)
+    except(AttributeError, KeyError, GFA2SerializationError) as e:
+        serializer_logger.debug(_format_exception(identifier, e))
         return ""
 
+            
+def _serialize_to_edge(edge_, identifier=DEFAULT_IDENTIFIER):
+    identifier = _check_identifier(identifier)
+    try:                                                        
+        if isinstance(edge_, dict):
+
+            edge_dict = copy.deepcopy(edge_)
+            _remove_common_edge_fields(edge_dict)
+            defined_fields = [ \
+                                edge_['eid'], \
+                                edge_['from_node'], \
+                                edge_['from_orn'], \
+                                edge_['to_node'], \
+                                edge_['to_orn'], \
+                                edge_['from_positions'][0], \
+                                edge_['from_positions'][1], \
+                                edge_['to_positions'][0], \
+                                edge_['to_positions'][1], \
+                                edge_['alignment'] \
+                             ]
+            fields = ["E"]
+            fields.append(str(edge_['eid']))
+            fields.append(str(edge_['from_node']) + str(edge_['from_orn']))
+            fields.append(str(edge_['to_node']) + str(edge_['to_orn']))
+            fields.append(str(edge_['from_positions'][0]))
+            fields.append(str(edge_['from_positions'][1]))
+            fields.append(str(edge_['to_positions'][0]))
+            fields.append(str(edge_['to_positions'][1]))
+            fields.append(str(edge_['alignment']))
+            fields.extend(_serialize_opt_fields(edge_dict))
+        else:
+            defined_fields = [ \
+                                edge_.eid, \
+                                edge_.from_node, \
+                                edge_.from_orn, \
+                                edge_.to_node, \
+                                edge_.to_orn, \
+                                edge_.from_positions[0], \
+                                edge_.from_positions[1], \
+                                edge_.to_positions[0], \
+                                edge_.to_positions[1], \
+                                edge_.alignment \
+                             ]
+            
+            fields = ["E"]
+            fields.append(str(edge_.eid))
+            fields.append(str(edge_.from_node) + str(edge_.from_orn))
+            fields.append(str(edge_.to_node) + str(edge_.to_orn))
+            fields.append(str(edge_.from_positions[0]))
+            fields.append(str(edge_.from_positions[1]))
+            fields.append(str(edge_.to_positions[0]))
+            fields.append(str(edge_.to_positions[1]))     
+            fields.append(str(edge_.alignment))
+            fields.extend(_serialize_opt_fields(edge_.opt_fields))
+        
+        if not _are_fields_defined(defined_fields) or \
+           not _check_fields(fields[1:], EDGE_FIELDS):
+            raise GFA2SerializationError("Required Edge elements " \
+                                        + "missing or invalid.")
+        
+        return str.join("\t", fields)
+    except(KeyError, AttributeError, GFA2SerializationError) as e:
+        serializer_logger.debug(_format_exception(identifier, e))
+        return ""
 
 ################################################################################
 # SUBGRAPH SERIALIZER
 ################################################################################
 def are_elements_oriented(subgraph_elements):
-    """Check wheter the elements of a subgraph all have
+    """Check wheter all the elements of a subgraph have
     an orientation value `[+/-]`.
     """
     for id, orientation in subgraph_elements.items():
@@ -542,5 +521,5 @@ def serialize_gfa(gfa):
     return gfa_serialize
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     pass

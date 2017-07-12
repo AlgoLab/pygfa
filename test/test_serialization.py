@@ -22,6 +22,11 @@ class TestLine (unittest.TestCase):
     GFA graph, this way it's possible to test the effective goal of the
     serializer.
 
+    For dictionaries, it's tricky to test the opt_field they
+    could contain due to the fact that order is not
+    guaranteed. So, at least in case of dictionaries, a limit
+    of 1 opt_field is taken.
+
     :Note:
         Especially with the serializer, 100% coverage cannot be expected
         due to the large amount of possible configurations. A general
@@ -292,7 +297,7 @@ class TestLine (unittest.TestCase):
 
         fragment_ = ge.Edge.from_line(\
                         fragment.Fragment.from_string(\
-                                    "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test"))
+                                    "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2"))
         edge_ = ge.Edge.from_line(\
                         edge.Edge.from_string(\
                                     "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"))
@@ -300,54 +305,79 @@ class TestLine (unittest.TestCase):
                         gap.Gap.from_string(\
                                     "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test"))
 
-        self.assertTrue(gs1.serialize_edge(link_) == "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(link_without_id) == \
-                            "L\t1\t+\t3\t+\t12M\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(containment_) == \
-                            "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test")
-
-        self.assertTrue(gs1.serialize_edge(containment_with_trace) == \
-                            "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test")
-
-        self.assertTrue(gs1.serialize_edge(containment_without_id) == \
-                            "C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
+        self.assertTrue(gs2.serialize_edge(link_, \
+                                               "gfa2 link") == "")
+        self.assertTrue(gs2.serialize_edge(link_without_id, \
+                                               "gfa2 link2") == "")
+        self.assertTrue(gs2.serialize_edge(containment_, \
+                                               "gfa2 containment") == "")
+        self.assertTrue(gs2.serialize_edge(containment_with_trace, \
+                                               "gfa2 containment") == "")
+        self.assertTrue(gs2.serialize_edge(containment_without_id, \
+                                               "gfa2 containment") == "")
                             
-        self.assertTrue(gs1.serialize_edge(fragment_) == "")
+        self.assertTrue(gs2.serialize_edge(\
+                        fragment_, \
+                        "gfa2 fragment")  == \
+                "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2")
+
         # the edge alignment is a trace, which is not valid in GFA1,
         # so a * is placed.
-        self.assertTrue(gs1.serialize_edge(edge_) == "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(gap_) == "")
+        self.assertTrue(gs2.serialize_edge(\
+                        edge_, \
+                        "gfa2 edge") == \
+                "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
 
+        self.assertTrue(gs2.serialize_edge( \
+                        gap_, \
+                        "gfa2 gap") == \
+                "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
+
+        # test dictionaries
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
         self.graph.add_edge("C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test")
-
         # virtual_0 here
-        self.graph.add_edge("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test")
+        self.graph.add_edge("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2")
         self.graph.add_edge("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
         self.graph.add_edge("G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
-
         # virtual_1 here
         self.graph.add_edge("C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
         # virtual_2 here
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\txx:Z:test")
                                 
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_3"), "1_to_3") == \
-                            "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_5"), "1_to_5") == \
-                            "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("1_to_3"), \
+                            "gfa2 link 1_to_3") == "")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("1_to_5"), \
+                            "gfa2 containment 1_to_5") == "")
 
         self.graph.edge("1_to_5")['alignment'] = "42,42"
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_5"), "1_to_5") == \
-                            "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test")
-                            
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_0"), "virtual_0") == "")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("2_to_6"), "2_to_6") == \
-                            "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("2_to_12"), "2_to_12") == "")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_1"), "virtual_1") == \
-                            "C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_2"), "virtual_2") == \
-                            "L\t1\t+\t3\t+\t12M\txx:Z:test")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("1_to_5"), \
+                            "gfa2 containment: 1_to_5") == "")
+
+        print(gs2.serialize_edge(\
+                            self.graph.edge("virtual_0"), \
+                            "gfa2 fragment: virtual_0"))
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("virtual_0"), \
+                            "gfa2 fragment: virtual_0") == \
+                "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("2_to_6"), \
+                            "gfa2 edge: 2_to_6") == \
+                "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("2_to_12"), \
+                            "gfa2 gap: 2_to_12") == \
+                "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("virtual_1"), \
+                            "gfa2 containment without id: virtual_1") == "")
+        self.assertTrue(gs2.serialize_edge(\
+                            self.graph.edge("virtual_2"), \
+                            "gfa2 link without id: virtual_2") == "")
 
                             
     def test_serialize_gfa2_subgraph(self):
