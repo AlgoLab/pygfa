@@ -8,18 +8,25 @@ before or from a dictionary with equivalent key.
 # SUPER TODO: refactor this code and gfa1_serialzer to avoid the HORDES
 # of duplicated code they contain
 
-from pygfa.graph_element.parser import line, field_validator as fv
-from pygfa.graph_element.parser import segment, edge, group, containment, path, fragment, link
-from pygfa.graph_element import edge as ge, node, subgraph
-import copy, logging
+import copy
+import logging
+
 import networkx as nx
+
+from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import segment, edge, group, containment, path
+from pygfa.graph_element.parser import fragment, link
+from pygfa.graph_element import edge as ge, node, subgraph
 from pygfa import gfa
 
 class GFA2SerializationError(Exception): pass
 
 # TODO: is this a good idea?
 serializer_logger = logging.getLogger(__name__)
-serializer_logger.setLevel(logging.DEBUG)
+
+def _format_exception(identifier, exception):
+    return SERIALIZATION_ERROR_MESSAGGE + identifier \
+      + "\n\t" + repr(exception)
 
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 DEFAULT_IDENTIFIER = "no identifier given."
@@ -80,74 +87,81 @@ def _are_fields_defined(fields):
         return False
     return True
 
+
+def _check_identifier(identifier):
+    if not isinstance(identifier, str):
+        identifier = "'{0}' - id of type {1}.".format(\
+                                            str(identifier), \
+                                            type(identifier) \
+                                            )
+    return identifier
    
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
-def serialize_node(node, identifier=DEFAULT_IDENTIFIER):
+def serialize_node(node_, identifier=DEFAULT_IDENTIFIER):
     """Serialize to the GFA2 specification a graph_element Node or a
     dictionary that has the same informations.
+
+    If sequence length is undefined (for example, after parsing
+    a GFA1 Sequence line) a sequence length of 0 is automatically
+    added in the serialization process.
 
     :param node: A Graph Element Node or a dictionary
     :identifier: If set help gaining useful debug information.
     :returns "": If the object cannot be serialized to GFA.
-
-    TODO:
-        Add exceptions.
-
     """
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                                        str(identifier), \
-                                                        type(identifier) \
-                                                     )
+    identifier = _check_identifier(identifier)
     try:
-        if isinstance(node, dict):
-            node_dict = copy.deepcopy(node)
+        if isinstance(node_, dict):
+            node_dict = copy.deepcopy(node_)
+            # do not modify node_dict since it's not a copy
+            node_length = node_['slen']
+            if node_length == None:
+                node_length = 0
 
+            # 'slen' has been seitched to node_length, but
+            # now 'slen' must be removed
+            node_dict.pop('slen')
             defined_fields = [ \
                                 node_dict.pop('nid'), \
-                                node_dict.pop('sequence'), \
-                                node_dict.pop('slen') \
+                                node_length, \
+                                node_dict.pop('sequence') \
                              ]
             fields = ["S"]
-            fields.append(str(node['nid']))
-            fields.append(str(node['slen'] if node['slen'] != None else 0))
-            fields.append(str(node['sequence']))
-            
+            fields.append(str(node_['nid']))                
+            fields.append(str(node_length))
+            fields.append(str(node_['sequence']))
             fields.extend(_serialize_opt_fields(node_dict))
-            
         else:
-
+            # do not modify node_ since it's not a copy
+            node_length = node_.slen
+            if node_length == None:
+                node_length = 0
             defined_fields = [ \
-                               node.nid, \
-                               node.sequence, \
-                               node.slen \
+                               node_.nid, \
+                               node_.sequence, \
+                               node_length \
                              ]           
             fields = ["S"]
-            fields.append(str(node.nid))            
-            fields.append(str(node.slen if node.slen != None else 0))
-            fields.append(str(node.sequence))
-
-            fields.extend(_serialize_opt_fields(node.opt_fields))
+            fields.append(str(node_.nid))            
+            fields.append(str(node_length))
+            fields.append(str(node_.sequence))
+            fields.extend(_serialize_opt_fields(node_.opt_fields))
 
         if not _are_fields_defined(defined_fields) or \
            not _check_fields(fields[1:], SEGMENT_FIELDS):
-            raise GFA2SerializationError()
+            raise GFA2SerializationError("Required node elements " \
+                                        + "missing or invalid.")
 
         return str.join("\t", fields)
-
-    # TODO: see if ValueError is ever raised
-    except(AttributeError, KeyError, ValueError, GFA2SerializationError) as e:
-        serializer_logger.debug(SERIALIZATION_ERROR_MESSAGGE \
-                                + str(identifier))            
+    except(AttributeError, KeyError, GFA2SerializationError) as e:
+        serializer_logger.debug(_format_exception(identifier, e))
         return ""
-
 
 ################################################################################
 # EDGE SERIALIZER
 ################################################################################
-
 def serialize_edge(edge, identifier=DEFAULT_IDENTIFIER):
     """Converts to a GFA2 line the given edge.
     TODO:
