@@ -17,6 +17,9 @@ from pygfa import gfa
 # TODO: is this a good idea?
 serializer_logger = logging.getLogger(__name__)
 
+class GFA1SerializationError(Exception): pass
+
+
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 DEFAULT_IDENTIFIER = "no identifier given."
 
@@ -77,8 +80,6 @@ def _check_fields(fields, required_fields):
         return False
 
     
-class GFA1SerializationError(Exception): pass
-
 def _check_identifier(identifier):
     if not isinstance(identifier, str):
         identifier = "'{0}' - id of type {1}.".format(\
