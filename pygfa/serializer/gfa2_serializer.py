@@ -5,9 +5,6 @@ Can serialize either one of the object from the group mentioned
 before or from a dictionary with equivalent key.
 """
 
-# SUPER TODO: refactor this code and gfa1_serialzer to avoid the HORDES
-# of duplicated code they contain
-
 import copy
 import logging
 
@@ -17,8 +14,8 @@ from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element.parser import segment, edge, group, containment, path
 from pygfa.graph_element.parser import fragment, link
 from pygfa.graph_element import edge as ge, node, subgraph
+from pygfa.serializer import utils
 from pygfa import gfa
-from pygfa import utils
 
 class GFA2SerializationError(Exception): pass
 

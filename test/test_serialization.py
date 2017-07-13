@@ -10,7 +10,8 @@ from pygfa.graph_element.parser import header, segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element import node, edge as ge, subgraph as sg
-from pygfa import gfa, gfa1_serializer as gs1, gfa2_serializer as gs2
+from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
+from pygfa import gfa
 
 logging.basicConfig(level=logging.DEBUG)
 

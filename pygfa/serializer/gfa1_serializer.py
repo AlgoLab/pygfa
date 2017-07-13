@@ -12,8 +12,8 @@ import networkx as nx
 from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element.parser import segment, edge, group, containment, path, fragment, link
 from pygfa.graph_element import edge as ge, node, subgraph
+from pygfa.serializer import utils
 from pygfa import gfa
-from pygfa import utils
 
 class GFA1SerializationError(Exception): pass
 
