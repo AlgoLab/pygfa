@@ -13,81 +13,34 @@ from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element.parser import segment, edge, group, containment, path, fragment, link
 from pygfa.graph_element import edge as ge, node, subgraph
 from pygfa import gfa
-
-# TODO: is this a good idea?
-serializer_logger = logging.getLogger(__name__)
+from pygfa import utils
 
 class GFA1SerializationError(Exception): pass
 
-
-SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
+serializer_logger = logging.getLogger(__name__)
+    
 DEFAULT_IDENTIFIER = "no identifier given."
 
 SEGMENT_FIELDS = [fv.GFA1_NAME, fv.GFA1_SEQUENCE]
-LINK_FIELDS = [fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_NAME, \
-               fv.GFA1_ORIENTATION, fv.GFA1_CIGAR]
-               
-CONTAINMENT_FIELDS = [fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_NAME, \
-                      fv.GFA1_ORIENTATION, fv.GFA1_INT, fv.GFA1_CIGAR]
-PATH_FIELDS = [fv.GFA1_NAME, fv.GFA1_NAMES, fv.GFA1_CIGARS]
+LINK_FIELDS = [\
+    fv.GFA1_NAME, \
+    fv.GFA1_ORIENTATION, \
+    fv.GFA1_NAME, \
+    fv.GFA1_ORIENTATION, \
+    fv.GFA1_CIGAR]
 
-def _format_exception(identifier, exception):
-    return SERIALIZATION_ERROR_MESSAGGE + identifier \
-      + "\n\t" + repr(exception)
+CONTAINMENT_FIELDS = [\
+    fv.GFA1_NAME, \
+    fv.GFA1_ORIENTATION, \
+    fv.GFA1_NAME, \
+    fv.GFA1_ORIENTATION, \
+    fv.GFA1_INT, \
+    fv.GFA1_CIGAR]
 
-def _remove_common_edge_fields(edge_dict):
-    edge_dict.pop('eid')
-    edge_dict.pop('from_node')
-    edge_dict.pop('from_orn')
-    edge_dict.pop('to_node')
-    edge_dict.pop('to_orn')
-    edge_dict.pop('from_positions')
-    edge_dict.pop('to_positions')
-    edge_dict.pop('alignment')
-    edge_dict.pop('distance')
-    edge_dict.pop('variance')
-
-    
-def _serialize_opt_fields(opt_fields):
-    fields = []
-    for key, opt_field in opt_fields.items():
-        if line.is_optfield(opt_field):
-            fields.append(str(opt_field))
-    return fields
-
-
-def _are_fields_defined(fields):
-    try:
-        for field in fields:
-            if field == None:
-                return False
-    except:
-        return False
-    return True
-
-
-def _check_fields(fields, required_fields):
-    """Check if each field has the correct format as
-    stated from the specification.
-    
-    """
-    try:
-        for field in range(0, len(required_fields)):
-            if not fv.is_valid(fields[field], required_fields[field]):
-                return False
-        return True
-    except Exception as e:
-        return False
-
-    
-def _check_identifier(identifier):
-    if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(\
-                                            str(identifier), \
-                                            type(identifier) \
-                                            )
-    return identifier
-    
+PATH_FIELDS = [\
+    fv.GFA1_NAME, \
+    fv.GFA1_NAMES, \
+    fv.GFA1_CIGARS]
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
@@ -99,7 +52,7 @@ def serialize_node(node, identifier=DEFAULT_IDENTIFIER):
     :param identifier: If set help gaining useful debug information.
     :return "": If the object cannot be serialized to GFA.
     """
-    identifier = _check_identifier(identifier)
+    identifier = utils._check_identifier(identifier)
     try:
         if isinstance(node, dict):
 
@@ -115,7 +68,7 @@ def serialize_node(node, identifier=DEFAULT_IDENTIFIER):
             if node['slen'] != None:
                 fields.append("LN:i:" + str(node['slen']))
 
-            fields.extend(_serialize_opt_fields(node_dict))
+            fields.extend(utils._serialize_opt_fields(node_dict))
         else:
             defined_fields = [ \
                                 node.nid, \
@@ -126,17 +79,17 @@ def serialize_node(node, identifier=DEFAULT_IDENTIFIER):
             fields.append(str(node.sequence))
             if node.slen != None:
                 fields.append("LN:i:" + str(node.slen))
-            fields.extend(_serialize_opt_fields(node.opt_fields))
+            fields.extend(utils._serialize_opt_fields(node.opt_fields))
             
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], SEGMENT_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or \
+           not utils._check_fields(fields[1:], SEGMENT_FIELDS):
             raise GFA1SerializationError("Required node elements " \
                                         + "missing or invalid.")
 
         return str.join("\t", fields)
 
     except (KeyError, AttributeError, GFA1SerializationError) as e:
-        serializer_logger.debug(_format_exception(identifier, e))            
+        serializer_logger.debug(utils._format_exception(identifier, e))            
         return ""
 
 ################################################################################
@@ -148,7 +101,7 @@ def serialize_edge(edge, identifier=DEFAULT_IDENTIFIER):
     Fragments and Gaps cannot be represented in GFA1 specification,
     so they are not serialized.
     """
-    identifier = _check_identifier(identifier)
+    identifier = utils._check_identifier(identifier)
     try:
         if isinstance(edge, dict):
             if edge['eid'] == None: # edge is a fragment
@@ -175,16 +128,16 @@ def serialize_edge(edge, identifier=DEFAULT_IDENTIFIER):
             else:
                 return _serialize_to_link(edge)
     except (KeyError, AttributeError, GFA1SerializationError) as e:
-        serializer_logger.debug(_format_exception(identifier, e))
+        serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
 
     
 def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
-    identifier = _check_identifier(identifier)
+    identifier = utils._check_identifier(identifier)
     try:
         if isinstance(containment_, dict):
             containment_dict = copy.deepcopy(containment_)
-            _remove_common_edge_fields(containment_dict)
+            utils._remove_common_edge_fields(containment_dict)
             containment_dict.pop('pos')
             defined_fields = [ \
                                 containment_['from_node'], \
@@ -209,7 +162,7 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
             if not containment_['eid'] in(None, '*'):
                 fields.append("ID:Z:" + str(containment_['eid']))
 
-            fields.extend(_serialize_opt_fields(containment_dict))
+            fields.extend(utils._serialize_opt_fields(containment_dict))
         else:
             defined_fields = [ \
                                 containment_.from_node, \
@@ -234,25 +187,25 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
                 fields.append("*")
             if not containment_.eid in(None, '*'):
                 fields.append("ID:Z:" + str(containment_.eid))
-            fields.extend(_serialize_opt_fields(opt_fields))
+            fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], CONTAINMENT_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or \
+           not utils._check_fields(fields[1:], CONTAINMENT_FIELDS):
             raise GFA1SerializationError()
 
         return str.join("\t", fields)
 
     except(KeyError, AttributeError, GFA1SerializationError) as e:
-        serializer_logger.debug(_format_exception(identifier, e))            
+        serializer_logger.debug(utils._format_exception(identifier, e))            
         return ""
         
 
 def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
-    identifier = _check_identifier(identifier)
+    identifier = utils._check_identifier(identifier)
     try:
         if isinstance(link_, dict):
             link_dict = copy.deepcopy(link_)
-            _remove_common_edge_fields(link_dict)
+            utils._remove_common_edge_fields(link_dict)
             defined_fields = [ \
                                 link_['from_node'], \
                                 link_['from_orn'], \
@@ -272,7 +225,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
                 fields.append("*")
             if not link_['eid'] in(None, '*'):
                 fields.append("ID:Z:" + str(link_['eid']))
-            fields.extend(_serialize_opt_fields(link_dict))
+            fields.extend(utils._serialize_opt_fields(link_dict))
         else:
             defined_fields = [ \
                                 link_.from_node, \
@@ -294,16 +247,16 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
             
             if not link_.eid in(None, '*'):
                 fields.append("ID:Z:" + str(link_.eid))               
-            fields.extend(_serialize_opt_fields(link_.opt_fields))
+            fields.extend(utils._serialize_opt_fields(link_.opt_fields))
 
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], LINK_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or \
+           not utils._check_fields(fields[1:], LINK_FIELDS):
             raise GFA1SerializationError()
             
         return str.join("\t", fields)
 
     except(KeyError, AttributeError, GFA1SerializationError) as e:
-        serializer_logger.debug(_format_exception(identifier, e))
+        serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
 
 
@@ -349,7 +302,7 @@ def _serialize_subgraph_elements(subgraph_elements, gfa=None):
 def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa=None):
     """Serialize a Subgraph object or an equivalent dictionary.
     """
-    identifier = _check_identifier(identifier)
+    identifier = utils._check_identifier(identifier)
     try:
         if isinstance(subgraph_, dict):
             subgraph_dict = copy.deepcopy(subgraph_)
@@ -366,7 +319,7 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa=None):
                 fields.append(str.join(",", subgraph_['overlaps'].value))
             else:
                 fields.append("*")
-            fields.extend(_serialize_opt_fields(subgraph_dict))
+            fields.extend(utils._serialize_opt_fields(subgraph_dict))
         else:
             defined_fields = [\
                                 subgraph_.sub_id, \
@@ -382,16 +335,16 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa=None):
                 fields.append(str.join(",", subgraph_.opt_fields['overlaps'].value))
             else:
                 fields.append("*")
-            fields.extend(_serialize_opt_fields(opt_fields))
+            fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not _are_fields_defined(defined_fields) or \
-           not _check_fields(fields[1:], PATH_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or \
+           not utils._check_fields(fields[1:], PATH_FIELDS):
             raise GFA1SerializationError("Required fields missing or" \
                                         + " not valid.")
         return str.join("\t", fields)
             
     except(KeyError, AttributeError, GFA1SerializationError) as e:
-        serializer_logger.debug(_format_exception(identifier, e))            
+        serializer_logger.debug(utils._format_exception(identifier, e))            
         return ""
 
 
