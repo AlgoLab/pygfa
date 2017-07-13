@@ -6,7 +6,7 @@ class Path(line.Line):
 
     def __init__(self):
         super().__init__('P')
-    
+
     REQUIRED_FIELDS = { \
     'path_name' : fv.GFA1_NAME, \
     'seqs_names' : fv.GFA1_NAMES, \
@@ -18,7 +18,7 @@ class Path(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the path fields from the string.
-        
+
         The string can contains the P character at the begin or can
         just contains the fields of the path directly.
         """
@@ -34,7 +34,7 @@ class Path(line.Line):
                                         + "Path line is not reached.")
         path = Path()
         path_name = fv.validate(fields[0], cls.REQUIRED_FIELDS['path_name'])
-        sequences_names = [ fv.validate(label, \
+        sequences_names = [fv.validate(label, \
                             cls.REQUIRED_FIELDS['seqs_names']) \
                             for label in fields[1].split(",")
                           ]
@@ -47,10 +47,10 @@ class Path(line.Line):
 
         for field in fields[3:]:
             pfields.append(line.OptField.from_string(field))
-            
+
         for field in pfields:
             path.add_field(field)
-            
+
         return path
 
 if __name__ == '__main__': # pragma: no cover

@@ -19,8 +19,8 @@ def is_field(field):
     for attr in('name', 'value'):
         if not hasattr(field, attr):
             return False
-    if field.name == None or field.value == None:
-        return False
+        if field.name is None or field.value is None:
+            return False
     if not isinstance(field.name, str):
         return False
     return True
@@ -38,7 +38,7 @@ def is_optfield(field):
       field.type != None
 
 
-      
+
 
 class Line:
     """
@@ -48,15 +48,15 @@ class Line:
 
     It's possible to instatiate a Line to save a custom line in a gfa file.
     """
-    
+
     REQUIRED_FIELDS = {}
     PREDEFINED_OPTFIELDS = {}
     # this will contain tha name of the required optfield for
     # each kind of line and the ralative type of value the value of
     # the field must contains
 
-    
-    def __init__(self, line_type = None):
+
+    def __init__(self, line_type=None):
         self._fields = {}
         self._type = line_type
 
@@ -79,8 +79,8 @@ class Line:
             return True
         except (AttributeError, KeyError):
             return False
-        
-        
+
+
     @classmethod
     def get_static_fields(cls):
         keys = []
@@ -103,8 +103,8 @@ class Line:
     @property
     def fields(self):
         return self._fields
-        
-    
+
+
     def add_field(self, field):
         """Add a field to the line.
 
@@ -115,28 +115,29 @@ class Line:
 
         :param field: The field to add to the line
         :raises InvalidFieldError: If a 'name' and a 'value' attributes are
-	        not found or the field has already been added.
+            not found or the field has already been added.
 
         :note:
-	        If you want to add a Field for a custom Line object be
-	        sure to add its name to the REQUIRED_FIELDS dictionary
-	        for that particular Line subclass.
+            If you want to add a Field for a custom Line object be
+            sure to add its name to the REQUIRED_FIELDS dictionary
+            for that particular Line subclass.
         """
         if not(is_field(field) or is_optfield(field)):
             raise  fv.InvalidFieldError("A valid field must be attached")
 
         if field.name in self.fields:
-            raise ValueError("This field is already been added, field name: '{0}'.".format(field.name))
+            raise ValueError(\
+                    "This field is already been added, field name: '{0}'.".format(field.name))
 
         if field.name in self.REQUIRED_FIELDS:
             self._fields[field.name] = field
         else: # here we are appending an optfield
-              if not is_optfield(field):
-                  raise fv.InvalidFieldError(\
-                        "Cannot add an invalid OptField.")
-              self._fields[field.name] = field
+            if not is_optfield(field):
+                raise fv.InvalidFieldError(\
+                    "Cannot add an invalid OptField.")
+            self._fields[field.name] = field
         return True
-    
+
 
     def remove_field(self, field):
         """
@@ -146,10 +147,10 @@ class Line:
         field_name = field
         if is_field(field):
             field_name = field.name
-        
+
         if field_name in self.fields:
             self.fields.pop(field_name)
-        
+
 
     @classmethod
     def from_string(cls, string): # pragma: no cover
@@ -158,7 +159,7 @@ class Line:
     def __eq__(self, other):
         try:
             return self.type == other.type \
-              and self.fields == other.fields 
+              and self.fields == other.fields
         except:
             return False
 
@@ -166,23 +167,23 @@ class Line:
     def __neq__(self, other):
         return not self == other
 
-        
+
     def __str__(self): # pragma: no cover
         tmp_str = "line_type: {0}, fields: [".format(str(self.type))
         field_strings = []
-        
+
         for field in self.fields:
-            field_strings.append( str(field))
-        
+            field_strings.append(str(field))
+
         tmp_str += str.join(", ", field_strings) + "]"
         return tmp_str
 
 
-    
-            
+
+
 class Field:
     """This class represent any required field.
-    
+
     The type of field is bound to the field name.
     """
     def __init__(self, name, value):
@@ -197,7 +198,7 @@ class Field:
     def value(self):
         return self._value
 
-    
+
     def __eq__(self, other):
         try:
             return self.name == other.name and \
@@ -206,30 +207,30 @@ class Field:
             return False
 
     def __neq__(self, other):
-        return not self ==  other
+        return not self == other
 
     def __str__(self): # pragma: no cover
-        return str.join(":",(self.name, str(self.value)))
+        return str.join(":", (self.name, str(self.value)))
 
-    
-    
+
+
 
 class OptField(Field):
-    """An Optional field of the form `TAG:TYPE:VALUE`, where:  
-    TAG match [A-Za-z0-9][A-Za-z0-9]  
+    """An Optional field of the form `TAG:TYPE:VALUE`, where:
+    TAG match [A-Za-z0-9][A-Za-z0-9]
     TYPE match [AiZfJHB]
-    """  
+    """
     def __init__(self, name, value, field_type):
         if not re.fullmatch('[A-Za-z0-9]' * 2, name):
             raise ValueError("Invalid optfield name, given '{0}'".format(name))
 
         if not re.fullmatch("^[ABHJZif]$", field_type):
             raise ValueError("Invalid type for an optional field.")
-        
+
         self._name = name
         self._type = field_type
         self._value = fv.validate(value, field_type)
-    
+
 
     @property
     def type(self):
@@ -242,12 +243,14 @@ class OptField(Field):
         """
         groups = re.split(":", string.strip())
         if len(groups) != 3:
-            raise ValueError("OptField must have a name, a type and a value, given{0}".format(string) )
+            raise ValueError(\
+                    "OptField must have a name, a type and a value," \
+                    + " given{0}".format(string))
 
         optfield = OptField(groups[0], groups[2], groups[1])
         return optfield
-    
-    
+
+
     def __eq__(self, other):
         try:
             return self.name == other.name and \
@@ -256,13 +259,13 @@ class OptField(Field):
         except:
             return False
 
-    
-    def __neq__(self, other):
-        return not self == other;
 
-    
+    def __neq__(self, other):
+        return not self == other
+
+
     def __str__(self): # pragma: no cover
-        return str.join(":",(self.name, self.type, str(self.value)))
+        return str.join(":", (self.name, self.type, str(self.value)))
 
 if __name__ == '__main__': # pragma: no cover
     pass

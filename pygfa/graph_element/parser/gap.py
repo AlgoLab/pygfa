@@ -6,7 +6,7 @@ class Gap(line.Line):
 
     def __init__(self):
         super().__init__('G')
-    
+
     REQUIRED_FIELDS = { \
     'gid' : fv.GFA2_OPTIONAL_ID, \
     'sid1' : fv.GFA2_REFERENCE, \
@@ -18,7 +18,7 @@ class Gap(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the Gap fields from the string.
-        
+
         The string can contains the G character at the begin or can
         only contains the fields of the Gap directly.
         """
@@ -45,13 +45,13 @@ class Gap(line.Line):
 
         disp_f = fv.validate(fields[3], cls.REQUIRED_FIELDS['distance'])
         gfields.append(line.Field('distance', disp_f))
-        
+
         variance_f = fv.validate(fields[4], cls.REQUIRED_FIELDS['variance'])
         gfields.append(line.Field('variance', variance_f))
-        
+
         for field in fields[5:]:
             gfields.append(line.OptField.from_string(field))
-            
+
         for field in gfields:
             gap.add_field(field)
 

@@ -6,12 +6,12 @@ import re
 
 class InvalidFieldError(Exception):
     """Exception raised when an invalid field is provided."""
-    
+
 class UnknownDataTypeError(Exception):
     """Exception raised when the datatype provided is not in
     the `DATASTRING_VALIDATION_REGEXP` dictionary.
     """
-    
+
 class FormatError(Exception):
     """Exception raised when a wrong type of object is given
     to the validator.
@@ -44,7 +44,7 @@ GFA2_POSITION = 'pos2'
 GFA2_CIGAR = 'cig2'
 GFA2_SEQUENCE = 'seq2'
 GFA2_OPTIONAL_INT = 'oint'
-GFA2_OPTIONAL_ID =  'oid'
+GFA2_OPTIONAL_ID = 'oid'
 
 
 # These are the types of value a field can assume.
@@ -119,7 +119,7 @@ DATASTRING_VALIDATION_REGEXP = \
   #
   GFA2_INT : "^[0-9]+$", \
   # GFA1 has pos to describe any positive integer,
-  # but pos accept the empty string, while 'int' doesn't \
+  # but pos accept the empty string, while 'int' doesn't
   #
   GFA2_TRACE : "^[0-9]+(,[0-9]+)*$", \
   GFA2_ALIGNMENT : "^\*$|^[0-9]+(,[0-9]+)*$|^([0-9]+[MDIP])+$", \
@@ -131,7 +131,7 @@ DATASTRING_VALIDATION_REGEXP = \
   # CIGAR string for GFA2
   #
   GFA2_SEQUENCE : "^\*$|^[!-~]+$", # seq2 is a GFA2 sequence,
-  # it's more flexible than GFA1 seq \ 
+  # it's more flexible than GFA1 seq
   #
   GFA2_OPTIONAL_ID : "^\*$|^[!-~]+$", \
   # optional id  for GFA2
@@ -148,20 +148,20 @@ def is_valid(string, datatype):
     :param datatype: The type of data corresponding to the string.
     :returns: True if the string respect the type defined by the datatype.
     :raises UnknownDataTypeError: If the datatype is not presents in
-    	    `DATASTRING_VALIDATION_REGEXP`.
+        `DATASTRING_VALIDATION_REGEXP`.
     :raises UnknownFormatError: If string is not python string.
 
-    TODO:
-	Fix exception reference in the documentation.
+    :TODO:
+        Fix exception reference in the documentation.
     """
     if not isinstance(string, str):
-        raise FormatError("A string must be given to validate it, "
+        raise FormatError("A string must be given to validate it, " \
                          + "given:{0}".format(string))
     if not datatype in DATASTRING_VALIDATION_REGEXP:
         raise UnknownDataTypeError(\
                                     "Invalid field datatype," + \
                                     "given: {0}".format(datatype) \
-                                  )                                        
+                                  )
     regexp = DATASTRING_VALIDATION_REGEXP[datatype]
     if not re.fullmatch(regexp, string):
         return False
@@ -184,7 +184,7 @@ def is_gfa2_cigar(string):
     """
     return string != "*" and is_valid(string, GFA2_CIGAR)
 
-    
+
 def validate(string, datatype):
     """Return a value from the given string with the type closer to the
     one it's represented.
@@ -195,46 +195,43 @@ def validate(string, datatype):
                                + "given string : " \
                                + "{0}\ndatatype: {1}.".format(string, \
                                                               datatype))
-    if datatype in(TYPE_i):
+    if datatype in (TYPE_i,):
         return int(string)
     elif datatype in(GFA1_INT, GFA2_INT):
         # fullmatch grants that we have a string whose int value is >= 0
-        
+
         # position = int(string)
         # if position < 0:
         #     raise Exception("Position must be >= 0.")
         return int(string)
 
-    elif datatype in(GFA2_OPTIONAL_INT):
+    elif datatype in (GFA2_OPTIONAL_INT, ):
         if string == "*":
             return string
         return int(string)
-    
-    elif datatype in(TYPE_f):
+
+    elif datatype in (TYPE_f, ):
         return float(string)
 
-    elif datatype in(GFA1_CIGARS):
+    elif datatype in (GFA1_CIGARS, ):
         return string.split(",")
-    elif datatype in(GFA2_ALIGNMENT):
+    elif datatype in (GFA2_ALIGNMENT, ):
         # string is either * or a trace or a cigar
         if string == "*":
             return string
         elif is_valid(string, GFA2_CIGAR):
             return validate(string, GFA2_CIGAR)
-        else:
-            return validate(string, GFA2_TRACE)
-            
-    elif datatype in(JSON):
+        return validate(string, GFA2_TRACE)
+
+    elif datatype in (JSON, ):
         return string # TODO: ask if the json must be manipulated
     elif datatype in(GFA2_IDS, GFA2_REFERENCES):
         return string.split()
-        
-
     else:
         # 'orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'cig2', 'H',
         # 'B', 'trc', 'id', 'ref', pos2', 'seq2', 'oid', 'lbs'
         return string
 
-    
+
 if __name__ == '__main__': # pragma: no cover
     pass

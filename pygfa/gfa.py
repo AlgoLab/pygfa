@@ -12,7 +12,6 @@ GFA representation through a networkx MulitDiGraph.
 
 import copy
 import re
-import logging
 
 import networkx as nx
 
@@ -21,9 +20,6 @@ from pygfa.graph_element.parser import edge, gap, fragment, group
 from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
-
-
-gfa_logger = logging.getLogger(__name__)
 
 
 class InvalidSearchParameters(Exception): pass
@@ -47,13 +43,12 @@ def VALUE_EQUALITY_COMPARATOR(obj, value):
     """
     if line.is_field(obj):
         return obj.value == value
-    else:
-        return obj == value
+    return obj == value
 
-    
+
 def IGNORE_VALUE_COMPARATOR(obj, value):
     return True
-    
+
 class GFA():
     """GFA will use a networkx MultiDiGraph as structure to contain
     the elements of the specification.
@@ -81,8 +76,8 @@ class GFA():
                             + "use networkx.MultiDiGraph instead.")
         self._graph = nx.MultiDiGraph(base_graph)
         self._subgraphs = {}
-        self._next_virtual_id = 0 if base_graph == None else \
-                                self._find_max_virtual_id();
+        self._next_virtual_id = 0 if base_graph is None else \
+                                self._find_max_virtual_id()
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -91,11 +86,11 @@ class GFA():
             incremented. Useful mainly in interactive mode.
         """
         key = self._next_virtual_id
-        if increment == True:
+        if increment:
             self._next_virtual_id += 1
         return key
 
-    
+
     def _find_max_virtual_id(self):
         """Traverse the graph to find the greatest virtual id value.
         """
@@ -103,8 +98,8 @@ class GFA():
         virtual_rxp = "^virtual_([\d]+)$"
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
-        
-        for u,v, key in self._graph.edges_iter(keys=True):
+
+        for u, v, key in self._graph.edges_iter(keys=True):
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -116,7 +111,7 @@ class GFA():
 
         return max(virtual_keys)
 
-    
+
     def nodes(self, **kwargs):
         """Return all the nodes in the graph."""
         return self._graph.nodes(**kwargs)
@@ -132,25 +127,25 @@ class GFA():
         If `identifier` is `None` all the graph Subgraph objects are
         returned.
         """
-        if identifier == None:
+        if identifier is None:
             return self._subgraphs
         else:
             if identifier in self._subgraphs:
                 return self._subgraphs[identifier]
 
-            
+
     def node(self, identifier=None):
         """An interface to access the node method of the netwrokx
         graph.
 
         If `identifier` is `None` all the graph nodes are returned.
         """
-        if identifier == None:
+        if identifier is None:
             return self._graph.node
         else:
             if identifier in self._graph.node:
                 return self._graph.node[identifier]
-        
+
 
     def edge(self, identifier=None):
         """GFA edge accessor.
@@ -161,28 +156,27 @@ class GFA():
         * If `identifier` is a single defined value then perform
            a search by edge key, where the edge key is the given value.
         """
-        if identifier == None:
+        if identifier is None:
             return self._graph.edge
         if isinstance(identifier, tuple):
             return self.search_edge_by_nodes(identifier)
-        else:
-            return self.search_edge_by_key(identifier)
+        return self.search_edge_by_key(identifier)
 
-        
+
     def get(self, key):
         """Return the element pointed by the specified key."""
         if key in self._graph.node:
             return self.node(key)
         if key in self._subgraphs:
             return self._subgraphs[key]
-        edge = self.search_edge_by_key(key)
-        if edge != None:
-            return edge
+        edge_ = self.search_edge_by_key(key)
+        if not edge_ is None:
+            return edge_
 
 
     def as_graph_element(self, key):
-        """Given a key of an existing node, edge or subgraph, return its equivalent
-        graph element object.
+        """Given a key of an existing node, edge or subgraph, return
+        its equivalent graph element object.
         """
         element = self.get(key)
         if element == None:
@@ -192,7 +186,7 @@ class GFA():
         # Subgraph objects don't need to be converted
         if sg.is_subgraph(element):
             return copy.deepcopy(element)
-        
+
         tmp_list = copy.deepcopy(element)
         try:
             if 'nid' in element:
@@ -219,7 +213,8 @@ class GFA():
                                 element['eid'], \
                                 element['from_node'], element['from_orn'], \
                                 element['to_node'], element['to_orn'], \
-                                element['from_positions'], element['to_positions'], \
+                                element['from_positions'], \
+                                element['to_positions'], \
                                 element['alignment'], element['distance'], \
                                 element['variance'], \
                                 opt_fields=tmp_list\
@@ -235,14 +230,15 @@ class GFA():
             if key == edge_key:
                 return from_node, to_node
         return None, None
-                            
+
+
     def search_edge_by_key(self, edge_key):
         from_node, to_node = self._get_edge_end_nodes(edge_key)
         if (from_node, to_node) != (None, None):
             return self._graph.edge[from_node][to_node][edge_key]
         return None
 
-    
+
     def search_edge_by_nodes(self, nodes):
         """Search for edge and edges providing end nodes.
 
@@ -258,8 +254,8 @@ class GFA():
         """
         if len(nodes) < 2:
             raise InvalidSearchParameters("At least two values are required.")
-        from_node = nodes [0]
-        to_node = nodes [1]
+        from_node = nodes[0]
+        to_node = nodes[1]
         try:
             if len(nodes) > 2:
                 key = nodes[2]
@@ -279,7 +275,7 @@ class GFA():
         self._next_virtual_id = 0
         self._subgraphs = {}
 
-        
+
     def add_graph_element(self, element):
         """Add a graph element -Node, Edge or Subgraph- object to
         the graph."""
@@ -289,7 +285,7 @@ class GFA():
             self.add_edge(element)
         elif isinstance(element, sg.Subgraph):
             self.add_subgraph(element)
-            
+
 
     def add_node(self, new_node):
         """Add a graph_element Node to the GFA graph
@@ -301,7 +297,7 @@ class GFA():
 
         :param new_node: A graph_element.Node object or a string
            that can represent a node (such as the Segment line).
-        """       
+        """
         if isinstance(new_node, str) and new_node[0] == "S":
             if segment.is_segmentv1(new_node):
                 new_node = node.Node.from_line(\
@@ -309,10 +305,10 @@ class GFA():
             else:
                 new_node = node.Node.from_line(\
                     segment.SegmentV2.from_string(new_node.strip()))
-        
+
         if not node.is_node(new_node):
             raise node.InvalidNodeError("The object given is not a node.")
-        
+
         self._graph.add_node(\
                               new_node.nid, \
                               nid=new_node.nid, \
@@ -320,7 +316,7 @@ class GFA():
                               slen=new_node.slen, \
                               **new_node.opt_fields)
         return True
-    
+
 
     def remove_node(self, nid):
         """Remove a node with nid as its node id.
@@ -336,8 +332,8 @@ class GFA():
         except:
             raise node.InvalidNodeError("{0} doesn't point".format(nid) \
                                         + " to any node in the graph.")
-        
-        
+
+
     def add_edge(self, new_edge):
         """Add a graph_element Edge or a networkx edge to the GFA
         graph using  the edge id as key.
@@ -351,34 +347,34 @@ class GFA():
         individually as edge data.
         """
         if isinstance(new_edge, str):
-          if new_edge[0] == 'L':
-              new_edge = ge.Edge.from_line(\
-                link.Link.from_string(new_edge.strip()))
-          elif new_edge[0] == 'C':
-              new_edge = ge.Edge.from_line(\
-                containment.Containment.from_string(new_edge.strip()))
-          elif new_edge[0] == 'E':
-              new_edge =  ge.Edge.from_line(\
-                edge.Edge.from_string(new_edge.strip()))
-          elif new_edge[0] == 'G':
-              new_edge = ge.Edge.from_line(\
-                gap.Gap.from_string(new_edge.strip()))
-          elif new_edge[0] == 'F':
-              new_edge = ge.Edge.from_line(\
-                fragment.Fragment.from_string(new_edge.strip()))
-          else:
-              raise ge.InvalidEdgeError(\
-                "The string given doesn't represent a GFA line that could" \
-                + " be represented as an edge,\n" \
-                + "given: {0}".format(new_edge))
-              
+            if new_edge[0] == 'L':
+                new_edge = ge.Edge.from_line(\
+                    link.Link.from_string(new_edge.strip()))
+            elif new_edge[0] == 'C':
+                new_edge = ge.Edge.from_line(\
+                    containment.Containment.from_string(new_edge.strip()))
+            elif new_edge[0] == 'E':
+                new_edge = ge.Edge.from_line(\
+                    edge.Edge.from_string(new_edge.strip()))
+            elif new_edge[0] == 'G':
+                new_edge = ge.Edge.from_line(\
+                    gap.Gap.from_string(new_edge.strip()))
+            elif new_edge[0] == 'F':
+                new_edge = ge.Edge.from_line(\
+                    fragment.Fragment.from_string(new_edge.strip()))
+            else:
+                raise ge.InvalidEdgeError(\
+                    "The string given doesn't represent a GFA line that could" \
+                    + " be represented as an edge,\n" \
+                    + "given: {0}".format(new_edge))
+
         if not ge.is_edge(new_edge):
             raise ge.InvalidEdgeError("The object is not a valid edge.")
 
         key = new_edge.eid
         if new_edge.eid == None or new_edge.eid == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
-        
+
         self._graph.add_edge( \
                                new_edge.from_node, new_edge.to_node, key=key, \
                                eid=new_edge.eid, \
@@ -389,7 +385,7 @@ class GFA():
                                from_positions=new_edge.from_positions, \
                                to_positions=new_edge.to_positions, \
                                alignment=new_edge.alignment, \
-                               distance=new_edge.distance ,\
+                               distance=new_edge.distance, \
                                variance=new_edge.variance, \
                                **new_edge.opt_fields \
                                )
@@ -429,7 +425,7 @@ class GFA():
         except nx.NetworkXError as e:
             raise ge.InvalidEdgeError(e)
 
-        
+
     def remove_edges(self, from_node, to_node):
         """Remove all the direct edges between the two nodes given.
 
@@ -471,26 +467,26 @@ class GFA():
             key = "virtual_{0}".format(self._get_virtual_id())
         self._subgraphs[key] = copy.deepcopy(subgraph)
 
-        
+
     def remove_subgraph(self, subgraph_id):
         """Remove the Subgraph object identified by the given id.
         """
         try:
             del(self._subgraphs[subgraph_id])
         except:
-            raise sg.InvalidSubgraphError("The given id doesn't "
+            raise sg.InvalidSubgraphError("The given id doesn't " \
                                          + " identify any subgraph.")
-        
-        
+
+
     def get_subgraph(self, sub_key):
         """Return a GFA subgraph from the parent graph.
 
         Return a new GFA graph structure with the nodes,
         edges and subgraphs specified in the elements attributes
         of the subgraph object pointed by the id.
-        
+
         The returned GFA is *independent* from the original object.
-        
+
         :param sub_key: The id of a subgraph present in the GFA graph.
         :returns None: if the subgraph id doesn't exist.
         """
@@ -498,14 +494,14 @@ class GFA():
             raise sg.InvalidSubgraphError(\
                 "There is no subgraph pointed by this key.")
         subgraph = self._subgraphs[sub_key]
-        subGFA = GFA()
-        for id, orn in subgraph.elements.items():
+        sub_gfa = GFA()
+        for id_, orn in subgraph.elements.items():
             # creating a new GFA graph and the add method,
             # the virtual id are recomputed
-            subGFA.add_graph_element(self.as_graph_element(id))
-        return subGFA
+            sub_gfa.add_graph_element(self.as_graph_element(id_))
+        return sub_gfa
 
-    
+
     def subgraph(self, nbunch):
         """Given a bunch of nodes return a graph with
         all the given nodes and the edges between them.
@@ -525,7 +521,7 @@ class GFA():
     def neighbors(self, nid):
         """Return all the nodes id of the nodes connected to
         the given node.
-        
+
         :params nid: The id of the selected node
         """
         return self._graph.neighbors(nid)
@@ -538,13 +534,13 @@ class GFA():
         :param weakly: If set to `True` computes the weakly connected
             component for the given node.
         """
-        if weakly == True:
+        if weakly:
             nodes = nx.dfs_tree(nx.MultiGraph(self._graph), nid).nodes()
         else:
             nodes = nx.dfs_tree(self._graph, nid).nodes()
         return GFA(self.subgraph(nodes))
 
-    
+
     def search(self, \
                field, \
                value, \
@@ -561,14 +557,14 @@ class GFA():
 
         elif limit_type == Element.SUBGRAPH:
             return self.search_on_subgraph(field, value, comparator)
-        else:
-            retval = []
-            retval.extend(self.search_on_nodes(field, value, comparator))
-            retval.extend(self.search_on_edges(field, value, comparator))
-            retval.extend(self.search_on_subgraph(field, value, comparator))
-            return retval
-            
         
+        retval = []
+        retval.extend(self.search_on_nodes(field, value, comparator))
+        retval.extend(self.search_on_edges(field, value, comparator))
+        retval.extend(self.search_on_subgraph(field, value, comparator))
+        return retval
+
+
     def search_on_nodes(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
         retval = []
         for key, data in self._graph.nodes_iter(data=True):
@@ -576,15 +572,15 @@ class GFA():
                 retval.append(key)
         return retval
 
-    
+
     def search_on_edges(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
         retval = []
-        for u,v, key, data in self._graph.edges_iter(data=True, keys=True):
+        for u, v, key, data in self._graph.edges_iter(data=True, keys=True):
             if field in data and comparator(data[field], value):
                 retval.append(key)
         return retval
 
-    
+
     def search_on_subgraph(self, field, value, operator=VALUE_EQUALITY_COMPARATOR):
         retval = []
         for key, data in self._subgraphs.items():
@@ -597,57 +593,57 @@ class GFA():
     def from_string(self, string):
         """Add a GFA string to the graph once it has been
         converted.
-        
+
         :TODO:
             Maybe this could be used instead of checking for line type
             in the add_xxx methods...
         """
         lines = re.split("\n", string)
-        for line in lines:
-                line = line.strip()
-                if len(line) < 1:
-                    continue
-                if line[0] == 'S':
-                    if segment.is_segmentv1(line):
-                        self.add_graph_element(\
-                            node.Node.from_line(\
-                                segment.SegmentV1.from_string(line)))
-                    else:
-                        self.add_graph_element(\
-                            node.Node.from_line(\
-                                segment.SegmentV2.from_string(line)))
-                elif line[0] == 'L':
+        for line_ in lines:
+            line_ = line_.strip()
+            if len(line_) < 1:
+                continue
+            if line_[0] == 'S':
+                if segment.is_segmentv1(line_):
                     self.add_graph_element(\
-                        ge.Edge.from_line(\
-                            link.Link.from_string(line)))
-                elif line[0] == 'C':
+                        node.Node.from_line(\
+                            segment.SegmentV1.from_string(line_)))
+                else:
                     self.add_graph_element(\
-                        ge.Edge.from_line(\
-                            containment.Containment.from_string(line)))
-                elif line[0] == 'E':
-                    self.add_graph_element(\
-                        ge.Edge.from_line(\
-                            edge.Edge.from_string(line)))
-                elif line[0] == 'G':
-                    self.add_graph_element(\
-                        ge.Edge.from_line(\
-                            gap.Gap.from_string(line)))
-                elif line[0] == 'F':
-                    self.add_graph_element(\
-                        ge.Edge.from_line(\
-                            fragment.Fragment.from_string(line)))
-                elif line[0] == 'P':
-                    self.add_graph_element(\
-                        sg.Subgraph.from_line(\
-                            path.Path.from_string(line)))
-                elif line[0] == 'O':
-                    self.add_graph_element(\
-                        sg.Subgraph.from_line(\
-                            group.OGroup.from_string(line)))
-                elif line[0] == 'U':
-                    self.add_graph_element(\
-                        sg.Subgraph.from_line(\
-                            group.UGroup.from_string(line)))
+                        node.Node.from_line(\
+                            segment.SegmentV2.from_string(line_)))
+            elif line_[0] == 'L':
+                self.add_graph_element(\
+                    ge.Edge.from_line(\
+                        link.Link.from_string(line_)))
+            elif line_[0] == 'C':
+                self.add_graph_element(\
+                    ge.Edge.from_line(\
+                        containment.Containment.from_string(line_)))
+            elif line_[0] == 'E':
+                self.add_graph_element(\
+                    ge.Edge.from_line(\
+                        edge.Edge.from_string(line_)))
+            elif line_[0] == 'G':
+                self.add_graph_element(\
+                    ge.Edge.from_line(\
+                        gap.Gap.from_string(line_)))
+            elif line_[0] == 'F':
+                self.add_graph_element(\
+                    ge.Edge.from_line(\
+                        fragment.Fragment.from_string(line_)))
+            elif line_[0] == 'P':
+                self.add_graph_element(\
+                    sg.Subgraph.from_line(\
+                        path.Path.from_string(line_)))
+            elif line_[0] == 'O':
+                self.add_graph_element(\
+                    sg.Subgraph.from_line(\
+                        group.OGroup.from_string(line_)))
+            elif line_[0] == 'U':
+                self.add_graph_element(\
+                    sg.Subgraph.from_line(\
+                        group.UGroup.from_string(line_)))
 
 
     # This method has been checked manually
@@ -662,7 +658,7 @@ class GFA():
         pygfa.from_string(file_content)
         return pygfa
 
-    
+
     def pprint(self): # pragma: no cover
         """A basic pretty print function for nodes and edges.
         """
@@ -674,7 +670,7 @@ class GFA():
             string += "}\n"
         string += "]\n"
 
-        string += "\nEdges: [\n"    
+        string += "\nEdges: [\n"
         for from_node, to_node, key, datas in self._graph.edges_iter( \
                                                             keys=True,\
                                                             data=True):
@@ -684,10 +680,10 @@ class GFA():
             string += "}\n"
         string += "]\n"
 
-        string += "\nSubgraphs: [\n"    
+        string += "\nSubgraphs: [\n"
         for key, data in self._subgraphs.items():
             string += str(key) + "\t: {" + str(data) +  "}\n"
-                                   
+
         string += "]\n"
         return string
 

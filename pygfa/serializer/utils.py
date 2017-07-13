@@ -28,7 +28,7 @@ def _serialize_opt_fields(opt_fields):
 def _are_fields_defined(fields):
     try:
         for field in fields:
-            if field == None:
+            if field is None:
                 return False
     except:
         return False
@@ -37,14 +37,13 @@ def _are_fields_defined(fields):
 def _check_fields(fields, required_fields):
     """Check if each field has the correct format as
     stated from the specification.
-    
     """
     try:
         for field in range(0, len(required_fields)):
             if not fv.is_valid(fields[field], required_fields[field]):
                 return False
         return True
-    except Exception as e:
+    except:
         return False
 
 def _check_identifier(identifier):

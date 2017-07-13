@@ -6,7 +6,7 @@ class Containment(line.Line):
 
     def __init__(self):
         super().__init__('C')
-    
+
     REQUIRED_FIELDS = { \
     'from' : fv.GFA1_NAME, \
     'from_orn' : fv.GFA1_ORIENTATION, \
@@ -25,7 +25,7 @@ class Containment(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the containment fields from the string.
-        
+
         The string can contains the C character at the begin or can
         only contains the fields of the containment directly.
         """
@@ -39,7 +39,7 @@ class Containment(line.Line):
         if len(fields) < len(cls.REQUIRED_FIELDS):
             raise line.InvalidLineError("The minimum number of field for "
                                         + "Containment line is not reached.")
-            
+
         containment = Containment()
 
         from_name = fv.validate(fields[0], cls.REQUIRED_FIELDS['from'])
@@ -58,10 +58,10 @@ class Containment(line.Line):
 
         for field in fields[6:]:
             cfields.append(line.OptField.from_string(field))
-            
+
         for field in cfields:
             containment.add_field(field)
-            
+
         return containment
 
 if __name__ == '__main__': # pragma: no cover

@@ -9,7 +9,7 @@ class Header(line.Line):
         'VN' : fv.TYPE_Z, \
         'TS' : fv.TYPE_i \
       }
-                                
+
     def __init__(self):
         super().__init__('H')
 

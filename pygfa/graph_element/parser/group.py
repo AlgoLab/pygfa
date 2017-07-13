@@ -6,7 +6,7 @@ class OGroup(line.Line):
 
     def __init__(self):
         super().__init__('O')
-    
+
     REQUIRED_FIELDS = { \
     'oid' : fv.GFA2_OPTIONAL_ID, \
     'references' : fv.GFA2_REFERENCES \
@@ -39,7 +39,7 @@ class OGroup(line.Line):
 
         for field in fields[2:]:
             ogfields.append(line.OptField.from_string(field))
-            
+
         for field in ogfields:
             ogroup.add_field(field)
         return ogroup
@@ -51,7 +51,7 @@ class UGroup(line.Line):
 
     def __init__(self):
         super().__init__('U')
-    
+
     REQUIRED_FIELDS = { \
     'uid' : fv.GFA2_OPTIONAL_ID, \
     'ids' : fv.GFA2_IDS \
@@ -60,7 +60,7 @@ class UGroup(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the UGroup fields from the string.
-        
+
         The string can contains the U character at the begin or can
         only contains the fields of the UGroup directly.
         """
@@ -82,11 +82,11 @@ class UGroup(line.Line):
 
         for field in fields[2:]:
             ugfields.append(line.OptField.from_string(field))
-            
+
         for field in ugfields:
             ugroup.add_field(field)
         return ugroup
-    
+
 
 if __name__ == '__main__': # pragma: no cover
     pass

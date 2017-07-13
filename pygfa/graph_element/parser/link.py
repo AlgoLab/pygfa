@@ -6,7 +6,7 @@ class Link(line.Line):
 
     def __init__(self):
         super().__init__('L')
-    
+
     REQUIRED_FIELDS = { \
     'from' : fv.GFA1_NAME, \
     'from_orn' : fv.GFA1_ORIENTATION, \
@@ -27,7 +27,7 @@ class Link(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the link fields from the string.
-        
+
         The string can contains the L character at the begin or can
         just contains the fields of the link directly.
         """
@@ -56,7 +56,7 @@ class Link(line.Line):
 
         for field in fields[5:]:
             lfields.append(line.OptField.from_string(field))
-            
+
         for field in lfields:
             link.add_field(field)
 

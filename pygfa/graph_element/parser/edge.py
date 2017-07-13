@@ -7,7 +7,7 @@ class Edge(line.Line):
 
     def __init__(self):
         super().__init__('E')
-    
+
     REQUIRED_FIELDS = { \
     'eid' : fv.GFA2_OPTIONAL_ID, \
     'sid1' : fv.GFA2_REFERENCE, \
@@ -22,7 +22,7 @@ class Edge(line.Line):
     @classmethod
     def from_string(cls, string):
         """Extract the Edge fields from the string.
-        
+
         The string can contains the E character at the begin or can
         only contains the fields of the Edge directly.
         """
@@ -37,7 +37,7 @@ class Edge(line.Line):
             raise line.InvalidLineError("The minimum number of field for "
                                         + "Edge line is not reached.")
 
-            
+
         edge = Edge()
 
         eid_f = fv.validate(fields[0], cls.REQUIRED_FIELDS['eid'])
@@ -60,13 +60,13 @@ class Edge(line.Line):
 
         end2_f = fv.validate(fields[6], cls.REQUIRED_FIELDS['end2'])
         efields.append(line.Field('end2', end2_f))
-        
+
         alignment_f = fv.validate(fields[7], cls.REQUIRED_FIELDS['alignment'])
         efields.append(line.Field('alignment', alignment_f))
-        
+
         for field in fields[8:]:
             efields.append(line.OptField.from_string(field))
-            
+
         for field in efields:
             edge.add_field(field)
 

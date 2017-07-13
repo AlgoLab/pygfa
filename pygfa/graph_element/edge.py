@@ -1,26 +1,25 @@
 import copy
 
-from pygfa.graph_element.parser import edge, fragment, containment, gap
 from pygfa.graph_element.parser import line
 
 class InvalidEdgeError(Exception): pass
 
-def is_edge (obj):
+def is_edge(obj):
     try:
         return \
-          hasattr (obj, 'eid') and \
+          hasattr(obj, 'eid') and \
           obj.from_node != None and \
           obj.to_node != None and \
-          hasattr (obj, 'from_positions') and \
-          hasattr (obj, 'from_orn') and \
-          hasattr (obj, 'to_positions') and \
-          hasattr (obj, 'to_orn') and \
-          hasattr (obj, 'alignment')
+          hasattr(obj, 'from_positions') and \
+          hasattr(obj, 'from_orn') and \
+          hasattr(obj, 'to_positions') and \
+          hasattr(obj, 'to_orn') and \
+          hasattr(obj, 'alignment')
     except: return False
 
 class Edge:
 
-    def __init__ (self, \
+    def __init__(self, \
                   edge_id, \
                   from_node, from_orn, \
                   to_node, to_orn, \
@@ -42,7 +41,7 @@ class Edge:
 
         The Edge class try to represent the majority of fields
         this lines have in common.
-        
+
         Fields that aren't fundamental (such as the 'pos' field in the
         Containment line) will be put in the opt_fields
         dictionary.
@@ -66,24 +65,24 @@ class Edge:
             GFA2 Gap line.
         :param variance: The variance values indicated in a Gap line.
         :param opt_fields: A dictionary of OptFields.
-        
+
         :raises InvalidEdgeError: If the line cannot be represented as
             Edge.
-        
+
         :note:
             Eventhough the field is called opt_fields, actually it can
             contains also Field object just the 'pos' field
             of the Containment line. This will happen for line fields
             that haven't been represented as an Edge atrtibute.
         """
-        if not (isinstance (from_positions, tuple) and \
-            len (from_positions) == 2):
-            raise InvalidEdgeError ("Invalid from_node tuple: given: {0}".format (\
-                str (from_positions)))
-        if not (isinstance (to_positions, tuple) and \
-            len (to_positions) == 2):
-            raise InvalidEdgeError ("Invalid to_position tuple: given: {0}".format (\
-                str (to_positions)))
+        if not(isinstance(from_positions, tuple) and \
+            len(from_positions) == 2):
+            raise InvalidEdgeError("Invalid from_node tuple: given: {0}".format(\
+                str(from_positions)))
+        if not(isinstance(to_positions, tuple) and \
+            len(to_positions) == 2):
+            raise InvalidEdgeError("Invalid to_position tuple: given: {0}".format(\
+                str(to_positions)))
         self._eid = edge_id
         self._from_node = from_node
         self._from_orn = from_orn
@@ -97,69 +96,69 @@ class Edge:
         self._variance = variance
 
         self._opt_fields = {}
-        for key, field in opt_fields.items ():
-            if line.is_field (field):
-                self._opt_fields[key] = copy.deepcopy (field)
-        
-        
+        for key, field in opt_fields.items():
+            if line.is_field(field):
+                self._opt_fields[key] = copy.deepcopy(field)
+
+
     @property
-    def eid (self):
+    def eid(self):
         return self._eid
 
     @property
-    def from_node (self):
+    def from_node(self):
         return self._from_node
 
     @property
-    def from_orn (self):
+    def from_orn(self):
         return self._from_orn
 
     @property
-    def to_orn (self):
+    def to_orn(self):
         return self._to_orn
-    
+
     @property
-    def to_node (self):
+    def to_node(self):
         return self._to_node
 
     @property
-    def from_positions (self):
+    def from_positions(self):
         return self._from_positions
 
     @property
-    def to_positions (self):
+    def to_positions(self):
         return self._to_positions
-    
+
     @property
-    def alignment (self):
+    def alignment(self):
         return self._alignment
 
     @property
-    def distance (self):
+    def distance(self):
         return self._distance
 
     @property
-    def variance (self):
+    def variance(self):
         return self._variance
-    
+
     @property
-    def opt_fields (self):
+    def opt_fields(self):
         return self._opt_fields
 
-    
+
     @classmethod
-    def from_line (cls, line_):
+    def from_line(cls, line_):
         try:
-            fields = copy.deepcopy (line_.fields)
+            fields = copy.deepcopy(line_.fields)
             if line_.type == 'L':
                 if 'ID' in line_.fields:
                     fields.pop('ID')
-                fields.pop ('from')
-                fields.pop ('from_orn')
-                fields.pop ('to')
-                fields.pop ('to_orn')
-                fields.pop ('overlap')
-                return Edge ( \
+                fields.pop('from')
+                fields.pop('from_orn')
+                fields.pop('to')
+                fields.pop('to_orn')
+                fields.pop('overlap')
+                return Edge( \
                     '*' if 'ID' not in line_.fields else \
                         line_.fields['ID'].value, \
 
@@ -167,40 +166,40 @@ class Edge:
                     line_.fields['from_orn'].value, \
                     line_.fields['to'].value, \
                     line_.fields['to_orn'].value, \
-                    (None, None), \
-                    (None, None), \
+                   (None, None), \
+                   (None, None), \
                     line_.fields['overlap'].value, \
-                    opt_fields = fields)
+                    opt_fields=fields)
 
             if line_.type == 'C':
                 if 'ID' in line_.fields:
                     fields.pop('ID')
-                fields.pop ('from')
-                fields.pop ('from_orn')
-                fields.pop ('to')
-                fields.pop ('to_orn')
-                fields.pop ('overlap')
-                return Edge ( \
+                fields.pop('from')
+                fields.pop('from_orn')
+                fields.pop('to')
+                fields.pop('to_orn')
+                fields.pop('overlap')
+                return Edge( \
                     '*' if 'ID' not in line_.fields else \
                     line_.fields['ID'].value, \
                     line_.fields['from'].value, \
                     line_.fields['from_orn'].value, \
                     line_.fields['to'].value, \
                     line_.fields['to_orn'].value, \
-                    (None, None), \
-                    (None, None), \
+                   (None, None), \
+                   (None, None), \
                     line_.fields['overlap'].value,\
-                    opt_fields = fields)
+                    opt_fields=fields)
 
             if line_.type == 'F':
-                fields.pop ('sid')
-                fields.pop ('external')
-                fields.pop ('sbeg')
-                fields.pop ('send')
-                fields.pop ('fbeg')
-                fields.pop ('fend')
-                fields.pop ('alignment')
-                return Edge ( \
+                fields.pop('sid')
+                fields.pop('external')
+                fields.pop('sbeg')
+                fields.pop('send')
+                fields.pop('fbeg')
+                fields.pop('fend')
+                fields.pop('alignment')
+                return Edge( \
                     None, \
                     line_.fields['sid'].value, None, \
                     line_.fields['external'].value[0:-1], \
@@ -209,18 +208,18 @@ class Edge:
                         line_.fields['send'].value), \
                     (line_.fields['fbeg'].value, line_.fields['fend'].value), \
                     line_.fields['alignment'].value, \
-                    opt_fields = fields)
+                    opt_fields=fields)
 
             if line_.type == 'E':
-                fields.pop ('eid')
-                fields.pop ('sid1')
-                fields.pop ('sid2')
-                fields.pop ('beg1')
-                fields.pop ('end1')
-                fields.pop ('beg2')
-                fields.pop ('end2')
-                fields.pop ('alignment')                
-                return Edge ( \
+                fields.pop('eid')
+                fields.pop('sid1')
+                fields.pop('sid2')
+                fields.pop('beg1')
+                fields.pop('end1')
+                fields.pop('beg2')
+                fields.pop('end2')
+                fields.pop('alignment')
+                return Edge( \
                     line_.fields['eid'].value, \
                     line_.fields['sid1'].value[0:-1], \
                     line_.fields['sid1'].value[-1:], \
@@ -229,15 +228,15 @@ class Edge:
                     (line_.fields['beg1'].value, line_.fields['end1'].value), \
                     (line_.fields['beg2'].value, line_.fields['end2'].value), \
                     line_.fields['alignment'].value, \
-                    opt_fields = fields)
+                    opt_fields=fields)
 
             if line_.type == 'G':
-                fields.pop ('gid')
-                fields.pop ('sid1')
-                fields.pop ('sid2')
-                fields.pop ('distance')
-                fields.pop ('variance')                
-                return Edge ( \
+                fields.pop('gid')
+                fields.pop('sid1')
+                fields.pop('sid2')
+                fields.pop('distance')
+                fields.pop('variance')
+                return Edge( \
                     line_.fields['gid'].value, \
                     line_.fields['sid1'].value[0:-1], \
                     line_.fields['sid1'].value[-1:], \
@@ -248,14 +247,14 @@ class Edge:
                     None, \
                     line_.fields['distance'].value, \
                     line_.fields['variance'].value, \
-                    opt_fields = fields)
+                    opt_fields=fields)
 
-        except (KeyError, AttributeError) as e:
+        except(KeyError, AttributeError):
             raise line.InvalidLineError("The given line cannot be "\
                                         + "an Edge.")
 
 
-    def __eq__ (self, other):
+    def __eq__(self, other):
         try:
             if self.eid != other.eid or \
               self.from_node != other.from_node or \
@@ -268,7 +267,7 @@ class Edge:
               self.distance != other.distance or \
               self.variance != other.variance:
                 return False
-            for key, field in self.opt_fields.items ():
+            for key, field in self.opt_fields.items():
                 if not key in other.opt_fields or \
                   self.opt_fields[key] != other.opt_fields[key]:
                     return False
@@ -278,16 +277,16 @@ class Edge:
 
     def __neq__(self, other):
         return not self == other
-    
-    
-    def __str__ (self): # pragma: no cover
+
+
+    def __str__(self): # pragma: no cover
         fields = ("eid", "from_node", "from_orn", "to_node", "to_orn", \
                   "from_positions", "to_positions", "alignment", \
                   "distance", "variance", "opt_fields")
 
         opt_fields = []
-        if len(self.opt_fields) > 0: 
-            opt_fields = str.join ( \
+        if len(self.opt_fields) > 0:
+            opt_fields = str.join( \
                                    ",\t", \
                                    [str(field) for key, field in self.opt_fields.items()])
         values = (str(self.eid), \
