@@ -9,7 +9,7 @@ GFA representation through a networkx MulitDiGraph.
     * Rewrite pprint method.
     * Refactor the serializers.
 """
-
+import logging
 import copy
 import re
 
@@ -21,6 +21,7 @@ from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
+GRAPH_LOGGER = logging.getLogger(__name__)
 
 class InvalidSearchParameters(Exception): pass
 class InvalidElementError(Exception): pass
@@ -688,12 +689,23 @@ class GFA():
         return string
 
 
-    def dump(self, gfa_version=1):
-        if gfa_version == 1:
-            return gs1.serialize_gfa(self)
-        elif gfa_version == 2:
-            return gs2.serialize_gfa(self)
-        raise ValueError("Invalid GFA output version.")
+    def dump(self, gfa_version=1, out=None):
+        try:
+            dump_ = ""
+            if gfa_version == 1:
+                dump_ = gs1.serialize_gfa(self)
+            elif gfa_version == 2:
+                dump_ =  gs2.serialize_gfa(self)
+            else:
+                raise ValueError("Invalid GFA output version.")
+            if out is None:
+                return dump_
+        
+            with open(out, 'w') as out_file:
+                out_file.write(dump_)
+        except EnvironmentError as env_error:
+            GRAPH_LOGGER.error(repr(env_error))
+
 
 if __name__ == '__main__': #pragma: no cover
     pass
