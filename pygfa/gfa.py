@@ -741,6 +741,64 @@ class GFA():
         except EnvironmentError as env_error:
             GRAPH_LOGGER.error(repr(env_error))
 
+    def _make_edge_lut(self):
+        """Return a lookup table that associate each edge id with a best
+        match unique id dependent on edge information (from_node, to_node).
+        
+        If both from_node and to_node are not specified the id
+        is placed into a set for further processing.
+        """
+        virtual_rxp = "^virtual_([\d]+)$"
+        regexp = re.compile(virtual_rxp)
+        edge_lut = {}
+        pure_virtuals = []
+        for from_node, to_node, edge_, data_ in self._graph.edges_iter(keys=True, data=True):
+            from_data = self.node(from_node)
+            to_data = self.node(to_node)
+            match = regexp.fullmatch(edge_)
+            if match is not None:
+                from_sequence = ""
+                to_sequence = ""
+            
+                if 'sequence' in from_data \
+                  and from_data['sequence'] not in (None, '*'):
+                    from_sequence = from_data['sequence']
+                if 'sequence' in to_data and \
+                  to_data['sequence'] not in (None, '*'):
+                    to_sequence = to_data['sequence']
+
+                if not from_sequence and not to_sequence:
+                    pure_virtuals.append(edge_)
+                else:
+                    edge_lut[from_sequence + to_sequence] = edge_
+            else:
+                edge_lut[edge_] = edge_
+        return edge_lut, pure_virtuals
+
+    
+    def __eq__(self, other):
+        """WORK-IN-PROGRESS
+        :TODO:
+            * make a lut for subgraphs (try to think for a way to write
+              _make_edge_lut in a resuable way...
+            * add pure_virtuals comparation
+        """
+        try:
+            # Nodes must be defined, so there is no reason to 
+            # create a LUT
+            for nid, node_ in self._graph.nodes_iter(data=True):
+                if node_ != other.node(nid):
+                    return False
+
+            self_lut, self_edge_virtuals = self._make_edge_lut()
+            other_lut, other_edge_virtuals = other._make_edge_lut()
+            for alias, real_id in self_lut.items():
+                if self.edge(real_id) != other.edge(other_lut[alias]):
+                    return False
+        except:
+            return False
+        return True
+
 
 if __name__ == '__main__': #pragma: no cover
     pass
