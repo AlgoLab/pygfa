@@ -569,6 +569,14 @@ class GFA():
         return GFA(self.subgraph(nodes))
 
 
+    def nodes_connected_components(self):
+        """Return a list of sets with nodes of each weakly
+        connected component in the graph.
+        """
+        return list(nx.connected_components(\
+                        self._graph.to_undirected()))
+
+
     def search(self, \
                field, \
                value, \

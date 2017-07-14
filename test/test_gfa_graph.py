@@ -458,6 +458,25 @@ class TestLine (unittest.TestCase):
         with self.assertRaises(gfa.GFAError):
             self.graph.get_all_reachables(42)
 
+
+    def test_connected_components(self):
+        """Inspect visually the graph, identify the connected
+        components, call the method to compute them form graph
+        and test if everything match.
+        """
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+
+        component1 = {'4'}
+        component2 = {'12', '11', '13'}
+        component3 = {'6', '2', '1', '3', '5'}
+
+        components = self.graph.nodes_connected_components()
+        self.assertTrue(component1 in components)
+        self.assertTrue(component2 in components)
+        self.assertTrue(component2 in components)
+            
+
     def test_neighborhood_operation(self):
         self.graph.clear()
         self.graph.from_string(sample_gfa1)
