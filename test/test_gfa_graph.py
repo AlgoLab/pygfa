@@ -396,12 +396,19 @@ class TestLine (unittest.TestCase):
         self.assertTrue(len(subgraph_.edges()) == 2)
         self.assertTrue(subgraph_.edge["1"]["11"]["1_to_11"] is not None)
         self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] is not None)
+        # test copy subgraph
+        subgraph_.node["3"]["nid"] = 42
+        self.assertTrue(subgraph_.node["3"] != self.graph.node("3"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
         self.assertTrue(gfa_.edge("1_to_3") is not None)
         self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] == \
                              gfa_.edge("1_to_3"))
+
+        subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
+        subgraph_.node["3"]["nid"] = 42
+        self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
 
 
     def test_get_reachable(self):
@@ -447,6 +454,31 @@ class TestLine (unittest.TestCase):
         self.assertTrue(sub2_weak.node("2") is not None)
         self.assertTrue(sub2_weak.node("6") is not None)
         self.assertTrue(sub2_weak.node("3") is not None)
+
+        with self.assertRaises(gfa.GFAError):
+            self.graph.get_all_reachables(42)
+
+    def test_neighborhood_operation(self):
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+
+        neighbors_ = self.graph.neighbors("2")
+        self.assertTrue("6" in neighbors_)
+        self.assertTrue("1" in neighbors_)
+        self.assertTrue("5" not in neighbors_)
+
+        self.assertTrue("1" not in self.graph.successors("2"))
+        self.assertTrue("6" in self.graph.successors("2"))
+
+        self.assertTrue("1" in self.graph.predecessors("2"))
+        self.assertTrue("6"not  in self.graph.predecessors("2"))
+
+        with self.assertRaises(gfa.GFAError):
+            self.graph.neighbors("42")
+        with self.assertRaises(gfa.GFAError):
+            self.graph.successors("42")
+        with self.assertRaises(gfa.GFAError):
+            self.graph.predecessors("42")
 
 
     def test_search(self):

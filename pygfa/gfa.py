@@ -503,7 +503,7 @@ class GFA():
         return sub_gfa
 
 
-    def subgraph(self, nbunch):
+    def subgraph(self, nbunch, copy=True):
         """Given a bunch of nodes return a graph with
         all the given nodes and the edges between them.
 
@@ -515,17 +515,41 @@ class GFA():
         GFA graph.
 
         :param nbunch: The nodes.
+        :param copy: If set to True return a copy of the subgraph.
         """
-        return self._graph.subgraph(nbunch)
-
+        subgraph_ = self._graph.subgraph(nbunch)
+        if copy:
+            return subgraph_.copy()
+        return subgraph_
 
     def neighbors(self, nid):
         """Return all the nodes id of the nodes connected to
         the given node.
 
+        Return all the predecessors and successors of the
+        given source node.
+
         :params nid: The id of the selected node
         """
-        return self._graph.neighbors(nid)
+        if self.node(nid) is None:
+            raise GFAError("The source node is not in the graph.")
+        return list(nx.all_neighbors(self._graph, nid))
+
+    def successors(self, nid):
+        """Return all the successors nodes of the given source
+        node.
+        """
+        if self.node(nid) is None:
+            raise GFAError("The source node is not in the graph.")
+        return self._graph.successors(nid)
+
+    def predecessors(self, nid):
+        """Return all the predecessors nodes of the given source
+        node.
+        """
+        if self.node(nid) is None:
+            raise GFAError("The source node is not in the graph.")
+        return self._graph.predecessors(nid)
 
     def get_all_reachables(self, nid, weakly=False):
         """Return a GFA subgraph with the connected component
@@ -535,8 +559,11 @@ class GFA():
         :param weakly: If set to `True` computes the weakly connected
             component for the given node.
         """
+        if self.node(nid) is None:
+            raise GFAError("The source node is not in the graph.")
         if weakly:
-            nodes = nx.dfs_tree(nx.MultiGraph(self._graph), nid).nodes()
+            nodes = nx.node_connected_component(\
+                            self._graph.to_undirected(), nid)
         else:
             nodes = nx.dfs_tree(self._graph, nid).nodes()
         return GFA(self.subgraph(nodes))
@@ -695,7 +722,7 @@ class GFA():
             if gfa_version == 1:
                 dump_ = gs1.serialize_gfa(self)
             elif gfa_version == 2:
-                dump_ =  gs2.serialize_gfa(self)
+                dump_ = gs2.serialize_gfa(self)
             else:
                 raise ValueError("Invalid GFA output version.")
             if out is None:
