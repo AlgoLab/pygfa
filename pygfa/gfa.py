@@ -744,7 +744,11 @@ class GFA():
     def _make_edge_lut(self):
         """Return a lookup table that associate each edge id with a best
         match unique id dependent on edge information (from_node, to_node).
-        
+
+        All the edges between a pair of nodes will have the same alias,
+        so a single alias will collect a list of real id.
+        False positive will also be place inside this lists.
+
         If both from_node and to_node are not specified the id
         is placed into a set for further processing.
         """
@@ -770,9 +774,12 @@ class GFA():
                 if not from_sequence and not to_sequence:
                     pure_virtuals.append(edge_)
                 else:
-                    edge_lut[from_sequence + to_sequence] = edge_
+                    alias = from_sequence + to_sequence
+                    if alias not in edge_lut:
+                        edge_lut[alias] = []
+                    edge_lut[alias].append(edge_)
             else:
-                edge_lut[edge_] = edge_
+                edge_lut[edge_] = [edge_]
         return edge_lut, pure_virtuals
 
     
@@ -792,10 +799,32 @@ class GFA():
 
             self_lut, self_edge_virtuals = self._make_edge_lut()
             other_lut, other_edge_virtuals = other._make_edge_lut()
-            for alias, real_id in self_lut.items():
-                if self.edge(real_id) != other.edge(other_lut[alias]):
-                    return False
-        except:
+            while len(self_lut):
+                alias, list_ids = self_lut.popitem()
+                while len(list_ids):
+                    id = list_ids.pop()
+                    found = False
+                    index = 0
+                    edge_ = self.edge(id)
+                    while not found and index < len(other_lut[alias]):
+                        other_id = other_lut[alias][index]
+                        if edge_ == other.edge(other_id):
+                            found = True
+                        else:
+                            index += 1
+                    if not found:
+                        return False
+                    # if is found remove it from list
+                    # to speed up next searches.
+                    other_lut[alias].pop(index)
+                # if other_lut has other id attached to that alias, then
+                # graphs are not equals
+                #if not len(other_lut[alias]):
+                #    return False
+
+                    
+        except Exception as e:
+            raise e
             return False
         return True
 
