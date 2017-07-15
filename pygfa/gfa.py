@@ -50,6 +50,24 @@ def VALUE_EQUALITY_COMPARATOR(obj, value):
 def IGNORE_VALUE_COMPARATOR(obj, value):
     return True
 
+def _index(obj, other):
+        """Given an object O and a list
+        of objects L check that exist an object O'
+        in the list such that O == O'.
+
+        :return True: If O' exists.
+        :return: The position of O' in the list.
+        """
+        found = False
+        index = 0
+        max_len = len(other)
+        while not found and index < max_len:
+            if obj == other[index]:
+                found = True
+            else:
+                index += 1
+        return found, index
+
 class GFA():
     """GFA will use a networkx MultiDiGraph as structure to contain
     the elements of the specification.
@@ -322,7 +340,7 @@ class GFA():
 
         if safe and self._id_exists(new_node.nid):
             raise GFAError("An element with the same id already exists.")
-        
+
         self._graph.add_node(\
                               new_node.nid, \
                               nid=new_node.nid, \
@@ -611,7 +629,7 @@ class GFA():
 
         elif limit_type == Element.SUBGRAPH:
             return self.search_on_subgraph(field, value, comparator)
-        
+
         retval = []
         retval.extend(self.search_on_nodes(field, value, comparator))
         retval.extend(self.search_on_edges(field, value, comparator))
@@ -753,7 +771,7 @@ class GFA():
                 raise ValueError("Invalid GFA output version.")
             if out is None:
                 return dump_
-        
+
             with open(out, 'w') as out_file:
                 out_file.write(dump_)
         except EnvironmentError as env_error:
@@ -781,7 +799,7 @@ class GFA():
             if match is not None:
                 from_sequence = ""
                 to_sequence = ""
-            
+
                 if 'sequence' in from_data \
                   and from_data['sequence'] not in (None, '*'):
                     from_sequence = from_data['sequence']
@@ -800,33 +818,58 @@ class GFA():
                 edge_lut[edge_] = [edge_]
         return edge_lut, pure_virtuals
 
-    
+
+    def _make_edge_table(self):
+        """Create a table to list each edge id to
+        its end nodes.
+
+        A networkx Multigraph edge is identified by its end nodes and by
+        a key/id. To access a specific edge one should do:
+        >>> graph.edge[from_node][to_node][edge_key]
+
+        This way, to identify an edge by only its key, a search
+        operation that could take :math:`O(n)` is required.
+
+        This function instead write end nodes and key in the opposite
+        order, so that a search by key operation could be done
+        in constant time, but requires :math:`O(n)` space.
+        """
+        edges = {}
+        for from_node, to_node, key in self._graph.edges_iter(keys=True):
+            edges[key] = (from_node, to_node)
+        return edges
+
+    def _look_for_edge(self, key, edge_table):
+        from_node, to_node = edge_table[key]
+        return self._graph.edge[from_node][to_node][key]
+
     def __eq__(self, other):
         """WORK-IN-PROGRESS
         :TODO:
             * make a lut for subgraphs (try to think for a way to write
               _make_edge_lut in a resuable way...
-            * add pure_virtuals comparation
+            * add pure_virtuals comparison
         """
         try:
-            # Nodes must be defined, so there is no reason to 
+            # Nodes must be defined, so there is no reason to
             # create a LUT
             for nid, node_ in self._graph.nodes_iter(data=True):
                 if node_ != other.node(nid):
                     return False
 
+            self_edge_table = self._make_edge_table()
+            other_edge_table = other._make_edge_table()
             self_lut, self_edge_virtuals = self._make_edge_lut()
             other_lut, other_edge_virtuals = other._make_edge_lut()
-            while len(self_lut):
-                alias, list_ids = self_lut.popitem()
+            for alias, list_ids in self_lut.items():
                 while len(list_ids):
                     id = list_ids.pop()
                     found = False
                     index = 0
-                    edge_ = self.edge(id)
+                    edge_ = self._look_for_edge(id, self_edge_table)
                     while not found and index < len(other_lut[alias]):
                         other_id = other_lut[alias][index]
-                        if edge_ == other.edge(other_id):
+                        if edge_ == other._look_for_edge(other_id, other_edge_table):
                             found = True
                         else:
                             index += 1
@@ -835,14 +878,24 @@ class GFA():
                     # if is found remove it from list
                     # to speed up next searches.
                     other_lut[alias].pop(index)
-                # if other_lut has other id attached to that alias, then
+                # if other_lut has other ids attached to that alias, then
                 # graphs are not equals
                 #if not len(other_lut[alias]):
                 #    return False
 
-                    
+            # I think it's difficult to have lots of subgraphs
+            # If I am wrong a subgraphs lut will be made and the comparison
+            # should be nearly linear in time
+            self_subgraphs = [sub.as_dict() for sub in self.subgraphs().values()]
+            other_subgraphs = [sub.as_dict() for sub in other.subgraphs().values()]
+            for sub_ in self_subgraphs:
+                found, index = _index(sub_, other_subgraphs)
+                if not found:
+                    return False
+                other_subgraphs.pop(index)
+
         except Exception as e:
-            raise e
+            raise e # remove this
             return False
         return True
 
