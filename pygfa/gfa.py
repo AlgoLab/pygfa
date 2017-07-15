@@ -276,6 +276,13 @@ class GFA():
         self._next_virtual_id = 0
         self._subgraphs = {}
 
+    def _id_exists(self, id):
+        """Check if the given id is already present in the graph.
+        """
+        in_nodes = self.node(id)
+        in_edges = self.edge(id)
+        in_subgraphs = self.subgraphs(id)
+        return in_nodes or in_edges or in_subgraphs
 
     def add_graph_element(self, element):
         """Add a graph element -Node, Edge or Subgraph- object to
@@ -288,7 +295,7 @@ class GFA():
             self.add_subgraph(element)
 
 
-    def add_node(self, new_node):
+    def add_node(self, new_node, safe=False):
         """Add a graph_element Node to the GFA graph
         using the node id as key.
 
@@ -297,7 +304,10 @@ class GFA():
         individually as node data.
 
         :param new_node: A graph_element.Node object or a string
-           that can represent a node (such as the Segment line).
+            that can represent a node (such as the Segment line).
+        :param safe: If set check if the given identifier has already
+            been added to the graph, and in that case raise
+            an exception
         """
         if isinstance(new_node, str) and new_node[0] == "S":
             if segment.is_segmentv1(new_node):
@@ -310,6 +320,9 @@ class GFA():
         if not node.is_node(new_node):
             raise node.InvalidNodeError("The object given is not a node.")
 
+        if safe and self._id_exists(new_node.nid):
+            raise GFAError("An element with the same id already exists.")
+        
         self._graph.add_node(\
                               new_node.nid, \
                               nid=new_node.nid, \
@@ -335,7 +348,7 @@ class GFA():
                                         + " to any node in the graph.")
 
 
-    def add_edge(self, new_edge):
+    def add_edge(self, new_edge, safe=False):
         """Add a graph_element Edge or a networkx edge to the GFA
         graph using  the edge id as key.
 
@@ -375,6 +388,9 @@ class GFA():
         key = new_edge.eid
         if new_edge.eid == None or new_edge.eid == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
+
+        if safe and self._id_exists(key):
+            raise GFAError("An element with the same id already exists.")
 
         self._graph.add_edge( \
                                new_edge.from_node, new_edge.to_node, key=key, \
@@ -440,7 +456,7 @@ class GFA():
             self._graph.remove_edge(from_node, to_node)
 
 
-    def add_subgraph(self, subgraph):
+    def add_subgraph(self, subgraph, safe=False):
         """Add a Subgraph object to the graph.
 
         The object is not altered in any way.
@@ -466,6 +482,8 @@ class GFA():
         key = subgraph.sub_id
         if key == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
+        if safe and self._id_exists(key):
+            raise GFAError("An element with the same id already exists.")
         self._subgraphs[key] = copy.deepcopy(subgraph)
 
 

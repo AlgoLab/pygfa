@@ -175,7 +175,12 @@ class TestLine (unittest.TestCase):
         self.assertTrue (self.graph.node('3')['nid'] == "3")
         self.assertTrue (self.graph.node('3')['ui'].value == "test")
         self.assertTrue (self.graph.node('3')['ui'].type == "Z")
-        self.assertTrue (self.graph.node('3')['slen'] == 21)        
+        self.assertTrue (self.graph.node('3')['slen'] == 21)
+
+        with self.assertRaises(gfa.GFAError):
+            self.graph.add_node(\
+                "S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test",
+                safe=True)
         
         with self.assertRaises(TypeError):
             self.graph.add_node("21", nid="21", slen="4", sequence="acgt")
@@ -231,6 +236,12 @@ class TestLine (unittest.TestCase):
         self.graph.remove_edge(("A", "B", "g")) # remove the gap
         self.assertTrue(len(self.graph.edges()) == 3)
 
+        self.graph.add_edge("L\t3\t+\t65\t-\t47M\tui:Z:test\tID:Z:42")
+        with self.assertRaises(gfa.GFAError):
+            self.graph.add_edge(\
+                "L\t3\t+\t65\t-\t47M\tui:Z:test\tID:Z:42", \
+                safe=True)
+
         line = fragment.Fragment.from_string ("F\t3\t4-\t0\t140$\t0\t140\t11M")
         edg = ge.Edge.from_line (line)
         del(edg._eid)
@@ -243,9 +254,12 @@ class TestLine (unittest.TestCase):
     def test_add_subgraphs (self):
         self.graph.clear ()
         
-        line = path.Path.from_string ("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
-        sb = sg.Subgraph.from_line (line)
-        self.graph.add_subgraph (sb)
+        line = path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
+        sb = sg.Subgraph.from_line(line)
+        self.graph.add_subgraph(sb)
+
+        with self.assertRaises(gfa.GFAError):
+            self.graph.add_subgraph(sb, safe=True)
 
         self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.graph.add_subgraph("U\t16sub\t2 3\txx:i:-1")
