@@ -15,7 +15,6 @@ from pygfa.graph_element.parser import segment, edge, group, containment, path
 from pygfa.graph_element.parser import fragment, link
 from pygfa.graph_element import edge as ge, node, subgraph
 from pygfa.serializer import utils
-from pygfa import gfa
 
 class GFA2SerializationError(Exception): pass
 
