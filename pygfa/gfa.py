@@ -4,10 +4,8 @@ GFA representation through a networkx MulitDiGraph.
 
 :TODO:
     * Add methods to get all the edge that enter and exit from a node.
-    * Add method to get all the connected components of a graph.
 
     * Rewrite pprint method.
-    * Refactor the serializers.
 """
 import logging
 import copy
@@ -661,6 +659,32 @@ class GFA():
                 retval.append(key)
         return retval
 
+    def remove_small_components(self, min_length):
+        """Remove all the connected components where
+        the sequences length is less than min_length.
+
+        Find all the connected components nodes,
+        for each component obtain the sum of the
+        sequences length.
+        If length is less than the given length remove the connected
+        component nodes.
+
+        :param min_length: An integer describing the required length
+            to keep a connected component.
+        """
+        conn_components = self.nodes_connected_components()
+        for conn_comp in conn_components:
+            length = 0
+            for nid in conn_comp:
+                node_ = self.node(nid)
+                try:
+                    length += node_['slen']
+                except (TypeError, KeyError):
+                    pass
+            if length < min_length:
+                for nid in conn_comp:
+                    self.remove_node(nid)
+
 
     def from_string(self, string):
         """Add a GFA string to the graph once it has been
@@ -869,7 +893,9 @@ class GFA():
                     edge_ = self._look_for_edge(id, self_edge_table)
                     while not found and index < len(other_lut[alias]):
                         other_id = other_lut[alias][index]
-                        if edge_ == other._look_for_edge(other_id, other_edge_table):
+                        if edge_ == other._look_for_edge(\
+                                            other_id, \
+                                            other_edge_table):
                             found = True
                         else:
                             index += 1
@@ -883,6 +909,12 @@ class GFA():
                 #if not len(other_lut[alias]):
                 #    return False
 
+            for edge_ in self_edge_virtuals:
+                found, index = _index(edge_, other_edge_virtuals)
+                if not found:
+                    return False
+                other_edge_virtuals.pop(index)
+
             # I think it's difficult to have lots of subgraphs
             # If I am wrong a subgraphs lut will be made and the comparison
             # should be nearly linear in time
@@ -894,10 +926,13 @@ class GFA():
                     return False
                 other_subgraphs.pop(index)
 
-        except Exception as e:
+        except (AttributeError, KeyError) as e:
             raise e # remove this
             return False
         return True
+
+    def __neq__(self, other):
+        return not self == other
 
 
 if __name__ == '__main__': #pragma: no cover

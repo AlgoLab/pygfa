@@ -559,6 +559,41 @@ class TestLine (unittest.TestCase):
         self.assertTrue("6" in result)
         self.assertTrue(len(result) == 4)
 
+
+    def test_graph_equality(self):
+        self.graph.clear()
+        self.graph.from_string(sample_gfa2)
+        same_graph = gfa.GFA()
+        same_graph.from_string(sample_gfa2)
+        self.assertTrue(self.graph == same_graph)
+        another_equal_graph = gfa.GFA()
+        another_equal_graph.from_string(self.graph.dump(2))
+        self.assertTrue(another_equal_graph == self.graph)
+
+        different_node = copy.deepcopy(another_equal_graph)
+        different_node.node("3")['sequence'] += "ACGT"
+        self.assertFalse(self.graph == different_node)
+
+        # Make end nodes sequence empty and check if
+        # virtuals comparison works
+        different_edge = copy.deepcopy(another_equal_graph)
+        different_edge.node("1")["sequence"] = "*"
+        different_edge.node("2")["sequence"] = "*"
+        edge_ = different_edge.edge("1_to_2")
+        different_edge.edge("1_to_2")
+        different_edge._graph("1", "2", key="*", **add_edge)
+        self.assertFalse(self.graph == different_node)
+
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+        same_graph = gfa.GFA()
+        same_graph.from_string(sample_gfa1)
+        self.assertTrue(self.graph == same_graph)
+        another_equal_graph = gfa.GFA()
+        another_equal_graph.from_string(self.graph.dump(1))
+        self.assertTrue(another_equal_graph == self.graph)
         
+
+
 if  __name__ == '__main__':
     unittest.main()
