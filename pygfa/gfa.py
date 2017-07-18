@@ -1,10 +1,7 @@
 """
-
 GFA representation through a networkx MulitDiGraph.
-
 :TODO:
     * Add methods to get all the edge that enter and exit from a node.
-
     * Rewrite pprint method.
 """
 import logging
@@ -24,6 +21,23 @@ GRAPH_LOGGER = logging.getLogger(__name__)
 class InvalidSearchParameters(Exception): pass
 class InvalidElementError(Exception): pass
 class GFAError(Exception): pass
+
+def is_dovetail(edge_):
+    """An edge is a dovetail overlap if it's a GFA1 Link or
+    a GFA2 edge where beg1=0 or end1=x$ and beg2=0 or end2=x$.
+    """
+    try:
+        # if is a GFA1 edge (line or containment
+        if edge_['from_positions'] == (None, None) \
+          and edge_['to_positions'] == (None, None):
+            return 'pos' not in edge_
+        else:
+            beg1, end1 = edge_['from_positions']
+            beg2, end2 = edge_['to_positions']
+            return (beg1 == "0" or beg1[-1:] == "$") \
+              and (beg2 == "0" or beg2[-1:] == "$")
+    except KeyError:
+        return False
 
 
 class Element:
@@ -556,6 +570,18 @@ class GFA():
             return subgraph_.copy()
         return subgraph_
 
+
+    def generate_dovetail_graph(self):
+        edge_table = self._make_edge_table()
+        graph_ = nx.MultiDiGraph()
+        for from_node, to_node, key_, edge_ in self._graph.edges_iter(keys=True, data=True):
+            if is_dovetail(edge_):
+                graph_.add_node(from_node, **self.node(from_node))
+                graph_.add_node(to_node, **self.node(to_node))
+                graph_.add_edge(from_node, to_node,key=key_, **self._look_for_edge(key_, edge_table))
+        return GFA(graph_)
+
+
     def neighbors(self, nid):
         """Return all the nodes id of the nodes connected to
         the given node.
@@ -685,6 +711,43 @@ class GFA():
                 for nid in conn_comp:
                     self.remove_node(nid)
 
+    def remove_dead_ends(\
+                        self, \
+                        min_length, \
+                        consider_sequence=False, \
+                        safe_remove=False):
+        """Remove all the nodes where its input
+        degree is 1 and its output degree is 0 and
+        the length of the sequence is less than the given length.
+        
+        If it's not possible to get node length than the node is kept.
+        :param min_length:
+        :param consider_sequence: If set try to get the sequence length
+            where length field is not defined.
+        :param safe_remove: If set the operation doesn't remove nodes
+            where is not possible to obtain the length value.
+        """
+        to_remove = set()
+        for nid, node_ in self._graph.nodes_iter(data=True):
+            in_deg = self._graph.in_degree(nid)
+            out_deg = self._graph.out_degree(nid)
+            if (in_deg, out_deg) in [(0,0), (0,1), (1,0)]:
+                try:
+                    length = node_['slen']
+                    if length is None \
+                      and consider_sequence:
+                        length = len(node_['sequence']) \
+                          if node_['sequence'] != "*" else 0
+
+                    if length < min_length:
+                        to_remove.add(nid)
+                except KeyError:
+                    if not safe_remove:
+                        to_remove.add(nid)
+
+        for nid in to_remove:
+            self.remove_node(nid)
+
 
     def from_string(self, string):
         """Add a GFA string to the graph once it has been
@@ -800,6 +863,7 @@ class GFA():
                 out_file.write(dump_)
         except EnvironmentError as env_error:
             GRAPH_LOGGER.error(repr(env_error))
+
 
     def _make_edge_lut(self):
         """Return a lookup table that associate each edge id with a best
