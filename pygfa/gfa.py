@@ -22,23 +22,6 @@ class InvalidSearchParameters(Exception): pass
 class InvalidElementError(Exception): pass
 class GFAError(Exception): pass
 
-def is_dovetail(edge_):
-    """An edge is a dovetail overlap if it's a GFA1 Link or
-    a GFA2 edge where beg1=0 or end1=x$ and beg2=0 or end2=x$.
-    """
-    try:
-        # if is a GFA1 edge (line or containment
-        if edge_['from_positions'] == (None, None) \
-          and edge_['to_positions'] == (None, None):
-            return 'pos' not in edge_
-        else:
-            beg1, end1 = edge_['from_positions']
-            beg2, end2 = edge_['to_positions']
-            return (beg1 == "0" or beg1[-1:] == "$") \
-              and (beg2 == "0" or beg2[-1:] == "$")
-    except KeyError:
-        return False
-
 
 class Element:
     """Represent the types of graph a GFA graph object can have.
@@ -575,7 +558,7 @@ class GFA():
         edge_table = self._make_edge_table()
         graph_ = nx.MultiDiGraph()
         for from_node, to_node, key_, edge_ in self._graph.edges_iter(keys=True, data=True):
-            if is_dovetail(edge_):
+            if ge.is_dovetail(edge_):
                 graph_.add_node(from_node, **self.node(from_node))
                 graph_.add_node(to_node, **self.node(to_node))
                 graph_.add_edge(from_node, to_node,key=key_, **self._look_for_edge(key_, edge_table))

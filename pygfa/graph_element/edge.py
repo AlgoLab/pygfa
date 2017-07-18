@@ -17,6 +17,24 @@ def is_edge(obj):
           hasattr(obj, 'alignment')
     except: return False
 
+
+def is_dovetail(edge_):
+    """An edge is a dovetail overlap if it's a GFA1 Link or
+    a GFA2 edge where beg1=0 or end1=x$ and beg2=0 or end2=x$.
+    """
+    try:
+        # if is a GFA1 edge (line or containment
+        if edge_['from_positions'] == (None, None) \
+          and edge_['to_positions'] == (None, None):
+            return 'pos' not in edge_
+        else:
+            beg1, end1 = edge_['from_positions']
+            beg2, end2 = edge_['to_positions']
+            return (beg1 == "0" or beg1[-1:] == "$") \
+              and (beg2 == "0" or beg2[-1:] == "$")
+    except KeyError:
+        return False
+
 class Edge:
 
     def __init__(self, \
