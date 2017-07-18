@@ -734,11 +734,12 @@ class GFA():
             if (in_deg, out_deg) in [(0,0), (0,1), (1,0)]:
                 try:
                     length = node_['slen']
-                    if length is None \
-                      and consider_sequence:
-                        length = len(node_['sequence']) \
-                          if node_['sequence'] != "*" else 0
-
+                    if length is None:
+                        if consider_sequence:
+                            length = len(node_['sequence']) \
+                              if node_['sequence'] != "*" else 0
+                        else:
+                            length = 0
                     if length < min_length:
                         to_remove.add(nid)
                 except KeyError:
