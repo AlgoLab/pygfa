@@ -53,6 +53,11 @@ class Subgraph:
             if line.is_field(field):
                 self._opt_fields[key] = copy.deepcopy(field)
 
+    def is_path(self):
+        for element, orn in self.elements.items():
+            if orn is None:
+                return False
+        return True
 
     @property
     def sub_id(self):
