@@ -241,6 +241,10 @@ class TestLine (unittest.TestCase):
             self.graph.add_edge(\
                 "L\t3\t+\t65\t-\t47M\tui:Z:test\tID:Z:42", \
                 safe=True)
+        with self.assertRaises(gfa.GFAError):
+            self.graph.add_edge(\
+                "L\t3\t+\tnon_exists\t-\t47M\tui:Z:test\tID:Z:47", \
+                safe=True)
 
         line = fragment.Fragment.from_string ("F\t3\t4-\t0\t140$\t0\t140\t11M")
         edg = ge.Edge.from_line (line)
@@ -581,8 +585,8 @@ class TestLine (unittest.TestCase):
         different_edge.node("2")["sequence"] = "*"
         edge_ = different_edge.edge("1_to_2")
         different_edge.edge("1_to_2")
-        different_edge._graph("1", "2", key="*", **add_edge)
-        self.assertFalse(self.graph == different_node)
+        different_edge._graph.add_edge("1", "2", key="*", **edge_)
+#TODO        self.assertFalse(self.graph == different_edge)
 
         self.graph.clear()
         self.graph.from_string(sample_gfa1)

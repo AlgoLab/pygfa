@@ -161,6 +161,17 @@ class GFA():
                 return self._graph.node[identifier]
 
 
+    def dovetail_out(self, nid):
+        """Given a node id return all the edges that
+        describe a dovetail overlaps that exit from the
+        given node.
+
+        """
+        for from_node, to_node, key_, edge_ in self._graph.out_edges_iter(nid):
+            if ge.is_dovetail(edge_):
+                pass # working here
+
+
     def edge(self, identifier=None):
         """GFA edge accessor.
 
@@ -402,8 +413,15 @@ class GFA():
         if new_edge.eid == None or new_edge.eid == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
 
-        if safe and self._id_exists(key):
-            raise GFAError("An element with the same id already exists.")
+        if safe:
+            edge_exists =  self._id_exists(key)
+            node1_exists = self._id_exists(new_edge.from_node)
+            node2_exists = self._id_exists(new_edge.to_node)
+            if edge_exists:
+                raise GFAError("An element with the same id already exists.")
+            if not (node1_exists and \
+                       node2_exists):
+                raise GFAError("From/To node are not already in the graph.")
 
         self._graph.add_edge( \
                                new_edge.from_node, new_edge.to_node, key=key, \
