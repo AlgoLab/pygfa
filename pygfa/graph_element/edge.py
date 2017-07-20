@@ -29,7 +29,8 @@ class Edge:
                   alignment, \
                   distance=None, \
                   variance=None, \
-                  opt_fields={}):
+                  opt_fields={},
+                  is_dovetail=False):
         """Construct an Edge from a Line subclass that represent can be
         represented as an Edge.
 
@@ -72,7 +73,7 @@ class Edge:
 
         :note:
             Eventhough the field is called opt_fields, actually it can
-            contains also Field object just the 'pos' field
+            contains also Field object like the 'pos' field
             of the Containment line. This will happen for line fields
             that haven't been represented as an Edge atrtibute.
         """
@@ -100,6 +101,12 @@ class Edge:
         for key, field in opt_fields.items():
             if line.is_field(field):
                 self._opt_fields[key] = copy.deepcopy(field)
+
+        self._is_dovetail = is_dovetail
+        self._from_segment_end = None
+        self._to_segment_end = None
+        if self._is_dovetail:
+            self.set_segments_end()
 
 
     @property
@@ -146,6 +153,34 @@ class Edge:
     def opt_fields(self):
         return self._opt_fields
 
+    @property
+    def is_dovetail(self):
+        return self._is_dovetail
+
+    @property
+    def from_segment_end(self):
+        return self._from_segment_end
+
+    @property
+    def to_segment_end(self):
+        return self._to_segment_end
+
+    def set_segments_end(self):
+        """Set the segments ends considerend by the
+        edge, only for dovetail overlaps.
+        Do nothing otherwise.
+        """
+        if not self.is_dovetail:
+            return
+        if self.from_orn == "+":
+            self._from_segment_end = "R"
+        else:
+            self._from_segment_end = "L"
+        if self.to_orn == "+":
+            self._to_segment_end = "L"
+        else:
+            self._to_segment_end = "R"
+
 
     @classmethod
     def from_line(cls, line_):
@@ -162,16 +197,16 @@ class Edge:
                 return Edge( \
                     '*' if 'ID' not in line_.fields else \
                         line_.fields['ID'].value, \
-
                     line_.fields['from'].value, \
                     line_.fields['from_orn'].value, \
                     line_.fields['to'].value, \
                     line_.fields['to_orn'].value, \
-                   (None, None), \
-                   (None, None), \
+                    (None, None), \
+                    (None, None), \
                     line_.fields['overlap'].value, \
-                    opt_fields=fields)
-
+                    opt_fields=fields, \
+                    is_dovetail=True)
+              
             if line_.type == 'C':
                 if 'ID' in line_.fields:
                     fields.pop('ID')
@@ -220,6 +255,17 @@ class Edge:
                 fields.pop('beg2')
                 fields.pop('end2')
                 fields.pop('alignment')
+
+                beg1 = line_.fields['beg1'].value
+                end1 = line_.fields['end1'].value
+                beg2 = line_.fields['beg2'].value
+                end2 = line_.fields['end2'].value
+                is_dovetail_ = False
+                if (beg1 == "0" or end1[-1:] == "$") \
+                  and \
+                   (beg2 == "0" or end2[-1:] == "$"):
+                    is_dovetail_ = True
+                
                 return Edge( \
                     line_.fields['eid'].value, \
                     line_.fields['sid1'].value[0:-1], \
@@ -229,7 +275,8 @@ class Edge:
                     (line_.fields['beg1'].value, line_.fields['end1'].value), \
                     (line_.fields['beg2'].value, line_.fields['end2'].value), \
                     line_.fields['alignment'].value, \
-                    opt_fields=fields)
+                    opt_fields=fields, \
+                    is_dovetail=is_dovetail_)
 
             if line_.type == 'G':
                 fields.pop('gid')

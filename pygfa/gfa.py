@@ -234,7 +234,7 @@ class GFA():
                 tmp_list.pop('alignment')
                 tmp_list.pop('variance')
                 tmp_list.pop('distance')
-                return ge.Edge(\
+                edge_ = ge.Edge(\
                                 element['eid'], \
                                 element['from_node'], element['from_orn'], \
                                 element['to_node'], element['to_orn'], \
@@ -242,8 +242,10 @@ class GFA():
                                 element['to_positions'], \
                                 element['alignment'], element['distance'], \
                                 element['variance'], \
-                                opt_fields=tmp_list\
+                                opt_fields=tmp_list, \
+                                is_dovetail=element['is_dovetail'] \
                                 )
+                return edge_
         except KeyError:
             return None
 
@@ -435,9 +437,11 @@ class GFA():
                                alignment=new_edge.alignment, \
                                distance=new_edge.distance, \
                                variance=new_edge.variance, \
+                               is_dovetail=new_edge.is_dovetail, \
+                               from_segment_end=new_edge.from_segment_end, \
+                               to_segment_end=new_edge.to_segment_end, \
                                **new_edge.opt_fields \
                                )
-        return True
 
 
     def remove_edge(self, identifier):
