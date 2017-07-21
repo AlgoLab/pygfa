@@ -172,6 +172,37 @@ class GFA():
                     yield (from_node, to_node, key) if keys \
                       else (from_node, to_node)
 
+    def dovetails_nbunch_iter(self, nbunch=None):
+        dovetails_nodes = set()
+        for from_, to_ in self.dovetails_iter():
+            dovetails_nodes.add(from_)
+            dovetails_nodes.add(to_)
+        if nbunch is None:
+            bunch = iter(dovetails_nodes)
+        elif nbunch in dovetails_nodes:
+            bunch = iter([nbunch])
+        else:
+            def bunch_iter(nlist, adj):
+                try:
+                    for n in nlist:
+                        if n in adj:
+                            yield n
+                except TypeError as e:
+                    message = e.args[0]
+                    # capture error for non-sequence/iterator nbunch.
+                    if 'iter' in message:
+                        raise NetworkXError(
+                            "nbunch is not a node or a sequence of nodes.")
+                    # capture error for unhashable node.
+                    elif 'hashable' in message:
+                        raise NetworkXError(
+                            "Node %s in the sequence nbunch is not a valid node."%n)
+                    else:
+                        raise
+            bunch = bunch_iter(nbunch, dovetails_nodes)
+        return bunch
+            
+
     def dovetails_neighbors_iter(self, nid, keys=False, data=False):
         for from_node, to_node, key, edge_ in self.dovetails_iter(nid, keys=True, data=True):
             if data is True:
@@ -692,6 +723,53 @@ class GFA():
             raise GFAError("The source node is not in the graph.")
         return list(nx.all_neighbors(self._graph, nid))
 
+    def dovetails_nodes_connected_component(self, source):
+        return set(self._plain_bfs_dovetails, source)
+
+    def dovetails_nodes_connected_components(self):
+        seen = set()
+        dovetail_nodes = self.dovetails_nbunch_iter()
+        for v in dovetail_nodes:
+            if v not in seen:
+                c = set(self._plain_bfs_dovetails(v))
+                yield c
+                seen.update(c)
+
+    def dovetails_subgraph(self, nbunch=None):
+        bunch = self.dovetails_nbunch_iter(nbunch)
+        # create new graph and copy subgraph into it
+        H = self._graph.__class__()
+        # copy node and attribute dictionaries
+        for n in bunch:
+            H.node[n] = self._graph.node[n]
+        # namespace shortcuts for speed
+        H_adj = H.adj
+
+        # filter edges based on is_dovetail property
+        self_adj = self._graph.adjlist_dict_factory()
+        for from_node in self._graph.adj:
+            self_adj[from_node] = self._graph.adjlist_dict_factory()
+            for to_node in self._graph.adj[from_node]:
+                self_adj[from_node][to_node] = self._graph.adjlist_dict_factory()
+                for edge_ in self._graph.adj[from_node][to_node]:
+                    if self._graph.adj[from_node][to_node][edge_]['is_dovetail'] is True:
+                        self_adj[from_node][to_node][edge_] = self._graph.adj[from_node][to_node][edge_]
+        # add nodes and edges (undirected method)
+        for n in H:
+            Hnbrs = H.adjlist_dict_factory()
+            H_adj[n] = Hnbrs
+            for nbr, edgedict in self_adj[n].items():
+                if nbr in H_adj:
+                    # add both representations of edge: n-nbr and nbr-n
+                    # they share the same edgedict
+                    ed = edgedict.copy()
+                    Hnbrs[nbr] = ed
+                    H_adj[nbr][n] = ed
+        H.graph = self._graph
+        return H
+
+
+    
     def _plain_bfs_dovetails(self, source):
         if source not in self._graph:
             return ()
@@ -707,37 +785,18 @@ class GFA():
                     nextlevel.update(self.right(v))
                     nextlevel.update(self.left(v))
 
-    # TODO: as successors
-    def predecessors(self, nid):
-        """Return all the predecessors nodes of the given source
-        node.
-        """
-        if self.node(nid) is None:
-            raise GFAError("The source node is not in the graph.")
-        return self._graph.predecessors(nid)
-
-    # TODO remove strongly connected components
-    def get_all_reachables(self, nid, weakly=False):
+    def get_all_reachables(self, nid):
         """Return a GFA subgraph with the connected component
         belonging to the given node.
 
         :param nid: The id of the node to find the reachable nodes.
-        :param weakly: If set to `True` computes the weakly connected
-            component for the given node.
         """
         if self.node(nid) is None:
             raise GFAError("The source node is not in the graph.")
-        if weakly:
-            nodes = nx.node_connected_component(\
-                            self._graph.to_undirected(), nid)
-        else:
-            nodes = nx.dfs_tree(self._graph, nid).nodes()
+        nodes = nx.node_connected_component(\
+                            self._graph, nid)
         return GFA(self.subgraph(nodes))
     
-    def dovetails_connected_component(self, source_node):
-        pass #TODO
-    
-    # TODO
     def nodes_connected_components(self):
         """Return a list of sets with nodes of each weakly
         connected component in the graph.
@@ -794,6 +853,7 @@ class GFA():
                 retval.append(key)
         return retval
 
+    # TODO: move method
     def remove_small_components(self, min_length):
         """Remove all the connected components where
         the sequences length is less than min_length.
@@ -807,7 +867,7 @@ class GFA():
         :param min_length: An integer describing the required length
             to keep a connected component.
         """
-        conn_components = self.nodes_connected_components()
+        conn_components = self.dovetail_nodes_connected_components()
         for conn_comp in conn_components:
             length = 0
             for nid in conn_comp:
