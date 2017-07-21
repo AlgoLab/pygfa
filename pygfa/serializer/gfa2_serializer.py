@@ -408,15 +408,16 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa_=None):
 # SERIALIZE GRAPH
 ################################################################################
 def serialize_graph(graph, write_header=True):
-    """Serialize a networkx.DiGraph or a derivative object.
+    """Serialize a TODO: networkx.DiGraph or a derivative object.
 
     :param graph: A networkx.DiGraph instance.
     :param write_header: If set to True put a GFA2 header as first
         line.
     """
-    if not isinstance(graph, nx.MultiDiGraph):
+#TODO    if not isinstance(graph, nx.MultiDiGraph):
+    if not isinstance(graph, nx.MultiGraph):
         raise ValueError("The object to serialize must be an instance" \
-                        +" of a networkx.MultiDiGraph.")
+                        +" of a networkx.MultiGraph.")
 
     if write_header:
         string_serialize = "H\tVN:Z:2.0\n"

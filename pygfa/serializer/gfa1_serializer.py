@@ -109,8 +109,11 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
                                         + "to GFA1.")
             elif 'pos' in edge_: # edge_ is a containment
                 return _serialize_to_containment(edge_, identifier)
-            else:
+            elif edge_['is_dovetail'] is True:
                 return _serialize_to_link(edge_, identifier)
+            else:
+                raise GFA1SerializationError("Cannot convert an " \
+                                            + "internal edge to a Link")
         else:
             if edge_.eid is None: # edge_ is a fragment
                 raise GFA1SerializationError("Cannot serialize Fragment " \
@@ -121,8 +124,11 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
                                         + "to GFA1.")
             elif 'pos' in edge_.opt_fields: # edge_ is a containment
                 return _serialize_to_containment(edge_)
-            else:
+            elif edge_.is_dovetail is True:
                 return _serialize_to_link(edge_)
+            else:
+                raise GFA1SerializationError("Cannot convert an " \
+                                            + "internal edge to a Link")
     except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
@@ -347,14 +353,15 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa_=None):
 # SERIALIZE GRAPH
 ################################################################################
 def serialize_graph(graph, write_header=True):
-    """Serialize a networkx.MulitDiGraph object.
+    """Serialize a #TODO networkx.MulitDiGraph object.
 
-    :param graph: A networkx.MultiDiGraph instance.
+    :param graph: A TODO networkx.MultiDiGraph instance.
     :write_header: If set to True put a GFA1 header as first line.
     """
-    if not isinstance(graph, nx.MultiDiGraph):
+    #TODO if not isinstance(graph, nx.MultiDiGraph):
+    if not isinstance(graph, nx.MultiGraph):
         raise ValueError("The object to serialize must be an instance " \
-                        + "of a networkx.MultiDiGraph.")
+                        + "of a networkx.MultiGraph.")
 
     if write_header:
         string_serialize = "H\tVN:Z:1.0\n"
