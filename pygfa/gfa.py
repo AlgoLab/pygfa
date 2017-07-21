@@ -1,5 +1,5 @@
 """
-GFA representation through a networkx MulitDiGraph.
+GFA representation through a networkx #TODO MulitDiGraph.
 :TODO:
     * Add methods to get all the edge that enter and exit from a node.
     * Rewrite pprint method.
@@ -64,7 +64,7 @@ def _index(obj, other):
         return found, index
 
 class GFA():
-    """GFA will use a networkx MultiDiGraph as structure to contain
+    """GFA will use a networkx #TODO MultiDiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
     graph_elements package, but can contains any kind of data
@@ -82,13 +82,14 @@ class GFA():
         Their id will be `virtual_#` where `#` will be given
         by `next_virtual_id`.
 
-        :param base graph: An instance of a networkx.MultiDiGraph.
+        :param base graph: An instance of a #TODO networkx.MultiDiGraph.
         """
-        if base_graph != None and not isinstance(base_graph, nx.MultiDiGraph):
+        if base_graph != None and not isinstance(base_graph, nx.MultiGraph): #TODO
             raise GFAError("{0} cannot be used as base " \
                             + "graph, ".format(type(base_graph)) \
                             + "use networkx.MultiDiGraph instead.")
-        self._graph = nx.MultiDiGraph(base_graph)
+        #TODO: self._graph = nx.MultiDiGraph(base_graph)
+        self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else \
                                 self._find_max_virtual_id()
@@ -147,7 +148,6 @@ class GFA():
             if identifier in self._subgraphs:
                 return self._subgraphs[identifier]
 
-
     def node(self, identifier=None):
         """An interface to access the node method of the netwrokx
         graph.
@@ -160,17 +160,94 @@ class GFA():
             if identifier in self._graph.node:
                 return self._graph.node[identifier]
 
+    def dovetails_iter(self, nbunch=None, keys=False, data=False):
+        """Return an iterator on edges that describe
+        dovetail overlaps with the given node."""
+        for from_node, to_node, key, edge_ in self._graph.edges_iter(nbunch, keys=True, data=True):
+            if edge_['is_dovetail']:
+                if data is True:
+                    yield (from_node, to_node, key, edge_) if keys \
+                      else (from_node, to_node, edge_)
+                else:
+                    yield (from_node, to_node, key) if keys \
+                      else (from_node, to_node)
 
-    def dovetail_out(self, nid):
-        """Given a node id return all the edges that
-        describe a dovetail overlaps that exit from the
-        given node.
+    def dovetails_neighbors_iter(self, nid, keys=False, data=False):
+        for from_node, to_node, key, edge_ in self.dovetails_iter(nid, keys=True, data=True):
+            if data is True:
+                yield (from_node, to_node, key, edge_) if keys \
+                  else (from_node, to_node, edge_)
+            else:
+                yield (from_node, to_node, key) if keys \
+                  else (from_node, to_node)
 
+    def right_end_iter(self, nbunch, keys=False, data=False):
+        """Return an iterator over dovetail edges where
+        nodes id  right-segment end is taken into account
+        in the overlap
         """
-        for from_node, to_node, key_, edge_ in self._graph.out_edges_iter(nid):
-            if ge.is_dovetail(edge_):
-                pass # working here
+        try:
+            if isinstance(nbunch, str):
+                raise TypeError
+            nids = set(nbunch)
+        except TypeError:
+            nids = set()
+            nids.add(nbunch)
 
+        for nid in nids:
+            for from_node, to_node, key, edge_ in self.dovetails_neighbors_iter(nid, keys=True, data=True):
+
+                if nid == edge_["from_node"] \
+                  and edge_["from_segment_end"] == "R":
+                    if data is True:
+                        yield (from_node, to_node, key, edge_) if keys \
+                          else (from_node, to_node, edge_)
+                    else:
+                        yield (from_node, to_node, key) if keys \
+                          else (from_node, to_node)
+
+                if nid == edge_["to_node"] \
+                  and edge_["to_segment_end"] == "R":
+                    if data is True:
+                        yield (from_node, to_node, key, edge_) if keys \
+                          else (from_node, to_node, edge_)
+                    else:
+                        yield (from_node, to_node, key) if keys \
+                          else (from_node, to_node)
+
+    def left_end_iter(self, nbunch, keys=False, data=False):
+        """Return an iterator over dovetail edges where
+        nodes id  left-segment end is taken into account
+        in the overlap
+        """
+        try:
+            if isinstance(nbunch, str):
+                raise TypeError
+            nids = set(nbunch)
+        except TypeError:
+            nids = set()
+            nids.add(nbunch)
+
+        for nid in nids:
+            for from_node, to_node, key, edge_ in self.dovetails_neighbors_iter(nid, keys=True, data=True):
+
+                if nid == edge_["from_node"] \
+                  and edge_["from_segment_end"] == "L":
+                    if data is True:
+                        yield (from_node, to_node, key, edge_) if keys \
+                          else (from_node, to_node, edge_)
+                    else:
+                        yield (from_node, to_node, key) if keys \
+                          else (from_node, to_node)
+
+                if nid == edge_["to_node"] \
+                  and edge_["to_segment_end"] == "L":
+                    if data is True:
+                        yield (from_node, to_node, key, edge_) if keys \
+                          else (from_node, to_node, edge_)
+                    else:
+                        yield (from_node, to_node, key) if keys \
+                          else (from_node, to_node)
 
     def edge(self, identifier=None):
         """GFA edge accessor.
@@ -578,7 +655,8 @@ class GFA():
 
     def generate_dovetail_graph(self):
         edge_table = self._make_edge_table()
-        graph_ = nx.MultiDiGraph()
+        #graph_ = nx.MultiDiGraph()
+        graph_ = nx.MultiGraph()
         for from_node, to_node, key_, edge_ in self._graph.edges_iter(keys=True, data=True):
             if ge.is_dovetail(edge_):
                 graph_.add_node(from_node, **self.node(from_node))
@@ -600,6 +678,7 @@ class GFA():
             raise GFAError("The source node is not in the graph.")
         return list(nx.all_neighbors(self._graph, nid))
 
+    # TODO: remove method or rewrite considering the ends
     def successors(self, nid):
         """Return all the successors nodes of the given source
         node.
@@ -608,6 +687,7 @@ class GFA():
             raise GFAError("The source node is not in the graph.")
         return self._graph.successors(nid)
 
+    # TODO: as successors
     def predecessors(self, nid):
         """Return all the predecessors nodes of the given source
         node.
@@ -616,6 +696,7 @@ class GFA():
             raise GFAError("The source node is not in the graph.")
         return self._graph.predecessors(nid)
 
+    # TODO remove strongly connected components
     def get_all_reachables(self, nid, weakly=False):
         """Return a GFA subgraph with the connected component
         belonging to the given node.
@@ -634,12 +715,13 @@ class GFA():
         return GFA(self.subgraph(nodes))
 
 
+    # TODO
     def nodes_connected_components(self):
         """Return a list of sets with nodes of each weakly
         connected component in the graph.
         """
         return list(nx.connected_components(\
-                        self._graph.to_undirected()))
+                        self._graph))
 
 
     def search(self, \
@@ -716,6 +798,7 @@ class GFA():
                 for nid in conn_comp:
                     self.remove_node(nid)
 
+    # TODO rewrite this
     def remove_dead_ends(\
                         self, \
                         min_length, \
