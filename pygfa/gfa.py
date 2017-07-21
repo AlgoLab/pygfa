@@ -215,6 +215,20 @@ class GFA():
                         yield (from_node, to_node, key) if keys \
                           else (from_node, to_node)
 
+    def right(self, nid):
+        """Return all the nodes connected to the right
+        end of the given node sequence.
+        """
+        return list(to_ for from_, to_ in self.right_end_iter(nid))
+
+    def left(self, nid):
+        """Return all the nodes connected to the left
+        end of the given node sequence.
+        """
+        return list(to_ for from_, to_ in self.left_end_iter(nid))
+
+
+
     def left_end_iter(self, nbunch, keys=False, data=False):
         """Return an iterator over dovetail edges where
         nodes id  left-segment end is taken into account
@@ -652,7 +666,7 @@ class GFA():
             return subgraph_.copy()
         return subgraph_
 
-
+    #TODO: this method should be removed
     def generate_dovetail_graph(self):
         edge_table = self._make_edge_table()
         #graph_ = nx.MultiDiGraph()
@@ -678,14 +692,20 @@ class GFA():
             raise GFAError("The source node is not in the graph.")
         return list(nx.all_neighbors(self._graph, nid))
 
-    # TODO: remove method or rewrite considering the ends
-    def successors(self, nid):
-        """Return all the successors nodes of the given source
-        node.
-        """
-        if self.node(nid) is None:
-            raise GFAError("The source node is not in the graph.")
-        return self._graph.successors(nid)
+    def _plain_bfs_dovetails(self, source):
+        if source not in self._graph:
+            return ()
+        seen = set()
+        nextlevel = {source}
+        while nextlevel:
+            thislevel = nextlevel
+            nextlevel = set()
+            for v in thislevel:
+                if v not in seen:
+                    yield v
+                    seen.add(v)
+                    nextlevel.update(self.right(v))
+                    nextlevel.update(self.left(v))
 
     # TODO: as successors
     def predecessors(self, nid):
@@ -713,8 +733,10 @@ class GFA():
         else:
             nodes = nx.dfs_tree(self._graph, nid).nodes()
         return GFA(self.subgraph(nodes))
-
-
+    
+    def dovetails_connected_component(self, source_node):
+        pass #TODO
+    
     # TODO
     def nodes_connected_components(self):
         """Return a list of sets with nodes of each weakly
