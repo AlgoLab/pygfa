@@ -1,7 +1,11 @@
 """
-GFA representation through a networkx #TODO MulitDiGraph.
+GFA representation through a networkx MulitGraph.
+
+The dovetail operations are available thanks to
+the dovetail_operation.Iterator class, that considers only
+dovetail overlaps edges.
+
 :TODO:
-    * Add methods to get all the edge that enter and exit from a node.
     * Rewrite pprint method.
 """
 import logging
@@ -10,11 +14,14 @@ import re
 
 import networkx as nx
 
+import pygfa
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group
 from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
+
+from pygfa.dovetail_operations.iterator import Iterator
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -63,7 +70,7 @@ def _index(obj, other):
                 index += 1
         return found, index
 
-class GFA():
+class GFA(Iterator):
     """GFA will use a networkx #TODO MultiDiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
@@ -88,11 +95,26 @@ class GFA():
             raise GFAError("{0} cannot be used as base " \
                             + "graph, ".format(type(base_graph)) \
                             + "use networkx.MultiDiGraph instead.")
-        #TODO: self._graph = nx.MultiDiGraph(base_graph)
+        self._graph = nx.MultiDiGraph(base_graph)
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else \
                                 self._find_max_virtual_id()
+
+    def __contains__(self, id_):
+        try:
+            if id_ in self._graph.node:
+                return True
+            edge_keys = (key for from_node in self._graph.adj \
+                            for to_node in self._graph.adj[from_node] \
+                                for key in self._graph.adj[from_node][to_node])
+            if id_ in edge_keys:
+                return True
+            if id_ in self._subgraphs:
+                return True
+            return False
+        except TypeError:
+            return False 
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -159,140 +181,6 @@ class GFA():
         else:
             if identifier in self._graph.node:
                 return self._graph.node[identifier]
-
-    def dovetails_iter(self, nbunch=None, keys=False, data=False):
-        """Return an iterator on edges that describe
-        dovetail overlaps with the given node."""
-        for from_node, to_node, key, edge_ in self._graph.edges_iter(nbunch, keys=True, data=True):
-            if edge_['is_dovetail']:
-                if data is True:
-                    yield (from_node, to_node, key, edge_) if keys \
-                      else (from_node, to_node, edge_)
-                else:
-                    yield (from_node, to_node, key) if keys \
-                      else (from_node, to_node)
-
-    def dovetails_nbunch_iter(self, nbunch=None):
-        dovetails_nodes = set()
-        for from_, to_ in self.dovetails_iter():
-            dovetails_nodes.add(from_)
-            dovetails_nodes.add(to_)
-        if nbunch is None:
-            bunch = iter(dovetails_nodes)
-        elif nbunch in dovetails_nodes:
-            bunch = iter([nbunch])
-        else:
-            def bunch_iter(nlist, adj):
-                try:
-                    for n in nlist:
-                        if n in adj:
-                            yield n
-                except TypeError as e:
-                    message = e.args[0]
-                    # capture error for non-sequence/iterator nbunch.
-                    if 'iter' in message:
-                        raise NetworkXError(
-                            "nbunch is not a node or a sequence of nodes.")
-                    # capture error for unhashable node.
-                    elif 'hashable' in message:
-                        raise NetworkXError(
-                            "Node %s in the sequence nbunch is not a valid node."%n)
-                    else:
-                        raise
-            bunch = bunch_iter(nbunch, dovetails_nodes)
-        return bunch
-            
-
-    def dovetails_neighbors_iter(self, nid, keys=False, data=False):
-        for from_node, to_node, key, edge_ in self.dovetails_iter(nid, keys=True, data=True):
-            if data is True:
-                yield (from_node, to_node, key, edge_) if keys \
-                  else (from_node, to_node, edge_)
-            else:
-                yield (from_node, to_node, key) if keys \
-                  else (from_node, to_node)
-
-    def right_end_iter(self, nbunch, keys=False, data=False):
-        """Return an iterator over dovetail edges where
-        nodes id  right-segment end is taken into account
-        in the overlap
-        """
-        try:
-            if isinstance(nbunch, str):
-                raise TypeError
-            nids = set(nbunch)
-        except TypeError:
-            nids = set()
-            nids.add(nbunch)
-
-        for nid in nids:
-            for from_node, to_node, key, edge_ in self.dovetails_neighbors_iter(nid, keys=True, data=True):
-
-                if nid == edge_["from_node"] \
-                  and edge_["from_segment_end"] == "R":
-                    if data is True:
-                        yield (from_node, to_node, key, edge_) if keys \
-                          else (from_node, to_node, edge_)
-                    else:
-                        yield (from_node, to_node, key) if keys \
-                          else (from_node, to_node)
-
-                if nid == edge_["to_node"] \
-                  and edge_["to_segment_end"] == "R":
-                    if data is True:
-                        yield (from_node, to_node, key, edge_) if keys \
-                          else (from_node, to_node, edge_)
-                    else:
-                        yield (from_node, to_node, key) if keys \
-                          else (from_node, to_node)
-
-    def right(self, nid):
-        """Return all the nodes connected to the right
-        end of the given node sequence.
-        """
-        return list(to_ for from_, to_ in self.right_end_iter(nid))
-
-    def left(self, nid):
-        """Return all the nodes connected to the left
-        end of the given node sequence.
-        """
-        return list(to_ for from_, to_ in self.left_end_iter(nid))
-
-
-
-    def left_end_iter(self, nbunch, keys=False, data=False):
-        """Return an iterator over dovetail edges where
-        nodes id  left-segment end is taken into account
-        in the overlap
-        """
-        try:
-            if isinstance(nbunch, str):
-                raise TypeError
-            nids = set(nbunch)
-        except TypeError:
-            nids = set()
-            nids.add(nbunch)
-
-        for nid in nids:
-            for from_node, to_node, key, edge_ in self.dovetails_neighbors_iter(nid, keys=True, data=True):
-
-                if nid == edge_["from_node"] \
-                  and edge_["from_segment_end"] == "L":
-                    if data is True:
-                        yield (from_node, to_node, key, edge_) if keys \
-                          else (from_node, to_node, edge_)
-                    else:
-                        yield (from_node, to_node, key) if keys \
-                          else (from_node, to_node)
-
-                if nid == edge_["to_node"] \
-                  and edge_["to_segment_end"] == "L":
-                    if data is True:
-                        yield (from_node, to_node, key, edge_) if keys \
-                          else (from_node, to_node, edge_)
-                    else:
-                        yield (from_node, to_node, key) if keys \
-                          else (from_node, to_node)
 
     def edge(self, identifier=None):
         """GFA edge accessor.
@@ -424,6 +312,7 @@ class GFA():
         self._next_virtual_id = 0
         self._subgraphs = {}
 
+    # TODO: use "in" instead
     def _id_exists(self, id):
         """Check if the given id is already present in the graph.
         """
@@ -697,45 +586,11 @@ class GFA():
             return subgraph_.copy()
         return subgraph_
 
-    #TODO: this method should be removed
-    def generate_dovetail_graph(self):
-        edge_table = self._make_edge_table()
-        #graph_ = nx.MultiDiGraph()
-        graph_ = nx.MultiGraph()
-        for from_node, to_node, key_, edge_ in self._graph.edges_iter(keys=True, data=True):
-            if ge.is_dovetail(edge_):
-                graph_.add_node(from_node, **self.node(from_node))
-                graph_.add_node(to_node, **self.node(to_node))
-                graph_.add_edge(from_node, to_node,key=key_, **self._look_for_edge(key_, edge_table))
-        return GFA(graph_)
-
-
-    def neighbors(self, nid):
-        """Return all the nodes id of the nodes connected to
-        the given node.
-
-        Return all the predecessors and successors of the
-        given source node.
-
-        :params nid: The id of the selected node
-        """
-        if self.node(nid) is None:
-            raise GFAError("The source node is not in the graph.")
-        return list(nx.all_neighbors(self._graph, nid))
-
-    def dovetails_nodes_connected_component(self, source):
-        return set(self._plain_bfs_dovetails, source)
-
-    def dovetails_nodes_connected_components(self):
-        seen = set()
-        dovetail_nodes = self.dovetails_nbunch_iter()
-        for v in dovetail_nodes:
-            if v not in seen:
-                c = set(self._plain_bfs_dovetails(v))
-                yield c
-                seen.update(c)
-
     def dovetails_subgraph(self, nbunch=None):
+        """Given a collection of nodes return a subgraph with the nodes
+        given and all the edges between each pair of nodes.
+        Only dovetails overlaps are considered.
+        """
         bunch = self.dovetails_nbunch_iter(nbunch)
         # create new graph and copy subgraph into it
         H = self._graph.__class__()
@@ -768,23 +623,6 @@ class GFA():
         H.graph = self._graph
         return H
 
-
-    
-    def _plain_bfs_dovetails(self, source):
-        if source not in self._graph:
-            return ()
-        seen = set()
-        nextlevel = {source}
-        while nextlevel:
-            thislevel = nextlevel
-            nextlevel = set()
-            for v in thislevel:
-                if v not in seen:
-                    yield v
-                    seen.add(v)
-                    nextlevel.update(self.right(v))
-                    nextlevel.update(self.left(v))
-
     def get_all_reachables(self, nid):
         """Return a GFA subgraph with the connected component
         belonging to the given node.
@@ -796,7 +634,7 @@ class GFA():
         nodes = nx.node_connected_component(\
                             self._graph, nid)
         return GFA(self.subgraph(nodes))
-    
+
     def nodes_connected_components(self):
         """Return a list of sets with nodes of each weakly
         connected component in the graph.
@@ -804,6 +642,18 @@ class GFA():
         return list(nx.connected_components(\
                         self._graph))
 
+    def neighbors(self, nid):
+        """Return all the nodes id of the nodes connected to
+        the given node.
+
+        Return all the predecessors and successors of the
+        given source node.
+
+        :params nid: The id of the selected node
+        """
+        if self.node(nid) is None:
+            raise GFAError("The source node is not in the graph.")
+        return list(nx.all_neighbors(self._graph, nid))
 
     def search(self, \
                field, \
@@ -867,7 +717,7 @@ class GFA():
         :param min_length: An integer describing the required length
             to keep a connected component.
         """
-        conn_components = self.dovetail_nodes_connected_components()
+        conn_components = self.dovetails_nodes_connected_components()
         for conn_comp in conn_components:
             length = 0
             for nid in conn_comp:
