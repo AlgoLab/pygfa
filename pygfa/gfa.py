@@ -21,7 +21,7 @@ from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
-from pygfa.dovetail_operations.iterator import Iterator
+from pygfa.dovetail_operations.iterator import DovetailIterator
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ def _index(obj, other):
                 index += 1
         return found, index
 
-class GFA(Iterator):
+class GFA(DovetailIterator):
     """GFA will use a networkx #TODO MultiDiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
@@ -114,7 +114,7 @@ class GFA(Iterator):
                 return True
             return False
         except TypeError:
-            return False 
+            return False
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -149,9 +149,13 @@ class GFA(Iterator):
         return max(virtual_keys)
 
 
-    def nodes(self, **kwargs):
-        """Return all the nodes in the graph."""
-        return self._graph.nodes(**kwargs)
+    def nodes(self, data=False, with_sequence=False):
+        """Return a list of the nodes in the graph.
+
+        :param with_sequence: If set return only nodes with
+            a `sequence` property.
+        """
+        return list(self.nodes_iter(data=data, with_sequence=with_sequence))
 
     def edges(self, **kwargs):
         """Return all the edges in the graph."""
@@ -385,6 +389,25 @@ class GFA(Iterator):
                                         + " to any node in the graph.")
 
 
+    def nodes_iter(self, data=False, with_sequence=False):
+        """Return an iterator over nodes in the graph.
+
+        :para with_sequence: If set return only nodes with
+            a sequence property.
+        """
+        if with_sequence is True:
+            if data is True:
+                return iter((nid, data_) \
+                         for nid, data_ in self._graph.node.items() \
+                            if 'sequence' in data_)
+            else:
+                return iter(nid \
+                         for nid, data_ in self._graph.node.items() \
+                            if 'sequence' in data_)
+        else:
+            return self._graph.nodes_iter(data)
+
+
     def add_edge(self, new_edge, safe=False):
         """Add a graph_element Edge or a networkx edge to the GFA
         graph using  the edge id as key.
@@ -502,6 +525,11 @@ class GFA(Iterator):
             self._graph.remove_edge(from_node, to_node)
 
 
+    def edges_iter(self, nbunch=None, data=False, default=None):
+        """Interface to networx edges iterator."""
+        return self._graph.edges_iter(nbunch=nbunch, data=data, default=default)
+
+
     def add_subgraph(self, subgraph, safe=False):
         """Add a Subgraph object to the graph.
 
@@ -542,6 +570,15 @@ class GFA(Iterator):
             raise sg.InvalidSubgraphError("The given id doesn't " \
                                          + " identify any subgraph.")
 
+
+    def subgraphs_iter(self, data=False):
+        """Return an iterator over subgraphs elements
+        in the GFA graph.
+        """
+        if data is True:
+            return iter(self._subgraphs.items())
+        else:
+            return iter(self._subgraphs)
 
     def get_subgraph(self, sub_key):
         """Return a GFA subgraph from the parent graph.
@@ -703,7 +740,7 @@ class GFA(Iterator):
                 retval.append(key)
         return retval
 
-    # TODO: move method
+    # TODO move method
     def remove_small_components(self, min_length):
         """Remove all the connected components where
         the sequences length is less than min_length.
@@ -716,8 +753,12 @@ class GFA(Iterator):
 
         :param min_length: An integer describing the required length
             to keep a connected component.
+
+        :note:
+            When connected components are computed only dovetail overlaps
+            edges are considered.
         """
-        conn_components = self.dovetails_nodes_connected_components()
+        conn_components = pygfa.dovetails_nodes_connected_components(self)
         for conn_comp in conn_components:
             length = 0
             for nid in conn_comp:
@@ -730,28 +771,30 @@ class GFA(Iterator):
                 for nid in conn_comp:
                     self.remove_node(nid)
 
-    # TODO rewrite this
     def remove_dead_ends(\
                         self, \
                         min_length, \
                         consider_sequence=False, \
                         safe_remove=False):
-        """Remove all the nodes where its input
-        degree is 1 and its output degree is 0 and
-        the length of the sequence is less than the given length.
-        
-        If it's not possible to get node length than the node is kept.
+        """Remove all the nodes where its right
+        degree and its left degree are the following (0,0), (1,0), (1,0)
+        and the length of the sequence is less than the given length.
+
         :param min_length:
         :param consider_sequence: If set try to get the sequence length
             where length field is not defined.
         :param safe_remove: If set the operation doesn't remove nodes
             where is not possible to obtain the length value.
+
+        :note:
+            Using the right and left degree, only dovetails overlaps
+            are considered.
         """
         to_remove = set()
-        for nid, node_ in self._graph.nodes_iter(data=True):
-            in_deg = self._graph.in_degree(nid)
-            out_deg = self._graph.out_degree(nid)
-            if (in_deg, out_deg) in [(0,0), (0,1), (1,0)]:
+        for nid, node_ in self.nodes_iter(data=True):
+            left_deg = self.left_degree(nid)
+            right_deg = self.right_degree(nid)
+            if (left_deg, right_deg) in [(0,0), (0,1), (1,0)]:
                 try:
                     length = node_['slen']
                     if length is None:
