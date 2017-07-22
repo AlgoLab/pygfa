@@ -525,9 +525,12 @@ class GFA(DovetailIterator):
             self._graph.remove_edge(from_node, to_node)
 
 
-    def edges_iter(self, nbunch=None, data=False, default=None):
+    def edges_iter(self, nbunch=None, data=False, keys=False, default=None):
         """Interface to networx edges iterator."""
-        return self._graph.edges_iter(nbunch=nbunch, data=data, default=default)
+        return self._graph.edges_iter(nbunch=nbunch, \
+            data=data, \
+            keys=keys, \
+            default=default)
 
 
     def add_subgraph(self, subgraph, safe=False):
