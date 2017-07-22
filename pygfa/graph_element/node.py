@@ -107,7 +107,10 @@ class Node:
                 fields.pop('name')
                 fields.pop('sequence')
 
+                
                 length = None
+                if segment_line.fields['sequence'].value != "*":
+                    length = len(segment_line.fields['sequence'].value)
                 if 'LN' in segment_line.fields:
                     length = segment_line.fields['LN'].value
                     fields.pop('LN')
