@@ -3,7 +3,7 @@ Algorithms to find connected components in the graph considering
 only dovetails overlaps.
 
 Adapted using the networkx connected module:
-networkx/networkx/algorithms/components/connected.py 
+networkx/networkx/algorithms/components/connected.py
 """
 
 def _plain_bfs_dovetails(gfa_, source):
@@ -39,15 +39,18 @@ def dovetails_nodes_connected_components(gfa_, with_sequence=True):
             yield c
             seen.update(c)
 
-def dovetails_connected_components_subgraphs(gfa_, copy=True, with_sequence=True):
+def dovetails_connected_components_subgraphs(\
+                                            gfa_, \
+                                            copy=True, \
+                                            with_sequence=True):
     """Generate connected components as subgraphs.
 
     :return comp: A generator of graphs, one for each connected
     component of gfa_.
     """
-    for c in dovetails_nodes_connected_components(gfa_, with_sequence=with_sequence):
+    for c in dovetails_nodes_connected_components(gfa_, \
+                                                with_sequence=with_sequence):
         if copy:
             yield gfa_.dovetails_subgraph(c).copy()
         else:
             yield gfa_.dovetails_subgraph(c)
-
