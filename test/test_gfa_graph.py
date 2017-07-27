@@ -93,7 +93,7 @@ class TestLine (unittest.TestCase):
             gfa.GFA(tmp_nx)
 
         
-        tmp_nx = nx.MultiDiGraph()
+        tmp_nx = nx.MultiGraph()
         tmp_nx.add_node("2", nid="2", sequence="acgt", slen="4")
         tmp_nx.add_node("4", nid="4", sequence="*", slen="25")
         tmp_nx.add_edge("4", "2", key= "virtual_42", eid="*", \
@@ -409,7 +409,7 @@ class TestLine (unittest.TestCase):
         self.graph.from_string(sample_gfa2)
         subgraph_ = self.graph.subgraph(["1", "3", "11"])
         self.assertTrue(subgraph_ is not None)
-        self.assertTrue(isinstance(subgraph_, nx.MultiDiGraph))
+        self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
         self.assertTrue(len(subgraph_.nodes()) == 3)
         self.assertTrue(len(subgraph_.edges()) == 2)
         self.assertTrue(subgraph_.edge["1"]["11"]["1_to_11"] is not None)
@@ -460,18 +460,11 @@ class TestLine (unittest.TestCase):
         self.assertTrue(sub_1.node("3") is not None)
 
         sub_2 = self.graph.get_all_reachables("2")
-        self.assertTrue(sub_2.node("1") is None)
-        self.assertTrue(sub_2.node("5") is None)
+        self.assertTrue(sub_2.node("1") is not None)
+        self.assertTrue(sub_2.node("5") is not None)
         self.assertTrue(sub_2.node("2") is not None)
         self.assertTrue(sub_2.node("6") is not None)
-        self.assertTrue(sub_2.node("3") is None)
-
-        sub2_weak = self.graph.get_all_reachables("2", weakly=True)
-        self.assertTrue(sub2_weak.node("1") is not None)
-        self.assertTrue(sub2_weak.node("5") is not None)
-        self.assertTrue(sub2_weak.node("2") is not None)
-        self.assertTrue(sub2_weak.node("6") is not None)
-        self.assertTrue(sub2_weak.node("3") is not None)
+        self.assertTrue(sub_2.node("3") is not None)
 
         with self.assertRaises(gfa.GFAError):
             self.graph.get_all_reachables(42)
@@ -504,19 +497,8 @@ class TestLine (unittest.TestCase):
         self.assertTrue("1" in neighbors_)
         self.assertTrue("5" not in neighbors_)
 
-        self.assertTrue("1" not in self.graph.successors("2"))
-        self.assertTrue("6" in self.graph.successors("2"))
-
-        self.assertTrue("1" in self.graph.predecessors("2"))
-        self.assertTrue("6"not  in self.graph.predecessors("2"))
-
         with self.assertRaises(gfa.GFAError):
             self.graph.neighbors("42")
-        with self.assertRaises(gfa.GFAError):
-            self.graph.successors("42")
-        with self.assertRaises(gfa.GFAError):
-            self.graph.predecessors("42")
-
 
     def test_search(self):
         """Perform some query operation on the graph,

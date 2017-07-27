@@ -48,9 +48,13 @@ class TestLine (unittest.TestCase):
         node_ = node.Node.from_line(\
                         segment.SegmentV1.from_string("S\t1\tACGT"))
         self.graph.add_node(node_)
+        node2 = node.Node.from_line(\
+                        segment.SegmentV1.from_string("S\t2\t*"))
+        self.graph.add_node(node2)
 
-        self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT")
-        self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "S\t1\tACGT")
+        self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT\tLN:i:4")
+        self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "S\t1\tACGT\tLN:i:4")
+        self.assertTrue(gs1.serialize_node(self.graph.node("2")) == "S\t2\t*")
 
         del (self.graph.node("1")['sequence'])
         self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "")
@@ -90,7 +94,11 @@ class TestLine (unittest.TestCase):
         fragment_ = ge.Edge.from_line(\
                         fragment.Fragment.from_string(\
                                     "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test"))
-        edge_ = ge.Edge.from_line(\
+        edge_link = ge.Edge.from_line(\
+                        edge.Edge.from_string(\
+                                    "E\t2_to_6\t2+\t6+\t0\t122$\t0\t132\t42,42,42\txx:Z:test"))
+        # TODO: RECOGNIZE THIS CONTAINMENT
+        edge_containment = ge.Edge.from_line(\
                         edge.Edge.from_string(\
                                     "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"))
         gap_ = ge.Edge.from_line(\
@@ -112,7 +120,7 @@ class TestLine (unittest.TestCase):
         self.assertTrue(gs1.serialize_edge(fragment_) == "")
         # the edge alignment is a trace, which is not valid in GFA1,
         # so a * is placed.
-        self.assertTrue(gs1.serialize_edge(edge_) == "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test")
+        self.assertTrue(gs1.serialize_edge(edge_link) == "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test")
         self.assertTrue(gs1.serialize_edge(gap_) == "")
 
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
@@ -120,7 +128,7 @@ class TestLine (unittest.TestCase):
 
         # virtual_0 here
         self.graph.add_edge("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test")
-        self.graph.add_edge("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
+        self.graph.add_edge("E\t2_to_6\t2+\t6+\t0\t122$\t0\t132\t42,42,42\txx:Z:test")
         self.graph.add_edge("G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
 
         # virtual_1 here
@@ -251,15 +259,18 @@ class TestLine (unittest.TestCase):
         node_ = node.Node.from_line(\
                         segment.SegmentV1.from_string("S\t1\tACGT"))
         self.graph.add_node(node_)
-
         self.assertTrue(gs2.serialize_node(\
                                 node_, \
                                 "gfa2 node 1 without length") == \
-                            "S\t1\t0\tACGT")
+                            "S\t1\t4\tACGT")
+
+        node_ = node.Node.from_line(\
+                        segment.SegmentV1.from_string("S\t2\tACGT\tLN:i:42\txx:Z:test"))
+        self.graph.add_node(node_)
         self.assertTrue(gs2.serialize_node( \
-                                self.graph.node("1"), \
-                                "gfa2 node 1 without length") == \
-                            "S\t1\t0\tACGT")
+                                self.graph.node("2"), \
+                                "gfa2 node 2 with length") == \
+                            "S\t2\t42\tACGT\txx:Z:test")
 
         del (self.graph.node("1")['sequence'])
         self.assertTrue(gs2.serialize_node(self.graph.node("1")) == "")
@@ -358,9 +369,6 @@ class TestLine (unittest.TestCase):
                             self.graph.edge("1_to_5"), \
                             "gfa2 containment: 1_to_5") == "")
 
-        print(gs2.serialize_edge(\
-                            self.graph.edge("virtual_0"), \
-                            "gfa2 fragment: virtual_0"))
         self.assertTrue(gs2.serialize_edge(\
                             self.graph.edge("virtual_0"), \
                             "gfa2 fragment: virtual_0") == \

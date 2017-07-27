@@ -252,7 +252,7 @@ class TestGraphElement (unittest.TestCase):
         seg = segment.SegmentV1.from_string ("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         node_ = node.Node.from_line (seg)
         self.assertTrue (node_.nid == seg.fields['name'].value)
-        self.assertTrue (node_.slen == None)
+        self.assertTrue (node_.slen == len(seg.fields['sequence'].value))
         self.assertTrue (node_.sequence == seg.fields['sequence'].value)
         self.assertTrue (node_.opt_fields['RC'].value == seg.fields['RC'].value)
         
