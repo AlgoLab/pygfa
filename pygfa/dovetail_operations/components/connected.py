@@ -6,6 +6,13 @@ Adapted using the networkx connected module:
 networkx/networkx/algorithms/components/connected.py
 """
 
+#    Copyright (C) 2011-2013 by
+#    Aric Hagberg <hagberg@lanl.gov>
+#    Dan Schult <dschult@colgate.edu>
+#    Pieter Swart <swart@lanl.gov>
+#    All rights reserved.
+#    BSD license.
+
 def _plain_bfs_dovetails(gfa_, source):
     if source not in gfa_:
         return ()
@@ -20,6 +27,31 @@ def _plain_bfs_dovetails(gfa_, source):
                 seen.add(v)
                 nextlevel.update(gfa_.right(v))
                 nextlevel.update(gfa_.left(v))
+
+def _plain_bfs_dovetails_with_edges(gfa_, source, edges=False, keys=False):
+    """Return an iterator over nodes involved into
+    the BFS operation, giving BFS edges also.
+
+    Thanks to /en.wikipedia.org/wiki/Breadth-first_search#Pseudocode.
+    """
+    seen = set()
+    seen.add(source)
+    queue = list()
+    queue.append(source) # since pop op pops out the last element
+                          # append operation can be used as a push
+                          # operation
+    while len(queue):
+        from_node = queue.pop() # pop last element **appended**
+        for from_, to_, key in gfa_.dovetails_neighbors_iter(from_node, \
+                                                            keys=True):
+            if to_ not in seen:
+                if edges is True:
+                    yield (from_, to_, key) if keys \
+                      else (from_, to_)
+                else:
+                    yield to_
+                seen.add(to_)
+                queue.append(to_)
 
 def dovetails_nodes_connected_component(gfa_, source):
     return set(_plain_bfs_dovetails(gfa_, source))
