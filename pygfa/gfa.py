@@ -91,11 +91,11 @@ class GFA(DovetailIterator):
 
         :param base graph: An instance of a #TODO networkx.MultiDiGraph.
         """
-        if base_graph != None and not isinstance(base_graph, nx.MultiGraph): #TODO
+        if base_graph != None and not isinstance(base_graph, nx.MultiGraph):
             raise GFAError("{0} cannot be used as base " \
                             + "graph, ".format(type(base_graph)) \
-                            + "use networkx.MultiDiGraph instead.")
-        self._graph = nx.MultiDiGraph(base_graph)
+                            + "use networkx.MultiGraph instead.")
+        #self._graph = nx.MultiDiGraph(base_graph)
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else \
