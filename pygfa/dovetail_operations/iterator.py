@@ -10,8 +10,14 @@ representing dovetails overlaps.
 class DovetailIterator:
     def dovetails_iter(self, nbunch=None, keys=False, data=False):
         """Return an iterator on edges that describe
-        dovetail overlaps with the given node."""
-        for from_node, to_node, key, edge_ in self._graph.edges_iter(nbunch, keys=True, data=True):
+        dovetail overlaps with the given node.
+
+        :notes:
+            It seems that networkx edges_iter keeps track of
+            edges already seen, so the edge (u,v) is in the
+            results but edge (v,u) is not.
+        """
+        for from_node, to_node, key, edge_ in self.edges_iter(nbunch, keys=True, data=True):
             if 'is_dovetail' in edge_ and edge_['is_dovetail']:
                 if data is True:
                     yield (from_node, to_node, key, edge_) if keys \
@@ -53,14 +59,25 @@ class DovetailIterator:
             bunch = bunch_iter(nbunch, dovetails_nodes)
         return bunch
 
-    def dovetails_neighbors_iter(self, nid, keys=False, data=False):
-        for from_node, to_node, key, edge_ in self.dovetails_iter(nid, keys=True, data=True):
+    def dovetails_neighbors_iter(self, nbunch=None, keys=False, data=False):
+        """
+        :TODO:
+            remove from_node from yield
+                yeld (to_node, ...)
+        """
+        for from_node, to_node, key, edge_ in self.dovetails_iter(nbunch, keys=True, data=True):
             if data is True:
                 yield (from_node, to_node, key, edge_) if keys \
                   else (from_node, to_node, edge_)
             else:
                 yield (from_node, to_node, key) if keys \
                   else (from_node, to_node)
+
+    def dovetails_neighbors(self, nbunch=None):
+        """Return a list of all the right and left segments
+        of the given nodes.
+        """
+        return list(to_ for from_, to_ in self.dovetails_neighbors_iter(nbunch))
 
     def right_end_iter(self, nbunch, keys=False, data=False):
         """Return an iterator over dovetail edges where
@@ -163,3 +180,101 @@ class DovetailIterator:
         else:           # return a dict
             return dict(self.left_degree_iter(nbunch))
 
+    def dovetails_linear_path_traverse_nodes_iter(self, source):
+        """Traverse all nodes adjacent to source node where
+        the right degree and left degree of each node
+        is 1.
+
+        :param source: One of the node in the linear path.
+            It doesn't matter if it's one of the end of
+            the linear path.
+
+        :notes:
+            If the source node it's not one of the end node of the path,
+            the result is not an iterator over the ordered node
+            of the linear path, but an iterator where nodes are returned
+            by their distance from the source node.
+
+            The code is the same as networkx _plain_bfs.
+        """
+        if source not in self:
+            return ()
+        seen = set()
+        nextlevel = {source}
+        while nextlevel:
+            thislevel = nextlevel
+            nextlevel = set()
+            for v in thislevel:
+                if v not in seen \
+                  and self.right_degree(v) <= 1 \
+                  and self.left_degree(v) <= 1:
+                    yield v
+                    seen.add(v)
+                    nextlevel.update(self.right(v))
+                    nextlevel.update(self.left(v))
+                    
+    def dovetails_linear_path_traverse_edges_iter(self, source, keys=False):
+        """Traverse all nodes adjacent to source node where
+        the right degree and left degree of each node
+        is 1.
+
+        :param source: One of the node in the linear path.
+            It doesn't matter if it's one of the end of
+            the linear path.
+
+        :notes:
+            If the source node it's not one of the end node of the path,
+            the result is not an iterator over the ordered node
+            of the linear path, but an iterator where nodes are returned
+            by their distance from the source node.
+
+            If the source node is an isolated node, then this method
+            returns an empty list (no edge is found). Use
+            dovetails_linear_path_traverse_nodes_iter instead.
+
+            Same code as _plain_bfs_dovetails_with_edges function.
+        """
+        is_linear = lambda gfa_, node_: gfa_.right_degree(node_) <= 1 \
+          and gfa_.left_degree(node_) <= 1
+
+        if not is_linear(self, source):
+            return iter([])
+
+        seen = set()
+        seen.add(source)
+        queue = list()
+        queue.append(source)
+        while len(queue):
+            from_node = queue.pop()
+            for from_, to_, key in self.dovetails_neighbors_iter(from_node, \
+                                                            keys=True):
+                if to_ not in seen:
+                  if is_linear(self, to_):
+                    yield (from_, to_, key) if keys \
+                      else (from_, to_)
+                    seen.add(to_)
+                    queue.append(to_)
+
+    def dovetails_linear_path_iter(self, source, keys=False):
+        """Return an iterator over the linear path
+        whhose source node belongs to, starting from one end
+        of the path to another.
+
+        :param source: One of the node in the linear path.
+
+		:notes:
+            On circular linear path, return None, since no node
+            in its neighborhood is not a path node.
+        """
+        path_nodes = list(self.dovetails_linear_path_traverse_nodes_iter(source))
+        if path_nodes == []:
+            return iter([])
+        # find one of the end node of the path
+        index = 0
+        while index < len(path_nodes):
+            node_ = path_nodes[index]
+            for adj in self.dovetails_neighbors(node_):
+                if adj not in path_nodes: # found one of the path end node
+                    return self.dovetails_linear_path_traverse_edges_iter(node_, keys=keys)
+            index += 1
+        return iter([])
