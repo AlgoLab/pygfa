@@ -37,21 +37,6 @@ class Element:
     EDGE = 1
     SUBGRAPH = 2
 
-def VALUE_EQUALITY_COMPARATOR(obj, value):
-    """Compare whether two objects are equal.
-
-    A standard comparator to get the value from the majority of the graph
-    elements present in the GFA graph, if a line.field is found then its
-    value is taken into account.
-    """
-    if line.is_field(obj):
-        return obj.value == value
-    return obj == value
-
-
-def IGNORE_VALUE_COMPARATOR(obj, value):
-    return True
-
 def _index(obj, other):
         """Given an object O and a list
         of objects L check that exist an object O'
@@ -688,51 +673,54 @@ class GFA(DovetailIterator):
         return list(nx.all_neighbors(self._graph, nid))
 
     def search(self, \
-               field, \
-               value, \
-               comparator=VALUE_EQUALITY_COMPARATOR, \
+               comparator, \
                limit_type=None):
-        """Perform a query on the field searching for the value
-        specified.
+        """Perform a query applying the comparator on each graph element. 
         """
         if limit_type == Element.NODE:
-            return self.search_on_nodes(field, value, comparator)
+            return self.search_on_nodes(comparator)
 
         elif limit_type == Element.EDGE:
-            return self.search_on_edges(field, value, comparator)
+            return self.search_on_edges(comparator)
 
         elif limit_type == Element.SUBGRAPH:
-            return self.search_on_subgraph(field, value, comparator)
+            return self.search_on_subgraph(comparator)
 
         retval = []
-        retval.extend(self.search_on_nodes(field, value, comparator))
-        retval.extend(self.search_on_edges(field, value, comparator))
-        retval.extend(self.search_on_subgraph(field, value, comparator))
+        retval.extend(self.search_on_nodes(comparator))
+        retval.extend(self.search_on_edges(comparator))
+        retval.extend(self.search_on_subgraph(comparator))
         return retval
 
 
-    def search_on_nodes(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
+    def search_on_nodes(self, comparator):
         retval = []
         for key, data in self._graph.nodes_iter(data=True):
-            if field in data and comparator(data[field], value):
-                retval.append(key)
+            try:
+                if comparator(data):
+                    retval.append(key)
+            except KeyError: pass
         return retval
 
 
-    def search_on_edges(self, field, value, comparator=VALUE_EQUALITY_COMPARATOR):
+    def search_on_edges(self, comparator):
         retval = []
         for u, v, key, data in self._graph.edges_iter(data=True, keys=True):
-            if field in data and comparator(data[field], value):
-                retval.append(key)
+            try:
+                if comparator(data):
+                    retval.append(key)
+            except KeyError: pass
         return retval
 
 
-    def search_on_subgraph(self, field, value, operator=VALUE_EQUALITY_COMPARATOR):
+    def search_on_subgraph(self, comparator):
         retval = []
         for key, data in self._subgraphs.items():
             data = data.as_dict()
-            if field in data and operator(data[field], value):
-                retval.append(key)
+            try:
+                if comparator(data):
+                    retval.append(key)
+            except KeyError: pass
         return retval
 
     # TODO move method

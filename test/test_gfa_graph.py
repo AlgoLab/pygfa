@@ -516,14 +516,16 @@ class TestLine (unittest.TestCase):
         self.graph.clear()
         self.graph.from_string(sample_gfa2)
 
-        result = self.graph.search("from_node", "1", limit_type=gfa.Element.EDGE)
+        result = self.graph.search(lambda element: \
+                                       element["from_node"] == "1",\
+                                       limit_type=gfa.Element.EDGE)
         self.assertTrue("1_to_3" in result)
         self.assertTrue("1_to_11" in result)
         self.assertTrue("1_to_5" in result)
         self.assertTrue("1_to_2" in result)
         self.assertTrue(len(result) == 4)
 
-        result = self.graph.search("xx", "_", gfa.IGNORE_VALUE_COMPARATOR)
+        result = self.graph.search(lambda element: "xx" in element)
         self.assertTrue("11" in result)
         self.assertTrue("15" in result)
         self.assertTrue("2" in result)
@@ -531,13 +533,14 @@ class TestLine (unittest.TestCase):
         # A custom line also has xx, but it hasn't been added to the
         # graph.
 
-        result = self.graph.search("xx", "_", gfa.IGNORE_VALUE_COMPARATOR, \
-                                    limit_type=gfa.Element.SUBGRAPH)
+        result = self.graph.search(lambda element: \
+                                       "xx" in element,\
+                                       limit_type=gfa.Element.SUBGRAPH)
         self.assertTrue("15" in result)
         self.assertTrue(len(result) == 1)
 
-        greater_than_comparator = lambda obj, value: int(obj) >= value
-        result = self.graph.search("slen", 140, greater_than_comparator, \
+        greater_than_comparator = lambda element: int(element['slen']) >= 140
+        result = self.graph.search(greater_than_comparator,
                                     limit_type=gfa.Element.NODE)
         self.assertTrue("13" in result)
         self.assertTrue("11" in result)
