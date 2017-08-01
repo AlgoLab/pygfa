@@ -316,14 +316,6 @@ class GFA(DovetailIterator):
         self._next_virtual_id = 0
         self._subgraphs = {}
 
-    # TODO: use "in" instead
-    def _id_exists(self, id):
-        """Check if the given id is already present in the graph.
-        """
-        in_nodes = self.node(id)
-        in_edges = self.edge(id)
-        in_subgraphs = self.subgraphs(id)
-        return in_nodes or in_edges or in_subgraphs
 
     def add_graph_element(self, element):
         """Add a graph element -Node, Edge or Subgraph- object to
@@ -361,7 +353,7 @@ class GFA(DovetailIterator):
         if not node.is_node(new_node):
             raise node.InvalidNodeError("The object given is not a node.")
 
-        if safe and self._id_exists(new_node.nid):
+        if safe and new_node.nid in self:
             raise GFAError("An element with the same id already exists.")
 
         self._graph.add_node(\
@@ -450,9 +442,9 @@ class GFA(DovetailIterator):
             key = "virtual_{0}".format(self._get_virtual_id())
 
         if safe:
-            edge_exists =  self._id_exists(key)
-            node1_exists = self._id_exists(new_edge.from_node)
-            node2_exists = self._id_exists(new_edge.to_node)
+            edge_exists =  key in self
+            node1_exists = new_edge.from_node in self
+            node2_exists = new_edge.to_node in self
             if edge_exists:
                 raise GFAError("An element with the same id already exists.")
             if not (node1_exists and \
@@ -559,7 +551,7 @@ class GFA(DovetailIterator):
         key = subgraph.sub_id
         if key == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
-        if safe and self._id_exists(key):
+        if safe and key in self:
             raise GFAError("An element with the same id already exists.")
         self._subgraphs[key] = copy.deepcopy(subgraph)
 
