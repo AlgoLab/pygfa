@@ -353,12 +353,11 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa_=None):
 # SERIALIZE GRAPH
 ################################################################################
 def serialize_graph(graph, write_header=True):
-    """Serialize a #TODO networkx.MulitDiGraph object.
+    """Serialize a networkx.MulitGraph object.
 
-    :param graph: A TODO networkx.MultiDiGraph instance.
+    :param graph: A networkx.MultiGraph instance.
     :write_header: If set to True put a GFA1 header as first line.
     """
-    #TODO if not isinstance(graph, nx.MultiDiGraph):
     if not isinstance(graph, nx.MultiGraph):
         raise ValueError("The object to serialize must be an instance " \
                         + "of a networkx.MultiGraph.")
