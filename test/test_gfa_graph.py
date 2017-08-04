@@ -569,9 +569,9 @@ class TestLine (unittest.TestCase):
         different_edge.node("1")["sequence"] = "*"
         different_edge.node("2")["sequence"] = "*"
         edge_ = different_edge.edge("1_to_2")
-        different_edge.edge("1_to_2")
+        different_edge.remove_edge("1_to_2")
         different_edge._graph.add_edge("1", "2", key="*", **edge_)
-#TODO        self.assertFalse(self.graph == different_edge)
+        self.assertFalse(self.graph == different_edge)
 
         self.graph.clear()
         self.graph.from_string(sample_gfa1)

@@ -56,7 +56,7 @@ def _index(obj, other):
         return found, index
 
 class GFA(DovetailIterator):
-    """GFA will use a networkx #TODO MultiDiGraph as structure to contain
+    """GFA will use a networkx MultiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
     graph_elements package, but can contains any kind of data
@@ -74,13 +74,12 @@ class GFA(DovetailIterator):
         Their id will be `virtual_#` where `#` will be given
         by `next_virtual_id`.
 
-        :param base graph: An instance of a #TODO networkx.MultiDiGraph.
+        :param base graph: An instance of a networkx.MultiGraph.
         """
         if base_graph != None and not isinstance(base_graph, nx.MultiGraph):
             raise GFAError("{0} cannot be used as base " \
                             + "graph, ".format(type(base_graph)) \
                             + "use networkx.MultiGraph instead.")
-        #self._graph = nx.MultiDiGraph(base_graph)
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else \
@@ -121,7 +120,7 @@ class GFA(DovetailIterator):
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
-        for u, v, key in self._graph.edges_iter(keys=True):
+        for u, v, key in self.edges_iter(keys=True):
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -252,7 +251,7 @@ class GFA(DovetailIterator):
         """Given an edge key return a tuple that contains
         the end nodes for that edge.
         """
-        for from_node, to_node, key in self._graph.edges_iter(keys=True):
+        for from_node, to_node, key in self.edges_iter(keys=True):
             if key == edge_key:
                 return from_node, to_node
         return None, None
@@ -602,11 +601,13 @@ class GFA(DovetailIterator):
         if copy:
             return subgraph_.copy()
         return subgraph_
+    
 
     def dovetails_subgraph(self, nbunch=None):
         """Given a collection of nodes return a subgraph with the nodes
         given and all the edges between each pair of nodes.
         Only dovetails overlaps are considered.
+        Only nodes involved into a dovetail overlap are considered.
         """
         bunch = self.dovetails_nbunch_iter(nbunch)
         # create new graph and copy subgraph into it
@@ -639,6 +640,7 @@ class GFA(DovetailIterator):
                     H_adj[nbr][n] = ed
         H.graph = self._graph
         return H
+
 
     def get_all_reachables(self, nid):
         """Return a GFA subgraph with the connected component
@@ -695,7 +697,7 @@ class GFA(DovetailIterator):
 
     def search_on_nodes(self, comparator):
         retval = []
-        for key, data in self._graph.nodes_iter(data=True):
+        for key, data in self.nodes_iter(data=True):
             try:
                 if comparator(data):
                     retval.append(key)
@@ -705,7 +707,7 @@ class GFA(DovetailIterator):
 
     def search_on_edges(self, comparator):
         retval = []
-        for u, v, key, data in self._graph.edges_iter(data=True, keys=True):
+        for u, v, key, data in self.edges_iter(data=True, keys=True):
             try:
                 if comparator(data):
                     retval.append(key)
@@ -723,36 +725,6 @@ class GFA(DovetailIterator):
             except KeyError: pass
         return retval
 
-    # TODO move method
-    def remove_small_components(self, min_length):
-        """Remove all the connected components where
-        the sequences length is less than min_length.
-
-        Find all the connected components nodes,
-        for each component obtain the sum of the
-        sequences length.
-        If length is less than the given length remove the connected
-        component nodes.
-
-        :param min_length: An integer describing the required length
-            to keep a connected component.
-
-        :note:
-            When connected components are computed only dovetail overlaps
-            edges are considered.
-        """
-        conn_components = pygfa.dovetails_nodes_connected_components(self)
-        for conn_comp in conn_components:
-            length = 0
-            for nid in conn_comp:
-                node_ = self.node(nid)
-                try:
-                    length += node_['slen']
-                except (TypeError, KeyError):
-                    pass
-            if length < min_length:
-                for nid in conn_comp:
-                    self.remove_node(nid)
 
     def remove_dead_ends(\
                         self, \
@@ -869,7 +841,7 @@ class GFA(DovetailIterator):
         """A basic pretty print function for nodes and edges.
         """
         string = "\nGRAPH:\nNodes: [\n"
-        for node, datas in self._graph.nodes_iter(data=True):
+        for node, datas in self.nodes_iter(data=True):
             string += str(node) + "\t: {"
             for name, data in datas.items():
                 string += str(name) + ": " + str(data) + "\t"
@@ -877,7 +849,7 @@ class GFA(DovetailIterator):
         string += "]\n"
 
         string += "\nEdges: [\n"
-        for from_node, to_node, key, datas in self._graph.edges_iter( \
+        for from_node, to_node, key, datas in self.edges_iter( \
                                                             keys=True,\
                                                             data=True):
             string += str(key) + "\t: {"
@@ -927,7 +899,7 @@ class GFA(DovetailIterator):
         regexp = re.compile(virtual_rxp)
         edge_lut = {}
         pure_virtuals = []
-        for from_node, to_node, edge_, data_ in self._graph.edges_iter(keys=True, data=True):
+        for from_node, to_node, edge_, data_ in self.edges_iter(keys=True, data=True):
             from_data = self.node(from_node)
             to_data = self.node(to_node)
             match = regexp.fullmatch(edge_)
@@ -970,7 +942,7 @@ class GFA(DovetailIterator):
         in constant time, but requires :math:`O(n)` space.
         """
         edges = {}
-        for from_node, to_node, key in self._graph.edges_iter(keys=True):
+        for from_node, to_node, key in self.edges_iter(keys=True):
             edges[key] = (from_node, to_node)
         return edges
 
@@ -979,16 +951,15 @@ class GFA(DovetailIterator):
         return self._graph.edge[from_node][to_node][key]
 
     def __eq__(self, other):
-        """WORK-IN-PROGRESS
+        """
         :TODO:
             * make a lut for subgraphs (try to think for a way to write
-              _make_edge_lut in a resuable way...
-            * add pure_virtuals comparison
+              _make_edge_lut in a reusable way...
         """
         try:
             # Nodes must be defined, so there is no reason to
             # create a LUT
-            for nid, node_ in self._graph.nodes_iter(data=True):
+            for nid, node_ in self.nodes_iter(data=True):
                 if node_ != other.node(nid):
                     return False
 
@@ -1038,7 +1009,6 @@ class GFA(DovetailIterator):
                 other_subgraphs.pop(index)
 
         except (AttributeError, KeyError) as e:
-            raise e # remove this
             return False
         return True
 
