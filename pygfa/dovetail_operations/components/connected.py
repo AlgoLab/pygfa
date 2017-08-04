@@ -32,6 +32,7 @@ def _plain_bfs_dovetails_with_edges(gfa_, source, edges=False, keys=False):
     """Return an iterator over nodes involved into
     the BFS operation, giving BFS edges also.
 
+    :param edges: If True return the edge key with the edge itself.
     Thanks to /en.wikipedia.org/wiki/Breadth-first_search#Pseudocode.
     """
     seen = set()

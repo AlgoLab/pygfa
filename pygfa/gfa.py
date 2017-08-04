@@ -13,14 +13,15 @@ import copy
 import re
 
 import networkx as nx
+from networkx.classes.function import all_neighbors as nx_all_neighbors
 
-import pygfa
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group
 from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
+from pygfa.operations import *
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
 GRAPH_LOGGER = logging.getLogger(__name__)
@@ -99,6 +100,18 @@ class GFA(DovetailIterator):
             return False
         except TypeError:
             return False
+
+
+    def clear(self):
+        """Clear all GFA object elements.
+
+        Call networkx `clear` method, reset the virtual id counter and
+        delete all the subgraphs.
+        """
+        self._graph.clear()
+        self._next_virtual_id = 0
+        self._subgraphs = {}
+
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -182,8 +195,50 @@ class GFA(DovetailIterator):
         if identifier is None:
             return self._graph.edge
         if isinstance(identifier, tuple):
-            return self.search_edge_by_nodes(identifier)
-        return self.search_edge_by_key(identifier)
+            return self._search_edge_by_nodes(identifier)
+        return self._search_edge_by_key(identifier)
+
+    def _search_edge_by_key(self, edge_key):
+        from_node, to_node = self._get_edge_end_nodes(edge_key)
+        if (from_node, to_node) != (None, None):
+            return self._graph.edge[from_node][to_node][edge_key]
+        return None
+
+
+    def _search_edge_by_nodes(self, nodes):
+        """Search for edge and edges providing end nodes.
+
+        If given a tuple with from_node and to_node return all the edges
+        between the two nodes.
+
+        If a third element is present in the tuple return the exact edge
+        between the two nodes with the key specified by the third element.
+        If no match is found return `None`.
+
+        :returns list of dictionary: If `nodes` is a two element tuple.
+        :returns dictionary: Otherwise.
+        """
+        if len(nodes) < 2:
+            raise InvalidSearchParameters("At least two values are required.")
+        from_node = nodes[0]
+        to_node = nodes[1]
+        try:
+            if len(nodes) > 2:
+                key = nodes[2]
+                return self._graph.edge[from_node][to_node][key]
+            return self._graph.edge[from_node][to_node]
+        except:
+            return None
+
+
+    def _get_edge_end_nodes(self, edge_key):
+        """Given an edge key return a tuple that contains
+        the end nodes for that edge.
+        """
+        for from_node, to_node, key in self.edges_iter(keys=True):
+            if key == edge_key:
+                return from_node, to_node
+        return None, None
 
 
     def get(self, key):
@@ -192,7 +247,7 @@ class GFA(DovetailIterator):
             return self.node(key)
         if key in self._subgraphs:
             return self._subgraphs[key]
-        edge_ = self.search_edge_by_key(key)
+        edge_ = self._search_edge_by_key(key)
         if not edge_ is None:
             return edge_
 
@@ -246,59 +301,6 @@ class GFA(DovetailIterator):
                 return edge_
         except KeyError:
             return None
-
-    def _get_edge_end_nodes(self, edge_key):
-        """Given an edge key return a tuple that contains
-        the end nodes for that edge.
-        """
-        for from_node, to_node, key in self.edges_iter(keys=True):
-            if key == edge_key:
-                return from_node, to_node
-        return None, None
-
-
-    def search_edge_by_key(self, edge_key):
-        from_node, to_node = self._get_edge_end_nodes(edge_key)
-        if (from_node, to_node) != (None, None):
-            return self._graph.edge[from_node][to_node][edge_key]
-        return None
-
-
-    def search_edge_by_nodes(self, nodes):
-        """Search for edge and edges providing end nodes.
-
-        If given a tuple with from_node and to_node return all the edges
-        between the two nodes.
-
-        If a third element is present in the tuple return the exact edge
-        between the two nodes with the key specified by the third element.
-        If no match is found return `None`.
-
-        :returns list of dictionary: If `nodes` is a two element tuple.
-        :returns dictionary: Otherwise.
-        """
-        if len(nodes) < 2:
-            raise InvalidSearchParameters("At least two values are required.")
-        from_node = nodes[0]
-        to_node = nodes[1]
-        try:
-            if len(nodes) > 2:
-                key = nodes[2]
-                return self._graph.edge[from_node][to_node][key]
-            return self._graph.edge[from_node][to_node]
-        except:
-            return None
-
-
-    def clear(self):
-        """Clear all GFA object elements.
-
-        Call networkx `clear` method, reset the virtual id counter and
-        delete all the subgraphs.
-        """
-        self._graph.clear()
-        self._next_virtual_id = 0
-        self._subgraphs = {}
 
 
     def add_graph_element(self, element):
@@ -642,25 +644,6 @@ class GFA(DovetailIterator):
         return H
 
 
-    def get_all_reachables(self, nid):
-        """Return a GFA subgraph with the connected component
-        belonging to the given node.
-
-        :param nid: The id of the node to find the reachable nodes.
-        """
-        if self.node(nid) is None:
-            raise GFAError("The source node is not in the graph.")
-        nodes = nx.node_connected_component(\
-                            self._graph, nid)
-        return GFA(self.subgraph(nodes))
-
-    def nodes_connected_components(self):
-        """Return a list of sets with nodes of each weakly
-        connected component in the graph.
-        """
-        return list(nx.connected_components(\
-                        self._graph))
-
     def neighbors(self, nid):
         """Return all the nodes id of the nodes connected to
         the given node.
@@ -672,7 +655,7 @@ class GFA(DovetailIterator):
         """
         if self.node(nid) is None:
             raise GFAError("The source node is not in the graph.")
-        return list(nx.all_neighbors(self._graph, nid))
+        return list(nx_all_neighbors(self._graph, nid))
 
     def search(self, \
                comparator, \
@@ -724,48 +707,6 @@ class GFA(DovetailIterator):
                     retval.append(key)
             except KeyError: pass
         return retval
-
-
-    def remove_dead_ends(\
-                        self, \
-                        min_length, \
-                        consider_sequence=False, \
-                        safe_remove=False):
-        """Remove all the nodes where its right
-        degree and its left degree are the following (0,0), (1,0), (1,0)
-        and the length of the sequence is less than the given length.
-
-        :param min_length:
-        :param consider_sequence: If set try to get the sequence length
-            where length field is not defined.
-        :param safe_remove: If set the operation doesn't remove nodes
-            where is not possible to obtain the length value.
-
-        :note:
-            Using the right and left degree, only dovetails overlaps
-            are considered.
-        """
-        to_remove = set()
-        for nid, node_ in self.nodes_iter(data=True):
-            left_deg = self.left_degree(nid)
-            right_deg = self.right_degree(nid)
-            if (left_deg, right_deg) in [(0,0), (0,1), (1,0)]:
-                try:
-                    length = node_['slen']
-                    if length is None:
-                        if consider_sequence:
-                            length = len(node_['sequence']) \
-                              if node_['sequence'] != "*" else 0
-                        else:
-                            length = 0
-                    if length < min_length:
-                        to_remove.add(nid)
-                except KeyError:
-                    if not safe_remove:
-                        to_remove.add(nid)
-
-        for nid in to_remove:
-            self.remove_node(nid)
 
 
     def from_string(self, string):
