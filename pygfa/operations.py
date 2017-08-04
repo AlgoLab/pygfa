@@ -1,10 +1,13 @@
-from networkx.algorithms.components.connected import node_connected_component, connected_components
+from networkx.algorithms.components.connected import node_connected_component as nx_node_connected_component
+from networkx.algorithms.components.connected import connected_components as nx_connected_components
 
 from pygfa.dovetail_operations.operations import *
 from pygfa.dovetail_operations.components.connected import *
 from pygfa.dovetail_operations.components.biconnected import *
 from pygfa.dovetail_operations.linear_paths import *
 from pygfa.dovetail_operations.simple_paths import *
+
+import pygfa.gfa
 
 def node_connected_component(gfa_, nid):
     """Return a the connected component
@@ -13,15 +16,15 @@ def node_connected_component(gfa_, nid):
     :param nid: The id of the node to find the reachable nodes.
     """
     if nid not in gfa_:
-        raise GFAError("The source node is not in the graph.")
-    return node_connected_component(\
+        raise pygfa.gfa.GFAError("The source node is not in the graph.")
+    return nx_node_connected_component(\
                         gfa_._graph, nid)
 
 def nodes_connected_components(gfa_):
     """Return a generator of sets with nodes of each weakly
     connected component in the graph.
     """
-    return connected_components(self._graph)
+    return nx_connected_components(gfa_._graph)
 
 def remove_dead_ends(\
                       gfa_, \

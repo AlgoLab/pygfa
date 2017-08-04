@@ -1,6 +1,6 @@
 import sys
 
-from pygfa import gfa
+import pygfa
 import networkx as nx
 import matplotlib.pyplot as plt
 import argparse
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     try:
         args = parser.parse_args()
         
-        tmp_pygfa = gfa.GFA.from_file (args.file[0])
+        tmp_pygfa = pygfa.gfa.GFA.from_file (args.file[0])
         node_color = "r"
         
         if args.subgraph:
