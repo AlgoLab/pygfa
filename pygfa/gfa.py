@@ -589,12 +589,13 @@ class GFA(DovetailIterator):
         """Given a bunch of nodes return a graph with
         all the given nodes and the edges between them.
 
+        The returne object is not a GFA Graph, but a
+        MultiGraph. To create a new GFA graph, just
+        use the GFA initializer an give the subgraph to it.
+
         Interface to the networkx subgraph method.
         Given a collection of nodes return a subgraph with the nodes
         given and all the edges between each pair of nodes.
-
-        All changes apported to the subgraph are reflected to the original
-        GFA graph.
 
         :param nbunch: The nodes.
         :param copy: If set to True return a copy of the subgraph.
@@ -603,15 +604,17 @@ class GFA(DovetailIterator):
         if copy:
             return subgraph_.copy()
         return subgraph_
-    
 
-    def dovetails_subgraph(self, nbunch=None):
+
+    def dovetails_subgraph(self, nbunch=None, copy=True):
         """Given a collection of nodes return a subgraph with the nodes
         given and all the edges between each pair of nodes.
         Only dovetails overlaps are considered.
-        Only nodes involved into a dovetail overlap are considered.
+        Only nodes that have a sequence property (so nodes
+        that describe a poper sequence internal to the file)
+        are considered.
         """
-        bunch = self.dovetails_nbunch_iter(nbunch)
+        bunch = self.nodes(nbunch, with_sequence=True)
         # create new graph and copy subgraph into it
         H = self._graph.__class__()
         # copy node and attribute dictionaries
@@ -641,6 +644,8 @@ class GFA(DovetailIterator):
                     Hnbrs[nbr] = ed
                     H_adj[nbr][n] = ed
         H.graph = self._graph
+        if copy is True:
+            return H.copy()
         return H
 
 

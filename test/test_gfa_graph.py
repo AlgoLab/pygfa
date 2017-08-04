@@ -5,11 +5,13 @@ sys.path.insert(0, '../')
 import networkx as nx
 import unittest
 
+import pygfa
+
+from pygfa import gfa
 from pygfa.graph_element.parser import header, segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element import node, edge as ge, subgraph as sg
-from pygfa import gfa
 
 sample_gfa2 = str.join("", ['# File used for the collections test\n#', \
                 ' similar but NOT equivalent to the gfa1 file!\n' \
@@ -428,48 +430,63 @@ class TestLine (unittest.TestCase):
         subgraph_.node["3"]["nid"] = 42
         self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
 
+    def test_dovetails_subgraph(self):
+        """Use the dovetails_subgraph method on
+        a GFA1 file, and test wheter the subgraphs
+        contains edges that are not dovetails overlap
+        edges.
+        """
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+        subgraph_ = self.graph.dovetails_subgraph()
+        self.assertTrue(subgraph_ is not None)
+        self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
+        self.assertTrue(len(subgraph_.nodes()) == 9)
+        self.assertTrue(len(subgraph_.edges()) == 4)
+        self.assertTrue(subgraph_.edge["1"]["2"]["1_to_2"] is not None)
+        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] is not None)
+        self.assertTrue(subgraph_.edge["11"]["13"]["11_to_13"] is not None)
+        self.assertTrue(subgraph_.edge["11"]["12"]["11_to_12"] is not None)
 
-    def test_get_reachable(self):
-        """Test the different behavior of `get_all_reachables`.
+        with self.assertRaises(KeyError):
+            self.assertTrue(subgraph_.edge["2"]["6"]["2_to_6"] is None)
+        with self.assertRaises(KeyError):
+            self.assertTrue(subgraph_.edge["1"]["5"]["1_to_5"] is None)
         
-        Consider the sample_gfa1 graph.
-        * Get the strong connected component with node "1" as source.
+        # test copy subgraph
+        subgraph_.node["1"]["nid"] = 42
+        self.assertTrue(subgraph_.node["1"] != self.graph.node("1"))
 
-        * Get the strong connected component with node "2" as source.
-            Note that eventhough the two nodes belong to the same
-            connected component the results differ.
+        # create a GFA graph using the subgraph as base graph
+        gfa_ = gfa.GFA(subgraph_)
+        self.assertTrue(gfa_.edge("1_to_3") is not None)
+        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] == \
+                             gfa_.edge("1_to_3"))
 
-        * Now get the weakly connected component with node "2" as source.
-            Now the result for node "1" and "2" are the same.
+        subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
+        subgraph_.node["3"]["nid"] = 42
+        self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
 
-        This is due to the fact that the graph is directed and to perform
-        the reachability analysis the DFS on edges is performed.
 
-        .. _DFS: en.wikipedia.org/wiki/Depth-first_search
-        DFS_ on edges returns all the nodes connected to the connected component
-        belonging to the source node.
+    # :TODO: move test method
+    def test_node_connected_component(self):
+        """Test of `node_connected_component`.
+        Consider the sample_gfa1 graph.       
         """
         self.graph.clear()
         self.graph.from_string(sample_gfa1)
 
-        sub_1 = self.graph.get_all_reachables("1")
+        sub_1 = gfa.GFA(self.graph.subgraph(pygfa.node_connected_component(self.graph, "1")))
         self.assertTrue(sub_1.node("1") is not None)
         self.assertTrue(sub_1.node("5") is not None)
         self.assertTrue(sub_1.node("2") is not None)
         self.assertTrue(sub_1.node("6") is not None)
         self.assertTrue(sub_1.node("3") is not None)
 
-        sub_2 = self.graph.get_all_reachables("2")
-        self.assertTrue(sub_2.node("1") is not None)
-        self.assertTrue(sub_2.node("5") is not None)
-        self.assertTrue(sub_2.node("2") is not None)
-        self.assertTrue(sub_2.node("6") is not None)
-        self.assertTrue(sub_2.node("3") is not None)
-
         with self.assertRaises(gfa.GFAError):
-            self.graph.get_all_reachables(42)
+            pygfa.node_connected_component(self.graph, 42)
 
-
+    # :TODO: move test method
     def test_connected_components(self):
         """Inspect visually the graph, identify the connected
         components, call the method to compute them form graph
@@ -482,12 +499,12 @@ class TestLine (unittest.TestCase):
         component2 = {'12', '11', '13'}
         component3 = {'6', '2', '1', '3', '5'}
 
-        components = self.graph.nodes_connected_components()
+        components = list(pygfa.nodes_connected_components(self.graph))
         self.assertTrue(component1 in components)
         self.assertTrue(component2 in components)
-        self.assertTrue(component2 in components)
+        self.assertTrue(component3 in components)
             
-
+    # :TODO: move test method
     def test_neighborhood_operation(self):
         self.graph.clear()
         self.graph.from_string(sample_gfa1)
