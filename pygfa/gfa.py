@@ -386,6 +386,15 @@ class GFA(DovetailIterator):
             return self._graph.nodes_iter(data)
 
 
+    def nbunch_iter(self, nbunch=None):
+        """Return an iterator of nodes contained in nbunch that are
+        also in the graph.
+
+        Interface to the networkx method.
+        """
+        return self._graph.nbunch_iter(nbunch=nbunch)
+
+
     def add_edge(self, new_edge, safe=False):
         """Add a graph_element Edge or a networkx edge to the GFA
         graph using  the edge id as key.
@@ -610,11 +619,8 @@ class GFA(DovetailIterator):
         """Given a collection of nodes return a subgraph with the nodes
         given and all the edges between each pair of nodes.
         Only dovetails overlaps are considered.
-        Only nodes that have a sequence property (so nodes
-        that describe a poper sequence internal to the file)
-        are considered.
         """
-        bunch = self.nodes(nbunch, with_sequence=True)
+        bunch = self.nbunch_iter(nbunch)
         # create new graph and copy subgraph into it
         H = self._graph.__class__()
         # copy node and attribute dictionaries
@@ -643,7 +649,7 @@ class GFA(DovetailIterator):
                     ed = edgedict.copy()
                     Hnbrs[nbr] = ed
                     H_adj[nbr][n] = ed
-        H.graph = self._graph
+        H.graph = self._graph.graph
         if copy is True:
             return H.copy()
         return H
