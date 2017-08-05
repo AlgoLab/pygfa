@@ -4,8 +4,10 @@ This iterators work considering only edges
 representing dovetails overlaps.
 """
 
-# Note that self is will be referred to the GFA class, keep this in mind
+# Note that "self" will be referred to the GFA class, keep this in mind
 # while reading this class.
+
+from networkx.exception import NetworkXError
 
 class DovetailIterator:
     def dovetails_iter(self, nbunch=None, keys=False, data=False):
@@ -27,16 +29,18 @@ class DovetailIterator:
                       else (from_node, to_node)
 
     def dovetails_nbunch_iter(self, nbunch=None):
-        """Return an iterator over nodes involved
-        into a dovetail overlap.
+        """Return an iterator checking that the given nbunch nodes
+        are in the graphs.
+        Consider only nodes involved into a dovetail overlap.
         """
         dovetails_nodes = set()
         for from_, to_ in self.dovetails_iter():
             dovetails_nodes.add(from_)
             dovetails_nodes.add(to_)
-        if nbunch is None:
+
+        if nbunch is None: # include all nodes
             bunch = iter(dovetails_nodes)
-        elif nbunch in dovetails_nodes:
+        elif nbunch in dovetails_nodes: #if nbunch is a single node
             bunch = iter([nbunch])
         else:
             def bunch_iter(nlist, adj):
@@ -44,6 +48,10 @@ class DovetailIterator:
                     for n in nlist:
                         if n in adj:
                             yield n
+                # it seems impossible to raise an exception
+                # here, since dovetails_iter takes care of
+                # nodes checking...
+                # It's a possible dead code?
                 except TypeError as e:
                     message = e.args[0]
                     # capture error for non-sequence/iterator nbunch.
@@ -60,10 +68,14 @@ class DovetailIterator:
         return bunch
 
     def dovetails_neighbors_iter(self, nbunch=None, keys=False, data=False):
-        """
-        :TODO:
-            remove from_node from yield
-                yeld (to_node, ...)
+        """Return an iterator over neighbors nodes considering
+        all nodes in nbunch as source node.
+
+        :notes:
+            This method is used to check right and left links among
+            sequences, so from_node is needed.
+            If only to_node in neighborhood are need, consider using
+            `dovetails_neighbors'.
         """
         for from_node, to_node, key, edge_ in self.dovetails_iter(nbunch, keys=True, data=True):
             if data is True:
@@ -212,7 +224,7 @@ class DovetailIterator:
                     seen.add(v)
                     nextlevel.update(self.right(v))
                     nextlevel.update(self.left(v))
-                    
+
     def dovetails_linear_path_traverse_edges_iter(self, source, keys=False):
         """Traverse all nodes adjacent to source node where
         the right degree and left degree of each node
@@ -257,12 +269,12 @@ class DovetailIterator:
 
     def dovetails_linear_path_iter(self, source, keys=False):
         """Return an iterator over the linear path
-        whhose source node belongs to, starting from one end
+        whose source node belongs to, starting from one end
         of the path to another.
 
         :param source: One of the node in the linear path.
 
-		:notes:
+        :notes:
             On circular linear path, return None, since no node
             in its neighborhood is not a path node.
         """
