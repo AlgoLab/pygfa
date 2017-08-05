@@ -13,7 +13,7 @@ networkx/networkx/algorithms/components/biconnected.py
 #    All rights reserved.
 #    BSD license.
 
-def _biconnected_dfs(gfa_, components=True):
+def _dovetails_biconnected_dfs(gfa_, components=True):
     visited = set()
     for start in gfa_.nodes():
         if start in visited:
@@ -63,3 +63,15 @@ def _biconnected_dfs(gfa_, components=True):
             # root node is articulation point if it has more than 1 child
             if root_children > 1:
                 yield start
+
+def dovetails_articulation_points(gfa_):
+    """Redefinition of articulation point
+    for dovetails connected components.
+
+    An articulation point or cut vertex is any node whose removal
+    (along with all its incident edges) increases the number ofconnected
+    components of a graph. An undirected connected graph without
+    articulation points is biconnected. Articulation points belong to
+    more than one biconnected component of a graph.
+    """
+    return _dovetails_biconnected_dfs(gfa_, components=False)
