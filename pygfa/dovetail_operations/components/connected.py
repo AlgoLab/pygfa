@@ -28,7 +28,7 @@ def _plain_bfs_dovetails(gfa_, source):
                 nextlevel.update(gfa_.right(v))
                 nextlevel.update(gfa_.left(v))
 
-def _plain_bfs_dovetails_with_edges(gfa_, source, edges=False, keys=False):
+def _plain_bfs_dovetails_with_edges(gfa_, source, keys=False):
     """Return an iterator over nodes involved into
     the BFS operation, giving BFS edges also.
 
@@ -38,7 +38,7 @@ def _plain_bfs_dovetails_with_edges(gfa_, source, edges=False, keys=False):
     seen = set()
     seen.add(source)
     queue = list()
-    queue.append(source) # since pop op pops out the last element
+    queue.append(source) # since pop operation pops out the last element
                           # append operation can be used as a push
                           # operation
     while len(queue):
@@ -46,11 +46,8 @@ def _plain_bfs_dovetails_with_edges(gfa_, source, edges=False, keys=False):
         for from_, to_, key in gfa_.dovetails_neighbors_iter(from_node, \
                                                             keys=True):
             if to_ not in seen:
-                if edges is True:
-                    yield (from_, to_, key) if keys \
-                      else (from_, to_)
-                else:
-                    yield to_
+                yield (from_, to_, key) if keys \
+                  else (from_, to_)
                 seen.add(to_)
                 queue.append(to_)
 
