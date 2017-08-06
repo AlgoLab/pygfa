@@ -47,7 +47,7 @@ sample_gfa2 = str.join("", ['# File used for the collections test\n#', \
                 'H\taa:i:15\n', \
                 'E\t1_to_5\t1+\t5+\t0\t122$\t2\t124\t*\tzz:Z:tag\n'])
 
-                
+
 sample_gfa1 = str.join("", ['S\t1\t*\n', \
                 'S\t3\tCGATGCTAGCTGACTGTCGATGCTGTGTG\n', \
                 'L\t1\t+\t2\t+\t12M\tID:Z:1_to_2\n', \
@@ -75,7 +75,6 @@ class TestLine (unittest.TestCase):
 
     graph = gfa.GFA ()
 
-
     def test_GFA_graph(self):
         """Test GFA constructor and accessor methods.
         """
@@ -94,7 +93,7 @@ class TestLine (unittest.TestCase):
         with self.assertRaises(gfa.GFAError):
             gfa.GFA(tmp_nx)
 
-        
+
         tmp_nx = nx.MultiGraph()
         tmp_nx.add_node("2", nid="2", sequence="acgt", slen="4")
         tmp_nx.add_node("4", nid="4", sequence="*", slen="25")
@@ -114,9 +113,9 @@ class TestLine (unittest.TestCase):
         self.assertTrue(tmp.node("2")["sequence"] == "acgt")
         self.assertTrue(tmp.node("4")["nid"] == "4")
         self.assertTrue(tmp.node("not_exists") == None)
-                            
+
         # exists an edge between two and 4
-        self.assertTrue(len(tmp.edge(("4", "2"))) == 1) 
+        self.assertTrue(len(tmp.edge(("4", "2"))) == 1)
         self.assertTrue(tmp.edge(("4", "2", "virtual_42"))["eid"] == "*")
         self.assertTrue(tmp.edge("None_Key") == None)
         self.assertTrue(tmp.edge(("4", "None_Node")) == None)
@@ -137,9 +136,8 @@ class TestLine (unittest.TestCase):
 
         tmp.node("4")["new_attribute"] = 42
         self.assertTrue(tmp.node("4")["new_attribute"] == 42)
-        
-        
-    
+
+
     def test_add_node (self):
         """Test add_node and remove_node methods."""
         self.graph.clear ()
@@ -149,7 +147,7 @@ class TestLine (unittest.TestCase):
         seg.fields['name']._value = "node4"
         node_ = node.Node.from_line(seg)
         self.graph.add_node (node_)
-        
+
         self.graph._graph.add_edge("3", "node4") # create an edge (indirectly)
         self.assertTrue(len(self.graph.edges()) == 1)
 
@@ -183,7 +181,7 @@ class TestLine (unittest.TestCase):
             self.graph.add_node(\
                 "S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test",
                 safe=True)
-        
+
         with self.assertRaises(TypeError):
             self.graph.add_node("21", nid="21", slen="4", sequence="acgt")
         with self.assertRaises(node.InvalidNodeError):
@@ -259,7 +257,7 @@ class TestLine (unittest.TestCase):
 
     def test_add_subgraphs (self):
         self.graph.clear ()
-        
+
         line = path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
         sb = sg.Subgraph.from_line(line)
         self.graph.add_subgraph(sb)
@@ -284,7 +282,7 @@ class TestLine (unittest.TestCase):
             self.graph.add_subgraph("Z\t14_2\t11_2+,12+\t122M\tui:Z:test\tab:Z:another_test")
         with self.assertRaises(sg.InvalidSubgraphError):
             self.graph.remove_subgraph("42")
-        
+
 
     def test_as_graph_element (self):
         self.graph.clear ()
@@ -452,7 +450,7 @@ class TestLine (unittest.TestCase):
             self.assertTrue(subgraph_.edge["2"]["6"]["2_to_6"] is None)
         with self.assertRaises(KeyError):
             self.assertTrue(subgraph_.edge["1"]["5"]["1_to_5"] is None)
-        
+
         # test copy subgraph
         subgraph_.node["1"]["nid"] = 42
         self.assertTrue(subgraph_.node["1"] != self.graph.node("1"))
@@ -467,55 +465,6 @@ class TestLine (unittest.TestCase):
         subgraph_.node["3"]["nid"] = 42
         self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
 
-
-    # :TODO: move test method
-    def test_node_connected_component(self):
-        """Test of `node_connected_component`.
-        Consider the sample_gfa1 graph.       
-        """
-        self.graph.clear()
-        self.graph.from_string(sample_gfa1)
-
-        sub_1 = gfa.GFA(self.graph.subgraph(pygfa.node_connected_component(self.graph, "1")))
-        self.assertTrue(sub_1.node("1") is not None)
-        self.assertTrue(sub_1.node("5") is not None)
-        self.assertTrue(sub_1.node("2") is not None)
-        self.assertTrue(sub_1.node("6") is not None)
-        self.assertTrue(sub_1.node("3") is not None)
-
-        with self.assertRaises(gfa.GFAError):
-            pygfa.node_connected_component(self.graph, 42)
-
-    # :TODO: move test method
-    def test_connected_components(self):
-        """Inspect visually the graph, identify the connected
-        components, call the method to compute them form graph
-        and test if everything match.
-        """
-        self.graph.clear()
-        self.graph.from_string(sample_gfa1)
-
-        component1 = {'4'}
-        component2 = {'12', '11', '13'}
-        component3 = {'6', '2', '1', '3', '5'}
-
-        components = list(pygfa.nodes_connected_components(self.graph))
-        self.assertTrue(component1 in components)
-        self.assertTrue(component2 in components)
-        self.assertTrue(component3 in components)
-            
-    # :TODO: move test method
-    def test_neighborhood_operation(self):
-        self.graph.clear()
-        self.graph.from_string(sample_gfa1)
-
-        neighbors_ = self.graph.neighbors("2")
-        self.assertTrue("6" in neighbors_)
-        self.assertTrue("1" in neighbors_)
-        self.assertTrue("5" not in neighbors_)
-
-        with self.assertRaises(gfa.GFAError):
-            self.graph.neighbors("42")
 
     def test_search(self):
         """Perform some query operation on the graph,
@@ -598,7 +547,19 @@ class TestLine (unittest.TestCase):
         another_equal_graph = gfa.GFA()
         another_equal_graph.from_string(self.graph.dump(1))
         self.assertTrue(another_equal_graph == self.graph)
-        
+
+
+    def test_neighborhood_operation(self):
+        self.graph.clear()
+        self.graph.from_string(sample_gfa1)
+
+        neighbors_ = self.graph.neighbors("2")
+        self.assertTrue("6" in neighbors_)
+        self.assertTrue("1" in neighbors_)
+        self.assertTrue("5" not in neighbors_)
+
+        with self.assertRaises(gfa.GFAError):
+            self.graph.neighbors("42")
 
 
 if  __name__ == '__main__':
