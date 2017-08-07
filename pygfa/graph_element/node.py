@@ -3,7 +3,8 @@ import copy
 from pygfa.graph_element.parser import segment
 from pygfa.graph_element.parser import line, field_validator as fv
 
-class InvalidNodeError(Exception): pass
+class InvalidNodeError(Exception):
+    pass
 
 def is_node(obj):
     """Check wheter the given object is a Node object.
@@ -51,11 +52,11 @@ class Node:
         # checks sequence validation against GFA2 sequence specification
         # that is more tolerant than the GFA1 one
         if not(isinstance(sequence, str) and \
-            fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
-                raise InvalidNodeError(\
-                     "A sequence must be of type string and must be a " \
-                     + "valid GFA2 sequence," \
-                     + "given '{0}' of type {1}".format(sequence, type(sequence)))
+          fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
+            raise InvalidNodeError(\
+                "A sequence must be of type string and must be a " \
+                 + "valid GFA2 sequence," \
+                 + "given '{0}' of type {1}".format(sequence, type(sequence)))
 
         if not( \
                 (isinstance(length, int) and int(length) >= 0) or \
@@ -107,7 +108,7 @@ class Node:
                 fields.pop('name')
                 fields.pop('sequence')
 
-                
+
                 length = None
                 if segment_line.fields['sequence'].value != "*":
                     length = len(segment_line.fields['sequence'].value)

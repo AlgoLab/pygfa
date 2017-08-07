@@ -17,18 +17,19 @@ from networkx.classes.function import all_neighbors as nx_all_neighbors
 
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group
-from pygfa.graph_element.parser import line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
-from pygfa.operations import *
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
-class InvalidSearchParameters(Exception): pass
-class InvalidElementError(Exception): pass
-class GFAError(Exception): pass
+class InvalidSearchParameters(Exception):
+    pass
+class InvalidElementError(Exception):
+    pass
+class GFAError(Exception):
+    pass
 
 
 class Element:
@@ -39,22 +40,22 @@ class Element:
     SUBGRAPH = 2
 
 def _index(obj, other):
-        """Given an object O and a list
-        of objects L check that exist an object O'
-        in the list such that O == O'.
-
-        :return True: If O' exists.
-        :return: The position of O' in the list.
-        """
-        found = False
-        index = 0
-        max_len = len(other)
-        while not found and index < max_len:
-            if obj == other[index]:
-                found = True
-            else:
-                index += 1
-        return found, index
+    """Given an object O and a list
+    of objects L check that exist an object O'
+    in the list such that O == O'.
+    
+    :return True: If O' exists.
+    :return: The position of O' in the list.
+    """
+    found = False
+    index = 0
+    max_len = len(other)
+    while not found and index < max_len:
+        if obj == other[index]:
+            found = True
+        else:
+            index += 1
+    return found, index
 
 class GFA(DovetailIterator):
     """GFA will use a networkx MultiGraph as structure to contain
@@ -78,8 +79,9 @@ class GFA(DovetailIterator):
         :param base graph: An instance of a networkx.MultiGraph.
         """
         if base_graph != None and not isinstance(base_graph, nx.MultiGraph):
-            raise GFAError("{0} cannot be used as base " \
-                            + "graph, ".format(type(base_graph)) \
+            raise GFAError("{0} ".format(type(base_graph)) \
+                            + "cannot be used as base " \
+                            + "graph, "\
                             + "use networkx.MultiGraph instead.")
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
@@ -133,7 +135,7 @@ class GFA(DovetailIterator):
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
-        for u, v, key in self.edges_iter(keys=True):
+        for from_, to_, key in self.edges_iter(keys=True):
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -257,7 +259,7 @@ class GFA(DovetailIterator):
         its equivalent graph element object.
         """
         element = self.get(key)
-        if element == None:
+        if element is None:
             raise InvalidElementError(\
                     "No graph element has the given key: {0}".format(key))
 
@@ -433,11 +435,11 @@ class GFA(DovetailIterator):
             raise ge.InvalidEdgeError("The object is not a valid edge.")
 
         key = new_edge.eid
-        if new_edge.eid == None or new_edge.eid == '*':
+        if new_edge.eid is None or new_edge.eid == '*':
             key = "virtual_{0}".format(self._get_virtual_id())
 
         if safe:
-            edge_exists =  key in self
+            edge_exists = key in self
             node1_exists = new_edge.from_node in self
             node2_exists = new_edge.to_node in self
             if edge_exists:
@@ -495,8 +497,8 @@ class GFA(DovetailIterator):
                 self._graph.remove_edge(from_node, \
                                         to_node, \
                                         identifier)
-        except nx.NetworkXError as e:
-            raise ge.InvalidEdgeError(e)
+        except nx.NetworkXError as nxe:
+            raise ge.InvalidEdgeError(nxe)
 
 
     def remove_edges(self, from_node, to_node):
@@ -508,7 +510,7 @@ class GFA(DovetailIterator):
         removing all the edges indeed.
         """
         num_edges = len(self.edge((from_node, to_node)))
-        for edge in range(0, num_edges):
+        for edge_ in range(0, num_edges):
             self._graph.remove_edge(from_node, to_node)
 
 
@@ -637,7 +639,8 @@ class GFA(DovetailIterator):
                 self_adj[from_node][to_node] = self._graph.adjlist_dict_factory()
                 for edge_ in self._graph.adj[from_node][to_node]:
                     if self._graph.adj[from_node][to_node][edge_]['is_dovetail'] is True:
-                        self_adj[from_node][to_node][edge_] = self._graph.adj[from_node][to_node][edge_]
+                        self_adj[from_node][to_node][edge_] = \
+                          self._graph.adj[from_node][to_node][edge_]
         # add nodes and edges (undirected method)
         for n in H:
             Hnbrs = H.adjlist_dict_factory()
@@ -671,7 +674,7 @@ class GFA(DovetailIterator):
     def search(self, \
                comparator, \
                limit_type=None):
-        """Perform a query applying the comparator on each graph element. 
+        """Perform a query applying the comparator on each graph element.
         """
         if limit_type == Element.NODE:
             return self.search_on_nodes(comparator)
@@ -781,12 +784,12 @@ class GFA(DovetailIterator):
     def from_file(cls, filepath): # pragma: no cover
         """Parse the given file and return a GFA object.
         """
-        pygfa = GFA()
+        pygfa_ = GFA()
         file_handler = open(filepath)
         file_content = file_handler.read()
         file_handler.close()
-        pygfa.from_string(file_content)
-        return pygfa
+        pygfa_.from_string(file_content)
+        return pygfa_
 
 
     def pprint(self): # pragma: no cover
@@ -921,10 +924,10 @@ class GFA(DovetailIterator):
             other_lut, other_edge_virtuals = other._make_edge_lut()
             for alias, list_ids in self_lut.items():
                 while len(list_ids):
-                    id = list_ids.pop()
+                    id_ = list_ids.pop()
                     found = False
                     index = 0
-                    edge_ = self._look_for_edge(id, self_edge_table)
+                    edge_ = self._look_for_edge(id_, self_edge_table)
                     while not found and index < len(other_lut[alias]):
                         other_id = other_lut[alias][index]
                         if edge_ == other._look_for_edge(\

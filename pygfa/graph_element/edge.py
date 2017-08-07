@@ -2,7 +2,8 @@ import copy
 
 from pygfa.graph_element.parser import line
 
-class InvalidEdgeError(Exception): pass
+class InvalidEdgeError(Exception):
+    pass
 
 def is_edge(obj):
     try:
@@ -29,7 +30,7 @@ class Edge:
                   alignment, \
                   distance=None, \
                   variance=None, \
-                  opt_fields={},
+                  opt_fields={}, \
                   is_dovetail=False):
         """Construct an Edge from a Line subclass that represent can be
         represented as an Edge.
@@ -206,7 +207,7 @@ class Edge:
                     line_.fields['overlap'].value, \
                     opt_fields=fields, \
                     is_dovetail=True)
-              
+
             if line_.type == 'C':
                 if 'ID' in line_.fields:
                     fields.pop('ID')
@@ -265,7 +266,7 @@ class Edge:
                   and \
                    (beg2 == "0" or end2[-1:] == "$"):
                     is_dovetail_ = True
-                
+
                 return Edge( \
                     line_.fields['eid'].value, \
                     line_.fields['sid1'].value[0:-1], \

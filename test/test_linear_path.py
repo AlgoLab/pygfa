@@ -58,7 +58,11 @@ class TestLine (unittest.TestCase):
         self.assertTrue([
                         ("26", "27"),
                         ("27", "28"),
-                        ("28", "25")] == list(pygfa.dovetails_linear_path(self.graph,
+                        ("28", "25")]
+                        or
+                        [("26", "25"),
+                        ("25", "27"),
+                        ("27", "28")] == list(pygfa.dovetails_linear_path(self.graph,
                                                                     "26")))
         self.assertTrue([("12", "9")] == list(pygfa.dovetails_linear_path(self.graph,
                                                                     "12")))
