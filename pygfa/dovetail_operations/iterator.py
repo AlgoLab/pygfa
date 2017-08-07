@@ -8,6 +8,7 @@ representing dovetails overlaps.
 # while reading this class.
 
 from networkx.exception import NetworkXError
+from pygfa.algorithms.traversal import dfs_edges
 
 class DovetailIterator:
     def dovetails_iter(self, nbunch=None, keys=False, data=False):
@@ -273,10 +274,6 @@ class DovetailIterator:
         of the path to another.
 
         :param source: One of the node in the linear path.
-
-        :notes:
-            On circular linear path, return None, since no node
-            in its neighborhood is not a path node.
         """
         path_nodes = list(self.dovetails_linear_path_traverse_nodes_iter(source))
         if path_nodes == []:
@@ -289,4 +286,11 @@ class DovetailIterator:
                 if adj not in path_nodes: # found one of the path end node
                     return self.dovetails_linear_path_traverse_edges_iter(node_, keys=keys)
             index += 1
-        return iter([])
+        # here we are in the situation where a path has been found
+        # (we checked for path_nodes == [] before), but
+        # we didn't find a path extreme... so
+        # we have a circular path!
+        # Just take the source as starting point.
+        return dfs_edges(self, self.dovetails_iter, source, keys=keys)
+        
+        
