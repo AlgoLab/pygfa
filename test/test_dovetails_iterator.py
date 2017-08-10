@@ -45,7 +45,7 @@ class TestLine (unittest.TestCase):
         """Test wheter the edges represent a dovetail overlaps."""
         self.assertTrue(self.graph.edge("l12")['is_dovetail'])
         self.assertTrue(self.graph.edge("l23")['is_dovetail'])
-        self.assertTrue(self.graph.edge("l15")['is_dovetail'])
+        self.assertTrue(self.graph.edge("l15")['is_dovetail'] == False)
         self.assertTrue(self.graph.edge("c14")['is_dovetail'] == False)
 
     def test_extreme(self):
@@ -55,22 +55,22 @@ class TestLine (unittest.TestCase):
         self.assertTrue(self.graph.edge("l12")['from_segment_end'] == "R")
         self.assertTrue(self.graph.edge("l12")['to_segment_end'] == "L")
 
-        self.assertTrue(self.graph.edge("l23")['from_segment_end'] == "L")
-        self.assertTrue(self.graph.edge("l23")['to_segment_end'] == "L")
+        self.assertTrue(self.graph.edge("l23")['from_segment_end'] == "R")
+        self.assertTrue(self.graph.edge("l23")['to_segment_end'] == "R")
 
-        self.assertTrue(self.graph.edge("l15")['from_segment_end'] == "L")
-        self.assertTrue(self.graph.edge("l15")['to_segment_end'] == "L")
+        self.assertTrue(self.graph.edge("l15")['from_segment_end'] is None)
+        self.assertTrue(self.graph.edge("l15")['to_segment_end'] is None)
 
         self.assertTrue(set(self.graph.right("s1")) == {"s2"})
-        self.assertTrue(set(self.graph.left("s1")) == {"s5"})
+        self.assertTrue(set(self.graph.left("s1")) == set())
         self.assertTrue(self.graph.right_degree("s1") == 1)
-        self.assertTrue(self.graph.left_degree("s1") == 1)
-        self.assertTrue(set(self.graph.dovetails_neighbors("s1")) == {"s2", "s5"})
+        self.assertTrue(self.graph.left_degree("s1") == 0)
+        self.assertTrue(set(self.graph.dovetails_neighbors("s1")) == {"s2"})
 
-        self.assertTrue(set(self.graph.right("s2")) == set())
-        self.assertTrue(set(self.graph.left("s2")) == {"s3", "s1"})
-        self.assertTrue(self.graph.right_degree("s2") == 0)
-        self.assertTrue(self.graph.left_degree("s2") == 2)
+        self.assertTrue(set(self.graph.right("s2")) == {"s3"})
+        self.assertTrue(set(self.graph.left("s2")) == {"s1"})
+        self.assertTrue(self.graph.right_degree("s2") == 1)
+        self.assertTrue(self.graph.left_degree("s2") == 1)
         self.assertTrue(set(self.graph.dovetails_neighbors("s2")) == {"s1", "s3"})
 
         self.assertTrue(set(self.graph.right("s4")) == set())
@@ -88,10 +88,10 @@ class TestLine (unittest.TestCase):
         nodes involved into dovetail overlap edges.
         """
         # if nbunch is None return all the consider all the nodes in the graph
-        self.assertTrue({"s1", "s2", "s3", "s5"} == set(self.graph.dovetails_nbunch_iter()))
+        self.assertTrue({"s1", "s2", "s3"} == set(self.graph.dovetails_nbunch_iter()))
         # s4 correctly missing
 
-        self.assertTrue({"s2", "s5", "s1"} == set(self.graph.dovetails_nbunch_iter(("s1", "s2", "s5"))))
+        self.assertTrue({"s2", "s1"} == set(self.graph.dovetails_nbunch_iter(("s1", "s2"))))
 
         # s4 is not involved into a dovetail overlap
         self.assertTrue(set() == set(self.graph.dovetails_nbunch_iter("s4")))

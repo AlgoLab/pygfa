@@ -107,7 +107,7 @@ class Edge:
         self._from_segment_end = None
         self._to_segment_end = None
         if self._is_dovetail:
-            self.set_segments_end()
+            self._set_segments_end()
 
 
     @property
@@ -166,13 +166,23 @@ class Edge:
     def to_segment_end(self):
         return self._to_segment_end
 
-    def set_segments_end(self):
+    def _set_segments_end(self):
         """Set the segments ends considerend by the
         edge, only for dovetail overlaps.
         Do nothing otherwise.
         """
         if not self.is_dovetail:
             return
+
+        # check if it's a GFA1 Link 
+        if self.from_positions == (None, None) \
+          or self.to_positions == (None, None):
+            self._set_segments_end_link()
+        else:
+            self._set_segments_end_edge()
+
+
+    def _set_segments_end_link(self):
         if self.from_orn == "+":
             self._from_segment_end = "R"
         else:
@@ -181,6 +191,25 @@ class Edge:
             self._to_segment_end = "L"
         else:
             self._to_segment_end = "R"
+
+
+    def _set_segments_end_edge(self):
+        beg1, end1 = self.from_positions
+        beg2, end2 = self.to_positions
+
+        # the dovetail is from the end of from_node to
+        # the beginning of to_node, just like a GFA1 Link
+        if beg2 == "0":
+            self._set_segments_end_link()
+        else: # dovetail between end of to_node and begin of from_node
+            if self.from_orn == "+":
+                self._from_segment_end = "L"
+            else:
+                self._from_segment_end = "R"
+            if self.to_orn == "+":
+                self._to_segment_end = "R"
+            else:
+                self._to_segment_end = "L"
 
 
     @classmethod
@@ -262,11 +291,17 @@ class Edge:
                 beg2 = line_.fields['beg2'].value
                 end2 = line_.fields['end2'].value
                 is_dovetail_ = False
-                if (beg1 == "0" or end1[-1:] == "$") \
-                  and \
-                   (beg2 == "0" or end2[-1:] == "$"):
+                #if (beg1 == "0" or end1[-1:] == "$") \
+                #  and \
+                #   (beg2 == "0" or end2[-1:] == "$"):
+                #    is_dovetail_ = True
+
+                if (beg1 == "0" and end2[-1:] == "$") \
+                  or \
+                   (beg2 == "0" and end1[-1:] == "$"):
                     is_dovetail_ = True
 
+                    
                 return Edge( \
                     line_.fields['eid'].value, \
                     line_.fields['sid1'].value[0:-1], \
