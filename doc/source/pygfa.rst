@@ -6,6 +6,8 @@ Subpackages
 
 .. toctree::
 
+    pygfa.algorithms
+    pygfa.dovetail_operations
     pygfa.graph_element
     pygfa.serializer
 
@@ -16,6 +18,14 @@ pygfa\.gfa module
 -----------------
 
 .. automodule:: pygfa.gfa
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pygfa\.operations module
+------------------------
+
+.. automodule:: pygfa.operations
     :members:
     :undoc-members:
     :show-inheritance:
