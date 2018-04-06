@@ -22,6 +22,8 @@ from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
+from pygfa.compression.compression import compression_graph
+
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 class InvalidSearchParameters(Exception):
@@ -969,6 +971,9 @@ class GFA(DovetailIterator):
 
     def __neq__(self, other):
         return not self == other
+
+    def compression(self):
+        compression_graph(self)
 
 
 if __name__ == '__main__': #pragma: no cover
