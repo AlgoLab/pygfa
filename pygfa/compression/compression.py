@@ -7,7 +7,7 @@ def reverse_and_complement(string):
 	return complement_string[::-1]
 
 def reverse_strand(strand):
-	dict_inverted = dict([('+', '-'), ('-', '+')])
+	dict_inverted = dict([('+', '-'), ('-', '+'), (None, None)])
 	return dict_inverted[strand]
 
 def update_dictionary(from_list, to_list, i, orn):
@@ -22,38 +22,44 @@ def update_dictionary(from_list, to_list, i, orn):
 			to_list.pop(i)
 		else:
 			if from_list[i][0] == remove_id:
-				if orn == '-':
+				if orn == '-+' or orn == '+-':
 					from_list[i] = (keep_id, reverse_strand(from_list[i][1]))
+					if not from_list[i][1]:
+						to_list[i] = (to_list[i][0], reverse_strand(to_list[i][1]))
 				else:
 					from_list[i] = (keep_id, from_list[i][1])
 			if to_list[i][0] == remove_id:
-				if orn == '-':
+				if orn == '-+' or orn == '+-':
 					to_list[i] = (keep_id, reverse_strand(to_list[i][1]))
 				else:
 					to_list[i] = (keep_id, to_list[i][1])
 			i += 1
 
 def update_graph(gfa_, keep_node, remove_node, new_seq, overlap, orn):
-	
+
 	keep_id, keep_orn = keep_node
 	remove_id, remove_orn = remove_node
+	keep_slen = int(gfa_.node()[keep_id]['slen'])
 
 	gfa_.node()[keep_id]['sequence'] = new_seq
 	if not new_seq == '*':
 		gfa_.node()[keep_id]['slen'] = len(gfa_.node(keep_id)['sequence'])
 	else:
-		try:
+		if gfa_.node()[keep_id]['slen'] and gfa_.node()[remove_id]['slen']:
 			gfa_.node()[keep_id]['slen'] += gfa_.node()[remove_id]['slen'] - overlap
-		except:
+		else:
 			gfa_.node()[keep_id]['slen'] = None
-		try:
-			try:
-				remove_fu = gfa_.node()[remove_id]['fu'].lstrip('Z:')
-			except:
-				remove_fu = remove_id
+		
+		if 'fu' in gfa_.node()[remove_id]:
+			remove_fu = gfa_.node()[remove_id].get('fu').lstrip('Z:')
+		else:
+			remove_fu = remove_id
+
+		if 'fu' in gfa_.node()[keep_id]:
 			gfa_.node()[keep_id]['fu'] += '_'+remove_fu
-		except:
+		else:
 			gfa_.node()[keep_id]['fu'] = 'Z:'+keep_id+'_'+remove_fu
+
 	#fix gfa_.node()[keep_id]['option']
 
 	remove_edge_list = []
@@ -62,21 +68,47 @@ def update_graph(gfa_, keep_node, remove_node, new_seq, overlap, orn):
 		for edge_id in data_update_edges[node]:
 			if data_update_edges[node][edge_id]['from_node'] == remove_id:
 				parse_from_node = keep_id
-				parse_from_orn = gfa_.edge()[remove_id][node][edge_id]['from_orn']
-				if orn == '-':
-					parse_from_orn = reverse_strand(parse_from_orn)
-				parse_to_node = gfa_.edge()[remove_id][node][edge_id]['to_node']
-				parse_to_orn = gfa_.edge()[remove_id][node][edge_id]['to_orn']
+				parse_from_orn = data_update_edges[node][edge_id]['from_orn']
+				if not parse_from_orn:
+					parse_to_node = data_update_edges[node][edge_id]['to_node']
+					parse_to_orn = data_update_edges[node][edge_id]['to_orn']
+					parse_from_positions = data_update_edges[node][edge_id]['from_positions']
+					parse_to_positions = data_update_edges[node][edge_id]['to_positions']
+					keep_slen = int(gfa_.node()[keep_id]['slen'])
+					remove_slen = int(gfa_.node()[remove_id]['slen'])
+					if orn == '-+':
+						parse_to_orn = reverse_strand(parse_to_orn)
+						parse_from_positions = (str(remove_slen-int(parse_from_positions[1])),\
+							str(remove_slen-int(parse_from_positions[0])))
+					elif orn == '+-':
+						parse_to_orn = reverse_strand(parse_to_orn)
+						parse_from_positions = (str(keep_slen-int(parse_from_positions[1])),\
+							str(keep_slen-int(parse_from_positions[0])))
+					elif orn == '++':
+						parse_from_positions = (str(keep_slen-remove_slen+int(parse_from_positions[0])),\
+							str(keep_slen-remove_slen+int(parse_from_positions[1])))
+				else:
+					if orn == '-+' or orn == '+-':
+						parse_from_orn = reverse_strand(parse_from_orn)
+					parse_to_node = data_update_edges[node][edge_id]['to_node']
+					parse_to_orn = data_update_edges[node][edge_id]['to_orn']
 			else:
 				parse_to_node = keep_id
-				parse_to_orn = gfa_.edge()[remove_id][node][edge_id]['to_orn']
-				if orn == '-':
+				parse_to_orn = data_update_edges[node][edge_id]['to_orn']
+				if orn == '-+' or orn == '+-':
 					parse_to_orn = reverse_strand(parse_to_orn)
-				parse_from_node = gfa_.edge()[remove_id][node][edge_id]['from_node']
-				parse_from_orn = gfa_.edge()[remove_id][node][edge_id]['from_orn']
-			parse_overlap = gfa_.edge()[remove_id][node][edge_id]['alignment']
-			parse_new_edge = 'L\t'+parse_from_node+'\t'+parse_from_orn+'\t'\
-				+parse_to_node+'\t'+parse_to_orn+'\t'+parse_overlap
+				parse_from_node = data_update_edges[node][edge_id]['from_node']
+				parse_from_orn = data_update_edges[node][edge_id]['from_orn']
+			parse_overlap = data_update_edges[node][edge_id]['alignment']
+			
+			if parse_from_orn:
+				parse_new_edge = 'L\t'+parse_from_node+'\t'+parse_from_orn+'\t'\
+					+parse_to_node+'\t'+parse_to_orn+'\t'+parse_overlap
+			else:
+				parse_new_edge = 'F\t'+parse_from_node+'\t'+parse_to_node+parse_to_orn+'\t'\
+					+parse_from_positions[0]+'\t'+parse_from_positions[1]+'\t'\
+					+parse_to_positions[0]+'\t'+parse_to_positions[1]+'\t'+parse_overlap[0]
+
 			gfa_.add_edge(parse_new_edge)
 			remove_edge_list.append(edge_id)
 
@@ -99,26 +131,29 @@ def compact_sequence(gfa_, from_node, to_node):
 	print(from_id+' '+from_orn+' '+from_seq+'\t\t\t'+to_id+' '+to_orn+' '+to_seq)
 
 	if from_orn == '-' and to_orn == '-':
-			if from_seq == '*' or to_seq =='*':
-				new_seq = '*'
-			else:
-				new_seq = to_seq+from_seq[overlap:]
-			return new_seq, overlap, '+'
+		if from_seq == '*' or to_seq =='*':
+			new_seq = '*'
+		else:
+			new_seq = to_seq+from_seq[overlap:]
+		return new_seq, overlap, '--'
 	elif from_orn == '+' and to_orn == '+':
-			if from_seq == '*' or to_seq =='*':
-				new_seq = '*'
-			else:	
-				new_seq = from_seq+to_seq[overlap:]
-			return new_seq, overlap, '+'
+		if from_seq == '*' or to_seq =='*':
+			new_seq = '*'
+		else:	
+			new_seq = from_seq+to_seq[overlap:]
+		return new_seq, overlap, '++'
+	elif from_orn == '-':
+		if from_seq == '*' or to_seq =='*':
+			new_seq = '*'
+		else:
+			new_seq = reverse_and_complement(to_seq)[:-overlap]+from_seq
+		return new_seq, overlap, '-+'
 	else:
 		if from_seq == '*' or to_seq =='*':
 			new_seq = '*'
 		else:
-			if from_orn == '-':
-				new_seq = reverse_and_complement(to_seq)[:-overlap]+from_seq
-			else:
-				new_seq = from_seq+reverse_and_complement(to_seq)[overlap:]
-		return new_seq, overlap, '-'
+			new_seq = from_seq+reverse_and_complement(to_seq)[overlap:]
+		return new_seq, overlap, '+-'
 
 def compression_graph(gfa_):
 
@@ -137,13 +172,13 @@ def compression_graph(gfa_):
 					to_list.append((data_edges[node1][node2][eid]['to_node'],\
 						data_edges[node1][node2][eid]['to_orn']))
 
-	#for i in range(len(from_list)):
-	#	print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
+	for i in range(len(from_list)):
+		print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
 	
 	count_edge_compacted = 0
 	i = len(from_list) - 1
 	while i >= 0:
-		if from_list.count(from_list[i]) == 1 and \
+		if from_list[i][1] and from_list.count(from_list[i]) == 1 and \
 			to_list.count(to_list[i]) == 1:
 			inverted_from = (from_list[i][0], reverse_strand(from_list[i][1]))
 			inverted_to = (to_list[i][0], reverse_strand(to_list[i][1]))
@@ -155,4 +190,8 @@ def compression_graph(gfa_):
 				count_edge_compacted += 1
 		i -= 1
 
+
+	for i in range(len(from_list)):
+		print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
+		
 	print(str(count_edge_compacted)+' edges has been compacted')
