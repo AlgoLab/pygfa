@@ -39,7 +39,6 @@ def update_graph(gfa_, keep_node, remove_node, new_seq, overlap, orn):
 
 	keep_id, keep_orn = keep_node
 	remove_id, remove_orn = remove_node
-	keep_slen = int(gfa_.node()[keep_id]['slen'])
 
 	gfa_.node()[keep_id]['sequence'] = new_seq
 	if not new_seq == '*':
@@ -128,7 +127,7 @@ def compact_sequence(gfa_, from_node, to_node):
 	from_seq = gfa_.node(from_id)['sequence']
 	to_seq = gfa_.node(to_id)['sequence']
 	
-	print(from_id+' '+from_orn+' '+from_seq+'\t\t\t'+to_id+' '+to_orn+' '+to_seq)
+	#print(from_id+' '+from_orn+' '+from_seq+'\t\t\t'+to_id+' '+to_orn+' '+to_seq)
 
 	if from_orn == '-' and to_orn == '-':
 		if from_seq == '*' or to_seq =='*':
@@ -172,8 +171,8 @@ def compression_graph(gfa_):
 					to_list.append((data_edges[node1][node2][eid]['to_node'],\
 						data_edges[node1][node2][eid]['to_orn']))
 
-	for i in range(len(from_list)):
-		print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
+	#for i in range(len(from_list)):
+	#	print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
 	
 	count_edge_compacted = 0
 	i = len(from_list) - 1
@@ -191,7 +190,7 @@ def compression_graph(gfa_):
 		i -= 1
 
 
-	for i in range(len(from_list)):
-		print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
+	#for i in range(len(from_list)):
+	#	print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
 		
 	print(str(count_edge_compacted)+' edges has been compacted')
