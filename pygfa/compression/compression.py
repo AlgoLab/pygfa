@@ -1,17 +1,24 @@
-
-
-
 def reverse_and_complement(string):
+	"""Given a genomic string
+	:return the reverese&complement of the string: If is specify
+	:return the same string: If is not specify (*)
+	"""
 	reverse_dict= dict([('A', 'T'), ('T', 'A'), ('C', 'G'), ('G', 'C'), ('*', '*')])
 	complement_string = ''.join([reverse_dict[c] for c in string])
 	return complement_string[::-1]
 
 def reverse_strand(strand):
+	"""Given a strand
+	:return the opposite strand: if is specify
+	:return None: if strand is not defined
+	"""
 	dict_inverted = dict([('+', '-'), ('-', '+'), (None, None)])
 	return dict_inverted[strand]
 
-def update_dictionary(from_list, to_list, i, orn):
-	
+def update_list(from_list, to_list, i, orn):
+	"""Given the list with the index of edge to compact and orientation
+	the edges and nodes are update or deleted in the list
+	"""
 	keep_id, keep_orn = from_list[i]
 	remove_id, remove_orn = to_list[i]
 
@@ -35,11 +42,13 @@ def update_dictionary(from_list, to_list, i, orn):
 					to_list[i] = (keep_id, to_list[i][1])
 			i += 1
 
-def update_graph(gfa_, keep_node, remove_node, new_seq, overlap, orn):
-
-	keep_id, keep_orn = keep_node
-	remove_id, remove_orn = remove_node
-
+def update_graph(gfa_, keep_id, remove_id, new_seq, overlap, orn):
+	"""Given the id of the nodes in the edge to compact, the new sequence,
+	orientation and overlap
+	calcolate the new sequence lenght, the edges IN or OUT from the node 
+	to remove are updated with the node to keep and the node with
+	remove_id is removed
+	"""
 	gfa_.node()[keep_id]['sequence'] = new_seq
 	if not new_seq == '*':
 		gfa_.node()[keep_id]['slen'] = len(gfa_.node(keep_id)['sequence'])
@@ -116,6 +125,11 @@ def update_graph(gfa_, keep_node, remove_node, new_seq, overlap, orn):
 	gfa_.remove_node(remove_id)
 
 def compact_sequence(gfa_, from_node, to_node):
+	"""Given the id and orientation of the nodes in the edge to compact
+	get the sequence and CIGAR information and
+	make the new sequence string.
+	:return the new string sequence, the aligment/overlap, and orientation.
+	"""
 	from_id, from_orn = from_node
 	to_id, to_orn = to_node
 
@@ -127,8 +141,6 @@ def compact_sequence(gfa_, from_node, to_node):
 	from_seq = gfa_.node(from_id)['sequence']
 	to_seq = gfa_.node(to_id)['sequence']
 	
-	#print(from_id+' '+from_orn+' '+from_seq+'\t\t\t'+to_id+' '+to_orn+' '+to_seq)
-
 	if from_orn == '-' and to_orn == '-':
 		if from_seq == '*' or to_seq =='*':
 			new_seq = '*'
@@ -155,7 +167,11 @@ def compact_sequence(gfa_, from_node, to_node):
 		return new_seq, overlap, '+-'
 
 def compression_graph(gfa_):
-
+	"""Create list with id of the edges and nodes involved.
+	By the list determine what edge can be removed. The ends of segment(node)
+	with only 1 edge IN or OUT are compatible with compression.
+	Passing data to the other functions update the graph and the list.	
+	"""
 	from_list = []
 	to_list = []
 	eid_list = []
@@ -184,13 +200,9 @@ def compression_graph(gfa_):
 			if to_list.count(inverted_from) == 0 and \
 				from_list.count(inverted_to) == 0:
 				new_seq, overlap, orn = compact_sequence(gfa_, from_list[i], to_list[i])
-				update_graph(gfa_, from_list[i], to_list[i], new_seq, overlap, orn)
-				update_dictionary(from_list, to_list, i, orn)
+				update_graph(gfa_, from_list[i][0], to_list[i][0], new_seq, overlap, orn)
+				update_list(from_list, to_list, i, orn)
 				count_edge_compacted += 1
 		i -= 1
-
-
-	#for i in range(len(from_list)):
-	#	print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
 		
 	print(str(count_edge_compacted)+' edges has been compacted')

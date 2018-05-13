@@ -62,35 +62,41 @@ class TestLine (unittest.TestCase):
     
     before_node = ['10', '11', '14', '15', '9', '18', '0', '12', '13', '7',\
       '1', '5', '8', '2', '6', '3', '4', '23']
-    before_edge = ['10_to_11', '11_to_14', '11_to_15', \
-      '9_to_18', '18_to_9', \
-      '0_to_12', '0_to_13', '13_to_7', '7_to_12', \
-      '1_to_2', '1_to_3', '1_to_5', '2_to_6', '3_to_4', '4_to_23', '5_to_8']
+    before_edge = [('10', '11'), ('11', '14'), ('11', '15'), \
+      ('9', '18'), ('18', '9'), \
+      ('0', '12'), ('0', '13'), ('13', '7'), ('7', '12'), \
+      ('1', '2'), ('1', '3'), ('1', '5'), ('2', '6'), ('3', '4'), ('4', '23'), ('5', '8')]
+    before_len = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     
     for node in before_node:
       self.assertTrue(node in list(self.graph.node()))
+    i = 0
     for edge in before_edge:
-      self.assertTrue(edge in list(self.graph._make_edge_table()))
+      self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == before_len[i])
+      i += 1
 
     self.graph.compression()
 
     after_node = ['10', '14', '15', '9', '18', '0', '7', '1', '5', '8', '2', '3']
     removed_node = ['11', '6', '12', '13', '4', '23']
-    after_edge = ['9_to_18', '18_to_9', '1_to_2', '1_to_3', '1_to_5', '5_to_8', \
-      'virtual_0', 'virtual_1', 'virtual_2', 'virtual_3']
-    #problema. Si creano 5 virtuali id, non si sa ordine, uno viene cancellato in base a ordine di esecuzione
-    removed_edge = ['10_to_11', '0_to_12', '0_to_13', '2_to_6', '3_to_4', '4_to_23', \
-      '11_to_14', '11_to_15', '13_to_7', '7_to_12']
+
+    after_edge = [('10', '14'), ('10', '15'), \
+      ('9', '18'), ('18', '9'), \
+      ('0', '7'), ('7', '0'), \
+      ('1', '2'), ('1', '3'), ('1', '5'), ('5', '8')]
+    after_len = [1, 1, 2, 2, 2, 2, 1, 1, 1, 1]
+    removed_edge = [('10', '11'), ('0', '12'), ('0', '13'), ('2', '6'), ('3', '4'), ('4', '23')]
 
     for node in after_node:
       self.assertTrue(node in list(self.graph.node()))
     for node in removed_node:
       self.assertTrue(not(node in list(self.graph.node())))
+    i = 0
     for edge in after_edge:
-      self.assertTrue(edge in list(self.graph._make_edge_table()))
+      self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == after_len[i])
+      i += 1
     for edge in removed_edge:
-      self.assertTrue(not(edge in list(self.graph._make_edge_table())))
-
+      self.assertTrue(not self.graph._search_edge_by_nodes(edge))
         
 
 if  __name__ == '__main__':
