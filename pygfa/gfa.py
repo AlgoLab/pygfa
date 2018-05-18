@@ -11,6 +11,7 @@ dovetail overlaps edges.
 import logging
 import copy
 import re
+import os
 
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
@@ -22,7 +23,8 @@ from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
-from pygfa.compression.compression import compression_graph
+from pygfa.graph_operations.compression import compression_graph
+from pygfa.graph_operations.overlap_consistency import check_overlap
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -975,6 +977,9 @@ class GFA(DovetailIterator):
     def compression(self):
         compression_graph(self)
 
+    def overlap_consistency(self, external_file=None):
+        FOLDER, _ = os.path.split(__file__)
+        check_overlap(self, FOLDER.rstrip('pygfa'), external_file)
 
 if __name__ == '__main__': #pragma: no cover
     pass
