@@ -58,7 +58,7 @@ class TestLine (unittest.TestCase):
   graph = pygfa.gfa.GFA()
   graph.from_string(gfa_file)
   
-  def test_dovetails_all_simple_paths(self):
+  def test_compression(self):
     
     before_node = ['10', '11', '14', '15', '9', '18', '0', '12', '13', '7',\
       '1', '5', '8', '2', '6', '3', '4', '23']
@@ -96,8 +96,7 @@ class TestLine (unittest.TestCase):
       self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == after_len[i])
       i += 1
     for edge in removed_edge:
-      self.assertTrue(not self.graph._search_edge_by_nodes(edge))
-        
+      self.assertTrue(not self.graph._search_edge_by_nodes(edge))   
 
 if  __name__ == '__main__':
     unittest.main()

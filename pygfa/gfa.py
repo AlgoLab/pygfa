@@ -979,7 +979,7 @@ class GFA(DovetailIterator):
 
     def overlap_consistency(self, external_file=None):
         FOLDER, _ = os.path.split(__file__)
-        check_overlap(self, FOLDER.rstrip('pygfa'), external_file)
+        return check_overlap(self, FOLDER.rstrip('pygfa'), external_file)
 
 if __name__ == '__main__': #pragma: no cover
     pass

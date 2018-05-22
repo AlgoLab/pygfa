@@ -1,6 +1,9 @@
 from pygfa.graph_operations.compression import reverse_and_complement
 import sys
 import difflib
+import logging
+
+GRAPH_LOGGER = logging.getLogger(__name__)
 
 def fasta_reader(path, fasta_file):
 	"""Given the path and external fasta file
@@ -28,7 +31,7 @@ def fasta_reader(path, fasta_file):
 					fasta_dict[id_fasta] = sequence
 			external_file.close()
 	except:
-		print('External fasta file not exist!')
+		GRAPH_LOGGER.debug('External fasta file not exist!')
 		return None
 
 	return fasta_dict
@@ -71,7 +74,7 @@ def consistency(node, sequence, orientation, overlap):
 		to_sequence = reverse_and_complement(to_sequence)
 	size_overlap = real_overlap(from_sequence, to_sequence)
 	if not size_overlap == overlap:
-		print('Edge between node '+from_id+' and '+to_id+ \
+		GRAPH_LOGGER.debug('Edge between node '+from_id+' and '+to_id+ \
 			' have no consistency between CIGAR overlap end "real" overlap')
 		return False
 
@@ -85,7 +88,6 @@ def check_overlap(gfa_, path, external_file):
 	overlap and make a control with the CIGAR overlap, and
 	determinate the nuber of edge that are consistent.
 	"""
-
 	if external_file:
 		fasta_dict = fasta_reader(path, external_file)
 		if not fasta_dict:
@@ -94,6 +96,9 @@ def check_overlap(gfa_, path, external_file):
 	eid_list = []
 	node_dict = dict()
 	count_consistency = 0
+	count_no_defined = 0
+	edges_no_consistency = []
+	edges_no_calculate = []
 
 	data_edges = gfa_.edge()
 	for node1 in data_edges:
@@ -113,17 +118,24 @@ def check_overlap(gfa_, path, external_file):
 					if node_dict[from_id] == '*' and external_file:
 						node_dict[from_id] = fasta_dict.get(from_id, '*')
 					if node_dict[from_id] == '*':
-						print('Node '+ from_id +' has sequence no specify!')
+						GRAPH_LOGGER.debug('Node '+ from_id +' has sequence no specify!')
 					if node_dict[to_id] == '*' and external_file:
 						node_dict[to_id] = fasta_dict.get(to_id, '*')
 					if node_dict[to_id] == '*':
-						print('Node '+ to_id +' has sequence no specify!')
+						GRAPH_LOGGER.debug('Node '+ to_id +' has sequence no specify!')
 
 					if not node_dict[from_id] == '*' and not node_dict[to_id] == '*':
 						check = consistency((from_id, to_id), (node_dict[from_id], node_dict[to_id]), (from_orn, to_orn), overlap)
 						if check == True:
 							count_consistency += 1
+						else:
+							edges_no_consistency.append(eid)
 					else:
-						print('Can\'t check overlap consistency between node '+ from_id+ ' and '+ to_id)
+						GRAPH_LOGGER.debug('Can\'t check overlap consistency between node ' \
+							+ from_id+ ' and '+ to_id)
+						count_no_defined += 1
+						edges_no_calculate.append(eid)
 
-	print(str(count_consistency)+' edge overlap are consistency of total amount of '+str(len(eid_list)))
+	GRAPH_LOGGER.debug(str(count_consistency)+' edge overlap are consistency of total amount of '+str(len(eid_list)))
+
+	return edges_no_consistency, edges_no_calculate

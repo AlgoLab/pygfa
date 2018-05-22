@@ -1,3 +1,7 @@
+import logging
+
+GRAPH_LOGGER = logging.getLogger(__name__)
+
 def reverse_and_complement(string):
 	"""Given a genomic string
 	:return the reverese&complement of the string: If is specify
@@ -186,9 +190,6 @@ def compression_graph(gfa_):
 						data_edges[node1][node2][eid]['from_orn']))
 					to_list.append((data_edges[node1][node2][eid]['to_node'],\
 						data_edges[node1][node2][eid]['to_orn']))
-
-	#for i in range(len(from_list)):
-	#	print(str(i)+' '+str(from_list[i])+' '+str(to_list[i]))
 	
 	count_edge_compacted = 0
 	i = len(from_list) - 1
@@ -205,4 +206,4 @@ def compression_graph(gfa_):
 				count_edge_compacted += 1
 		i -= 1
 		
-	print(str(count_edge_compacted)+' edges has been compacted')
+	GRAPH_LOGGER.debug(str(count_edge_compacted)+' edges has been compacted')
