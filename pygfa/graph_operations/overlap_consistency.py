@@ -2,6 +2,7 @@ from pygfa.graph_operations.compression import reverse_and_complement
 import sys
 import difflib
 import logging
+from Bio import SeqIO
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -14,22 +15,10 @@ def fasta_reader(path, fasta_file):
 	"""
 	fasta_dict = dict()
 	try:
-		with open(path + fasta_file) as external_file:
-			fasta_rows = external_file.readlines()
-			i = 0
-			for i in range(len(fasta_rows)):
-				if fasta_rows[i][0] == '>':
-					id_fasta = fasta_rows[i].lstrip('>').rstrip('\n')
-					sequence_rows = []
-					i += 1
-					while not fasta_rows[i][0] == '>':
-						sequence_rows.append(fasta_rows[i].rstrip('\n'))
-						i += 1
-						if i >= len(fasta_rows):
-							break
-					sequence = ''.join([row for row in sequence_rows])
-					fasta_dict[id_fasta] = sequence
-			external_file.close()
+		for seq_record in SeqIO.parse(path + fasta_file, "fasta"):
+			id_fasta = seq_record.id
+			sequence = seq_record.seq
+			fasta_dict[id_fasta] = sequence
 	except:
 		GRAPH_LOGGER.debug('External fasta file not exist!')
 		return None
@@ -76,6 +65,8 @@ def consistency(node, sequence, orientation, overlap):
 	if not size_overlap == overlap:
 		GRAPH_LOGGER.debug('Edge between node '+from_id+' and '+to_id+ \
 			' have no consistency between CIGAR overlap end "real" overlap')
+		GRAPH_LOGGER.debug('real\t'+ str(size_overlap))
+		GRAPH_LOGGER.debug('cigar\t'+ str(overlap))
 		return False
 
 	return True
@@ -87,29 +78,41 @@ def check_overlap(gfa_, path, external_file):
 	Using different other function calcolate the sequence
 	overlap and make a control with the CIGAR overlap, and
 	determinate the nuber of edge that are consistent.
+	:return edges_no_consistency, edges_no_calculate: if external fasta file is defined or not specify
+	:return None: if external file has a wrong name
 	"""
 	if external_file:
 		fasta_dict = fasta_reader(path, external_file)
 		if not fasta_dict:
 			return None
 
-	eid_list = []
+	eid_dict = dict()
 	node_dict = dict()
+
 	count_consistency = 0
 	count_no_defined = 0
 	edges_no_consistency = []
 	edges_no_calculate = []
+	edge_text = 0
 
 	data_edges = gfa_.edge()
 	for node1 in data_edges:
 		for node2 in data_edges[node1]:
 			for eid in data_edges[node1][node2]:
-				if eid_list.count(eid) == 0:
-					eid_list.append(eid)
+				if not eid_dict.get(eid):
+					eid_dict[eid] = True
 					from_id = data_edges[node1][node2][eid]['from_node']
-					node_dict[from_id] = gfa_.node()[from_id]['sequence']
+					try:
+						node_dict[from_id] = gfa_.node()[from_id]['sequence']
+					except:
+						edge_text += 1
+						break
 					to_id = data_edges[node1][node2][eid]['to_node']
-					node_dict[to_id] = gfa_.node()[to_id]['sequence']
+					try:
+						node_dict[to_id] = gfa_.node()[to_id]['sequence']
+					except:
+						edge_text += 1
+						break
 					
 					from_orn = data_edges[node1][node2][eid]['from_orn']
 					to_orn = data_edges[node1][node2][eid]['to_orn']
@@ -136,6 +139,6 @@ def check_overlap(gfa_, path, external_file):
 						count_no_defined += 1
 						edges_no_calculate.append(eid)
 
-	GRAPH_LOGGER.debug(str(count_consistency)+' edge overlap are consistency of total amount of '+str(len(eid_list)))
+	GRAPH_LOGGER.debug(str(count_consistency)+' edge overlap are consistency of total amount of '+str(len(eid_dict)-edge_text))
 
 	return edges_no_consistency, edges_no_calculate

@@ -64,11 +64,12 @@ class TestLine (unittest.TestCase):
   
   def test_consistency_false(self):
     edges_no_consistency = ['1_to_2', '1_to_3', '1_to_5', '11_to_14', '0_to_13']
-    edges_no_calculate = []
+    edges_no_calculate = ['5_to_8']
     fail_no_consistency, fail_no_defined = self.graph.overlap_consistency('data/check_overlap_test_fail.fasta')
     for edge in edges_no_consistency:
-      self.assertTrue(edge in fail_no_consistency)
-    self.assertTrue(fail_no_defined == edges_no_calculate)
+      self.assertTrue(edge in fail_no_consistency)  
+    for edge in edges_no_calculate:
+      self.assertTrue(edge in fail_no_defined)
 
   def test_wrong_fasta_file(self):
     file_error = self.graph.overlap_consistency('data/check_overlap_test.fasta')

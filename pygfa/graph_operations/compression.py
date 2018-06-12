@@ -74,7 +74,7 @@ def update_graph(gfa_, keep_id, remove_id, new_seq, overlap, orn):
 
 	#fix gfa_.node()[keep_id]['option']
 
-	remove_edge_list = []
+	remove_edge_dict = dict()
 	data_update_edges = gfa_.edge()[remove_id]
 	for node in data_update_edges:
 		for edge_id in data_update_edges[node]:
@@ -122,9 +122,9 @@ def update_graph(gfa_, keep_id, remove_id, new_seq, overlap, orn):
 					+parse_to_positions[0]+'\t'+parse_to_positions[1]+'\t'+parse_overlap[0]
 
 			gfa_.add_edge(parse_new_edge)
-			remove_edge_list.append(edge_id)
+			remove_edge_dict[edge_id] = True
 
-	for remove_edge_id in remove_edge_list:
+	for remove_edge_id in remove_edge_dict:
 		gfa_.remove_edge(remove_edge_id)
 	gfa_.remove_node(remove_id)
 
@@ -176,16 +176,16 @@ def compression_graph(gfa_):
 	with only 1 edge IN or OUT are compatible with compression.
 	Passing data to the other functions update the graph and the list.	
 	"""
+	eid_dict = dict()
 	from_list = []
 	to_list = []
-	eid_list = []
 
 	data_edges = gfa_.edge()
 	for node1 in data_edges:
 		for node2 in data_edges[node1]:
 			for eid in data_edges[node1][node2]:
-				if eid_list.count(eid) == 0:
-					eid_list.append(eid)
+				if not eid_dict.get(eid):
+					eid_dict[eid] = True
 					from_list.append((data_edges[node1][node2][eid]['from_node'],\
 						data_edges[node1][node2][eid]['from_orn']))
 					to_list.append((data_edges[node1][node2][eid]['to_node'],\
@@ -200,10 +200,11 @@ def compression_graph(gfa_):
 			inverted_to = (to_list[i][0], reverse_strand(to_list[i][1]))
 			if to_list.count(inverted_from) == 0 and \
 				from_list.count(inverted_to) == 0:
-				new_seq, overlap, orn = compact_sequence(gfa_, from_list[i], to_list[i])
-				update_graph(gfa_, from_list[i][0], to_list[i][0], new_seq, overlap, orn)
-				update_list(from_list, to_list, i, orn)
-				count_edge_compacted += 1
+				if gfa_.node(from_list[i]) and gfa_.node(to_list[i]):
+					new_seq, overlap, orn = compact_sequence(gfa_, from_list[i], to_list[i])
+					update_graph(gfa_, from_list[i][0], to_list[i][0], new_seq, overlap, orn)
+					update_list(from_list, to_list, i, orn)
+					count_edge_compacted += 1
 		i -= 1
 		
 	GRAPH_LOGGER.debug(str(count_edge_compacted)+' edges has been compacted')
