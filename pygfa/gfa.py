@@ -23,8 +23,9 @@ from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
-from pygfa.graph_operations.compression import compression_graph
+from pygfa.graph_operations.compression import compression_graph_by_nodes, compression_graph_by_edges
 from pygfa.graph_operations.overlap_consistency import check_overlap
+from benchmark.extract_subgraph import extract_subgraph
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -974,12 +975,20 @@ class GFA(DovetailIterator):
     def __neq__(self, other):
         return not self == other
 
-    def compression(self):
-        compression_graph(self)
+    def compression(self, type_compression='by_nodes'):
+        if type_compression == 'by_edges':
+            compression_graph_by_edges(self)
+        else:
+            count_edge_compacted = compression_graph_by_nodes(self)
+            while not count_edge_compacted == 0:
+                count_edge_compacted = compression_graph_by_nodes(self)
 
     def overlap_consistency(self, external_file=None):
         FOLDER, _ = os.path.split(__file__)
         return check_overlap(self, FOLDER.rstrip('pygfa'), external_file)
+
+    def subgraphs_extractor(self, n_source, distance):
+        extract_subgraph(self, n_source, distance)
 
 if __name__ == '__main__': #pragma: no cover
     pass

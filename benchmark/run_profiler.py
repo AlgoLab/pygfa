@@ -1,9 +1,9 @@
-import sys
-sys.path.insert(1, '../')
 import time
-
+import sys
 from pympler import asizeof
+sys.path.insert(1, '../')
 import pygfa
+
 
 def timeit(function):
     def timed(*args, **kwargs):
@@ -44,6 +44,25 @@ def compute_linear_paths(gfa_):
     linear_paths = list(pygfa.dovetails_linear_paths(gfa_))
     return len(linear_paths)
 
+@timeit
+def compute_overlap_consistency(gfa_):
+    edges_no_consistency, edges_no_calculate = pygfa.gfa.GFA.overlap_consistency(gfa_)
+    return len(edges_no_consistency), len(edges_no_calculate)
+
+@timeit
+def compute_compression_by_nodes(gfa_):
+    before_n_edges = len(gfa_.edges())
+    pygfa.gfa.GFA.compression(gfa_)
+    after_n_edges = len(gfa_.edges())
+    return (before_n_edges, after_n_edges)
+
+@timeit
+def compute_compression_by_edges(gfa_):
+    before_n_edges = len(gfa_.edges())
+    pygfa.gfa.GFA.compression(gfa_, 'by_edges')
+    after_n_edges = len(gfa_.edges())
+    return (before_n_edges, after_n_edges)
+
 def run_profiler(file_, end=""):
     data = []
     gfa_ = load_graph(file_, log_data=data)
@@ -51,6 +70,19 @@ def run_profiler(file_, end=""):
     cc, dov_cc = compute_connected_components(gfa_, log_data=data)
     lin_paths = compute_linear_paths(gfa_, log_data=data)
     data.extend([nodes, edges, cc, dov_cc, lin_paths, asizeof.asizeof(gfa_)])
+    return str.join("\t", [str(x) for x in data]) + end
+
+def run_profiler_graph_operation(file_, i, grade ,end="", type_compression='nodes'):
+    data = []
+    gfa_ = load_graph(file_, log_data=data)
+    nodes, edges = compute_elements(gfa_, log_data=data)
+    ovr_cons = compute_overlap_consistency(gfa_, log_data=data)
+    compr = None
+    if type_compression == 'edges':
+        compr = compute_compression_by_edges(gfa_, log_data=data)
+    else:
+        compr = compute_compression_by_nodes(gfa_, log_data=data)
+    data.extend([nodes, edges, ovr_cons, compr, i, grade])
     return str.join("\t", [str(x) for x in data]) + end
 
 if __name__ == "__main__":
