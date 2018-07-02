@@ -23,13 +23,13 @@ do
 		while read myregex;
 		do
 			myregex="${myregex::-1}"
-			cat reads.ec.filter.pass.gfa | LC_ALL=C grep -E "$myregex" >> $out_file
+			cat compression_test.gfa | LC_ALL=C grep -E "$myregex" >> $out_file
 		done < $file
 
 		awk '!seen[$0]++' $out_file > $next_file
 
 		cp $next_file $out_file
 	else
-		echo > $out_file
+		rm $out_file
 	fi
 done < benchmark_graphs/list_file.txt

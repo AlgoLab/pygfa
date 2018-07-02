@@ -62,9 +62,19 @@ def extract_subgraph(gfa_, number_source, max_distance):
     with open('benchmark/benchmark_graphs/list_file.txt', 'w') as list_file:
         for i in range(0, number_source):
             source = random_source(gfa_)
-            for grade in range(0, max_distance+1):
-                distance = 2**grade
-                nodes_dict = bfs_custom(gfa_, source, distance)
-                path = print_file_nodes(nodes_dict, source, i, grade, distance)
-                list_file.write(path.lstrip('benchmark').lstrip('/')+'\n')
+            for grade in range(0, max_distance+2):
+                if grade == max_distance + 1:
+                    n_source = str(i)
+                    while not len(n_source) == 3:
+                        n_source = "0"+n_source
+                    path = 'benchmark/benchmark_graphs/source{}_g{}.txt'.format(n_source, grade)
+                    with open(path, 'w') as nodes_file:
+                        nodes_file.write('\n')
+                        nodes_file.close()
+                    list_file.write(path.lstrip('benchmark').lstrip('/')+'\n')
+                else:
+                    distance = 2**grade
+                    nodes_dict = bfs_custom(gfa_, source, distance)
+                    path = print_file_nodes(nodes_dict, source, i, grade, distance)
+                    list_file.write(path.lstrip('benchmark').lstrip('/')+'\n')
         list_file.close()
