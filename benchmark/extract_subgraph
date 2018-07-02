@@ -23,7 +23,7 @@ do
 		while read myregex;
 		do
 			myregex="${myregex::-1}"
-			cat compression_test.gfa | LC_ALL=C grep -E "$myregex" >> $out_file
+			cat reads.ec.filter.pass.gfa | LC_ALL=C grep -E "$myregex" >> $out_file
 		done < $file
 
 		awk '!seen[$0]++' $out_file > $next_file
