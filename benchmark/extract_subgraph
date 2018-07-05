@@ -1,3 +1,5 @@
+echo > list_file_graph.txt
+
 while read file;
 do
 	dimension=$(wc --byte $file)
@@ -10,8 +12,8 @@ do
 	next_grade=$((grade + 1))
 	next_file="${out_file:0:5}"$next_grade
 	
-	out_file="benchmark_graphs/graph"$out_file".txt"
-	next_file="benchmark_graphs/graph"$next_file".txt"
+	out_file="benchmark_graphs/graph"$out_file".gfa"
+	next_file="benchmark_graphs/graph"$next_file".gfa"
 
 	if [ $dimension -gt 1 ]
 	then
@@ -28,8 +30,10 @@ do
 
 		awk '!seen[$0]++' $out_file > $next_file
 
+		echo $out_file >> list_file_graph.txt
+
 		cp $next_file $out_file
 	else
 		rm $out_file
 	fi
-done < benchmark_graphs/list_file.txt
+done < benchmark_graphs/list_file_node.txt

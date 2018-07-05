@@ -59,7 +59,7 @@ def print_file_nodes(nodes_dict, source, number_source, grade, distance):
 
 def extract_subgraph(gfa_, number_source, max_distance):
     
-    with open('benchmark/benchmark_graphs/list_file.txt', 'w') as list_file:
+    with open('benchmark/benchmark_graphs/list_file_node.txt', 'w') as list_file:
         for i in range(0, number_source):
             source = random_source(gfa_)
             for grade in range(0, max_distance+2):

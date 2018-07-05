@@ -72,17 +72,18 @@ def run_profiler(file_, end=""):
     data.extend([nodes, edges, cc, dov_cc, lin_paths, asizeof.asizeof(gfa_)])
     return str.join("\t", [str(x) for x in data]) + end
 
-def run_profiler_graph_operation(file_, i, grade ,end="", type_compression='nodes'):
+def run_profiler_graph_operation(file_, end="", type_compression='nodes'):
     data = []
     gfa_ = load_graph(file_, log_data=data)
     nodes, edges = compute_elements(gfa_, log_data=data)
+    elements = nodes + edges
     ovr_cons = compute_overlap_consistency(gfa_, log_data=data)
     compr = None
     if type_compression == 'edges':
         compr = compute_compression_by_edges(gfa_, log_data=data)
     else:
         compr = compute_compression_by_nodes(gfa_, log_data=data)
-    data.extend([nodes, edges, ovr_cons, compr, i, grade])
+    data.extend([nodes, edges, elements, ovr_cons, compr])
     return str.join("\t", [str(x) for x in data]) + end
 
 if __name__ == "__main__":
