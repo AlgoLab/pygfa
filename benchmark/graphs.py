@@ -30,14 +30,27 @@ for e in sorted(BENCHMARK_NODE.keys()):
         CMP_NODE.append(BENCHMARK_NODE.get(e).get(value).get('node_compression'))
 
 
-#plt.plot(ELEMENT_NODE, CHECK_NODE, label='CHECK_NODE')
-#plt.plot(ELEMENT_EDGE, CHECK_EDGE, label='CHECK_EDGE')
+#plt.plot(ELEMENT_NODE, CHECK_NODE, label='Overlap consistency')
 
-plt.plot(ELEMENT_NODE, CMP_NODE, label='CMP_NODE')
-#plt.plot(ELEMENT_EDGE, CMP_EDGE, label='CMP_EDGE')
+plt.plot(ELEMENT_NODE, CMP_NODE, label='Compression by node')
 
-plt.xlabel('number elements')
-plt.ylabel('sec')
+import numpy as np
+
+x = np.linspace(0, 2, 100)
+sec = np.power(x, 2)
+terz = np.power(x, 3)
+e = np.exp(x)
+e2 = np.exp2(x)
+
+#plt.plot(x,x, label='Lin')
+#plt.plot(x,sec, label='Sec')
+#plt.plot(x,terz, label='Terz')
+#plt.plot(x,e, label='Exp')
+#plt.plot(x,e2, label='Exp2')
+
+
+plt.xlabel('number nodes + edges')
+plt.ylabel('seconds')
 plt.legend()
-plt.savefig("prova.png", dpi=500)
+plt.savefig("node_compression.png", dpi=500)
 plt.show()
