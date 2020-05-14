@@ -12,12 +12,13 @@ import logging
 import copy
 import re
 import os
+import warnings
 
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
 
 from pygfa.graph_element.parser import header, segment, link, containment, path
-from pygfa.graph_element.parser import edge, gap, fragment, group
+from pygfa.graph_element.parser import edge, gap, fragment, group, line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 
@@ -70,7 +71,7 @@ class GFA(DovetailIterator):
     undirectly by accessing the `_graph` attribute.
     """
 
-    def __init__(self, base_graph=None):
+    def __init__(self, base_graph=None, is_rGFA = None):
         """Creates a GFA graph.
 
         If :param base_graph: is not `None` use the graph provided
@@ -92,6 +93,7 @@ class GFA(DovetailIterator):
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else \
                                 self._find_max_virtual_id()
+        self._is_rGFA = is_rGFA
 
     def __contains__(self, id_):
         try:
@@ -349,6 +351,11 @@ class GFA(DovetailIterator):
         if safe and new_node.nid in self:
             raise GFAError("An element with the same id already exists.")
 
+        if self._is_rGFA == True:
+            if not self.check_rGFA_node(new_node):
+                raise node.InvalidNodeError("{0}".format(new_node.nid)+\
+                                                " cannot be a rGFA node")
+
         self._graph.add_node(\
                               new_node.nid, \
                               nid=new_node.nid, \
@@ -453,6 +460,18 @@ class GFA(DovetailIterator):
                        node2_exists):
                 raise GFAError("From/To node are not already in the graph.")
 
+        if self._is_rGFA:
+
+            if not self.check_rGFA_edge(new_edge):
+                #tmp_field_type,tmp_SR_max = self.max_SR(new_edge.from_node,\
+                #                                            new_edge.to_node)
+                #tmp_opt_field = line.OptField("SR", tmp_SR_max, tmp_field_type)
+                tmp_fields = re.split(":", self.max_SR(new_edge.from_node,new_edge.to_node))[1:]
+                tmp_opt_field = line.OptField("SR",tmp_fields[1],tmp_fields[0])
+                new_edge.opt_fields.update({"SR" : tmp_opt_field})
+                warnings.warn("{0} + {1}".format(new_edge.from_node,new_edge.to_node) +\
+                    ": SR has been set to the maximum value between the SR of the adjacent nodes")
+
         self._graph.add_edge( \
                                new_edge.from_node, new_edge.to_node, key=key, \
                                eid=new_edge.eid, \
@@ -470,6 +489,107 @@ class GFA(DovetailIterator):
                                to_segment_end=new_edge.to_segment_end, \
                                **new_edge.opt_fields \
                                )
+
+    def max_SR(self, from_node, to_node):
+        sr_1 = re.split(":", \
+            str(self.as_graph_element(from_node).opt_fields['SR']))[2]
+        sr_2 = re.split(":", \
+            str(self.as_graph_element(to_node).opt_fields['SR']))[2]
+        tmp_max = max(sr_1,sr_2)
+        tmp_field_type = re.split(":", str(self.as_graph_element(from_node).opt_fields['SR']))[1]
+
+        #return tmp_field_type, str(tmp_max)
+   
+        return str.join(":", ("SR", tmp_field_type, str(tmp_max)))
+    
+    def check_rGFA(self, force = False):
+
+        #if self._is_rGFA == None or force == True:
+        if force == True:
+            if self.check_rGFA_nodes(self.node())\
+                 and self.check_rGFA_edges(self.edges()):
+
+                return True
+
+            return False
+
+        return self._is_rGFA
+
+
+    #def check_rGFA(self, force = False):
+
+        #if self._is_rGFA == None or force == True:
+    #    if force == True:
+    #        if self.check_rGFA_nodes(self.node())\
+    #             and self.check_rGFA_edges(self.edges()):
+                
+    #            self._is_rGFA = True
+
+    #        else:
+    #            self._is_rGFA = False
+        
+    #    return self._is_rGFA
+
+
+    def check_rGFA_nodes(self, nodes):
+        #if type(nodes)== dict
+        #else type(nodes) == list
+        if type(nodes) == dict:
+            for node in nodes:
+                if self.check_rGFA_node(nodes[node]):
+                    continue
+                else:
+
+                    return False
+        else:
+            for node in nodes:
+                if  self.check_rGFA_node(self.node(node)):
+                    continue
+                else:
+
+                    return False
+   
+        return True
+
+    def check_rGFA_node(self,node):
+        if type(node) == dict:
+            if "SN" in node and \
+                "SO" in node and \
+                "SR" in node:
+
+                return True
+        else:
+            if "SN" in node.opt_fields and \
+                "SO" in node.opt_fields and \
+                "SR" in node.opt_fields:
+
+                return True
+        
+        return False
+
+    def check_rGFA_edges(self, edges):
+        for edge in edges:
+            if not self.check_rGFA_edge(edge):
+          
+                return False
+        
+        return True
+
+    def check_rGFA_edge(self, edge):
+
+        if type(edge) == tuple:
+            tmp_libr = self._search_edge_by_nodes(edge)
+            if "SR" in tmp_libr[next(iter(tmp_libr))]:
+                
+                return True
+        
+        else:
+            if "SR" in edge.opt_fields:
+
+                return True
+
+        return False 
+
 
 
     def remove_edge(self, identifier):
@@ -786,10 +906,10 @@ class GFA(DovetailIterator):
 
     # This method has been checked manually
     @classmethod
-    def from_file(cls, filepath): # pragma: no cover
+    def from_file(cls, filepath, is_rGFA = None): # pragma: no cover
         """Parse the given file and return a GFA object.
         """
-        pygfa_ = GFA()
+        pygfa_ = GFA(is_rGFA=is_rGFA)
         file_handler = open(filepath)
         file_content = file_handler.read()
         file_handler.close()
