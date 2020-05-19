@@ -491,6 +491,8 @@ class GFA(DovetailIterator):
                                )
 
     def max_SR(self, from_node, to_node):
+        #return SR is the greater between the input nodes
+        # SR:field_type:value
         sr_1 = re.split(":", \
             str(self.as_graph_element(from_node).opt_fields['SR']))[2]
         sr_2 = re.split(":", \
@@ -503,7 +505,8 @@ class GFA(DovetailIterator):
         return str.join(":", ("SR", tmp_field_type, str(tmp_max)))
     
     def check_rGFA(self, force = False):
-
+        #returns true if the graph is rGFA, otherwise False
+        
         #if self._is_rGFA == None or force == True:
         if force == True:
             if self.check_rGFA_nodes(self.node())\
@@ -532,9 +535,10 @@ class GFA(DovetailIterator):
 
 
     def check_rGFA_nodes(self, nodes):
+        #check that the nodes are suitable for an rGFA graph
         #if type(nodes)== dict
         #else type(nodes) == list
-        if type(nodes) == dict:
+        if isinstance(nodes,dict):
             for node in nodes:
                 if self.check_rGFA_node(nodes[node]):
                     continue
@@ -552,7 +556,7 @@ class GFA(DovetailIterator):
         return True
 
     def check_rGFA_node(self,node):
-        if type(node) == dict:
+        if isinstance(node, dict):
             if "SN" in node and \
                 "SO" in node and \
                 "SR" in node:
@@ -568,6 +572,7 @@ class GFA(DovetailIterator):
         return False
 
     def check_rGFA_edges(self, edges):
+        #check that the edges are suitable for an rGFA graph
         for edge in edges:
             if not self.check_rGFA_edge(edge):
           
@@ -577,7 +582,7 @@ class GFA(DovetailIterator):
 
     def check_rGFA_edge(self, edge):
 
-        if type(edge) == tuple:
+        if isinstance(edge, tuple):
             tmp_libr = self._search_edge_by_nodes(edge)
             if "SR" in tmp_libr[next(iter(tmp_libr))]:
                 
