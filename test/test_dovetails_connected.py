@@ -43,11 +43,12 @@ def graphs_equal(g1, g2):
       or len(g1.edges()) != len(g2.edges()):
         return False
     try:
-        for node_ in g1.nodes_iter():
-            if g1.node[node_] != g2.node[node_]:
+        for node_ in g1.nodes():
+            if g1.nodes[node_] != g2.nodes[node_]:
                 return False
-        for from_, to_, key in g1.edges_iter(keys=True):
-            if g1.edge[from_][to_][key] != g2.edge[from_][to_][key]:
+        for from_, to_, key in g1.edges(keys=True):
+            if g1.get_edge_data(from_, to_, key) != \
+             g2.get_edge_data(from_, to_, key):
                 return False
         return True
     except KeyError:

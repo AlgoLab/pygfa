@@ -412,21 +412,21 @@ class TestLine (unittest.TestCase):
         self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
         self.assertTrue(len(subgraph_.nodes()) == 3)
         self.assertTrue(len(subgraph_.edges()) == 2)
-        self.assertTrue(subgraph_.edge["1"]["11"]["1_to_11"] is not None)
-        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] is not None)
+        self.assertTrue(subgraph_.get_edge_data("1","11","1_to_11") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1","3","1_to_3") is not None)
         # test copy subgraph
-        subgraph_.node["3"]["nid"] = 42
-        self.assertTrue(subgraph_.node["3"] != self.graph.node("3"))
+        subgraph_.nodes["3"]["nid"] = 42
+        self.assertTrue(subgraph_.nodes["3"] != self.graph.node("3"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
         self.assertTrue(gfa_.edge("1_to_3") is not None)
-        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] == \
+        self.assertTrue(subgraph_.get_edge_data("1","3","1_to_3") == \
                              gfa_.edge("1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
-        subgraph_.node["3"]["nid"] = 42
-        self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
+        subgraph_.nodes["3"]["nid"] = 42
+        self.assertTrue(subgraph_.nodes["3"] == self.graph.node("3"))
 
     def test_dovetails_subgraph(self):
         """Use the dovetails_subgraph method on
@@ -441,29 +441,29 @@ class TestLine (unittest.TestCase):
         self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
         self.assertTrue(len(subgraph_.nodes()) == 9)
         self.assertTrue(len(subgraph_.edges()) == 4)
-        self.assertTrue(subgraph_.edge["1"]["2"]["1_to_2"] is not None)
-        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] is not None)
-        self.assertTrue(subgraph_.edge["11"]["13"]["11_to_13"] is not None)
-        self.assertTrue(subgraph_.edge["11"]["12"]["11_to_12"] is not None)
+        self.assertTrue(subgraph_.get_edge_data("1","2","1_to_2") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1","3","1_to_3") is not None)
+        self.assertTrue(subgraph_.get_edge_data("11","13","11_to_13") is not None)
+        self.assertTrue(subgraph_.get_edge_data("11","12","11_to_12") is not None)
 
         with self.assertRaises(KeyError):
-            self.assertTrue(subgraph_.edge["2"]["6"]["2_to_6"] is None)
+            self.assertTrue(subgraph_.get_edge_data("2","6","2_to_6") is None)
         with self.assertRaises(KeyError):
-            self.assertTrue(subgraph_.edge["1"]["5"]["1_to_5"] is None)
+            self.assertTrue(subgraph_.get_edge_data("1","5","1_to_5") is None)
 
         # test copy subgraph
         subgraph_.node["1"]["nid"] = 42
-        self.assertTrue(subgraph_.node["1"] != self.graph.node("1"))
+        self.assertTrue(subgraph_.nodes["1"] != self.graph.node("1"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
-        self.assertTrue(gfa_.edge("1_to_3") is not None)
-        self.assertTrue(subgraph_.edge["1"]["3"]["1_to_3"] == \
+        self.assertTrue(gfa_.edges("1_to_3") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1","3","1_to_3") == \
                              gfa_.edge("1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
-        subgraph_.node["3"]["nid"] = 42
-        self.assertTrue(subgraph_.node["3"] == self.graph.node("3"))
+        subgraph_.nodes["3"]["nid"] = 42
+        self.assertTrue(subgraph_.nodes["3"] == self.graph.node("3"))
 
 
     def test_search(self):
