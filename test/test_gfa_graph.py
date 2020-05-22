@@ -452,12 +452,12 @@ class TestLine (unittest.TestCase):
             self.assertTrue(subgraph_.get_edge_data("1","5","1_to_5") is None)
 
         # test copy subgraph
-        subgraph_.node["1"]["nid"] = 42
+        subgraph_.nodes["1"]["nid"] = 42
         self.assertTrue(subgraph_.nodes["1"] != self.graph.node("1"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
-        self.assertTrue(gfa_.edges("1_to_3") is not None)
+        self.assertTrue(gfa_.edge("1_to_3") is not None)
         self.assertTrue(subgraph_.get_edge_data("1","3","1_to_3") == \
                              gfa_.edge("1_to_3"))
 
