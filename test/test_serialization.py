@@ -42,7 +42,7 @@ class TestLine (unittest.TestCase):
                         segment.SegmentV1.from_string("S\t1\tACGT\tLN:i:42\txx:Z:test"))
         self.graph.add_node(node_)
         self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT\tLN:i:42\txx:Z:test")
-        self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "S\t1\tACGT\tLN:i:42\txx:Z:test")
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier = "1")) == "S\t1\tACGT\tLN:i:42\txx:Z:test")
 
         self.graph.clear()
         node_ = node.Node.from_line(\
@@ -53,11 +53,11 @@ class TestLine (unittest.TestCase):
         self.graph.add_node(node2)
 
         self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT\tLN:i:4")
-        self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "S\t1\tACGT\tLN:i:4")
-        self.assertTrue(gs1.serialize_node(self.graph.node("2")) == "S\t2\t*")
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier = "1")) == "S\t1\tACGT\tLN:i:4")
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier = "2")) == "S\t2\t*")
 
-        del (self.graph.node("1")['sequence'])
-        self.assertTrue(gs1.serialize_node(self.graph.node("1")) == "")
+        del (self.graph.nodes(identifier = "1")['sequence'])
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier = "1")) == "")
 
         invalid_node = copy.deepcopy(node_)
         invalid_node._sequence = None
@@ -136,22 +136,22 @@ class TestLine (unittest.TestCase):
         # virtual_2 here
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\txx:Z:test")
                                 
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_3"), "1_to_3") == \
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "1_to_3"), "1_to_3") == \
                             "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_5"), "1_to_5") == \
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "1_to_5"), "1_to_5") == \
                             "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test")
 
-        self.graph.edge("1_to_5")['alignment'] = "42,42"
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("1_to_5"), "1_to_5") == \
+        self.graph.edges(identifier = "1_to_5")['alignment'] = "42,42"
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "1_to_5"), "1_to_5") == \
                             "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test")
                             
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_0"), "virtual_0") == "")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("2_to_6"), "2_to_6") == \
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "virtual_0"), "virtual_0") == "")
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "2_to_6"), "2_to_6") == \
                             "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("2_to_12"), "2_to_12") == "")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_1"), "virtual_1") == \
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "2_to_12"), "2_to_12") == "")
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "virtual_1"), "virtual_1") == \
                             "C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
-        self.assertTrue(gs1.serialize_edge(self.graph.edge("virtual_2"), "virtual_2") == \
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier = "virtual_2"), "virtual_2") == \
                             "L\t1\t+\t3\t+\t12M\txx:Z:test")
 
                             
@@ -223,8 +223,8 @@ class TestLine (unittest.TestCase):
         same_graph = gfa.GFA()
         same_graph.from_string(same_graph_repr)
 
-        self.assertTrue(self.graph.node() == same_graph.node())
-        self.assertTrue(self.graph.edge() == same_graph.edge())
+        self.assertTrue(self.graph.nodes(data = True) == same_graph.nodes(data = True))
+        self.assertTrue(self.graph.edges(adj_dict = True) == same_graph.edges(adj_dict = True))
         self.assertTrue(self.graph.subgraphs() == same_graph.subgraphs())
         
 ################################################################################
@@ -243,14 +243,14 @@ class TestLine (unittest.TestCase):
         self.graph.add_node(node_)
 
         self.assertTrue(gs2.serialize_node(\
-                            self.graph.node("1"), \
+                            self.graph.nodes(identifier = "1"), \
                             "gfa2_node 1 from SegmentV1") == \
                                 "S\t1\t42\tACGT\txx:Z:test")
         self.graph.remove_node("1")
 
         self.graph.add_node(node_v2)
         self.assertTrue(gs2.serialize_node(\
-                            self.graph.node("1"), \
+                            self.graph.nodes(identifier = "1"), \
                             "gfa2_node 1 from SegmentV2") == \
                             "S\t1\t122\t*\txx:Z:test")
         self.graph.remove_node("1")
@@ -268,12 +268,12 @@ class TestLine (unittest.TestCase):
                         segment.SegmentV1.from_string("S\t2\tACGT\tLN:i:42\txx:Z:test"))
         self.graph.add_node(node_)
         self.assertTrue(gs2.serialize_node( \
-                                self.graph.node("2"), \
+                                self.graph.nodes(identifier = "2"), \
                                 "gfa2 node 2 with length") == \
                             "S\t2\t42\tACGT\txx:Z:test")
 
-        del (self.graph.node("1")['sequence'])
-        self.assertTrue(gs2.serialize_node(self.graph.node("1")) == "")
+        del (self.graph.nodes(identifier = "1")['sequence'])
+        self.assertTrue(gs2.serialize_node(self.graph.nodes(identifier="1")) == "")
 
         invalid_node = copy.deepcopy(node_)
         invalid_node._sequence = None
@@ -358,34 +358,34 @@ class TestLine (unittest.TestCase):
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\txx:Z:test")
                                 
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("1_to_3"), \
+                            self.graph.edges(identifier = "1_to_3"), \
                             "gfa2 link 1_to_3") == "")
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("1_to_5"), \
+                            self.graph.edges(identifier = "1_to_5"), \
                             "gfa2 containment 1_to_5") == "")
 
-        self.graph.edge("1_to_5")['alignment'] = "42,42"
+        self.graph.edges(identifier = "1_to_5")['alignment'] = "42,42"
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("1_to_5"), \
+                            self.graph.edges(identifier = "1_to_5"), \
                             "gfa2 containment: 1_to_5") == "")
 
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("virtual_0"), \
+                            self.graph.edges(identifier = "virtual_0"), \
                             "gfa2 fragment: virtual_0") == \
                 "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2")
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("2_to_6"), \
+                            self.graph.edges(identifier = "2_to_6"), \
                             "gfa2 edge: 2_to_6") == \
                 "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("2_to_12"), \
+                            self.graph.edges(identifier = "2_to_12"), \
                             "gfa2 gap: 2_to_12") == \
                "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("virtual_1"), \
+                            self.graph.edges(identifier = "virtual_1"), \
                             "gfa2 containment without id: virtual_1") == "")
         self.assertTrue(gs2.serialize_edge(\
-                            self.graph.edge("virtual_2"), \
+                            self.graph.edges(identifier = "virtual_2"), \
                             "gfa2 link without id: virtual_2") == "")
 
                             
@@ -467,16 +467,16 @@ class TestLine (unittest.TestCase):
         same_graph = gfa.GFA()
         same_graph.from_string(same_graph_repr)
 
-        self.assertTrue(self.graph.node() == same_graph.node())
-        self.assertTrue(self.graph.edge() == same_graph.edge())
+        self.assertTrue(self.graph.nodes(data = True) == same_graph.nodes(data = True))
+        self.assertTrue(self.graph.edges(adj_dict =True) == same_graph.edges(adj_dict = True))
         self.assertTrue(self.graph.subgraphs() == same_graph.subgraphs())
 
         another_equal_graph_repr = gs2.serialize_gfa(same_graph)
         another_equal_graph = gfa.GFA()
         another_equal_graph.from_string(another_equal_graph_repr)
 
-        self.assertTrue(another_equal_graph.node() == same_graph.node())
-        self.assertTrue(another_equal_graph.edge() == same_graph.edge())
+        self.assertTrue(another_equal_graph.nodes(data=True) == same_graph.nodes(data=True))
+        self.assertTrue(another_equal_graph.edges(adj_dict = True) == same_graph.edges(adj_dict = True))
         self.assertTrue(another_equal_graph.subgraphs() == \
                             same_graph.subgraphs())
 

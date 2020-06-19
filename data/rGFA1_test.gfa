@@ -1,0 +1,45 @@
+H	VN:Z:1.0
+S	1	*	SN:Z:chr1	SO:i:0	SR:i:0 	LN:i:6871	RC:i:2200067
+S	10	*	SN:Z:chr1	SO:i:0	SR:i:0 	LN:i:251	RC:i:82006
+S	11	*	SN:Z:chr1	SO:i:0	SR:i:0 	LN:i:208	RC:i:39533
+S	12	*	SN:Z:chr1	SO:i:0	SR:i:0 	LN:i:186	RC:i:34457
+S	16	*	SN:Z:foo	SO:i:0	SR:i:0 	LN:i:157	RC:i:15334
+S	18	*	SN:Z:foo	SO:i:0	SR:i:0 	LN:i:145	RC:i:55632
+S	19	*	SN:Z:bar	SO:i:0	SR:i:0 	LN:i:134	RC:i:49274
+S	2	*	SN:Z:chr2 	SO:i:0	SR:i:0	LN:i:4589	RC:i:6428225
+S	20	*	SN:Z:chr2 	SO:i:0	SR:i:0	LN:i:134	RC:i:20521
+S	21	*	SN:Z:chr2 	SO:i:0	SR:i:0	LN:i:133	RC:i:28174
+S	22	*	SN:Z:foo 	SO:i:0	SR:i:0	LN:i:132	RC:i:17846
+S	23	*	SN:Z:foo 	SO:i:0	SR:i:0	LN:i:132	RC:i:24658
+S	24	*	SN:Z:foo 	SO:i:0	SR:i:0	LN:i:107	RC:i:22256
+S	3	*	SN:Z:foo 	SO:i:0	SR:i:0	LN:i:2044	RC:i:2727166
+S	4	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:1744	RC:i:1729157
+S	5	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:1378	RC:i:1071246
+S	6	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:1356	RC:i:422793
+S	7	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:920	RC:i:630822
+S	8	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:876	RC:i:794734
+S	9	*	SN:Z:bar 	SO:i:0	SR:i:0	LN:i:255	RC:i:40589
+L	1	+	2	+	10M	SR:i:0
+L	1	-	19	-	10M	SR:i:0
+L	10	+	3	-	10M	SR:i:0
+L	10	-	4	+	10M	SR:i:0
+L	11	-	6	-	10M	SR:i:0
+L	11	+	9	-	10M	SR:i:0
+L	12	+	9	+	10M	SR:i:0
+L	12	-	18	+	10M	SR:i:0
+L	16	+	20	+	10M	SR:i:0
+L	16	-	22	-	10M	SR:i:0
+L	18	+	19	+	10M	SR:i:0
+L	18	-	23	+	10M	SR:i:0
+L	2	+	5	+	10M	SR:i:0
+L	2	+	5	-	10M	SR:i:0
+L	2	-	8	+	10M	SR:i:0
+L	20	+	21	+	10M	SR:i:0
+L	21	+	23	-	10M	SR:i:0
+L	22	-	6	-	10M	SR:i:0
+L	24	+	7	+	10M	SR:i:0
+L	24	-	7	+	10M	SR:i:0
+L	3	+	4	-	10M	SR:i:0
+L	3	-	6	+	10M	SR:i:0	
+L	3	-	8	-	10M	SR:i:0
+L	4	-	7	-	10M	SR:i:0
