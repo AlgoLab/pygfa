@@ -69,7 +69,7 @@ class TestLine (unittest.TestCase):
     before_len = [1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     
     for node in before_node:
-      self.assertTrue(node in list(self.graph.node()))
+      self.assertTrue(node in list(self.graph.nodes()))
     i = 0
     for edge in before_edge:
       self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == before_len[i])
@@ -88,9 +88,9 @@ class TestLine (unittest.TestCase):
     removed_edge = [('10', '11'), ('0', '12'), ('0', '13'), ('2', '6'), ('3', '4'), ('4', '23')]
 
     for node in after_node:
-      self.assertTrue(node in list(self.graph.node()))
+      self.assertTrue(node in list(self.graph.nodes()))
     for node in removed_node:
-      self.assertTrue(not(node in list(self.graph.node())))
+      self.assertTrue(not(node in list(self.graph.nodes())))
     i = 0
     for edge in after_edge:
       self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == after_len[i])

@@ -155,17 +155,38 @@ class GFA(DovetailIterator):
         return max(virtual_keys)
 
 
-    def nodes(self, data=False, with_sequence=False):
+    def nodes(self, data=False, with_sequence=False, identifier=None):
         """Return a list of the nodes in the graph.
 
         :param with_sequence: If set return only nodes with
             a `sequence` property.
         """
-        return list(self.nodes_iter(data=data, with_sequence=with_sequence))
+        #return list(self.nodes_iter(data=data, with_sequence=with_sequence))
+        if not identifier is None :
+            if self._graph.has_node(identifier):
+                return self._graph.nodes(data=data)[identifier]
+            else:
+                return;
 
-    def edges(self, **kwargs):
+        if with_sequence is True:
+            return list(self.nodes_iter(data=data, with_sequence=with_sequence))
+
+        return self._graph.nodes(data=data)
+
+    def edges(self,identifier = None, adj_dict = False, **kwargs):
         """Return all the edges in the graph."""
-        return list(self._graph.edges(**kwargs))
+        #return list(self._graph.edges(**kwargs))
+        
+        if not identifier is None:
+            if isinstance(identifier, tuple):
+                return self._search_edge_by_nodes(identifier)
+            else:
+                return self._search_edge_by_key(identifier)
+
+        if adj_dict is True:
+            return self._graph.adj
+
+        return self._graph.edges(**kwargs)
 
     def subgraphs(self, identifier=None):
         """An interface to access to the subgraphs inside
@@ -179,34 +200,6 @@ class GFA(DovetailIterator):
         else:
             if identifier in self._subgraphs:
                 return self._subgraphs[identifier]
-
-    def node(self, identifier=None):
-        """An interface to access the node method of the netwrokx
-        graph.
-
-        If `identifier` is `None` all the graph nodes are returned.
-        """
-        if identifier is None:
-            return dict(self._graph.nodes(data=True))
-        else:
-            if self._graph.has_node(identifier):
-                return self._graph.nodes(data=True)[identifier]
-
-    def edge(self, identifier=None):
-        """GFA edge accessor.
-
-        * If `identifier` is `None` all the graph edges are returned.
-        * If `identifier` is a tuple perform a search by nodes with
-           the tuple values as nodes id.
-        * If `identifier` is a single defined value then perform
-           a search by edge key, where the edge key is the given value.
-        """
-        if identifier is None:
-            return self._graph.adj
-            #return dict(self._graph.edges)
-        if isinstance(identifier, tuple):
-            return self._search_edge_by_nodes(identifier)
-        return self._search_edge_by_key(identifier)
 
     def _search_edge_by_key(self, edge_key):
         from_node, to_node = self._get_edge_end_nodes(edge_key)
@@ -253,8 +246,8 @@ class GFA(DovetailIterator):
 
     def get(self, key):
         """Return the element pointed by the specified key."""
-        if key in self._graph.nodes():
-            return self.node(key)
+        if self._graph.has_node(key):
+            return self.nodes(data = True, identifier = key)
         if key in self._subgraphs:
             return self._subgraphs[key]
         edge_ = self._search_edge_by_key(key)
@@ -509,7 +502,7 @@ class GFA(DovetailIterator):
         #returns true if the graph is rGFA, otherwise False
         #if self._is_rGFA == None or force == True:
         if force == True:
-            if self.check_rGFA_nodes(self.node())\
+            if self.check_rGFA_nodes(self.nodes())\
                  and self.check_rGFA_edges(self.edges()):
 
                 return True
@@ -536,23 +529,23 @@ class GFA(DovetailIterator):
 
     def check_rGFA_nodes(self, nodes):
         #check that the nodes are suitable for an rGFA graph
-        #if isinstance(nodes,dict)
-        #else isinstance(nodes, list)
-        if isinstance(nodes,dict):
+        #if isinstance(nodes,list)
+        #else isinstance(nodes, dict or view)
+        if isinstance(nodes,list):
             for node in nodes:
-                if self.check_rGFA_node(nodes[node]):
+                if  self.check_rGFA_node(self.nodes(identifier = node)):
                     continue
                 else:
 
                     return False
         else:
             for node in nodes:
-                if  self.check_rGFA_node(self.node(node)):
+                if self.check_rGFA_node(nodes[node]):
                     continue
                 else:
 
                     return False
-   
+
         return True
 
     def check_rGFA_node(self,node):
@@ -639,7 +632,7 @@ class GFA(DovetailIterator):
         the number of edges between the given nodes,
         removing all the edges indeed.
         """
-        num_edges = len(self.edge((from_node, to_node)))
+        num_edges = len(self.edges(identifier = (from_node, to_node)))
         for edge_ in range(0, num_edges):
             self._graph.remove_edge(from_node, to_node)
 
@@ -834,7 +827,7 @@ class GFA(DovetailIterator):
 
         :params nid: The id of the selected node
         """
-        if self.node(nid) is None:
+        if self.nodes(identifier = nid) is None:
             raise GFAError("The source node is not in the graph.")
         return list(nx_all_neighbors(self._graph, nid))
 
@@ -1022,8 +1015,8 @@ class GFA(DovetailIterator):
         edge_lut = {}
         pure_virtuals = []
         for from_node, to_node, edge_, data_ in self.edges_iter(keys=True, data=True):
-            from_data = self.node(from_node)
-            to_data = self.node(to_node)
+            from_data = self.nodes(identifier = from_node)
+            to_data = self.nodes(identifier = to_node)
             match = regexp.fullmatch(edge_)
             if match is not None:
                 from_sequence = ""
@@ -1082,7 +1075,7 @@ class GFA(DovetailIterator):
             # Nodes must be defined, so there is no reason to
             # create a LUT
             for nid, node_ in self.nodes_iter(data=True):
-                if node_ != other.node(nid):
+                if node_ != other.nodes(identifier = nid):
                     return False
 
             self_edge_table = self._make_edge_table()

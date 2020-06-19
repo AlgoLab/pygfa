@@ -268,7 +268,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
 def point_to_node(gfa_, node_id):
     """Check if the given node_id point to a node in the gfa graph.
     """
-    return gfa_.node(node_id) != None
+    return gfa_.nodes(identifier = node_id) != None
 
 
 def _serialize_subgraph_elements(subgraph_elements, gfa_=None):

@@ -7,7 +7,7 @@ import queue
 from networkx.algorithms.traversal.breadth_first_search import bfs_edges
 
 def random_source(gfa_):
-    nodes = gfa_.nodes()
+    nodes = list(gfa_.nodes())
     casual_index = np.random.randint(0, len(nodes)-1)
 
     return nodes[casual_index]
