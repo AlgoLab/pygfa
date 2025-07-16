@@ -1,0 +1,62 @@
+start : line+
+
+line : (header_line | segment_line | link_line | containment_line | path_line | walk_line | jump_line )_WS*
+
+header_line      : /H/ (_TAB optional_field )+
+segment_line     : /S/ _TAB segment_name _TAB seq_string ( _TAB optional_field )*
+link_line        : /L/ _TAB segment_from _TAB orientation_from _TAB segment_to _TAB orientation_to _TAB link_overlap ( _TAB optional_field )*
+containment_line : /C/ _TAB segment_name _TAB ORIENTATION_SIGN _TAB segment_name _TAB ORIENTATION_SIGN _TAB position _TAB cigar ( _TAB optional_field )*
+path_line        : /P/ _TAB pathname _TAB segment_list ( _TAB overlap_list )? ( _TAB optional_field )*
+walk_line        : /W/ _TAB sample_id _TAB hapindex _TAB seq_id _TAB seq_start _TAB seq_end _TAB walk ( _TAB optional_field )*
+jump_line        : /J/ _TAB segment_name _TAB ORIENTATION_CHAR _TAB segment_name _TAB ORIENTATION_CHAR _TAB distance _TAB stddev ( _TAB optional_field )*
+
+seq_id : STRING
+seq_start      : INTEGER
+seq_end        : INTEGER
+segment_name : SEGMENT_NAME
+segment_from  : SEGMENT_NAME
+segment_to    : SEGMENT_NAME
+seq_string      : SEQUENCE
+orientation_from : ORIENTATION_SIGN
+orientation_to   : ORIENTATION_SIGN
+cigar : CIGAR
+link_overlap : CIGAR
+pathname      : STRING
+sample_id    : STRING
+hapindex   : INTEGER
+#segment_list   : segment_sign_list | segment_char_list
+segment_list   : oriented_segment_sign ("," oriented_segment_sign)*
+overlap_list   : overlap_cigar ( "," overlap_cigar )*
+overlap_cigar   : CIGAR
+oriented_segment : oriented_segment_sign | oriented_segment_char
+segment_sign_list : oriented_segment_sign (_TAB oriented_segment_sign)*
+segment_char_list : oriented_segment_char (_TAB oriented_segment_char)*
+oriented_segment_sign : SEGMENT_NAME ORIENTATION_SIGN
+oriented_segment_char : ORIENTATION_CHAR SEGMENT_NAME
+walk : oriented_segment+
+
+ORIENTATION_CHAR   : /[><]/
+ORIENTATION_SIGN   : /[+-]/
+position      : INTEGER
+distance      : INTEGER
+stddev        : FLOAT
+
+optional_field : tag ":" type ":" value
+tag           : /[A-Za-z][A-Za-z0-9]/
+type          : /[AifZHB]/
+value         : STRING
+
+
+SEGMENT_NAME   : /[!-)\.-<>-~]+/
+CIGAR         : /\*|([0-9]+[MIDNSHPX=])+/
+STRING        : /[!-~]+/
+INTEGER       : /[-+]?[0-9]+/
+FLOAT         : /[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?/
+_TAB           : "\t"
+SEQUENCE      : /\*|[A-Za-z=.]+/
+
+_WS: /[ \t\f\r\n]/+
+%ignore " "
+
+COMMENT: "#" /[^\n]/*
+%ignore COMMENT
