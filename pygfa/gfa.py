@@ -13,9 +13,12 @@ import copy
 import re
 import os
 import warnings
-
+import numpy as np
+#import compression.zstd as z # TODO
+import pyzstd as z
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
+from itertools import islice
 
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group, line
@@ -49,7 +52,7 @@ def _index(obj, other):
     """Given an object O and a list
     of objects L check that exist an object O'
     in the list such that O == O'.
-    
+
     :return True: If O' exists.
     :return: The position of O' in the list.
     """
@@ -94,6 +97,7 @@ class GFA(DovetailIterator):
         self._next_virtual_id = 0 if base_graph is None else \
                                 self._find_max_virtual_id()
         self._is_rGFA = is_rGFA
+        self._segment_map = {}
 
     def __contains__(self, id_):
         try:
@@ -176,7 +180,7 @@ class GFA(DovetailIterator):
     def edges(self,identifier = None, adj_dict = False, **kwargs):
         """Return all the edges in the graph."""
         #return list(self._graph.edges(**kwargs))
-        
+
         if not identifier is None:
             if isinstance(identifier, tuple):
                 return self._search_edge_by_nodes(identifier)
@@ -495,9 +499,9 @@ class GFA(DovetailIterator):
         tmp_field_type = re.split(":", str(self.as_graph_element(from_node).opt_fields['SR']))[1]
 
         #return tmp_field_type, str(tmp_max)
-   
+
         return str.join(":", ("SR", tmp_field_type, str(tmp_max)))
-    
+
     def check_rGFA(self, force = False):
         #returns true if the graph is rGFA, otherwise False
         #if self._is_rGFA == None or force == True:
@@ -518,12 +522,12 @@ class GFA(DovetailIterator):
     #    if force == True:
     #        if self.check_rGFA_nodes(self.node())\
     #             and self.check_rGFA_edges(self.edges()):
-                
+
     #            self._is_rGFA = True
 
     #        else:
     #            self._is_rGFA = False
-        
+
     #    return self._is_rGFA
 
 
@@ -561,16 +565,16 @@ class GFA(DovetailIterator):
                 "SR" in node.opt_fields:
 
                 return True
-        
+
         return False
 
     def check_rGFA_edges(self, edges):
         #check that the edges are suitable for an rGFA graph
         for edge in edges:
             if not self.check_rGFA_edge(edge):
-          
+
                 return False
-        
+
         return True
 
     def check_rGFA_edge(self, edge):
@@ -578,15 +582,15 @@ class GFA(DovetailIterator):
         if isinstance(edge, tuple):
             tmp_libr = self._search_edge_by_nodes(edge)
             if "SR" in tmp_libr[next(iter(tmp_libr))]:
-                
+
                 return True
-        
+
         else:
             if "SR" in edge.opt_fields:
 
                 return True
 
-        return False 
+        return False
 
 
 
@@ -760,10 +764,10 @@ class GFA(DovetailIterator):
                         for key, d in keydict.items():
                             if d['is_dovetail'] is True:
                                 H.add_edges_from([(n, nbr, key, d)])
-        """ 
-        H.add_edges_from((n, nbr, key, d) 
-            for n, nbrs in self._graph.adj.items() if n in bunch 
-            for nbr, keydict in nbrs.items() if nbr in bunch 
+        """
+        H.add_edges_from((n, nbr, key, d)
+            for n, nbrs in self._graph.adj.items() if n in bunch
+            for nbr, keydict in nbrs.items() if nbr in bunch
             for key, d in keydict.items() if d['is_dovetail'] is True)
 
         H.graph = self._graph.graph
@@ -937,6 +941,150 @@ class GFA(DovetailIterator):
                 self.add_graph_element(\
                     sg.Subgraph.from_line(\
                         group.UGroup.from_string(line_)))
+
+    def header(self, block_size=1024):
+        """Generate the header corresponding to a graph.
+
+        S_len 	Numero dei Segmenti 	Uint64
+        L_len 	Numero dei Link 	uint64
+        P_len 	Numero dei Path 	uint64
+        W_len 	Numero dei Walk 	uint64
+        S_offset 	start offset primo blocco segmenti (in bytes) 	uint64
+        L_offset 	start offset primo blocco Link 	uint64
+        P_offset 	start offset primo blocco Path 	uint64
+        W_offset 	start offset primo blocco Walk 	uint64
+        block_size 	number of objects stored in each block 	uint64 = 1024
+        version
+        header 	testo dell' header del file gfa 	string + \0
+        """
+        header = bytes(b''.join([
+            len(self.nodes()).to_bytes(8, byteorder='big', signed=False),
+            len(self.edges()).to_bytes(8, byteorder='big', signed=False),
+            int(0).to_bytes(8, byteorder='big', signed=False),
+            int(0).to_bytes(8, byteorder='big', signed=False),
+            int(0).to_bytes(8, byteorder='big', signed=False),
+            int(0).to_bytes(8, byteorder='big', signed=False),
+            block_size.to_bytes(8, byteorder='big', signed=False),
+            int(0).to_bytes(8, byteorder='big', signed=False),
+            b"header\0"
+        ]))
+        logging.info(f"header,{len(header)},{len(header)}")
+
+        return(header)
+
+    def set_segment_map(self, map):
+        """Set the segment map for the graph.
+
+        :param map: A dictionary that maps node ids to segment ids.
+        """
+        if not isinstance(map, dict):
+            raise TypeError("The segment map must be a dictionary.")
+        self._segment_map = map
+
+    def get_segment_id(self, segment_id):
+        """Get the segment id for a given node id.
+
+        :param segment_id: The node id to get the segment id for.
+        :returns: The segment id if it exists, otherwise None.
+        """
+        if not hasattr(self, '_segment_map'):
+            return None
+        return self._segment_map.get(segment_id, None)
+
+    def names_block(self, names, compression_level=19):
+        compressed_names = z.compress(b''.join([name.encode(encoding='ascii') for name in names]), level_or_option=compression_level)
+        # header
+
+        return bytes(b''.join([
+            int(len(list(names))).to_bytes(2, byteorder='big', signed=False), ## block size
+            int(len(compressed_names)).to_bytes(8, byteorder='big', signed=False), ## size compressed names
+            int(sum([len(name) + 1 for name in names])).to_bytes(8, byteorder='big', signed=False),  # length uncompressed names
+            compressed_names
+        ]))
+
+    def names_blocks(self, block_size=1024):
+        n = len(self.nodes())
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        #it = self.nodes_iter(data=True, with_sequence=True)
+        it = self.nodes_iter()
+        return bytes(b''.join([self.names_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+
+    def segments_block(self, names, compression_level=19):
+        return bytes(b'')
+
+    def segments_blocks(self, block_size=1024):
+        n = len(self.nodes())
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        it = self.nodes_iter()
+        return bytes(b''.join([self.segments_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+
+    def links_block(self, names, compression_level=19):
+        return bytes(b'')
+
+    def links_blocks(self, block_size=1024):
+        """
+        Compute the binary representation of the links of the graph, one block at a time.
+        Each block contains a fixed number of links, specified by `block_size`.
+        """
+        n = len(self.edges())
+        self.set_segment_map(dict(zip([v for v in self.edges()], range(1, n + 1))))
+        it = self.edges_iter()
+        return bytes(b''.join([self.links_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+
+    def paths_block(self, names, compression_level=19):
+        return bytes(b'')
+
+    def paths_blocks(self, block_size=1024):
+        """
+        Compute the binary representation of the paths of the graph, one block at a time.
+        Each block contains a fixed number of paths, specified by `block_size`.
+        """
+        n = len(self.nodes())
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        it = self.nodes_iter()
+        return bytes(b''.join([self.paths_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+
+    def walks_block(self, names, compression_level=19):
+        return bytes(b'')
+
+    def walks_blocks(self, block_size=1024):
+        """
+        Compute the binary representation of the walks of the graph, one block at a time.
+        Each block contains a fixed number of walks, specified by `block_size`.
+        """
+        n = len(self.nodes())
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        it = self.nodes_iter()
+        return bytes(b''.join([self.walks_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+
+    def to_bgfa(self, block_size):
+        """
+        Convert the graph g to a binary format.
+        It computes the concatenation of the binary format of all sections.
+        """
+
+        return bytes(b''.join([
+            self.header(block_size),
+            self.names_blocks(block_size),
+            self.segments_blocks(block_size),
+            self.links_blocks(block_size),
+            self.paths_blocks(block_size),
+            self.walks_blocks(block_size)
+        ]))
+
+
+    def write_bgfa(self, file, block_size=1024):
+        """
+        Convert the graph g to a binary format and save it to the file.
+        :param g: The graph to convert.
+        """
+
+        if not isinstance(self, pygfa.gfa.GFA):
+            raise TypeError("The input graph must be a GFA object.")
+
+        # open the file in binary mode and write the binary data
+        with open(file, 'wb') as f:
+            f.write(self.to_bgfa(block_size))
 
 
     # This method has been checked manually
