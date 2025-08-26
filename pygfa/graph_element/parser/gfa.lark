@@ -1,14 +1,14 @@
 start : line+
 
-line : (header_line | segment_line | link_line | containment_line | path_line | walk_line | jump_line )_WS*
+line : _WS* (header_line | segment_line | link_line | containment_line | path_line | walk_line | jump_line ) _WS* -> line_type
 
-header_line      : /H/ (_TAB optional_field )+
-segment_line     : /S/ _TAB segment_name _TAB seq_string ( _TAB optional_field )*
-link_line        : /L/ _TAB segment_from _TAB orientation_from _TAB segment_to _TAB orientation_to _TAB link_overlap ( _TAB optional_field )*
-containment_line : /C/ _TAB segment_name _TAB ORIENTATION_SIGN _TAB segment_name _TAB ORIENTATION_SIGN _TAB position _TAB cigar ( _TAB optional_field )*
-path_line        : /P/ _TAB pathname _TAB segment_list ( _TAB overlap_list )? ( _TAB optional_field )*
-walk_line        : /W/ _TAB sample_id _TAB hapindex _TAB seq_id _TAB seq_start _TAB seq_end _TAB walk ( _TAB optional_field )*
-jump_line        : /J/ _TAB segment_name _TAB ORIENTATION_CHAR _TAB segment_name _TAB ORIENTATION_CHAR _TAB distance _TAB stddev ( _TAB optional_field )*
+header_line      : "H" (_TAB optional_field )+
+segment_line     : "S" _TAB segment_name _TAB seq_string ( _TAB optional_field )*
+link_line        : "L" _TAB segment_from _TAB orientation_from _TAB segment_to _TAB orientation_to _TAB link_overlap ( _TAB optional_field )*
+containment_line : "C" _TAB segment_name _TAB ORIENTATION_SIGN _TAB segment_name _TAB ORIENTATION_SIGN _TAB position _TAB cigar ( _TAB optional_field )*
+path_line        : "P" _TAB pathname _TAB segment_list ( _TAB overlap_list )? ( _TAB optional_field )*
+walk_line        : "W" _TAB sample_id _TAB hapindex _TAB seq_id _TAB seq_start _TAB seq_end _TAB walk ( _TAB optional_field )*
+jump_line        : "J" _TAB segment_name _TAB ORIENTATION_CHAR _TAB segment_name _TAB ORIENTATION_CHAR _TAB distance _TAB stddev ( _TAB optional_field )*
 
 seq_id : STRING
 seq_start      : INTEGER
