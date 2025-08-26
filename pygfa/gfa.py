@@ -31,6 +31,8 @@ from pygfa.graph_operations.compression import compression_graph_by_nodes, compr
 from pygfa.graph_operations.overlap_consistency import check_overlap
 from benchmark.extract_subgraph import extract_subgraph
 
+import lark
+
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 class InvalidSearchParameters(Exception):
@@ -1087,17 +1089,40 @@ class GFA(DovetailIterator):
             f.write(self.to_bgfa(block_size))
 
 
-    # This method has been checked manually
     @classmethod
-    def from_file(cls, filepath, is_rGFA = None): # pragma: no cover
+    def from_file(cls, filepath): # pragma: no cover
         """Parse the given file and return a GFA object.
+        Since GFA is a line-oriented format, we can parse each line separately.
+        This allows to avoid keeping the entire parse tree in memory.
         """
-        pygfa_ = GFA(is_rGFA=is_rGFA)
-        file_handler = open(filepath)
-        file_content = file_handler.read()
-        file_handler.close()
-        pygfa_.from_string(file_content)
-        return pygfa_
+        g = GFA(is_rGFA=False)
+        add_line = {
+            'H': lambda
+        }
+        with open(filepath) as f:
+            for line in f:
+                t = parser.parse(line)
+                # Depending on the line type, we call the corresponding method and
+                # create the graph component
+                type = next(t.find_data('line_type'))
+                parsed = type.children[0].children
+                if type == 'header_line':
+                    g.add_header()
+                elif type == 'segment_line':
+                    g.add_segment()
+                elif type == 'link_line':
+                    g.add_link()
+                elif type == 'containment_line':
+                    g.add_containment()
+                elif type == 'path_line':
+                    g.add_path()
+                elif type == 'walk_line':
+                    g.add_walk()
+                elif type == 'jump_line':
+                    g.add_jump()
+                else:
+                    raise("Bad line: {line}")
+        return gf
 
 
     def pprint(self): # pragma: no cover

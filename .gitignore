@@ -102,3 +102,5 @@ ENV/
 
 # ignore emacs temp files
 *~
+# pixi environments
+.pixi
