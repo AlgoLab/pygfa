@@ -14,8 +14,7 @@ import re
 import os
 import warnings
 import numpy as np
-#import compression.zstd as z # TODO
-import pyzstd as z
+import compression.zstd as z
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
 from itertools import islice
