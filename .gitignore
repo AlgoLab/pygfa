@@ -104,3 +104,7 @@ ENV/
 *~
 # pixi environments
 .pixi
+.aider*
+# pixi environments
+.pixi/*
+!.pixi/config.toml
