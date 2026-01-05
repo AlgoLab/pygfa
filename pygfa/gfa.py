@@ -23,7 +23,7 @@ from itertools import islice
 from pygfa.graph_element.parser import header, segment, link, containment, path
 from pygfa.graph_element.parser import edge, gap, fragment, group, line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
-from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
+from pygfa.serializer import gfa1_serializer as gs1
 
 from pygfa.dovetail_operations.iterator import DovetailIterator
 
@@ -86,7 +86,7 @@ class GFA(DovetailIterator):
     undirectly by accessing the `_graph` attribute.
     """
 
-    def __init__(self, base_graph=None, is_rGFA=None):
+    def __init__(self, base_graph=None):
         """Creates a GFA graph.
 
         If :param base_graph: is not `None` use the graph provided
@@ -109,7 +109,6 @@ class GFA(DovetailIterator):
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
-        self._is_rGFA = is_rGFA
         self._segment_map = {}
 
     def __contains__(self, id_):
@@ -346,26 +345,15 @@ class GFA(DovetailIterator):
             an exception
         """
         if isinstance(new_node, str) and new_node[0] == "S":
-            if segment.is_segmentv1(new_node):
-                new_node = node.Node.from_line(
-                    segment.SegmentV1.from_string(new_node.strip())
-                )
-            else:
-                new_node = node.Node.from_line(
-                    segment.SegmentV2.from_string(new_node.strip())
-                )
+            new_node = node.Node.from_line(
+                segment.SegmentV1.from_string(new_node.strip())
+            )
 
         if not node.is_node(new_node):
             raise node.InvalidNodeError("The object given is not a node.")
 
         if safe and new_node.nid in self:
             raise GFAError("An element with the same id already exists.")
-
-        if self._is_rGFA == True:
-            if not self.check_rGFA_node(new_node):
-                raise node.InvalidNodeError(
-                    "{0}".format(new_node.nid) + " cannot be a rGFA node"
-                )
 
         self._graph.add_node(
             new_node.nid,
@@ -472,22 +460,6 @@ class GFA(DovetailIterator):
             if not (node1_exists and node2_exists):
                 raise GFAError("From/To node are not already in the graph.")
 
-        if self._is_rGFA:
-
-            if not self.check_rGFA_edge(new_edge):
-                # tmp_field_type,tmp_SR_max = self.max_SR(new_edge.from_node,\
-                #                                            new_edge.to_node)
-                # tmp_opt_field = line.OptField("SR", tmp_SR_max, tmp_field_type)
-                tmp_fields = re.split(
-                    ":", self.max_SR(new_edge.from_node, new_edge.to_node)
-                )[1:]
-                tmp_opt_field = line.OptField("SR", tmp_fields[1], tmp_fields[0])
-                new_edge.opt_fields.update({"SR": tmp_opt_field})
-                warnings.warn(
-                    "{0} + {1}".format(new_edge.from_node, new_edge.to_node)
-                    + ": SR has been set to the maximum value between the SR of the adjacent nodes"
-                )
-
         self._graph.add_edge(
             new_edge.from_node,
             new_edge.to_node,
@@ -507,109 +479,6 @@ class GFA(DovetailIterator):
             to_segment_end=new_edge.to_segment_end,
             **new_edge.opt_fields,
         )
-
-    def max_SR(self, from_node, to_node):
-        # return SR is the greater between the input nodes
-        # SR:field_type:value
-        sr_1 = re.split(":", str(self.as_graph_element(from_node).opt_fields["SR"]))[2]
-        sr_2 = re.split(":", str(self.as_graph_element(to_node).opt_fields["SR"]))[2]
-        tmp_max = max(sr_1, sr_2)
-        tmp_field_type = re.split(
-            ":", str(self.as_graph_element(from_node).opt_fields["SR"])
-        )[1]
-
-        # return tmp_field_type, str(tmp_max)
-
-        return str.join(":", ("SR", tmp_field_type, str(tmp_max)))
-
-    def check_rGFA(self, force=False):
-        # returns true if the graph is rGFA, otherwise False
-        # if self._is_rGFA == None or force == True:
-        if force == True:
-            if self.check_rGFA_nodes(self.nodes()) and self.check_rGFA_edges(
-                self.edges()
-            ):
-
-                return True
-
-            return False
-
-        return self._is_rGFA
-
-    # def check_rGFA(self, force = False):
-
-    # if self._is_rGFA == None or force == True:
-    #    if force == True:
-    #        if self.check_rGFA_nodes(self.node())\
-    #             and self.check_rGFA_edges(self.edges()):
-
-    #            self._is_rGFA = True
-
-    #        else:
-    #            self._is_rGFA = False
-
-    #    return self._is_rGFA
-
-    def check_rGFA_nodes(self, nodes):
-        # check that the nodes are suitable for an rGFA graph
-        # if isinstance(nodes,list)
-        # else isinstance(nodes, dict or view)
-        if isinstance(nodes, list):
-            for node in nodes:
-                if self.check_rGFA_node(self.nodes(identifier=node)):
-                    continue
-                else:
-
-                    return False
-        else:
-            for node in nodes:
-                if self.check_rGFA_node(nodes[node]):
-                    continue
-                else:
-
-                    return False
-
-        return True
-
-    def check_rGFA_node(self, node):
-        if isinstance(node, dict):
-            if "SN" in node and "SO" in node and "SR" in node:
-
-                return True
-        else:
-            if (
-                "SN" in node.opt_fields
-                and "SO" in node.opt_fields
-                and "SR" in node.opt_fields
-            ):
-
-                return True
-
-        return False
-
-    def check_rGFA_edges(self, edges):
-        # check that the edges are suitable for an rGFA graph
-        for edge in edges:
-            if not self.check_rGFA_edge(edge):
-
-                return False
-
-        return True
-
-    def check_rGFA_edge(self, edge):
-
-        if isinstance(edge, tuple):
-            tmp_libr = self._search_edge_by_nodes(edge)
-            if "SR" in tmp_libr[next(iter(tmp_libr))]:
-
-                return True
-
-        else:
-            if "SR" in edge.opt_fields:
-
-                return True
-
-        return False
 
     def remove_edge(self, identifier):
         """Remove an edge or all edges identified by an id
@@ -902,14 +771,9 @@ class GFA(DovetailIterator):
             if len(line_) < 1:
                 continue
             if line_[0] == "S":
-                if segment.is_segmentv1(line_):
-                    self.add_graph_element(
-                        node.Node.from_line(segment.SegmentV1.from_string(line_))
-                    )
-                else:
-                    self.add_graph_element(
-                        node.Node.from_line(segment.SegmentV2.from_string(line_))
-                    )
+                self.add_graph_element(
+                    node.Node.from_line(segment.SegmentV1.from_string(line_))
+                )
             elif line_[0] == "L":
                 self.add_graph_element(ge.Edge.from_line(link.Link.from_string(line_)))
             elif line_[0] == "C":
@@ -1207,7 +1071,7 @@ class GFA(DovetailIterator):
         Since GFA is a line-oriented format, we can parse each line separately.
         This allows to avoid keeping the entire parse tree in memory.
         """
-        g = GFA(is_rGFA=False)
+        g = GFA()
         add_line = {}
         with open(filepath) as f:
             for line in f:
@@ -1242,15 +1106,9 @@ class GFA(DovetailIterator):
         string += "]\n"
         return string
 
-    def dump(self, gfa_version=1, out=None):
+    def dump(self, out=None):
         try:
-            dump_ = ""
-            if gfa_version == 1:
-                dump_ = gs1.serialize_gfa(self)
-            elif gfa_version == 2:
-                dump_ = gs2.serialize_gfa(self)
-            else:
-                raise ValueError("Invalid GFA output version.")
+            dump_ = gs1.serialize_gfa(self)
             if out is None:
                 return dump_
 
