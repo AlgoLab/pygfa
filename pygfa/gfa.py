@@ -1010,7 +1010,10 @@ class GFA(DovetailIterator):
         it = self.nodes_iter()
         return bytes(b''.join([self.names_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
 
-    def segments_block(self, names, compression_level=19):
+    def segments_block(self, first, last):
+        #AI! write a function that extracts a portion of the segments, with
+        #index from first to last (last excluded) and computes the corresponding
+        #segment block, according to the specification at https://github.com/AlgoLab/bgfatools/blob/main/spec/gfa_binary_format.md
         return bytes(b'')
 
     def segments_blocks(self, block_size=1024):
