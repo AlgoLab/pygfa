@@ -154,7 +154,7 @@ class GFA(DovetailIterator):
     def _find_max_virtual_id(self):
         """Traverse the graph to find the greatest virtual id value."""
         # nodes cannot have a virtual_id, so don't search inside them
-        virtual_rxp = "^virtual_([\d]+)$"
+        virtual_rxp = r"^virtual_(\d+)$"
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
@@ -1249,7 +1249,7 @@ class GFA(DovetailIterator):
         If both from_node and to_node are not specified the id
         is placed into a set for further processing.
         """
-        virtual_rxp = "^virtual_([\\d]+)$"
+        virtual_rxp = r"^virtual_(\d+)$"
         regexp = re.compile(virtual_rxp)
         edge_lut = {}
         pure_virtuals = []
