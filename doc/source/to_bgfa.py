@@ -16,8 +16,7 @@ def main():
         help="Block size for BGFA format (default: 1024)",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", 
-        help="Enable verbose output"
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
     parser.add_argument(
         "--help", action="store_true", help="Show usage example and exit"
