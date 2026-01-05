@@ -16,6 +16,10 @@ def main():
         help="Block size for BGFA format (default: 1024)",
     )
     parser.add_argument(
+        "--verbose", "-v", action="store_true", 
+        help="Enable verbose output"
+    )
+    parser.add_argument(
         "--help", action="store_true", help="Show usage example and exit"
     )
     args = parser.parse_args()
@@ -33,8 +37,8 @@ def main():
         # Write BGFA file
         g.write_bgfa(args.output_file, block_size=args.block_size)
 
-        # AI! this print should be run only if a verbose option is activated
-        print(f"Successfully converted {args.input_file} to {args.output_file}")
+        if args.verbose:
+            print(f"Successfully converted {args.input_file} to {args.output_file}")
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
