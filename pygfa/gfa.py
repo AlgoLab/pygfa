@@ -1147,9 +1147,7 @@ class GFA(DovetailIterator):
         This allows to avoid keeping the entire parse tree in memory.
         """
         g = GFA(is_rGFA=False)
-        add_line = {
-            'H': lambda
-        }
+        add_line = {}
         with open(filepath) as f:
             for line in f:
                 t = parser.parse(line)
@@ -1173,7 +1171,7 @@ class GFA(DovetailIterator):
                     g.add_jump()
                 else:
                     raise("Bad line: {line}")
-        return gf
+        return g
 
 
     def pprint(self): # pragma: no cover
@@ -1234,7 +1232,7 @@ class GFA(DovetailIterator):
         If both from_node and to_node are not specified the id
         is placed into a set for further processing.
         """
-        virtual_rxp = "^virtual_([\d]+)$"
+        virtual_rxp = "^virtual_([\\d]+)$"
         regexp = re.compile(virtual_rxp)
         edge_lut = {}
         pure_virtuals = []
