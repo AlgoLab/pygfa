@@ -25,8 +25,6 @@ from pygfa.graph_element.parser import edge, gap, fragment, group, line
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1
 
-from pygfa.dovetail_operations.iterator import DovetailIterator
-
 from pygfa.graph_operations.compression import (
     compression_graph_by_nodes,
     compression_graph_by_edges,
@@ -78,7 +76,7 @@ def _index(obj, other):
     return found, index
 
 
-class GFA(DovetailIterator):
+class GFA:
     """GFA will use a networkx MultiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
