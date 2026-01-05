@@ -1028,7 +1028,28 @@ class GFA(DovetailIterator):
             )
         )
 
-    def segments_block(self, first, last):
+    def compress_sequence(self, sequence, compression_method="zstd", compression_level=19):
+        """Compress a sequence using the specified compression method.
+        
+        :param sequence: The sequence string to compress.
+        :param compression_method: The compression method to use ('zstd', 'gzip', 'lzma', 'none').
+        :param compression_level: The compression level (1-19 for zstd, 1-9 for gzip/lzma).
+        :returns: The compressed sequence as bytes.
+        """
+        if compression_method == "zstd":
+            return z.compress(sequence.encode("ascii"), level_or_option=compression_level)
+        elif compression_method == "gzip":
+            import gzip
+            return gzip.compress(sequence.encode("ascii"), compresslevel=compression_level)
+        elif compression_method == "lzma":
+            import lzma
+            return lzma.compress(sequence.encode("ascii"), preset=compression_level)
+        elif compression_method == "none":
+            return sequence.encode("ascii")
+        else:
+            raise ValueError(f"Unsupported compression method: {compression_method}")
+
+    def segments_block(self, first, last, compression_method="zstd", compression_level=19):
         """Extract a portion of the segments, with index from first to last (last excluded)
         and compute the corresponding segment block, according to the specification at
         https://github.com/AlgoLab/bgfatools/blob/main/spec/gfa_binary_format.md
@@ -1051,10 +1072,8 @@ class GFA(DovetailIterator):
             sequence = node_attrs.get("sequence", "")
             sequence_length = node_attrs.get("slen", len(sequence))
 
-            # AI! make the compression method more generic, allowing for
-            # different methods, chosen via a command line option
-            # Convert sequence to bytes using zstd compression
-            sequence_bytes = z.compress(sequence.encode("ascii"))
+            # Convert sequence to bytes using the specified compression method
+            sequence_bytes = self.compress_sequence(sequence, compression_method, compression_level)
 
             # Create segment entry according to binary format:
             # segment_id (uint64) | sequence_length (uint64) | sequence (variable length)
@@ -1073,7 +1092,7 @@ class GFA(DovetailIterator):
 
         return block
 
-    def segments_blocks(self, block_size=1024):
+    def segments_blocks(self, block_size=1024, compression_method="zstd", compression_level=19):
         n = len(self.nodes())
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
 
@@ -1085,7 +1104,7 @@ class GFA(DovetailIterator):
         for i in range(0, n, block_size):
             first = i
             last = min(i + block_size, n)
-            block = self.segments_block(first, last)
+            block = self.segments_block(first, last, compression_method, compression_level)
             blocks.append(block)
 
         return bytes(b"".join(blocks))
@@ -1150,7 +1169,7 @@ class GFA(DovetailIterator):
             )
         )
 
-    def to_bgfa(self, block_size):
+    def to_bgfa(self, block_size, compression_method="zstd", compression_level=19):
         """
         Convert the graph g to a binary format.
         It computes the concatenation of the binary format of all sections.
@@ -1161,7 +1180,7 @@ class GFA(DovetailIterator):
                 [
                     self.header(block_size),
                     self.names_blocks(block_size),
-                    self.segments_blocks(block_size),
+                    self.segments_blocks(block_size, compression_method, compression_level),
                     self.links_blocks(block_size),
                     self.paths_blocks(block_size),
                     self.walks_blocks(block_size),
@@ -1169,7 +1188,7 @@ class GFA(DovetailIterator):
             )
         )
 
-    def write_bgfa(self, file, block_size=1024):
+    def write_bgfa(self, file, block_size=1024, compression_method="zstd", compression_level=19):
         """
         Convert the graph g to a binary format and save it to the file.
         :param g: The graph to convert.
@@ -1180,7 +1199,7 @@ class GFA(DovetailIterator):
 
         # open the file in binary mode and write the binary data
         with open(file, "wb") as f:
-            f.write(self.to_bgfa(block_size))
+            f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
     @classmethod
     def from_file(cls, filepath):  # pragma: no cover
