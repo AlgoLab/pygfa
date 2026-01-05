@@ -1011,16 +1011,65 @@ class GFA(DovetailIterator):
         return bytes(b''.join([self.names_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
 
     def segments_block(self, first, last):
-        #AI! write a function that extracts a portion of the segments, with
-        #index from first to last (last excluded) and computes the corresponding
-        #segment block, according to the specification at https://github.com/AlgoLab/bgfatools/blob/main/spec/gfa_binary_format.md
-        return bytes(b'')
+        """Extract a portion of the segments, with index from first to last (last excluded)
+        and compute the corresponding segment block, according to the specification at
+        https://github.com/AlgoLab/bgfatools/blob/main/spec/gfa_binary_format.md
+        """
+        # Get all nodes and slice the portion we need
+        all_nodes = list(self.nodes_iter(data=True))
+        nodes_slice = all_nodes[first:last]
+        
+        # Calculate block size (number of segments in this block)
+        block_size = len(nodes_slice)
+        
+        # Prepare segment data
+        segment_data = []
+        for node_data in nodes_slice:
+            # Get node information
+            node_id = node_data[0]  # node identifier
+            node_attrs = node_data[1]  # node attributes
+            
+            # Get sequence and length
+            sequence = node_attrs.get('sequence', '')
+            sequence_length = node_attrs.get('slen', len(sequence))
+            
+            # Convert sequence to bytes
+            sequence_bytes = sequence.encode('ascii')
+            
+            # Create segment entry according to binary format:
+            # segment_id (uint64) | sequence_length (uint64) | sequence (variable length)
+            segment_entry = (
+                self.get_segment_id(node_id).to_bytes(8, byteorder='big', signed=False) +
+                sequence_length.to_bytes(8, byteorder='big', signed=False) +
+                sequence_bytes
+            )
+            segment_data.append(segment_entry)
+        
+        # Create the complete segment block:
+        # block_size (uint16) | segment_entries...
+        block = (
+            block_size.to_bytes(2, byteorder='big', signed=False) +
+            b''.join(segment_data)
+        )
+        
+        return block
 
     def segments_blocks(self, block_size=1024):
         n = len(self.nodes())
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
-        it = self.nodes_iter()
-        return bytes(b''.join([self.segments_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)]))
+        
+        # Get all nodes as a list for proper slicing
+        all_nodes = list(self.nodes_iter(data=True))
+        
+        # Process nodes in blocks
+        blocks = []
+        for i in range(0, n, block_size):
+            first = i
+            last = min(i + block_size, n)
+            block = self.segments_block(first, last)
+            blocks.append(block)
+        
+        return bytes(b''.join(blocks))
 
     def links_block(self, names, compression_level=19):
         return bytes(b'')
