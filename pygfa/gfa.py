@@ -1051,10 +1051,8 @@ class GFA(DovetailIterator):
             sequence = node_attrs.get("sequence", "")
             sequence_length = node_attrs.get("slen", len(sequence))
 
-            # Convert sequence to bytes
-            # AI! compress the sequence, using the zstd algorithm of the
-            # compression standard library
-            sequence_bytes = sequence.encode("ascii")
+            # Convert sequence to bytes using zstd compression
+            sequence_bytes = z.compress(sequence.encode("ascii"))
 
             # Create segment entry according to binary format:
             # segment_id (uint64) | sequence_length (uint64) | sequence (variable length)
