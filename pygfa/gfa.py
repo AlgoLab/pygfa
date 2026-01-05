@@ -1051,6 +1051,8 @@ class GFA(DovetailIterator):
             sequence = node_attrs.get("sequence", "")
             sequence_length = node_attrs.get("slen", len(sequence))
 
+            # AI! make the compression method more generic, allowing for
+            # different methods, chosen via a command line option
             # Convert sequence to bytes using zstd compression
             sequence_bytes = z.compress(sequence.encode("ascii"))
 
