@@ -112,10 +112,25 @@ def compress_integer_list_fixed(list, size=32):
     return size_bytes * len(bytes), bytes
 
 
+def compress_integer_list_none(list, size=32):
+    """Dummy compressor
+
+    #AI! return the concatenation of the textual representation of each integer,
+    separated by commas
+    :param list: list of integers
+    :param size: number of bits for each integer
+    :returns the encoded list.
+    """
+    bytes = b""
+    for integer in list:
+        bytes += integer.to_bytes(size_bytes, byteorder="little", signed=False)
+    return size_bytes * len(bytes), bytes
+
+
 # Compression methods on strings
 def compress_string_zstd(string):
     """Compress a string using zstd compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
@@ -124,27 +139,29 @@ def compress_string_zstd(string):
 
 def compress_string_gzip(string):
     """Compress a string using gzip compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
     import gzip
+
     return gzip.compress(string.encode("ascii"))
 
 
 def compress_string_lzma(string):
     """Compress a string using lzma compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
     import lzma
+
     return lzma.compress(string.encode("ascii"))
 
 
 def compress_string_none(string):
     """Return the input string without compression.
-    
+
     :param string: The string to return.
     :returns: The input string as bytes.
     """
@@ -187,9 +204,7 @@ def compress_string_list(
     elif compression_method == "lzma":
         import lzma
 
-        compressed_data = lzma.compress(
-            concatenated_strings, preset=compression_level
-        )
+        compressed_data = lzma.compress(concatenated_strings, preset=compression_level)
     elif compression_method == "none":
         compressed_data = concatenated_strings
     else:
@@ -1186,111 +1201,146 @@ class GFA:
         This allows to avoid keeping the entire parse tree in memory.
         """
         g = GFA()
-        
+
         # Load the grammar from the gfa.lark file
-        grammar_file = os.path.join(os.path.dirname(__file__), 'graph_element', 'parser', 'gfa.lark')
-        with open(grammar_file, 'r') as f:
+        grammar_file = os.path.join(
+            os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
+        )
+        with open(grammar_file, "r") as f:
             grammar = f.read()
-        
+
         # Create the parser
-        parser = lark.Lark(grammar, start='start')
-        
+        parser = lark.Lark(grammar, start="start")
+
         # Read and parse the file line by line
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
-                
+
                 try:
                     # Parse the line
-                    tree = parser.parse(line + '\n')
-                    
+                    tree = parser.parse(line + "\n")
+
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
-                        if subtree.data == 'header_line':
+                        if subtree.data == "header_line":
                             # Handle header line
                             pass
-                        elif subtree.data == 'segment_line':
+                        elif subtree.data == "segment_line":
                             # Handle segment line
                             segment_data = {}
                             for child in subtree.children:
-                                if child.data == 'segment_name':
-                                    segment_data['segment_name'] = child.children[0].value
-                                elif child.data == 'seq_string':
-                                    segment_data['sequence'] = child.children[0].value
-                                elif child.data == 'optional_field':
+                                if child.data == "segment_name":
+                                    segment_data["segment_name"] = child.children[
+                                        0
+                                    ].value
+                                elif child.data == "seq_string":
+                                    segment_data["sequence"] = child.children[0].value
+                                elif child.data == "optional_field":
                                     # Handle optional fields
                                     tag = child.children[0].children[0].value
                                     value_type = child.children[1].children[0].value
                                     value = child.children[2].children[0].value
                                     segment_data[tag] = value
-                            
-                            if 'segment_name' in segment_data and 'sequence' in segment_data:
-                                g.add_node(node.Node(
-                                    segment_data['segment_name'],
-                                    segment_data['sequence'],
-                                    len(segment_data['sequence']),
-                                    opt_fields={k: v for k, v in segment_data.items() if k not in ['segment_name', 'sequence']}
-                                ))
-                        
-                        elif subtree.data == 'link_line':
+
+                            if (
+                                "segment_name" in segment_data
+                                and "sequence" in segment_data
+                            ):
+                                g.add_node(
+                                    node.Node(
+                                        segment_data["segment_name"],
+                                        segment_data["sequence"],
+                                        len(segment_data["sequence"]),
+                                        opt_fields={
+                                            k: v
+                                            for k, v in segment_data.items()
+                                            if k not in ["segment_name", "sequence"]
+                                        },
+                                    )
+                                )
+
+                        elif subtree.data == "link_line":
                             # Handle link line
                             link_data = {}
                             for child in subtree.children:
-                                if child.data == 'segment_from':
-                                    link_data['from_node'] = child.children[0].value
-                                elif child.data == 'orientation_from':
-                                    link_data['from_orn'] = child.children[0].value
-                                elif child.data == 'segment_to':
-                                    link_data['to_node'] = child.children[0].value
-                                elif child.data == 'orientation_to':
-                                    link_data['to_orn'] = child.children[0].value
-                                elif child.data == 'link_overlap':
-                                    link_data['alignment'] = child.children[0].value
-                                elif child.data == 'optional_field':
+                                if child.data == "segment_from":
+                                    link_data["from_node"] = child.children[0].value
+                                elif child.data == "orientation_from":
+                                    link_data["from_orn"] = child.children[0].value
+                                elif child.data == "segment_to":
+                                    link_data["to_node"] = child.children[0].value
+                                elif child.data == "orientation_to":
+                                    link_data["to_orn"] = child.children[0].value
+                                elif child.data == "link_overlap":
+                                    link_data["alignment"] = child.children[0].value
+                                elif child.data == "optional_field":
                                     # Handle optional fields
                                     tag = child.children[0].children[0].value
                                     value_type = child.children[1].children[0].value
                                     value = child.children[2].children[0].value
                                     link_data[tag] = value
-                            
-                            if all(k in link_data for k in ['from_node', 'from_orn', 'to_node', 'to_orn', 'alignment']):
-                                g.add_edge(ge.Edge(
-                                    None,  # eid
-                                    link_data['from_node'],
-                                    link_data['from_orn'],
-                                    link_data['to_node'],
-                                    link_data['to_orn'],
-                                    None,  # from_positions
-                                    None,  # to_positions
-                                    link_data['alignment'],
-                                    None,  # distance
-                                    None,  # variance
-                                    opt_fields={k: v for k, v in link_data.items() if k not in ['from_node', 'from_orn', 'to_node', 'to_orn', 'alignment']},
-                                    is_dovetail=True
-                                ))
-                        
-                        elif subtree.data == 'containment_line':
+
+                            if all(
+                                k in link_data
+                                for k in [
+                                    "from_node",
+                                    "from_orn",
+                                    "to_node",
+                                    "to_orn",
+                                    "alignment",
+                                ]
+                            ):
+                                g.add_edge(
+                                    ge.Edge(
+                                        None,  # eid
+                                        link_data["from_node"],
+                                        link_data["from_orn"],
+                                        link_data["to_node"],
+                                        link_data["to_orn"],
+                                        None,  # from_positions
+                                        None,  # to_positions
+                                        link_data["alignment"],
+                                        None,  # distance
+                                        None,  # variance
+                                        opt_fields={
+                                            k: v
+                                            for k, v in link_data.items()
+                                            if k
+                                            not in [
+                                                "from_node",
+                                                "from_orn",
+                                                "to_node",
+                                                "to_orn",
+                                                "alignment",
+                                            ]
+                                        },
+                                        is_dovetail=True,
+                                    )
+                                )
+
+                        elif subtree.data == "containment_line":
                             # Handle containment line
                             pass
-                        
-                        elif subtree.data == 'path_line':
+
+                        elif subtree.data == "path_line":
                             # Handle path line
                             pass
-                        
-                        elif subtree.data == 'walk_line':
+
+                        elif subtree.data == "walk_line":
                             # Handle walk line
                             pass
-                        
-                        elif subtree.data == 'jump_line':
+
+                        elif subtree.data == "jump_line":
                             # Handle jump line
                             pass
-                
+
                 except lark.exceptions.LarkError as e:
                     # Skip lines that don't parse correctly
                     continue
-        
+
         return g
 
     def pprint(self):  # pragma: no cover
