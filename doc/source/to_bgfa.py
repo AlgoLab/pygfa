@@ -175,11 +175,22 @@ def main():
 
     args = parser.parse_args()
 
-    # AI! create the dictionary integers_encoding where the keys are all
+    # create the dictionary integers_encoding where the keys are all
     # possible functions to encode a list of integers, taken from gfa.py
+    integers_encoding = {
+        "varint": "compress_integer_list_varint",
+        "fixed32": "compress_integer_list_fixed",
+        "fixed64": "compress_integer_list_fixed",
+    }
 
     # create the dictionary string_encoding where the keys are all
     # possible functions to encode a string, taken from gfa.py
+    string_encoding = {
+        "zstd": "compress_string_zstd",
+        "gzip": "compress_string_gzip",
+        "lzma": "compress_string_lzma",
+        "none": "compress_string_none",
+    }
 
     if args.help:
         print("Usage example:")
