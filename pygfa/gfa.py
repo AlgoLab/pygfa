@@ -891,15 +891,15 @@ class GFA:
         )
 
     # Compression methods on lists of integers
-    def compress_integer_list_varint(list, size=0):
+    def compress_integer_list_varint(self, list, size=0):
         """Use variable-length encoding to compress a list of integers
 
         :param list: list of integers
         :returns the encoded list.
         """
         bytes = b""
-        for string in string_list:
-            length = len(string)
+        for integer in list:
+            length = integer
             # Encode length as varint (7-bit chunks)
             while length > 0:
                 byte = length & 0x7F
@@ -909,7 +909,7 @@ class GFA:
                 bytes += bytes([byte])
         return len(bytes), bytes
 
-    def compress_integer_list_fixed(list, size=32):
+    def compress_integer_list_fixed(self, list, size=32):
         """Use a fixed number of bits for each integer
 
         :param list: list of integers
@@ -918,11 +918,10 @@ class GFA:
         """
         size_bytes = size // 8
         if size < 8 or size != size_bytes * 8:
-            raise ValueError(f"Unsupported size: {length_encoding}")
+            raise ValueError(f"Unsupported size: {size}")
         bytes = b""
-        for string in string_list:
-            length = len(string)
-            bytes += length.to_bytes(size_bytes, byteorder="little", signed=False)
+        for integer in list:
+            bytes += integer.to_bytes(size_bytes, byteorder="little", signed=False)
         return size_bytes * len(bytes), bytes
 
     # Compression methods on strings
