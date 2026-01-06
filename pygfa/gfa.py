@@ -115,7 +115,7 @@ def compress_integer_list_fixed(list, size=32):
 # Compression methods on strings
 def compress_string_zstd(string):
     """Compress a string using zstd compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
@@ -124,27 +124,29 @@ def compress_string_zstd(string):
 
 def compress_string_gzip(string):
     """Compress a string using gzip compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
     import gzip
+
     return gzip.compress(string.encode("ascii"))
 
 
 def compress_string_lzma(string):
     """Compress a string using lzma compression.
-    
+
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
     import lzma
+
     return lzma.compress(string.encode("ascii"))
 
 
 def compress_string_none(string):
     """Return the input string without compression.
-    
+
     :param string: The string to return.
     :returns: The input string as bytes.
     """
@@ -187,9 +189,7 @@ def compress_string_list(
     elif compression_method == "lzma":
         import lzma
 
-        compressed_data = lzma.compress(
-            concatenated_strings, preset=compression_level
-        )
+        compressed_data = lzma.compress(concatenated_strings, preset=compression_level)
     elif compression_method == "none":
         compressed_data = concatenated_strings
     else:
@@ -1179,6 +1179,9 @@ class GFA:
         # open the file in binary mode and write the binary data
         with open(file, "wb") as f:
             f.write(self.to_bgfa(block_size, compression_method, compression_level))
+
+        # AI! read the GFA file using the grammar in the file gfa.lark, reading
+        # and parsing one line at a time
 
     @classmethod
     def from_file(cls, filepath):  # pragma: no cover
