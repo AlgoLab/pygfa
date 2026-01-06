@@ -890,6 +890,7 @@ class GFA:
             )
         )
 
+    # AI! make all compress_* functions, instead of methods
     # Compression methods on lists of integers
     def compress_integer_list_varint(self, list, size=0):
         """Use variable-length encoding to compress a list of integers
@@ -927,7 +928,7 @@ class GFA:
     # Compression methods on strings
     def compress_string_zstd(self, string, compression_level=19):
         """Compress a string using zstd compression.
-        
+
         :param string: The string to compress.
         :param compression_level: The compression level (1-19).
         :returns: The compressed string as bytes.
@@ -936,27 +937,29 @@ class GFA:
 
     def compress_string_gzip(self, string, compression_level=9):
         """Compress a string using gzip compression.
-        
+
         :param string: The string to compress.
         :param compression_level: The compression level (1-9).
         :returns: The compressed string as bytes.
         """
         import gzip
+
         return gzip.compress(string.encode("ascii"), compresslevel=compression_level)
 
     def compress_string_lzma(self, string, compression_level=9):
         """Compress a string using lzma compression.
-        
+
         :param string: The string to compress.
         :param compression_level: The compression level (1-9).
         :returns: The compressed string as bytes.
         """
         import lzma
+
         return lzma.compress(string.encode("ascii"), preset=compression_level)
 
     def compress_string_none(self, string):
         """Return the input string without compression.
-        
+
         :param string: The string to return.
         :returns: The input string as bytes.
         """
