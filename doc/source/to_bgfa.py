@@ -2,11 +2,11 @@
 
 import argparse
 import sys
+import os
+import toml
 from pygfa.gfa import GFA
 
 
-# AI! add the possibility of reading the command line options as a configuration
-# file in toml format
 def main():
     parser = argparse.ArgumentParser(description="Convert GFA file to BGFA format")
     parser.add_argument("input_file", help="Path to input GFA file")
@@ -22,6 +22,9 @@ def main():
     )
     parser.add_argument(
         "--help", action="store_true", help="Show usage example and exit"
+    )
+    parser.add_argument(
+        "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
     # Compression method options for each component
@@ -179,16 +182,67 @@ def main():
         print(
             "  python to_bgfa.py input.gfa output.bgfa --segments-payload-strings zstd --links-payload-cigar gzip"
         )
+        print("  python to_bgfa.py input.gfa output.bgfa --config config.toml")
         sys.exit(0)
+
+    # Load configuration from TOML file if provided
+    config = {}
+    if args.config:
+        if not os.path.exists(args.config):
+            print(f"Error: Configuration file '{args.config}' not found", file=sys.stderr)
+            sys.exit(1)
+        
+        try:
+            with open(args.config, 'r') as f:
+                config = toml.load(f)
+        except toml.TomlDecodeError as e:
+            print(f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error: Failed to read configuration file '{args.config}': {e}", file=sys.stderr)
+            sys.exit(1)
+
+    # Merge command line arguments with configuration file values
+    # Command line arguments take precedence over configuration file values
+    block_size = config.get('block_size', args.block_size)
+    verbose = config.get('verbose', args.verbose)
+    
+    # Get compression methods from config or use defaults
+    compression_methods = {
+        'segment_names_header': config.get('segment_names_header', args.segment_names_header),
+        'segment_names_payload_lengths': config.get('segment_names_payload_lengths', args.segment_names_payload_lengths),
+        'segment_names_payload_names': config.get('segment_names_payload_names', args.segment_names_payload_names),
+        'segments_header': config.get('segments_header', args.segments_header),
+        'segments_payload_lengths': config.get('segments_payload_lengths', args.segments_payload_lengths),
+        'segments_payload_strings': config.get('segments_payload_strings', args.segments_payload_strings),
+        'links_header': config.get('links_header', args.links_header),
+        'links_payload_from': config.get('links_payload_from', args.links_payload_from),
+        'links_payload_to': config.get('links_payload_to', args.links_payload_to),
+        'links_payload_cigar_lengths': config.get('links_payload_cigar_lengths', args.links_payload_cigar_lengths),
+        'links_payload_cigar': config.get('links_payload_cigar', args.links_payload_cigar),
+        'paths_header': config.get('paths_header', args.paths_header),
+        'paths_payload_names': config.get('paths_payload_names', args.paths_payload_names),
+        'paths_payload_segment_lengths': config.get('paths_payload_segment_lengths', args.paths_payload_segment_lengths),
+        'paths_payload_path_ids': config.get('paths_payload_path_ids', args.paths_payload_path_ids),
+        'paths_payload_cigar_lengths': config.get('paths_payload_cigar_lengths', args.paths_payload_cigar_lengths),
+        'paths_payload_cigar': config.get('paths_payload_cigar', args.paths_payload_cigar),
+        'walks_header': config.get('walks_header', args.walks_header),
+        'walks_payload_sample_ids': config.get('walks_payload_sample_ids', args.walks_payload_sample_ids),
+        'walks_payload_hep_indices': config.get('walks_payload_hep_indices', args.walks_payload_hep_indices),
+        'walks_payload_sequence_ids': config.get('walks_payload_sequence_ids', args.walks_payload_sequence_ids),
+        'walks_payload_start': config.get('walks_payload_start', args.walks_payload_start),
+        'walks_payload_end': config.get('walks_payload_end', args.walks_payload_end),
+        'walks_payload_walks': config.get('walks_payload_walks', args.walks_payload_walks),
+    }
 
     try:
         # Read GFA file
         g = GFA.from_file(args.input_file)
 
         # Write BGFA file
-        g.write_bgfa(args.output_file, block_size=args.block_size)
+        g.write_bgfa(args.output_file, block_size=block_size)
 
-        if args.verbose:
+        if verbose:
             print(f"Successfully converted {args.input_file} to {args.output_file}")
 
     except Exception as e:
