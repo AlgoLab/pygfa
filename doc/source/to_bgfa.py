@@ -181,6 +181,7 @@ def main():
         "varint": "compress_integer_list_varint",
         "fixed32": "compress_integer_list_fixed",
         "fixed64": "compress_integer_list_fixed",
+        "": "compress_integer_list_none",
     }
 
     # create the dictionary string_encoding where the keys are all
@@ -189,7 +190,7 @@ def main():
         "zstd": "compress_string_zstd",
         "gzip": "compress_string_gzip",
         "lzma": "compress_string_lzma",
-        "none": "compress_string_none",
+        "": "compress_string_none",
     }
 
     if args.help:
@@ -292,7 +293,8 @@ def main():
             "walks_payload_walks", args.walks_payload_walks
         ),
     }
-
+    # AI! abort if any compression method is not a key of the integers_encoding
+    # or the string_encoding dicts
     try:
         # Read GFA file
         g = GFA.from_file(args.input_file)
