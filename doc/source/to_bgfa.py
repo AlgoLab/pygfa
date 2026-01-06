@@ -293,8 +293,15 @@ def main():
             "walks_payload_walks", args.walks_payload_walks
         ),
     }
-    # AI! abort if any compression method is not a key of the integers_encoding
-    # or the string_encoding dicts
+
+    # Validate compression methods
+    for component, method in compression_methods.items():
+        if method and method not in integers_encoding and method not in string_encoding:
+            print(f"Error: Invalid compression method '{method}' for {component}. "
+                  f"Valid methods are: {list(integers_encoding.keys()) + list(string_encoding.keys())}", 
+                  file=sys.stderr)
+            sys.exit(1)
+
     try:
         # Read GFA file
         g = GFA.from_file(args.input_file)
