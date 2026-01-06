@@ -5,6 +5,8 @@ import sys
 from pygfa.gfa import GFA
 
 
+# AI! add the possibility of reading the command line options as a configuration
+# file in toml format
 def main():
     parser = argparse.ArgumentParser(description="Convert GFA file to BGFA format")
     parser.add_argument("input_file", help="Path to input GFA file")
@@ -21,7 +23,7 @@ def main():
     parser.add_argument(
         "--help", action="store_true", help="Show usage example and exit"
     )
-    
+
     # Compression method options for each component
     parser.add_argument(
         "--segment-names-header",
@@ -167,14 +169,16 @@ def main():
         default="",
         help="Compression method for walks payload walks (default: '')",
     )
-    
+
     args = parser.parse_args()
 
     if args.help:
         print("Usage example:")
         print("  python to_bgfa.py input.gfa output.bgfa")
         print("  python to_bgfa.py input.gfa output.bgfa --block-size 2048")
-        print("  python to_bgfa.py input.gfa output.bgfa --segments-payload-strings zstd --links-payload-cigar gzip")
+        print(
+            "  python to_bgfa.py input.gfa output.bgfa --segments-payload-strings zstd --links-payload-cigar gzip"
+        )
         sys.exit(0)
 
     try:
