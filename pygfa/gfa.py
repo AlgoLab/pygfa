@@ -112,10 +112,11 @@ def compress_integer_list_fixed(list, size=32):
     return size_bytes * len(bytes), bytes
 
 
+# AI! remove the compression_level argument from the functions to compress a string
 # Compression methods on strings
 def compress_string_zstd(string, compression_level=19):
     """Compress a string using zstd compression.
-    
+
     :param string: The string to compress.
     :param compression_level: The compression level (1-19).
     :returns: The compressed string as bytes.
@@ -125,29 +126,31 @@ def compress_string_zstd(string, compression_level=19):
 
 def compress_string_gzip(string, compression_level=9):
     """Compress a string using gzip compression.
-    
+
     :param string: The string to compress.
     :param compression_level: The compression level (1-9).
     :returns: The compressed string as bytes.
     """
     import gzip
+
     return gzip.compress(string.encode("ascii"), compresslevel=compression_level)
 
 
 def compress_string_lzma(string, compression_level=9):
     """Compress a string using lzma compression.
-    
+
     :param string: The string to compress.
     :param compression_level: The compression level (1-9).
     :returns: The compressed string as bytes.
     """
     import lzma
+
     return lzma.compress(string.encode("ascii"), preset=compression_level)
 
 
 def compress_string_none(string):
     """Return the input string without compression.
-    
+
     :param string: The string to return.
     :returns: The input string as bytes.
     """
@@ -190,9 +193,7 @@ def compress_string_list(
     elif compression_method == "lzma":
         import lzma
 
-        compressed_data = lzma.compress(
-            concatenated_strings, preset=compression_level
-        )
+        compressed_data = lzma.compress(concatenated_strings, preset=compression_level)
     elif compression_method == "none":
         compressed_data = concatenated_strings
     else:
