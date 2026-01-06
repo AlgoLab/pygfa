@@ -925,9 +925,43 @@ class GFA:
             bytes += length.to_bytes(size_bytes, byteorder="little", signed=False)
         return size_bytes * len(bytes), bytes
 
-    # AI! I want a separate function for each compression method on string. The name
-    # of each function is compress_string_METHOD where METHOD is zstd, lzma, gzip, ...
-    # I also want a compress_string_none that returns the input string
+    # Compression methods on strings
+    def compress_string_zstd(self, string, compression_level=19):
+        """Compress a string using zstd compression.
+        
+        :param string: The string to compress.
+        :param compression_level: The compression level (1-19).
+        :returns: The compressed string as bytes.
+        """
+        return z.compress(string.encode("ascii"), level_or_option=compression_level)
+
+    def compress_string_gzip(self, string, compression_level=9):
+        """Compress a string using gzip compression.
+        
+        :param string: The string to compress.
+        :param compression_level: The compression level (1-9).
+        :returns: The compressed string as bytes.
+        """
+        import gzip
+        return gzip.compress(string.encode("ascii"), compresslevel=compression_level)
+
+    def compress_string_lzma(self, string, compression_level=9):
+        """Compress a string using lzma compression.
+        
+        :param string: The string to compress.
+        :param compression_level: The compression level (1-9).
+        :returns: The compressed string as bytes.
+        """
+        import lzma
+        return lzma.compress(string.encode("ascii"), preset=compression_level)
+
+    def compress_string_none(self, string):
+        """Return the input string without compression.
+        
+        :param string: The string to return.
+        :returns: The input string as bytes.
+        """
+        return string.encode("ascii")
 
     # Compress a list of strings by encoding their lengths and compressing the concatenated strings
     def compress_string_list(
