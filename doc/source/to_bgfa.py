@@ -175,6 +175,12 @@ def main():
 
     args = parser.parse_args()
 
+    # AI! create the dictionary integers_encoding where the keys are all
+    # possible functions to encode a list of integers, taken from gfa.py
+
+    # create the dictionary string_encoding where the keys are all
+    # possible functions to encode a string, taken from gfa.py
+
     if args.help:
         print("Usage example:")
         print("  python to_bgfa.py input.gfa output.bgfa")
@@ -189,50 +195,91 @@ def main():
     config = {}
     if args.config:
         if not os.path.exists(args.config):
-            print(f"Error: Configuration file '{args.config}' not found", file=sys.stderr)
+            print(
+                f"Error: Configuration file '{args.config}' not found", file=sys.stderr
+            )
             sys.exit(1)
-        
+
         try:
-            with open(args.config, 'r') as f:
+            with open(args.config, "r") as f:
                 config = toml.load(f)
         except toml.TomlDecodeError as e:
-            print(f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr)
+            print(
+                f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr
+            )
             sys.exit(1)
         except Exception as e:
-            print(f"Error: Failed to read configuration file '{args.config}': {e}", file=sys.stderr)
+            print(
+                f"Error: Failed to read configuration file '{args.config}': {e}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     # Merge command line arguments with configuration file values
     # Command line arguments take precedence over configuration file values
-    block_size = config.get('block_size', args.block_size)
-    verbose = config.get('verbose', args.verbose)
-    
+    block_size = config.get("block_size", args.block_size)
+    verbose = config.get("verbose", args.verbose)
+
     # Get compression methods from config or use defaults
     compression_methods = {
-        'segment_names_header': config.get('segment_names_header', args.segment_names_header),
-        'segment_names_payload_lengths': config.get('segment_names_payload_lengths', args.segment_names_payload_lengths),
-        'segment_names_payload_names': config.get('segment_names_payload_names', args.segment_names_payload_names),
-        'segments_header': config.get('segments_header', args.segments_header),
-        'segments_payload_lengths': config.get('segments_payload_lengths', args.segments_payload_lengths),
-        'segments_payload_strings': config.get('segments_payload_strings', args.segments_payload_strings),
-        'links_header': config.get('links_header', args.links_header),
-        'links_payload_from': config.get('links_payload_from', args.links_payload_from),
-        'links_payload_to': config.get('links_payload_to', args.links_payload_to),
-        'links_payload_cigar_lengths': config.get('links_payload_cigar_lengths', args.links_payload_cigar_lengths),
-        'links_payload_cigar': config.get('links_payload_cigar', args.links_payload_cigar),
-        'paths_header': config.get('paths_header', args.paths_header),
-        'paths_payload_names': config.get('paths_payload_names', args.paths_payload_names),
-        'paths_payload_segment_lengths': config.get('paths_payload_segment_lengths', args.paths_payload_segment_lengths),
-        'paths_payload_path_ids': config.get('paths_payload_path_ids', args.paths_payload_path_ids),
-        'paths_payload_cigar_lengths': config.get('paths_payload_cigar_lengths', args.paths_payload_cigar_lengths),
-        'paths_payload_cigar': config.get('paths_payload_cigar', args.paths_payload_cigar),
-        'walks_header': config.get('walks_header', args.walks_header),
-        'walks_payload_sample_ids': config.get('walks_payload_sample_ids', args.walks_payload_sample_ids),
-        'walks_payload_hep_indices': config.get('walks_payload_hep_indices', args.walks_payload_hep_indices),
-        'walks_payload_sequence_ids': config.get('walks_payload_sequence_ids', args.walks_payload_sequence_ids),
-        'walks_payload_start': config.get('walks_payload_start', args.walks_payload_start),
-        'walks_payload_end': config.get('walks_payload_end', args.walks_payload_end),
-        'walks_payload_walks': config.get('walks_payload_walks', args.walks_payload_walks),
+        "segment_names_header": config.get(
+            "segment_names_header", args.segment_names_header
+        ),
+        "segment_names_payload_lengths": config.get(
+            "segment_names_payload_lengths", args.segment_names_payload_lengths
+        ),
+        "segment_names_payload_names": config.get(
+            "segment_names_payload_names", args.segment_names_payload_names
+        ),
+        "segments_header": config.get("segments_header", args.segments_header),
+        "segments_payload_lengths": config.get(
+            "segments_payload_lengths", args.segments_payload_lengths
+        ),
+        "segments_payload_strings": config.get(
+            "segments_payload_strings", args.segments_payload_strings
+        ),
+        "links_header": config.get("links_header", args.links_header),
+        "links_payload_from": config.get("links_payload_from", args.links_payload_from),
+        "links_payload_to": config.get("links_payload_to", args.links_payload_to),
+        "links_payload_cigar_lengths": config.get(
+            "links_payload_cigar_lengths", args.links_payload_cigar_lengths
+        ),
+        "links_payload_cigar": config.get(
+            "links_payload_cigar", args.links_payload_cigar
+        ),
+        "paths_header": config.get("paths_header", args.paths_header),
+        "paths_payload_names": config.get(
+            "paths_payload_names", args.paths_payload_names
+        ),
+        "paths_payload_segment_lengths": config.get(
+            "paths_payload_segment_lengths", args.paths_payload_segment_lengths
+        ),
+        "paths_payload_path_ids": config.get(
+            "paths_payload_path_ids", args.paths_payload_path_ids
+        ),
+        "paths_payload_cigar_lengths": config.get(
+            "paths_payload_cigar_lengths", args.paths_payload_cigar_lengths
+        ),
+        "paths_payload_cigar": config.get(
+            "paths_payload_cigar", args.paths_payload_cigar
+        ),
+        "walks_header": config.get("walks_header", args.walks_header),
+        "walks_payload_sample_ids": config.get(
+            "walks_payload_sample_ids", args.walks_payload_sample_ids
+        ),
+        "walks_payload_hep_indices": config.get(
+            "walks_payload_hep_indices", args.walks_payload_hep_indices
+        ),
+        "walks_payload_sequence_ids": config.get(
+            "walks_payload_sequence_ids", args.walks_payload_sequence_ids
+        ),
+        "walks_payload_start": config.get(
+            "walks_payload_start", args.walks_payload_start
+        ),
+        "walks_payload_end": config.get("walks_payload_end", args.walks_payload_end),
+        "walks_payload_walks": config.get(
+            "walks_payload_walks", args.walks_payload_walks
+        ),
     }
 
     try:
