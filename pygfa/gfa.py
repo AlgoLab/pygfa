@@ -115,16 +115,13 @@ def compress_integer_list_fixed(list, size=32):
 def compress_integer_list_none(list, size=32):
     """Dummy compressor
 
-    #AI! return the concatenation of the textual representation of each integer,
+    Return the concatenation of the textual representation of each integer,
     separated by commas
     :param list: list of integers
     :param size: number of bits for each integer
     :returns the encoded list.
     """
-    bytes = b""
-    for integer in list:
-        bytes += integer.to_bytes(size_bytes, byteorder="little", signed=False)
-    return size_bytes * len(bytes), bytes
+    return len(list), b",".join(str(integer).encode("ascii") for integer in list)
 
 
 # Compression methods on strings
