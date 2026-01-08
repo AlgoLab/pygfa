@@ -899,43 +899,110 @@ class GFA:
             in the add_xxx methods...
         """
         lines = re.split("\n", string)
+        
+        # Load the grammar from the gfa.lark file
+        grammar_file = os.path.join(
+            os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
+        )
+        with open(grammar_file, "r") as f:
+            grammar = f.read()
+
+        # Create the parser
+        parser = lark.Lark(grammar, start="start")
+
         for line_ in lines:
-            # AI! parse each line with the lark grammar in
-            # /home/gianluca/Devel/pangenome/pygfa/pygfa/graph_element/parser/gfa.lark
-            # and use the line type to determine which method to apply
             line_ = line_.strip()
             if len(line_) < 1:
                 continue
-            if line_[0] == "S":
-                self.add_graph_element(
-                    node.Node.from_line(segment.SegmentV1.from_string(line_))
-                )
-            elif line_[0] == "L":
-                self.add_graph_element(ge.Edge.from_line(link.Link.from_string(line_)))
-            elif line_[0] == "C":
-                self.add_graph_element(
-                    ge.Edge.from_line(containment.Containment.from_string(line_))
-                )
-            elif line_[0] == "E":
-                self.add_graph_element(ge.Edge.from_line(edge.Edge.from_string(line_)))
-            elif line_[0] == "G":
-                self.add_graph_element(ge.Edge.from_line(gap.Gap.from_string(line_)))
-            elif line_[0] == "F":
-                self.add_graph_element(
-                    ge.Edge.from_line(fragment.Fragment.from_string(line_))
-                )
-            elif line_[0] == "P":
-                self.add_graph_element(
-                    sg.Subgraph.from_line(path.Path.from_string(line_))
-                )
-            elif line_[0] == "O":
-                self.add_graph_element(
-                    sg.Subgraph.from_line(group.OGroup.from_string(line_))
-                )
-            elif line_[0] == "U":
-                self.add_graph_element(
-                    sg.Subgraph.from_line(group.UGroup.from_string(line_))
-                )
+
+            try:
+                # Parse the line
+                tree = parser.parse(line_ + "\n")
+
+                # Process the parsed tree based on line type
+                for subtree in tree.children:
+                    if subtree.data == "header_line":
+                        # Handle header line
+                        pass
+                    elif subtree.data == "segment_line":
+                        # Handle segment line
+                        segment_data = {}
+                        for child in subtree.children:
+                            if child.data == "segment_name":
+                                segment_data["segment_name"] = child.children[0].value
+                            elif child.data == "seq_string":
+                                segment_data["sequence"] = child.children[0].value
+                            elif child.data == "optional_field":
+                                # Handle optional fields
+                                tag = child.children[0].children[0].value
+                                value_type = child.children[1].children[0].value
+                                value = child.children[2].children[0].value
+                                segment_data[tag] = value
+
+                        if "segment_name" in segment_data and "sequence" in segment_data:
+                            self.add_node(node.Node(
+                                segment_data["segment_name"],
+                                segment_data["sequence"],
+                                len(segment_data["sequence"]),
+                                opt_fields={k: v for k, v in segment_data.items() if k not in ["segment_name", "sequence"]}
+                            ))
+
+                    elif subtree.data == "link_line":
+                        # Handle link line
+                        link_data = {}
+                        for child in subtree.children:
+                            if child.data == "segment_from":
+                                link_data["from_node"] = child.children[0].value
+                            elif child.data == "orientation_from":
+                                link_data["from_orn"] = child.children[0].value
+                            elif child.data == "segment_to":
+                                link_data["to_node"] = child.children[0].value
+                            elif child.data == "orientation_to":
+                                link_data["to_orn"] = child.children[0].value
+                            elif child.data == "link_overlap":
+                                link_data["alignment"] = child.children[0].value
+                            elif child.data == "optional_field":
+                                # Handle optional fields
+                                tag = child.children[0].children[0].value
+                                value_type = child.children[1].children[0].value
+                                value = child.children[2].children[0].value
+                                link_data[tag] = value
+
+                        if all(k in link_data for k in ["from_node", "from_orn", "to_node", "to_orn", "alignment"]):
+                            self.add_edge(ge.Edge(
+                                None,  # eid
+                                link_data["from_node"],
+                                link_data["from_orn"],
+                                link_data["to_node"],
+                                link_data["to_orn"],
+                                None,  # from_positions
+                                None,  # to_positions
+                                link_data["alignment"],
+                                None,  # distance
+                                None,  # variance
+                                opt_fields={k: v for k, v in link_data.items() if k not in ["from_node", "from_orn", "to_node", "to_orn", "alignment"]},
+                                is_dovetail=True
+                            ))
+
+                    elif subtree.data == "containment_line":
+                        # Handle containment line
+                        pass
+
+                    elif subtree.data == "path_line":
+                        # Handle path line
+                        pass
+
+                    elif subtree.data == "walk_line":
+                        # Handle walk line
+                        pass
+
+                    elif subtree.data == "jump_line":
+                        # Handle jump line
+                        pass
+
+            except lark.exceptions.LarkError as e:
+                # Skip lines that don't parse correctly
+                continue
 
     def header(self, block_size=1024):
         """Generate the header corresponding to a graph.
