@@ -900,6 +900,9 @@ class GFA:
         """
         lines = re.split("\n", string)
         for line_ in lines:
+            # AI! parse each line with the lark grammar in
+            # /home/gianluca/Devel/pangenome/pygfa/pygfa/graph_element/parser/gfa.lark
+            # and use the line type to determine which method to apply
             line_ = line_.strip()
             if len(line_) < 1:
                 continue
