@@ -893,13 +893,9 @@ class GFA:
     def from_string(self, string):
         """Add a GFA string to the graph once it has been
         converted.
-
-        :TODO:
-            Maybe this could be used instead of checking for line type
-            in the add_xxx methods...
         """
         lines = re.split("\n", string)
-        
+
         # Load the grammar from the gfa.lark file
         grammar_file = os.path.join(
             os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
@@ -939,13 +935,22 @@ class GFA:
                                 value = child.children[2].children[0].value
                                 segment_data[tag] = value
 
-                        if "segment_name" in segment_data and "sequence" in segment_data:
-                            self.add_node(node.Node(
-                                segment_data["segment_name"],
-                                segment_data["sequence"],
-                                len(segment_data["sequence"]),
-                                opt_fields={k: v for k, v in segment_data.items() if k not in ["segment_name", "sequence"]}
-                            ))
+                        if (
+                            "segment_name" in segment_data
+                            and "sequence" in segment_data
+                        ):
+                            self.add_node(
+                                node.Node(
+                                    segment_data["segment_name"],
+                                    segment_data["sequence"],
+                                    len(segment_data["sequence"]),
+                                    opt_fields={
+                                        k: v
+                                        for k, v in segment_data.items()
+                                        if k not in ["segment_name", "sequence"]
+                                    },
+                                )
+                            )
 
                     elif subtree.data == "link_line":
                         # Handle link line
@@ -968,21 +973,43 @@ class GFA:
                                 value = child.children[2].children[0].value
                                 link_data[tag] = value
 
-                        if all(k in link_data for k in ["from_node", "from_orn", "to_node", "to_orn", "alignment"]):
-                            self.add_edge(ge.Edge(
-                                None,  # eid
-                                link_data["from_node"],
-                                link_data["from_orn"],
-                                link_data["to_node"],
-                                link_data["to_orn"],
-                                None,  # from_positions
-                                None,  # to_positions
-                                link_data["alignment"],
-                                None,  # distance
-                                None,  # variance
-                                opt_fields={k: v for k, v in link_data.items() if k not in ["from_node", "from_orn", "to_node", "to_orn", "alignment"]},
-                                is_dovetail=True
-                            ))
+                        if all(
+                            k in link_data
+                            for k in [
+                                "from_node",
+                                "from_orn",
+                                "to_node",
+                                "to_orn",
+                                "alignment",
+                            ]
+                        ):
+                            self.add_edge(
+                                ge.Edge(
+                                    None,  # eid
+                                    link_data["from_node"],
+                                    link_data["from_orn"],
+                                    link_data["to_node"],
+                                    link_data["to_orn"],
+                                    None,  # from_positions
+                                    None,  # to_positions
+                                    link_data["alignment"],
+                                    None,  # distance
+                                    None,  # variance
+                                    opt_fields={
+                                        k: v
+                                        for k, v in link_data.items()
+                                        if k
+                                        not in [
+                                            "from_node",
+                                            "from_orn",
+                                            "to_node",
+                                            "to_orn",
+                                            "alignment",
+                                        ]
+                                    },
+                                    is_dovetail=True,
+                                )
+                            )
 
                     elif subtree.data == "containment_line":
                         # Handle containment line
@@ -990,6 +1017,9 @@ class GFA:
 
                     elif subtree.data == "path_line":
                         # Handle path line
+                        # AI! build an array with the sequence of segment that
+                        # form the path.
+                        # Each such array is a component of the graph g
                         pass
 
                     elif subtree.data == "walk_line":
