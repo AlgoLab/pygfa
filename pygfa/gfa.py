@@ -1016,11 +1016,8 @@ class GFA:
                         pass
 
                     elif subtree.data == "path_line":
-                        # Handle path line
-                        # AI! build an array with the sequence of segment that
-                        # form the path.
-                        # Each such array is a component of the graph g
-                        pass
+                        # Handle path line by adding it as a subgraph
+                        self.add_subgraph(line_)
 
                     elif subtree.data == "walk_line":
                         # Handle walk line
