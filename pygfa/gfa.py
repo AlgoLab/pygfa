@@ -1437,7 +1437,9 @@ class GFA:
 
         return g
 
-    def pprint(self):  # pragma: no cover
+    def pprint(self):
+        # AI! rewrite this function so that it can pretty print the entire graph
+        # and all its parts and optional attributes
         """A basic pretty print function for nodes and edges."""
         string = "\nGRAPH:\nNodes: [\n"
         for node, datas in self.nodes_iter(data=True):
