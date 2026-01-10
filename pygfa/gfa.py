@@ -243,6 +243,7 @@ class GFA:
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
         self._segment_map = {}
+        self._paths = {}  # New attribute to store paths
 
     def __contains__(self, id_):
         try:
@@ -258,6 +259,8 @@ class GFA:
                 return True
             if id_ in self._subgraphs:
                 return True
+            if id_ in self._paths:
+                return True
             return False
         except TypeError:
             return False
@@ -271,6 +274,7 @@ class GFA:
         self._graph.clear()
         self._next_virtual_id = 0
         self._subgraphs = {}
+        self._paths = {}
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -296,6 +300,11 @@ class GFA:
                 virtual_keys.append(int(match.group(1)))
 
         for key, data in self._subgraphs.items():
+            match = regexp.fullmatch(key)
+            if match:
+                virtual_keys.append(int(match.group(1)))
+
+        for key in self._paths.keys():
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -348,6 +357,19 @@ class GFA:
             if identifier in self._subgraphs:
                 return self._subgraphs[identifier]
 
+    def paths(self, identifier=None):
+        """An interface to access to the paths inside
+        the GFA object.
+
+        If `identifier` is `None` all the path objects are
+        returned.
+        """
+        if identifier is None:
+            return self._paths
+        else:
+            if identifier in self._paths:
+                return self._paths[identifier]
+
     def _search_edge_by_key(self, edge_key):
         from_node, to_node = self._get_edge_end_nodes(edge_key)
         if (from_node, to_node) != (None, None):
@@ -394,6 +416,8 @@ class GFA:
             return self.nodes(data=True, identifier=key)
         if key in self._subgraphs:
             return self._subgraphs[key]
+        if key in self._paths:
+            return self._paths[key]
         edge_ = self._search_edge_by_key(key)
         if not edge_ is None:
             return edge_
@@ -410,6 +434,10 @@ class GFA:
 
         # Subgraph objects don't need to be converted
         if sg.is_subgraph(element):
+            return copy.deepcopy(element)
+
+        # Path objects don't need to be converted
+        if isinstance(element, dict) and "path_name" in element:
             return copy.deepcopy(element)
 
         tmp_list = copy.deepcopy(element)
@@ -462,6 +490,8 @@ class GFA:
             self.add_edge(element)
         elif isinstance(element, sg.Subgraph):
             self.add_subgraph(element)
+        elif isinstance(element, dict) and "path_name" in element:
+            self.add_path(element)
 
     def add_node(self, new_node, safe=False):
         """Add a graph_element Node to the GFA graph
@@ -706,6 +736,59 @@ class GFA:
         else:
             return iter(self._subgraphs)
 
+    def add_path(self, path_data, safe=False):
+        """Add a path to the graph.
+
+        The path_data should be a dictionary with:
+        - 'path_name': the name of the path
+        - 'segments': list of oriented segments (e.g., ['s1+', 's2-'])
+        - 'overlaps': optional list of overlaps between segments
+        - any optional fields
+
+        :param path_data: Dictionary containing path information
+        :param safe: If set, check if the path id already exists
+        """
+        if isinstance(path_data, str):
+            if path_data[0] == "P":
+                # Parse the path line
+                path_obj = path.Path.from_string(path_data.strip())
+                # Convert to dictionary format
+                path_data = {
+                    'path_name': path_obj.fields['path_name'].value,
+                    'segments': path_obj.fields['seqs_names'].value,
+                    'overlaps': path_obj.fields['overlaps'].value if 'overlaps' in path_obj.fields else [],
+                }
+                # Add optional fields
+                for field_name, field in path_obj.fields.items():
+                    if field_name not in ['path_name', 'seqs_names', 'overlaps']:
+                        path_data[field_name] = field.value
+
+        if not isinstance(path_data, dict) or 'path_name' not in path_data:
+            raise GFAError("Invalid path data format.")
+
+        key = path_data['path_name']
+        if key == "*":
+            key = "virtual_{0}".format(self._get_virtual_id())
+        if safe and key in self._paths:
+            raise GFAError("A path with the same id already exists.")
+        
+        # Store the path data
+        self._paths[key] = copy.deepcopy(path_data)
+
+    def remove_path(self, path_id):
+        """Remove the path identified by the given id."""
+        try:
+            del self._paths[path_id]
+        except:
+            raise GFAError("The given id doesn't identify any path.")
+
+    def paths_iter(self, data=False):
+        """Return an iterator over paths in the GFA graph."""
+        if data is True:
+            return iter(self._paths.items())
+        else:
+            return iter(self._paths)
+
     def get_subgraph(self, sub_key):
         """Return a GFA subgraph from the parent graph.
 
@@ -716,7 +799,7 @@ class GFA:
         The returned GFA is *independent* from the original object.
 
         :param sub_key: The id of a subgraph present in the GFA graph.
-        :returns None: if the subgraph id doesn't exist.
+        :returns None: If the subgraph id doesn't exist.
         """
         if not sub_key in self._subgraphs:
             raise sg.InvalidSubgraphError("There is no subgraph pointed by this key.")
@@ -1016,8 +1099,38 @@ class GFA:
                         pass
 
                     elif subtree.data == "path_line":
-                        # Handle path line by adding it as a subgraph
-                        self.add_subgraph(line_)
+                        # Handle path line by adding it as a path
+                        path_data = {}
+                        for child in subtree.children:
+                            if child.data == "pathname":
+                                path_data["path_name"] = child.children[0].value
+                            elif child.data == "segment_list":
+                                # Extract oriented segments
+                                segments = []
+                                for seg_child in child.children:
+                                    if hasattr(seg_child, 'children'):
+                                        # Handle oriented_segment_sign or oriented_segment_char
+                                        if len(seg_child.children) == 2:
+                                            seg_name = seg_child.children[0].value
+                                            orn = seg_child.children[1].value
+                                            segments.append(f"{seg_name}{orn}")
+                                path_data["segments"] = segments
+                            elif child.data == "overlap_list":
+                                # Extract overlaps
+                                overlaps = []
+                                for ov_child in child.children:
+                                    if hasattr(ov_child, 'children') and ov_child.children:
+                                        overlaps.append(ov_child.children[0].value)
+                                path_data["overlaps"] = overlaps
+                            elif child.data == "optional_field":
+                                # Handle optional fields
+                                tag = child.children[0].children[0].value
+                                value_type = child.children[1].children[0].value
+                                value = child.children[2].children[0].value
+                                path_data[tag] = value
+
+                        if "path_name" in path_data and "segments" in path_data:
+                            self.add_path(path_data)
 
                     elif subtree.data == "walk_line":
                         # Handle walk line
@@ -1420,8 +1533,38 @@ class GFA:
                             pass
 
                         elif subtree.data == "path_line":
-                            # Handle path line
-                            pass
+                            # Handle path line by adding it as a path
+                            path_data = {}
+                            for child in subtree.children:
+                                if child.data == "pathname":
+                                    path_data["path_name"] = child.children[0].value
+                                elif child.data == "segment_list":
+                                    # Extract oriented segments
+                                    segments = []
+                                    for seg_child in child.children:
+                                        if hasattr(seg_child, 'children'):
+                                            # Handle oriented_segment_sign or oriented_segment_char
+                                            if len(seg_child.children) == 2:
+                                                seg_name = seg_child.children[0].value
+                                                orn = seg_child.children[1].value
+                                                segments.append(f"{seg_name}{orn}")
+                                    path_data["segments"] = segments
+                                elif child.data == "overlap_list":
+                                    # Extract overlaps
+                                    overlaps = []
+                                    for ov_child in child.children:
+                                        if hasattr(ov_child, 'children') and ov_child.children:
+                                            overlaps.append(ov_child.children[0].value)
+                                    path_data["overlaps"] = overlaps
+                                elif child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = child.children[0].children[0].value
+                                    value_type = child.children[1].children[0].value
+                                    value = child.children[2].children[0].value
+                                    path_data[tag] = value
+
+                            if "path_name" in path_data and "segments" in path_data:
+                                g.add_path(path_data)
 
                         elif subtree.data == "walk_line":
                             # Handle walk line
@@ -1492,6 +1635,15 @@ class GFA:
                 if not found:
                     return False
                 other_subgraphs.pop(index)
+
+            # Compare paths
+            self_paths = [path for path in self.paths().values()]
+            other_paths = [path for path in other.paths().values()]
+            for path_ in self_paths:
+                found, index = _index(path_, other_paths)
+                if not found:
+                    return False
+                other_paths.pop(index)
 
         except (AttributeError, KeyError) as e:
             return False
