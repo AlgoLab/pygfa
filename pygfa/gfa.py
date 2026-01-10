@@ -1309,13 +1309,12 @@ class GFA:
         # Read and parse the file line by line
         with open(filepath, "r") as f:
             for line in f:
-                line = line.strip()
                 if not line or line.startswith("#"):
                     continue
 
                 try:
                     # Parse the line
-                    tree = parser.parse(line + "\n")
+                    tree = parser.parse(line)
 
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
@@ -1441,7 +1440,7 @@ class GFA:
         """Pretty print the entire graph including all nodes, edges, subgraphs, and their attributes."""
         # Build the output string
         output = []
-        
+
         # Graph summary
         output.append("=" * 80)
         output.append("GFA Graph Summary")
@@ -1450,7 +1449,7 @@ class GFA:
         output.append(f"Total Edges: {len(list(self.edges()))}")
         output.append(f"Total Subgraphs: {len(self._subgraphs)}")
         output.append("")
-        
+
         # Nodes section
         output.append("Nodes:")
         output.append("-" * 40)
@@ -1464,7 +1463,7 @@ class GFA:
                 for key, value in attrs:
                     output.append(f"    {key}: {repr(value)}")
                 output.append("")
-        
+
         # Edges section
         output.append("Edges:")
         output.append("-" * 40)
@@ -1479,10 +1478,10 @@ class GFA:
                 # Sort attributes for consistent output
                 attrs = sorted(edge_data.items())
                 for attr_key, attr_value in attrs:
-                    if attr_key not in ['from_node', 'to_node', 'eid']:
+                    if attr_key not in ["from_node", "to_node", "eid"]:
                         output.append(f"    {attr_key}: {repr(attr_value)}")
                 output.append("")
-        
+
         # Subgraphs section
         output.append("Subgraphs:")
         output.append("-" * 40)
@@ -1494,20 +1493,22 @@ class GFA:
                 # Get subgraph as dictionary to access its elements
                 subgraph_dict = subgraph.as_dict()
                 # Print elements
-                if 'elements' in subgraph_dict:
-                    elements = subgraph_dict['elements']
+                if "elements" in subgraph_dict:
+                    elements = subgraph_dict["elements"]
                     output.append(f"    Elements: {len(elements)}")
                     for element_id, orientation in elements.items():
-                        output.append(f"      {element_id} (orientation: {orientation})")
+                        output.append(
+                            f"      {element_id} (orientation: {orientation})"
+                        )
                 # Print optional fields
-                if 'opt_fields' in subgraph_dict:
-                    opt_fields = subgraph_dict['opt_fields']
+                if "opt_fields" in subgraph_dict:
+                    opt_fields = subgraph_dict["opt_fields"]
                     if opt_fields:
                         output.append("    Optional Fields:")
                         for opt_key, opt_value in sorted(opt_fields.items()):
                             output.append(f"      {opt_key}: {repr(opt_value)}")
                 output.append("")
-        
+
         output.append("=" * 80)
         return "\n".join(output)
 
