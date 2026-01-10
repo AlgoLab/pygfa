@@ -1438,31 +1438,78 @@ class GFA:
         return g
 
     def pprint(self):
-        # AI! rewrite this function so that it can pretty print the entire graph
-        # and all its parts and optional attributes
-        """A basic pretty print function for nodes and edges."""
-        string = "\nGRAPH:\nNodes: [\n"
-        for node, datas in self.nodes_iter(data=True):
-            string += str(node) + "\t: {"
-            for name, data in datas.items():
-                string += str(name) + ": " + str(data) + "\t"
-            string += "}\n"
-        string += "]\n"
-
-        string += "\nEdges: [\n"
-        for from_node, to_node, key, datas in self.edges_iter(keys=True, data=True):
-            string += str(key) + "\t: {"
-            for name, data in datas.items():
-                string += str(name) + ": " + str(data) + "\t"
-            string += "}\n"
-        string += "]\n"
-
-        string += "\nSubgraphs: [\n"
-        for key, data in self._subgraphs.items():
-            string += str(key) + "\t: {" + str(data) + "}\n"
-
-        string += "]\n"
-        return string
+        """Pretty print the entire graph including all nodes, edges, subgraphs, and their attributes."""
+        # Build the output string
+        output = []
+        
+        # Graph summary
+        output.append("=" * 80)
+        output.append("GFA Graph Summary")
+        output.append("=" * 80)
+        output.append(f"Total Nodes: {len(list(self.nodes()))}")
+        output.append(f"Total Edges: {len(list(self.edges()))}")
+        output.append(f"Total Subgraphs: {len(self._subgraphs)}")
+        output.append("")
+        
+        # Nodes section
+        output.append("Nodes:")
+        output.append("-" * 40)
+        if len(list(self.nodes())) == 0:
+            output.append("  No nodes")
+        else:
+            for node_id, node_data in self.nodes_iter(data=True):
+                output.append(f"  Node: {node_id}")
+                # Sort attributes for consistent output
+                attrs = sorted(node_data.items())
+                for key, value in attrs:
+                    output.append(f"    {key}: {repr(value)}")
+                output.append("")
+        
+        # Edges section
+        output.append("Edges:")
+        output.append("-" * 40)
+        edges_list = list(self.edges_iter(keys=True, data=True))
+        if len(edges_list) == 0:
+            output.append("  No edges")
+        else:
+            for from_node, to_node, key, edge_data in edges_list:
+                output.append(f"  Edge Key: {key}")
+                output.append(f"    From: {from_node}")
+                output.append(f"    To: {to_node}")
+                # Sort attributes for consistent output
+                attrs = sorted(edge_data.items())
+                for attr_key, attr_value in attrs:
+                    if attr_key not in ['from_node', 'to_node', 'eid']:
+                        output.append(f"    {attr_key}: {repr(attr_value)}")
+                output.append("")
+        
+        # Subgraphs section
+        output.append("Subgraphs:")
+        output.append("-" * 40)
+        if len(self._subgraphs) == 0:
+            output.append("  No subgraphs")
+        else:
+            for subgraph_id, subgraph in self._subgraphs.items():
+                output.append(f"  Subgraph ID: {subgraph_id}")
+                # Get subgraph as dictionary to access its elements
+                subgraph_dict = subgraph.as_dict()
+                # Print elements
+                if 'elements' in subgraph_dict:
+                    elements = subgraph_dict['elements']
+                    output.append(f"    Elements: {len(elements)}")
+                    for element_id, orientation in elements.items():
+                        output.append(f"      {element_id} (orientation: {orientation})")
+                # Print optional fields
+                if 'opt_fields' in subgraph_dict:
+                    opt_fields = subgraph_dict['opt_fields']
+                    if opt_fields:
+                        output.append("    Optional Fields:")
+                        for opt_key, opt_value in sorted(opt_fields.items()):
+                            output.append(f"      {opt_key}: {repr(opt_value)}")
+                output.append("")
+        
+        output.append("=" * 80)
+        return "\n".join(output)
 
     def dump(self, out=None):
         try:
