@@ -4,9 +4,6 @@ GFA representation through a networkx MulitGraph.
 The dovetail operations are available thanks to
 the dovetail_operation.Iterator class, that considers only
 dovetail overlaps edges.
-
-:TODO:
-    * Rewrite pprint method.
 """
 
 import logging
@@ -754,24 +751,28 @@ class GFA:
                 path_obj = path.Path.from_string(path_data.strip())
                 # Convert to dictionary format
                 path_data = {
-                    'path_name': path_obj.fields['path_name'].value,
-                    'segments': path_obj.fields['seqs_names'].value,
-                    'overlaps': path_obj.fields['overlaps'].value if 'overlaps' in path_obj.fields else [],
+                    "path_name": path_obj.fields["path_name"].value,
+                    "segments": path_obj.fields["seqs_names"].value,
+                    "overlaps": (
+                        path_obj.fields["overlaps"].value
+                        if "overlaps" in path_obj.fields
+                        else []
+                    ),
                 }
                 # Add optional fields
                 for field_name, field in path_obj.fields.items():
-                    if field_name not in ['path_name', 'seqs_names', 'overlaps']:
+                    if field_name not in ["path_name", "seqs_names", "overlaps"]:
                         path_data[field_name] = field.value
 
-        if not isinstance(path_data, dict) or 'path_name' not in path_data:
+        if not isinstance(path_data, dict) or "path_name" not in path_data:
             raise GFAError("Invalid path data format.")
 
-        key = path_data['path_name']
+        key = path_data["path_name"]
         if key == "*":
             key = "virtual_{0}".format(self._get_virtual_id())
         if safe and key in self._paths:
             raise GFAError("A path with the same id already exists.")
-        
+
         # Store the path data
         self._paths[key] = copy.deepcopy(path_data)
 
@@ -1108,7 +1109,7 @@ class GFA:
                                 # Extract oriented segments
                                 segments = []
                                 for seg_child in child.children:
-                                    if hasattr(seg_child, 'children'):
+                                    if hasattr(seg_child, "children"):
                                         # Handle oriented_segment_sign or oriented_segment_char
                                         if len(seg_child.children) == 2:
                                             seg_name = seg_child.children[0].value
@@ -1119,7 +1120,10 @@ class GFA:
                                 # Extract overlaps
                                 overlaps = []
                                 for ov_child in child.children:
-                                    if hasattr(ov_child, 'children') and ov_child.children:
+                                    if (
+                                        hasattr(ov_child, "children")
+                                        and ov_child.children
+                                    ):
                                         overlaps.append(ov_child.children[0].value)
                                 path_data["overlaps"] = overlaps
                             elif child.data == "optional_field":
@@ -1402,6 +1406,7 @@ class GFA:
         with open(file, "wb") as f:
             f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
+    # AI! rename the from_file method to from_gfa
     def from_file(cls, filepath):  # pragma: no cover
         """Parse the given file and return a GFA object.
         Since GFA is a line-oriented format, we can parse each line separately.
@@ -1542,7 +1547,7 @@ class GFA:
                                     # Extract oriented segments
                                     segments = []
                                     for seg_child in child.children:
-                                        if hasattr(seg_child, 'children'):
+                                        if hasattr(seg_child, "children"):
                                             # Handle oriented_segment_sign or oriented_segment_char
                                             if len(seg_child.children) == 2:
                                                 seg_name = seg_child.children[0].value
@@ -1553,7 +1558,10 @@ class GFA:
                                     # Extract overlaps
                                     overlaps = []
                                     for ov_child in child.children:
-                                        if hasattr(ov_child, 'children') and ov_child.children:
+                                        if (
+                                            hasattr(ov_child, "children")
+                                            and ov_child.children
+                                        ):
                                             overlaps.append(ov_child.children[0].value)
                                     path_data["overlaps"] = overlaps
                                 elif child.data == "optional_field":
