@@ -1163,8 +1163,8 @@ class GFA:
                                         link_data["from_orn"],
                                         link_data["to_node"],
                                         link_data["to_orn"],
-                                        None,  # from_positions
-                                        None,  # to_positions
+                                        (None, None),  # from_positions
+                                        (None, None),  # to_positions
                                         link_data["alignment"],
                                         None,  # distance
                                         None,  # variance
@@ -1624,8 +1624,8 @@ class GFA:
                                             link_data["from_orn"],
                                             link_data["to_node"],
                                             link_data["to_orn"],
-                                            None,  # from_positions
-                                            None,  # to_positions
+                                            (None, None),  # from_positions
+                                            (None, None),  # to_positions
                                             link_data["alignment"],
                                             None,  # distance
                                             None,  # variance
