@@ -1138,6 +1138,8 @@ class GFA:
 
                     elif subtree.data == "walk_line":
                         # Handle walk line
+                        # AI! when reading a walk line, add the walk as an
+                        # attribute to the graph
                         pass
 
                     elif subtree.data == "jump_line":
@@ -1590,38 +1592,38 @@ class GFA:
     def pprint(self):
         """Pretty print the entire GFA graph, including all attributes."""
         print("=== GFA Graph ===")
-        
+
         # Print header information
         print(f"Nodes: {len(self.nodes())}")
         print(f"Edges: {len(self.edges())}")
         print(f"Subgraphs: {len(self.subgraphs())}")
         print(f"Paths: {len(self.paths())}")
         print()
-        
+
         # Print nodes
         if self.nodes():
             print("--- Nodes ---")
             for node_id, data in self.nodes_iter(data=True):
                 print(f"  Node: {node_id}")
                 for key, value in data.items():
-                    if key not in ['nid', 'sequence', 'slen']:
+                    if key not in ["nid", "sequence", "slen"]:
                         print(f"    {key}: {value}")
-                if 'sequence' in data:
+                if "sequence" in data:
                     print(f"    sequence: {data['sequence']}")
-                if 'slen' in data:
+                if "slen" in data:
                     print(f"    length: {data['slen']}")
             print()
-        
+
         # Print edges
         if self.edges():
             print("--- Edges ---")
             for u, v, key, data in self.edges_iter(data=True, keys=True):
                 print(f"  Edge: {key} ({u} -> {v})")
                 for attr, val in data.items():
-                    if attr not in ['from_node', 'to_node', 'eid']:
+                    if attr not in ["from_node", "to_node", "eid"]:
                         print(f"    {attr}: {val}")
             print()
-        
+
         # Print paths
         if self.paths():
             print("--- Paths ---")
@@ -1630,7 +1632,7 @@ class GFA:
                 for key, value in path_data.items():
                     print(f"    {key}: {value}")
             print()
-        
+
         # Print subgraphs
         if self.subgraphs():
             print("--- Subgraphs ---")
