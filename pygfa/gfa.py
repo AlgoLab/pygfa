@@ -1406,8 +1406,7 @@ class GFA:
         with open(file, "wb") as f:
             f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
-    # AI! rename the from_file method to from_gfa
-    def from_file(cls, filepath):  # pragma: no cover
+    def from_gfa(cls, filepath):  # pragma: no cover
         """Parse the given file and return a GFA object.
         Since GFA is a line-oriented format, we can parse each line separately.
         This allows to avoid keeping the entire parse tree in memory.
