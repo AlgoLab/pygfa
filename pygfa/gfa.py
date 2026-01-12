@@ -1089,172 +1089,173 @@ class GFA:
 
                 # Process the parsed tree based on line type
                 for subtree in tree.children:
-                    if subtree.data == "header_line":
-                        # Handle header line
-                        pass
-                    elif subtree.data == "segment_line":
-                        # Handle segment line
-                        segment_data = {}
-                        for child in subtree.children:
-                            if child.data == "segment_name":
-                                segment_data["segment_name"] = child.children[0].value
-                            elif child.data == "seq_string":
-                                segment_data["sequence"] = child.children[0].value
-                            elif child.data == "optional_field":
-                                # Handle optional fields
-                                tag = child.children[0].children[0].value
-                                value_type = child.children[1].children[0].value
-                                value = child.children[2].children[0].value
-                                segment_data[tag] = value
+                    for child in subtree.children:
+                        if child.data == "header_line":
+                            # Handle header line
+                            pass
+                        elif child.data == "segment_line":
+                            # Handle segment line
+                            segment_data = {}
+                            for seg_child in child.children:
+                                if seg_child.data == "segment_name":
+                                    segment_data["segment_name"] = seg_child.children[0].value
+                                elif seg_child.data == "seq_string":
+                                    segment_data["sequence"] = seg_child.children[0].value
+                                elif seg_child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = seg_child.children[0].children[0].value
+                                    value_type = seg_child.children[1].children[0].value
+                                    value = seg_child.children[2].children[0].value
+                                    segment_data[tag] = value
 
-                        if (
-                            "segment_name" in segment_data
-                            and "sequence" in segment_data
-                        ):
-                            self.add_node(
-                                node.Node(
-                                    segment_data["segment_name"],
-                                    segment_data["sequence"],
-                                    len(segment_data["sequence"]),
-                                    opt_fields={
-                                        k: v
-                                        for k, v in segment_data.items()
-                                        if k not in ["segment_name", "sequence"]
-                                    },
+                            if (
+                                "segment_name" in segment_data
+                                and "sequence" in segment_data
+                            ):
+                                self.add_node(
+                                    node.Node(
+                                        segment_data["segment_name"],
+                                        segment_data["sequence"],
+                                        len(segment_data["sequence"]),
+                                        opt_fields={
+                                            k: v
+                                            for k, v in segment_data.items()
+                                            if k not in ["segment_name", "sequence"]
+                                        },
+                                    )
                                 )
-                            )
 
-                    elif subtree.data == "link_line":
-                        # Handle link line
-                        link_data = {}
-                        for child in subtree.children:
-                            if child.data == "segment_from":
-                                link_data["from_node"] = child.children[0].value
-                            elif child.data == "orientation_from":
-                                link_data["from_orn"] = child.children[0].value
-                            elif child.data == "segment_to":
-                                link_data["to_node"] = child.children[0].value
-                            elif child.data == "orientation_to":
-                                link_data["to_orn"] = child.children[0].value
-                            elif child.data == "link_overlap":
-                                link_data["alignment"] = child.children[0].value
-                            elif child.data == "optional_field":
-                                # Handle optional fields
-                                tag = child.children[0].children[0].value
-                                value_type = child.children[1].children[0].value
-                                value = child.children[2].children[0].value
-                                link_data[tag] = value
+                        elif child.data == "link_line":
+                            # Handle link line
+                            link_data = {}
+                            for link_child in child.children:
+                                if link_child.data == "segment_from":
+                                    link_data["from_node"] = link_child.children[0].value
+                                elif link_child.data == "orientation_from":
+                                    link_data["from_orn"] = link_child.children[0].value
+                                elif link_child.data == "segment_to":
+                                    link_data["to_node"] = link_child.children[0].value
+                                elif link_child.data == "orientation_to":
+                                    link_data["to_orn"] = link_child.children[0].value
+                                elif link_child.data == "link_overlap":
+                                    link_data["alignment"] = link_child.children[0].value
+                                elif link_child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = link_child.children[0].children[0].value
+                                    value_type = link_child.children[1].children[0].value
+                                    value = link_child.children[2].children[0].value
+                                    link_data[tag] = value
 
-                        if all(
-                            k in link_data
-                            for k in [
-                                "from_node",
-                                "from_orn",
-                                "to_node",
-                                "to_orn",
-                                "alignment",
-                            ]
-                        ):
-                            self.add_edge(
-                                ge.Edge(
-                                    None,  # eid
-                                    link_data["from_node"],
-                                    link_data["from_orn"],
-                                    link_data["to_node"],
-                                    link_data["to_orn"],
-                                    None,  # from_positions
-                                    None,  # to_positions
-                                    link_data["alignment"],
-                                    None,  # distance
-                                    None,  # variance
-                                    opt_fields={
-                                        k: v
-                                        for k, v in link_data.items()
-                                        if k
-                                        not in [
-                                            "from_node",
-                                            "from_orn",
-                                            "to_node",
-                                            "to_orn",
-                                            "alignment",
-                                        ]
-                                    },
-                                    is_dovetail=True,
+                            if all(
+                                k in link_data
+                                for k in [
+                                    "from_node",
+                                    "from_orn",
+                                    "to_node",
+                                    "to_orn",
+                                    "alignment",
+                                ]
+                            ):
+                                self.add_edge(
+                                    ge.Edge(
+                                        None,  # eid
+                                        link_data["from_node"],
+                                        link_data["from_orn"],
+                                        link_data["to_node"],
+                                        link_data["to_orn"],
+                                        None,  # from_positions
+                                        None,  # to_positions
+                                        link_data["alignment"],
+                                        None,  # distance
+                                        None,  # variance
+                                        opt_fields={
+                                            k: v
+                                            for k, v in link_data.items()
+                                            if k
+                                            not in [
+                                                "from_node",
+                                                "from_orn",
+                                                "to_node",
+                                                "to_orn",
+                                                "alignment",
+                                            ]
+                                        },
+                                        is_dovetail=True,
+                                    )
                                 )
-                            )
 
-                    elif subtree.data == "containment_line":
-                        # Handle containment line
-                        pass
+                        elif child.data == "containment_line":
+                            # Handle containment line
+                            pass
 
-                    elif subtree.data == "path_line":
-                        # Handle path line by adding it as a path
-                        path_data = {}
-                        for child in subtree.children:
-                            if child.data == "pathname":
-                                path_data["path_name"] = child.children[0].value
-                            elif child.data == "segment_list":
-                                # Extract oriented segments
-                                segments = []
-                                for seg_child in child.children:
-                                    if hasattr(seg_child, "children"):
-                                        # Handle oriented_segment_sign or oriented_segment_char
-                                        if len(seg_child.children) == 2:
-                                            seg_name = seg_child.children[0].value
-                                            orn = seg_child.children[1].value
-                                            segments.append(f"{seg_name}{orn}")
-                                path_data["segments"] = segments
-                            elif child.data == "overlap_list":
-                                # Extract overlaps
-                                overlaps = []
-                                for ov_child in child.children:
-                                    if (
-                                        hasattr(ov_child, "children")
-                                        and ov_child.children
-                                    ):
-                                        overlaps.append(ov_child.children[0].value)
-                                path_data["overlaps"] = overlaps
-                            elif child.data == "optional_field":
-                                # Handle optional fields
-                                tag = child.children[0].children[0].value
-                                value_type = child.children[1].children[0].value
-                                value = child.children[2].children[0].value
-                                path_data[tag] = value
+                        elif child.data == "path_line":
+                            # Handle path line by adding it as a path
+                            path_data = {}
+                            for path_child in child.children:
+                                if path_child.data == "pathname":
+                                    path_data["path_name"] = path_child.children[0].value
+                                elif path_child.data == "segment_list":
+                                    # Extract oriented segments
+                                    segments = []
+                                    for seg_child in path_child.children:
+                                        if hasattr(seg_child, "children"):
+                                            # Handle oriented_segment_sign or oriented_segment_char
+                                            if len(seg_child.children) == 2:
+                                                seg_name = seg_child.children[0].value
+                                                orn = seg_child.children[1].value
+                                                segments.append(f"{seg_name}{orn}")
+                                    path_data["segments"] = segments
+                                elif path_child.data == "overlap_list":
+                                    # Extract overlaps
+                                    overlaps = []
+                                    for ov_child in path_child.children:
+                                        if (
+                                            hasattr(ov_child, "children")
+                                            and ov_child.children
+                                        ):
+                                            overlaps.append(ov_child.children[0].value)
+                                    path_data["overlaps"] = overlaps
+                                elif path_child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = path_child.children[0].children[0].value
+                                    value_type = path_child.children[1].children[0].value
+                                    value = path_child.children[2].children[0].value
+                                    path_data[tag] = value
 
-                        if "path_name" in path_data and "segments" in path_data:
-                            self.add_path(path_data)
+                            if "path_name" in path_data and "segments" in path_data:
+                                self.add_path(path_data)
 
-                    elif subtree.data == "walk_line":
-                        # Handle walk line
-                        walk_data = {}
-                        for child in subtree.children:
-                            if child.data == "sample_id":
-                                walk_data["sample_id"] = child.children[0].value
-                            elif child.data == "hapindex":
-                                walk_data["hapindex"] = int(child.children[0].value)
-                            elif child.data == "seq_id":
-                                walk_data["seq_id"] = child.children[0].value
-                            elif child.data == "seq_start":
-                                value = child.children[0].value
-                                walk_data["seq_start"] = None if value == '*' else int(value)
-                            elif child.data == "seq_end":
-                                value = child.children[0].value
-                                walk_data["seq_end"] = None if value == '*' else int(value)
-                            elif child.data == "walk":
-                                walk_data["walk"] = child.children[0].value
-                            elif child.data == "optional_field":
-                                # Handle optional fields
-                                tag = child.children[0].children[0].value
-                                value_type = child.children[1].children[0].value
-                                value = child.children[2].children[0].value
-                                walk_data[tag] = value
+                        elif child.data == "walk_line":
+                            # Handle walk line
+                            walk_data = {}
+                            for walk_child in child.children:
+                                if walk_child.data == "sample_id":
+                                    walk_data["sample_id"] = walk_child.children[0].value
+                                elif walk_child.data == "hapindex":
+                                    walk_data["hapindex"] = int(walk_child.children[0].value)
+                                elif walk_child.data == "seq_id":
+                                    walk_data["seq_id"] = walk_child.children[0].value
+                                elif walk_child.data == "seq_start":
+                                    value = walk_child.children[0].value
+                                    walk_data["seq_start"] = None if value == '*' else int(value)
+                                elif walk_child.data == "seq_end":
+                                    value = walk_child.children[0].value
+                                    walk_data["seq_end"] = None if value == '*' else int(value)
+                                elif walk_child.data == "walk":
+                                    walk_data["walk"] = walk_child.children[0].value
+                                elif walk_child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = walk_child.children[0].children[0].value
+                                    value_type = walk_child.children[1].children[0].value
+                                    value = walk_child.children[2].children[0].value
+                                    walk_data[tag] = value
 
-                        if "sample_id" in walk_data and "walk" in walk_data:
-                            self.add_walk(walk_data)
+                            if "sample_id" in walk_data and "walk" in walk_data:
+                                self.add_walk(walk_data)
 
-                    elif subtree.data == "jump_line":
-                        # Handle jump line
-                        pass
+                        elif child.data == "jump_line":
+                            # Handle jump line
+                            pass
 
             except lark.exceptions.LarkError as e:
                 # Skip lines that don't parse correctly
@@ -1549,174 +1550,173 @@ class GFA:
 
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
-                        if subtree.data == "header_line":
-                            # Handle header line
-                            pass
-                        elif subtree.data == "segment_line":
-                            # Handle segment line
-                            segment_data = {}
-                            for child in subtree.children:
-                                if child.data == "segment_name":
-                                    segment_data["segment_name"] = child.children[
-                                        0
-                                    ].value
-                                elif child.data == "seq_string":
-                                    segment_data["sequence"] = child.children[0].value
-                                elif child.data == "optional_field":
-                                    # Handle optional fields
-                                    tag = child.children[0].children[0].value
-                                    value_type = child.children[1].children[0].value
-                                    value = child.children[2].children[0].value
-                                    segment_data[tag] = value
+                        for child in subtree.children:
+                            if child.data == "header_line":
+                                # Handle header line
+                                pass
+                            elif child.data == "segment_line":
+                                # Handle segment line
+                                segment_data = {}
+                                for seg_child in child.children:
+                                    if seg_child.data == "segment_name":
+                                        segment_data["segment_name"] = seg_child.children[0].value
+                                    elif seg_child.data == "seq_string":
+                                        segment_data["sequence"] = seg_child.children[0].value
+                                    elif seg_child.data == "optional_field":
+                                        # Handle optional fields
+                                        tag = seg_child.children[0].children[0].value
+                                        value_type = seg_child.children[1].children[0].value
+                                        value = seg_child.children[2].children[0].value
+                                        segment_data[tag] = value
 
-                            if (
-                                "segment_name" in segment_data
-                                and "sequence" in segment_data
-                            ):
-                                g.add_node(
-                                    node.Node(
-                                        segment_data["segment_name"],
-                                        segment_data["sequence"],
-                                        len(segment_data["sequence"]),
-                                        opt_fields={
-                                            k: v
-                                            for k, v in segment_data.items()
-                                            if k not in ["segment_name", "sequence"]
-                                        },
+                                if (
+                                    "segment_name" in segment_data
+                                    and "sequence" in segment_data
+                                ):
+                                    g.add_node(
+                                        node.Node(
+                                            segment_data["segment_name"],
+                                            segment_data["sequence"],
+                                            len(segment_data["sequence"]),
+                                            opt_fields={
+                                                k: v
+                                                for k, v in segment_data.items()
+                                                if k not in ["segment_name", "sequence"]
+                                            },
+                                        )
                                     )
-                                )
 
-                        elif subtree.data == "link_line":
-                            # Handle link line
-                            link_data = {}
-                            for child in subtree.children:
-                                if child.data == "segment_from":
-                                    link_data["from_node"] = child.children[0].value
-                                elif child.data == "orientation_from":
-                                    link_data["from_orn"] = child.children[0].value
-                                elif child.data == "segment_to":
-                                    link_data["to_node"] = child.children[0].value
-                                elif child.data == "orientation_to":
-                                    link_data["to_orn"] = child.children[0].value
-                                elif child.data == "link_overlap":
-                                    link_data["alignment"] = child.children[0].value
-                                elif child.data == "optional_field":
-                                    # Handle optional fields
-                                    tag = child.children[0].children[0].value
-                                    value_type = child.children[1].children[0].value
-                                    value = child.children[2].children[0].value
-                                    link_data[tag] = value
+                            elif child.data == "link_line":
+                                # Handle link line
+                                link_data = {}
+                                for link_child in child.children:
+                                    if link_child.data == "segment_from":
+                                        link_data["from_node"] = link_child.children[0].value
+                                    elif link_child.data == "orientation_from":
+                                        link_data["from_orn"] = link_child.children[0].value
+                                    elif link_child.data == "segment_to":
+                                        link_data["to_node"] = link_child.children[0].value
+                                    elif link_child.data == "orientation_to":
+                                        link_data["to_orn"] = link_child.children[0].value
+                                    elif link_child.data == "link_overlap":
+                                        link_data["alignment"] = link_child.children[0].value
+                                    elif link_child.data == "optional_field":
+                                        # Handle optional fields
+                                        tag = link_child.children[0].children[0].value
+                                        value_type = link_child.children[1].children[0].value
+                                        value = link_child.children[2].children[0].value
+                                        link_data[tag] = value
 
-                            if all(
-                                k in link_data
-                                for k in [
-                                    "from_node",
-                                    "from_orn",
-                                    "to_node",
-                                    "to_orn",
-                                    "alignment",
-                                ]
-                            ):
-                                g.add_edge(
-                                    ge.Edge(
-                                        None,  # eid
-                                        link_data["from_node"],
-                                        link_data["from_orn"],
-                                        link_data["to_node"],
-                                        link_data["to_orn"],
-                                        None,  # from_positions
-                                        None,  # to_positions
-                                        link_data["alignment"],
-                                        None,  # distance
-                                        None,  # variance
-                                        opt_fields={
-                                            k: v
-                                            for k, v in link_data.items()
-                                            if k
-                                            not in [
-                                                "from_node",
-                                                "from_orn",
-                                                "to_node",
-                                                "to_orn",
-                                                "alignment",
-                                            ]
-                                        },
-                                        is_dovetail=True,
+                                if all(
+                                    k in link_data
+                                    for k in [
+                                        "from_node",
+                                        "from_orn",
+                                        "to_node",
+                                        "to_orn",
+                                        "alignment",
+                                    ]
+                                ):
+                                    g.add_edge(
+                                        ge.Edge(
+                                            None,  # eid
+                                            link_data["from_node"],
+                                            link_data["from_orn"],
+                                            link_data["to_node"],
+                                            link_data["to_orn"],
+                                            None,  # from_positions
+                                            None,  # to_positions
+                                            link_data["alignment"],
+                                            None,  # distance
+                                            None,  # variance
+                                            opt_fields={
+                                                k: v
+                                                for k, v in link_data.items()
+                                                if k
+                                                not in [
+                                                    "from_node",
+                                                    "from_orn",
+                                                    "to_node",
+                                                    "to_orn",
+                                                    "alignment",
+                                                ]
+                                            },
+                                            is_dovetail=True,
+                                        )
                                     )
-                                )
 
-                        elif subtree.data == "containment_line":
-                            # Handle containment line
-                            pass
+                            elif child.data == "containment_line":
+                                # Handle containment line
+                                pass
 
-                        elif subtree.data == "path_line":
-                            # Handle path line by adding it as a path
-                            path_data = {}
-                            for child in subtree.children:
-                                if child.data == "pathname":
-                                    path_data["path_name"] = child.children[0].value
-                                elif child.data == "segment_list":
-                                    # Extract oriented segments
-                                    segments = []
-                                    for seg_child in child.children:
-                                        if hasattr(seg_child, "children"):
-                                            # Handle oriented_segment_sign or oriented_segment_char
-                                            if len(seg_child.children) == 2:
-                                                seg_name = seg_child.children[0].value
-                                                orn = seg_child.children[1].value
-                                                segments.append(f"{seg_name}{orn}")
-                                    path_data["segments"] = segments
-                                elif child.data == "overlap_list":
-                                    # Extract overlaps
-                                    overlaps = []
-                                    for ov_child in child.children:
-                                        if (
-                                            hasattr(ov_child, "children")
-                                            and ov_child.children
-                                        ):
-                                            overlaps.append(ov_child.children[0].value)
-                                    path_data["overlaps"] = overlaps
-                                elif child.data == "optional_field":
-                                    # Handle optional fields
-                                    tag = child.children[0].children[0].value
-                                    value_type = child.children[1].children[0].value
-                                    value = child.children[2].children[0].value
-                                    path_data[tag] = value
+                            elif child.data == "path_line":
+                                # Handle path line by adding it as a path
+                                path_data = {}
+                                for path_child in child.children:
+                                    if path_child.data == "pathname":
+                                        path_data["path_name"] = path_child.children[0].value
+                                    elif path_child.data == "segment_list":
+                                        # Extract oriented segments
+                                        segments = []
+                                        for seg_child in path_child.children:
+                                            if hasattr(seg_child, "children"):
+                                                # Handle oriented_segment_sign or oriented_segment_char
+                                                if len(seg_child.children) == 2:
+                                                    seg_name = seg_child.children[0].value
+                                                    orn = seg_child.children[1].value
+                                                    segments.append(f"{seg_name}{orn}")
+                                        path_data["segments"] = segments
+                                    elif path_child.data == "overlap_list":
+                                        # Extract overlaps
+                                        overlaps = []
+                                        for ov_child in path_child.children:
+                                            if (
+                                                hasattr(ov_child, "children")
+                                                and ov_child.children
+                                            ):
+                                                overlaps.append(ov_child.children[0].value)
+                                        path_data["overlaps"] = overlaps
+                                    elif path_child.data == "optional_field":
+                                        # Handle optional fields
+                                        tag = path_child.children[0].children[0].value
+                                        value_type = path_child.children[1].children[0].value
+                                        value = path_child.children[2].children[0].value
+                                        path_data[tag] = value
 
-                            if "path_name" in path_data and "segments" in path_data:
-                                g.add_path(path_data)
+                                if "path_name" in path_data and "segments" in path_data:
+                                    g.add_path(path_data)
 
-                        elif subtree.data == "walk_line":
-                            # Handle walk line
-                            walk_data = {}
-                            for child in subtree.children:
-                                if child.data == "sample_id":
-                                    walk_data["sample_id"] = child.children[0].value
-                                elif child.data == "hapindex":
-                                    walk_data["hapindex"] = int(child.children[0].value)
-                                elif child.data == "seq_id":
-                                    walk_data["seq_id"] = child.children[0].value
-                                elif child.data == "seq_start":
-                                    value = child.children[0].value
-                                    walk_data["seq_start"] = None if value == '*' else int(value)
-                                elif child.data == "seq_end":
-                                    value = child.children[0].value
-                                    walk_data["seq_end"] = None if value == '*' else int(value)
-                                elif child.data == "walk":
-                                    walk_data["walk"] = child.children[0].value
-                                elif child.data == "optional_field":
-                                    # Handle optional fields
-                                    tag = child.children[0].children[0].value
-                                    value_type = child.children[1].children[0].value
-                                    value = child.children[2].children[0].value
-                                    walk_data[tag] = value
+                            elif child.data == "walk_line":
+                                # Handle walk line
+                                walk_data = {}
+                                for walk_child in child.children:
+                                    if walk_child.data == "sample_id":
+                                        walk_data["sample_id"] = walk_child.children[0].value
+                                    elif walk_child.data == "hapindex":
+                                        walk_data["hapindex"] = int(walk_child.children[0].value)
+                                    elif walk_child.data == "seq_id":
+                                        walk_data["seq_id"] = walk_child.children[0].value
+                                    elif walk_child.data == "seq_start":
+                                        value = walk_child.children[0].value
+                                        walk_data["seq_start"] = None if value == '*' else int(value)
+                                    elif walk_child.data == "seq_end":
+                                        value = walk_child.children[0].value
+                                        walk_data["seq_end"] = None if value == '*' else int(value)
+                                    elif walk_child.data == "walk":
+                                        walk_data["walk"] = walk_child.children[0].value
+                                    elif walk_child.data == "optional_field":
+                                        # Handle optional fields
+                                        tag = walk_child.children[0].children[0].value
+                                        value_type = walk_child.children[1].children[0].value
+                                        value = walk_child.children[2].children[0].value
+                                        walk_data[tag] = value
 
-                            if "sample_id" in walk_data and "walk" in walk_data:
-                                g.add_walk(walk_data)
+                                if "sample_id" in walk_data and "walk" in walk_data:
+                                    g.add_walk(walk_data)
 
-                        elif subtree.data == "jump_line":
-                            # Handle jump line
-                            pass
+                            elif child.data == "jump_line":
+                                # Handle jump line
+                                pass
 
                 except lark.exceptions.LarkError as e:
                     # Skip lines that don't parse correctly

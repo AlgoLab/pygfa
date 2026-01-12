@@ -1,0 +1,2 @@
+start : line+
+line : _WS* (header_line | segment_line | link_line | containment_line | path_line | walk_line | jump_line ) _WS* -> line_type
