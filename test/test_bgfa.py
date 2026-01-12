@@ -5,6 +5,7 @@ import sys
 import tempfile
 import shutil
 import pytest
+import glob
 
 # Add the project root to the Python path to ensure imports work correctly
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -14,12 +15,9 @@ if project_root not in sys.path:
 from pygfa.gfa import GFA
 
 
-# Define the list of GFA files to test
-# This can be modified or passed as command-line arguments
-TEST_FILES = [
-    "test/sample1.gfa",
-    "test/sample2.gfa",
-]
+# Dynamically find all .gfa files in the test directory
+# This will match files like test/sample1.gfa, test/sample2.gfa, etc.
+TEST_FILES = glob.glob("test/*.gfa")
 
 
 @pytest.fixture(scope="module")
@@ -37,21 +35,7 @@ def gfa_file_path(request):
     """Provide the path to a GFA file for testing."""
     file_path = request.param
     
-    # Ensure the test directory exists
-    if not os.path.exists("test"):
-        os.makedirs("test")
-
-    # Create a dummy file if it doesn't exist
-    if not os.path.exists(file_path):
-        with open(file_path, "w") as f:
-            f.write("H\tVN:Z:1.0\n")
-            f.write("S\t1\tACGT\n")
-            f.write("S\t2\tTGCA\n")
-            f.write("L\t1\t+\t2\t-\t0M\n")
-            f.write("P\tpath1\t1+,2-\t0M\n")
-            f.write("W\tsample1\t0\tseq1\t*\t*\t1+\n")
-    
-    # Check if file exists
+    # Check if file exists (it should, since glob found it)
     if not os.path.exists(file_path):
         pytest.skip(f"Test file not found: {file_path}")
     
