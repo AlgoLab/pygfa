@@ -241,6 +241,7 @@ class GFA:
         self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
         self._segment_map = {}
         self._paths = {}  # New attribute to store paths
+        self._walks = {}  # New attribute to store walks
 
     def __contains__(self, id_):
         try:
@@ -258,6 +259,8 @@ class GFA:
                 return True
             if id_ in self._paths:
                 return True
+            if id_ in self._walks:
+                return True
             return False
         except TypeError:
             return False
@@ -272,6 +275,7 @@ class GFA:
         self._next_virtual_id = 0
         self._subgraphs = {}
         self._paths = {}
+        self._walks = {}
 
     def _get_virtual_id(self, increment=True):
         """Return the next virtual id value available.
@@ -302,6 +306,11 @@ class GFA:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._paths.keys():
+            match = regexp.fullmatch(key)
+            if match:
+                virtual_keys.append(int(match.group(1)))
+
+        for key in self._walks.keys():
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -367,6 +376,19 @@ class GFA:
             if identifier in self._paths:
                 return self._paths[identifier]
 
+    def walks(self, identifier=None):
+        """An interface to access to the walks inside
+        the GFA object.
+
+        If `identifier` is `None` all the walk objects are
+        returned.
+        """
+        if identifier is None:
+            return self._walks
+        else:
+            if identifier in self._walks:
+                return self._walks[identifier]
+
     def _search_edge_by_key(self, edge_key):
         from_node, to_node = self._get_edge_end_nodes(edge_key)
         if (from_node, to_node) != (None, None):
@@ -415,6 +437,8 @@ class GFA:
             return self._subgraphs[key]
         if key in self._paths:
             return self._paths[key]
+        if key in self._walks:
+            return self._walks[key]
         edge_ = self._search_edge_by_key(key)
         if not edge_ is None:
             return edge_
@@ -435,6 +459,10 @@ class GFA:
 
         # Path objects don't need to be converted
         if isinstance(element, dict) and "path_name" in element:
+            return copy.deepcopy(element)
+
+        # Walk objects don't need to be converted
+        if isinstance(element, dict) and "sample_id" in element:
             return copy.deepcopy(element)
 
         tmp_list = copy.deepcopy(element)
@@ -489,6 +517,8 @@ class GFA:
             self.add_subgraph(element)
         elif isinstance(element, dict) and "path_name" in element:
             self.add_path(element)
+        elif isinstance(element, dict) and "sample_id" in element:
+            self.add_walk(element)
 
     def add_node(self, new_node, safe=False):
         """Add a graph_element Node to the GFA graph
@@ -789,6 +819,64 @@ class GFA:
             return iter(self._paths.items())
         else:
             return iter(self._paths)
+
+    def add_walk(self, walk_data, safe=False):
+        """Add a walk to the graph.
+
+        The walk_data should be a dictionary with:
+        - 'sample_id': the sample identifier
+        - 'hapindex': the haplotype index
+        - 'seq_id': the sequence identifier
+        - 'seq_start': optional start position
+        - 'seq_end': optional end position
+        - 'walk': the walk string
+        - any optional fields
+
+        :param walk_data: Dictionary containing walk information
+        :param safe: If set, check if the walk id already exists
+        """
+        if isinstance(walk_data, str):
+            if walk_data[0] == "W":
+                # Parse the walk line
+                fields = walk_data.strip().split('\t')
+                walk_data = {
+                    "sample_id": fields[1],
+                    "hapindex": int(fields[2]),
+                    "seq_id": fields[3],
+                    "seq_start": fields[4] if fields[4] != '*' else None,
+                    "seq_end": fields[5] if fields[5] != '*' else None,
+                    "walk": fields[6],
+                }
+                # Add optional fields
+                for field in fields[7:]:
+                    if ':' in field:
+                        tag, type_, value = field.split(':', 2)
+                        walk_data[tag] = value
+
+        if not isinstance(walk_data, dict) or "sample_id" not in walk_data:
+            raise GFAError("Invalid walk data format.")
+
+        # Create a unique key for the walk
+        key = f"{walk_data['sample_id']}_{walk_data['hapindex']}_{walk_data['seq_id']}"
+        if safe and key in self._walks:
+            raise GFAError("A walk with the same id already exists.")
+
+        # Store the walk data
+        self._walks[key] = copy.deepcopy(walk_data)
+
+    def remove_walk(self, walk_id):
+        """Remove the walk identified by the given id."""
+        try:
+            del self._walks[walk_id]
+        except:
+            raise GFAError("The given id doesn't identify any walk.")
+
+    def walks_iter(self, data=False):
+        """Return an iterator over walks in the GFA graph."""
+        if data is True:
+            return iter(self._walks.items())
+        else:
+            return iter(self._walks)
 
     def get_subgraph(self, sub_key):
         """Return a GFA subgraph from the parent graph.
@@ -1138,9 +1226,31 @@ class GFA:
 
                     elif subtree.data == "walk_line":
                         # Handle walk line
-                        # AI! when reading a walk line, add the walk as an
-                        # attribute to the graph
-                        pass
+                        walk_data = {}
+                        for child in subtree.children:
+                            if child.data == "sample_id":
+                                walk_data["sample_id"] = child.children[0].value
+                            elif child.data == "hapindex":
+                                walk_data["hapindex"] = int(child.children[0].value)
+                            elif child.data == "seq_id":
+                                walk_data["seq_id"] = child.children[0].value
+                            elif child.data == "seq_start":
+                                value = child.children[0].value
+                                walk_data["seq_start"] = None if value == '*' else int(value)
+                            elif child.data == "seq_end":
+                                value = child.children[0].value
+                                walk_data["seq_end"] = None if value == '*' else int(value)
+                            elif child.data == "walk":
+                                walk_data["walk"] = child.children[0].value
+                            elif child.data == "optional_field":
+                                # Handle optional fields
+                                tag = child.children[0].children[0].value
+                                value_type = child.children[1].children[0].value
+                                value = child.children[2].children[0].value
+                                walk_data[tag] = value
+
+                        if "sample_id" in walk_data and "walk" in walk_data:
+                            self.add_walk(walk_data)
 
                     elif subtree.data == "jump_line":
                         # Handle jump line
@@ -1577,7 +1687,31 @@ class GFA:
 
                         elif subtree.data == "walk_line":
                             # Handle walk line
-                            pass
+                            walk_data = {}
+                            for child in subtree.children:
+                                if child.data == "sample_id":
+                                    walk_data["sample_id"] = child.children[0].value
+                                elif child.data == "hapindex":
+                                    walk_data["hapindex"] = int(child.children[0].value)
+                                elif child.data == "seq_id":
+                                    walk_data["seq_id"] = child.children[0].value
+                                elif child.data == "seq_start":
+                                    value = child.children[0].value
+                                    walk_data["seq_start"] = None if value == '*' else int(value)
+                                elif child.data == "seq_end":
+                                    value = child.children[0].value
+                                    walk_data["seq_end"] = None if value == '*' else int(value)
+                                elif child.data == "walk":
+                                    walk_data["walk"] = child.children[0].value
+                                elif child.data == "optional_field":
+                                    # Handle optional fields
+                                    tag = child.children[0].children[0].value
+                                    value_type = child.children[1].children[0].value
+                                    value = child.children[2].children[0].value
+                                    walk_data[tag] = value
+
+                            if "sample_id" in walk_data and "walk" in walk_data:
+                                g.add_walk(walk_data)
 
                         elif subtree.data == "jump_line":
                             # Handle jump line
@@ -1592,38 +1726,39 @@ class GFA:
     def pprint(self):
         """Pretty print the entire GFA graph, including all attributes."""
         print("=== GFA Graph ===")
-
+        
         # Print header information
         print(f"Nodes: {len(self.nodes())}")
         print(f"Edges: {len(self.edges())}")
         print(f"Subgraphs: {len(self.subgraphs())}")
         print(f"Paths: {len(self.paths())}")
+        print(f"Walks: {len(self.walks())}")
         print()
-
+        
         # Print nodes
         if self.nodes():
             print("--- Nodes ---")
             for node_id, data in self.nodes_iter(data=True):
                 print(f"  Node: {node_id}")
                 for key, value in data.items():
-                    if key not in ["nid", "sequence", "slen"]:
+                    if key not in ['nid', 'sequence', 'slen']:
                         print(f"    {key}: {value}")
-                if "sequence" in data:
+                if 'sequence' in data:
                     print(f"    sequence: {data['sequence']}")
-                if "slen" in data:
+                if 'slen' in data:
                     print(f"    length: {data['slen']}")
             print()
-
+        
         # Print edges
         if self.edges():
             print("--- Edges ---")
             for u, v, key, data in self.edges_iter(data=True, keys=True):
                 print(f"  Edge: {key} ({u} -> {v})")
                 for attr, val in data.items():
-                    if attr not in ["from_node", "to_node", "eid"]:
+                    if attr not in ['from_node', 'to_node', 'eid']:
                         print(f"    {attr}: {val}")
             print()
-
+        
         # Print paths
         if self.paths():
             print("--- Paths ---")
@@ -1632,7 +1767,16 @@ class GFA:
                 for key, value in path_data.items():
                     print(f"    {key}: {value}")
             print()
-
+        
+        # Print walks
+        if self.walks():
+            print("--- Walks ---")
+            for walk_id, walk_data in self.walks_iter(data=True):
+                print(f"  Walk: {walk_id}")
+                for key, value in walk_data.items():
+                    print(f"    {key}: {value}")
+            print()
+        
         # Print subgraphs
         if self.subgraphs():
             print("--- Subgraphs ---")
@@ -1707,6 +1851,15 @@ class GFA:
                 if not found:
                     return False
                 other_paths.pop(index)
+
+            # Compare walks
+            self_walks = [walk for walk in self.walks().values()]
+            other_walks = [walk for walk in other.walks().values()]
+            for walk_ in self_walks:
+                found, index = _index(walk_, other_walks)
+                if not found:
+                    return False
+                other_walks.pop(index)
 
         except (AttributeError, KeyError) as e:
             return False
