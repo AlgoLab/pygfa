@@ -81,8 +81,17 @@ Examples:
             print(f"Successfully parsed GFA file")
             print()
 
-        # AI! use the to_gfa method to write canonical version
-        line_count = write_canonical_gfa(gfa, args.output_file, args.verbose)
+        # Use the to_gfa method to write canonical version
+        canonical_gfa_string = gfa.to_gfa()
+
+        # Write the output
+        if args.output_file:
+            with open(args.output_file, 'w') as f:
+                f.write(canonical_gfa_string)
+            line_count = canonical_gfa_string.count('\n') + 1
+        else:
+            print(canonical_gfa_string)
+            line_count = canonical_gfa_string.count('\n') + 1
 
         if not args.verbose:
             if args.output_file:
