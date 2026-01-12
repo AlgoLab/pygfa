@@ -1,9 +1,5 @@
 """
 GFA representation through a networkx MulitGraph.
-
-The dovetail operations are available thanks to
-the dovetail_operation.Iterator class, that considers only
-dovetail overlaps edges.
 """
 
 import logging
@@ -919,87 +915,6 @@ class GFA:
         if copy:
             return subgraph_.copy()
         return subgraph_
-
-    def dovetails_subgraph(self, nbunch=None, copy=True):
-        """Given a collection of nodes return a subgraph with the nodes
-        given and all the edges between each pair of nodes.
-        Only dovetails overlaps are considered.
-        """
-        bunch = list(self.nbunch_iter(nbunch))
-        # create new graph and copy subgraph into it
-        H = self._graph.__class__()
-        # add node and attribute dictionaries
-        H.add_nodes_from((n, self._graph.nodes[n]) for n in bunch)
-
-        # add edge and attribute dictionaries
-
-        """for n, nbrs in self._graph.adj.items():
-            if n in bunch:
-                for nbr, keydict in nbrs.items():
-                    if nbr in bunch:
-                        for key, d in keydict.items():
-                            if d['is_dovetail'] is True:
-                                H.add_edges_from([(n, nbr, key, d)])
-        """
-        H.add_edges_from(
-            (n, nbr, key, d)
-            for n, nbrs in self._graph.adj.items()
-            if n in bunch
-            for nbr, keydict in nbrs.items()
-            if nbr in bunch
-            for key, d in keydict.items()
-            if d["is_dovetail"] is True
-        )
-
-        H.graph = self._graph.graph
-        if copy is True:
-            return H.copy()
-        return H
-
-    """def dovetails_subgraph(self, nbunch=None, copy=True):
-        Given a collection of nodes return a subgraph with the nodes
-        given and all the edges between each pair of nodes.
-        Only dovetails overlaps are considered.
-
-        bunch = list(self.nbunch_iter(nbunch))
-        # create new graph and copy subgraph into it
-        H = self._graph.__class__()
-        # add node and attribute dictionaries
-        H.add_nodes_from((n, self._graph.nodes[n]) for n in bunch)
-
-        #BRUTTO
-        H_adj = dict(H.adj)
-        for tmp in H_adj:
-            H_adj[tmp] = dict(H_adj[tmp])
-
-        # filter edges based on is_dovetail property
-        self_adj = self._graph.adjlist_inner_dict_factory()
-        for from_node in self._graph.adj:
-            self_adj[from_node] = self._graph.adjlist_inner_dict_factory()
-            for to_node in self._graph.adj[from_node]:
-                self_adj[from_node][to_node] = self._graph.adjlist_inner_dict_factory()
-                for edge_ in self._graph.adj[from_node][to_node]:
-                    if self._graph.adj[from_node][to_node][edge_]['is_dovetail'] is True:
-                        self_adj[from_node][to_node][edge_] = \
-                          self._graph.adj[from_node][to_node][edge_]
-
-        # add nodes and edges (undirected method)
-        for n in H:
-            Hnbrs = H.adjlist_inner_dict_factory()
-            H_adj[n] = Hnbrs
-            for nbr, edgedict in self_adj[n].items():
-                if nbr in H_adj:
-                    # add both representations of edge: n-nbr and nbr-n
-                    # they share the same edgedict
-                    ed = edgedict.copy()
-                    Hnbrs[nbr] = ed
-                    H_adj[nbr][n] = ed
-
-        H.graph = self._graph.graph
-        if copy is True:
-            return H.copy()
-        return H
-    """
 
     def neighbors(self, nid):
         """Return all the nodes id of the nodes connected to
