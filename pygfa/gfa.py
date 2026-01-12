@@ -1587,6 +1587,9 @@ class GFA:
 
         return g
 
+    # AI! write a pprint method that pretty prints the entire GFA graph,
+    # including all attributes
+
     def __eq__(self, other):
         """
         :TODO:
