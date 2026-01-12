@@ -80,7 +80,7 @@ def compress_integer_list_varint(list, size=0):
     :param list: list of integers
     :returns the encoded list.
     """
-    bytes = b""
+    encoded_bytes = b""
     for integer in list:
         length = integer
         # Encode length as varint (7-bit chunks)
@@ -89,8 +89,8 @@ def compress_integer_list_varint(list, size=0):
             length >>= 7
             if length > 0:
                 byte |= 0x80
-            bytes += bytes([byte])
-    return len(bytes), bytes
+            encoded_bytes += bytes([byte])
+    return len(encoded_bytes), encoded_bytes
 
 
 def compress_integer_list_fixed(list, size=32):
