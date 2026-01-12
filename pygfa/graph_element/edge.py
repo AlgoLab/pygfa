@@ -53,6 +53,10 @@ class Edge:
         self.opt_fields = opt_fields
         self.is_dovetail = is_dovetail
         
+        # Add segment end attributes (used for dovetail operations)
+        self.from_segment_end = None
+        self.to_segment_end = None
+        
         # Validate required fields
         if from_node is None:
             raise InvalidEdgeError("from_node cannot be None")
