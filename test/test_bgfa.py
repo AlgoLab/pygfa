@@ -14,7 +14,6 @@ from pygfa.gfa import GFA
 from pygfa.serializer.gfa1_serializer import serialize_graph
 
 
-# AI! I want to run those tests to all files in the test directory
 class TestBGFA(unittest.TestCase):
     def setUp(self):
         """Set up a temporary directory for test files."""
@@ -23,7 +22,6 @@ class TestBGFA(unittest.TestCase):
     def tearDown(self):
         """Clean up temporary files."""
         import shutil
-
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
 
@@ -74,38 +72,34 @@ W\tsample1\t0\tseq1\t*\t*\t1+
         self.assertEqual(canonical_gfa_string, gfa_from_bgfa_string)
 
         # Additional check: ensure the canonical output is sorted correctly
-        lines = canonical_gfa_string.split("\n")
+        lines = canonical_gfa_string.split('\n')
         # Check header
-        self.assertTrue(lines[0].startswith("H\t"))
+        self.assertTrue(lines[0].startswith('H\t'))
         # Check segments are sorted
-        segment_lines = [l for l in lines if l.startswith("S\t")]
+        segment_lines = [l for l in lines if l.startswith('S\t')]
         if len(segment_lines) > 1:
-            self.assertLessEqual(
-                segment_lines[0].split("\t")[1], segment_lines[1].split("\t")[1]
-            )
+            self.assertLessEqual(segment_lines[0].split('\t')[1], segment_lines[1].split('\t')[1])
         # Check links are sorted
-        link_lines = [l for l in lines if l.startswith("L\t")]
+        link_lines = [l for l in lines if l.startswith('L\t')]
         if len(link_lines) > 1:
             # Sort by from_node then to_node
             self.assertTrue(
-                (link_lines[0].split("\t")[2], link_lines[0].split("\t")[4])
-                <= (link_lines[1].split("\t")[2], link_lines[1].split("\t")[4])
+                (link_lines[0].split('\t')[2], link_lines[0].split('\t')[4]) <=
+                (link_lines[1].split('\t')[2], link_lines[1].split('\t')[4])
             )
         # Check paths are sorted
-        path_lines = [l for l in lines if l.startswith("P\t")]
+        path_lines = [l for l in lines if l.startswith('P\t')]
         if len(path_lines) > 1:
-            self.assertLessEqual(
-                path_lines[0].split("\t")[1], path_lines[1].split("\t")[1]
-            )
+            self.assertLessEqual(path_lines[0].split('\t')[1], path_lines[1].split('\t')[1])
         # Check walks are sorted
-        walk_lines = [l for l in lines if l.startswith("W\t")]
+        walk_lines = [l for l in lines if l.startswith('W\t')]
         if len(walk_lines) > 1:
             # Sort by sample_id then seq_id
             self.assertTrue(
-                (walk_lines[0].split("\t")[1], walk_lines[0].split("\t")[3])
-                <= (walk_lines[1].split("\t")[1], walk_lines[1].split("\t")[3])
+                (walk_lines[0].split('\t')[1], walk_lines[0].split('\t')[3]) <=
+                (walk_lines[1].split('\t')[1], walk_lines[1].split('\t')[3])
             )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
