@@ -128,7 +128,7 @@ def compress_string_zstd(string):
     :param string: The string to compress.
     :returns: The compressed string as bytes.
     """
-    return z.compress(string.encode("ascii"))
+    return z.compress(string.encode("ascii"), level=19)
 
 
 def compress_string_gzip(string):
@@ -187,7 +187,7 @@ def compress_string_list(
     # Compress the concatenated strings
     if compression_method == "zstd":
         compressed_data = z.compress(
-            concatenated_strings, level_or_option=compression_level
+            concatenated_strings, level=compression_level
         )
     elif compression_method == "gzip":
         import gzip
@@ -1317,7 +1317,7 @@ class GFA:
     def names_block(self, names, compression_level=19):
         compressed_names = z.compress(
             b"".join([name.encode(encoding="ascii") for name in names]),
-            level_or_option=compression_level,
+            level=compression_level,
         )
         # header
 
