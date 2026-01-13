@@ -86,7 +86,7 @@ def compress_integer_list_varint(list, size=0):
             if length > 0:
                 byte |= 0x80
             encoded_bytes += bytes([byte])
-    return len(encoded_bytes), encoded_bytes
+    return encoded_bytes
 
 
 def compress_integer_list_fixed(list, size=32):
@@ -102,7 +102,7 @@ def compress_integer_list_fixed(list, size=32):
     bytes = b""
     for integer in list:
         bytes += integer.to_bytes(size_bytes, byteorder="little", signed=False)
-    return size_bytes * len(bytes), bytes
+    return bytes
 
 
 def compress_integer_list_none(list, size=32):
@@ -114,7 +114,7 @@ def compress_integer_list_none(list, size=32):
     :param size: number of bits for each integer
     :returns the encoded list.
     """
-    return len(list), b",".join(str(integer).encode("ascii") for integer in list)
+    return b",".join(str(integer).encode("ascii") for integer in list)
 
 
 # Compression methods on strings
