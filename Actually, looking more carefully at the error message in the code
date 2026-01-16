@@ -1,2 +1,0 @@
-raise InvalidEdgeError("Invalid from_node tuple: given: {0}".format(\
-    str(from_positions)))
