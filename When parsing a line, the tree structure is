@@ -1,6 +1,0 @@
-start
-  line (with data="line_type")
-    segment_line (or other line type)
-      segment_name
-      seq_string
-      optional_field...
