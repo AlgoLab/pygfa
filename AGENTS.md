@@ -192,7 +192,9 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 
 ### Git Workflow
 
-- Commit frequently with clear messages
+- Commit all changes after each interaction with clear, descriptive messages
 - No force pushes to main
 - Create feature branches for new work
 - Run tests before committing
+
+After completing any task or interaction, **all changes must be committed** before starting a new task or ending the session.
