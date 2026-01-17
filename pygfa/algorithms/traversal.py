@@ -16,13 +16,13 @@ def dfs_edges(gfa_, selector, source=None, keys=False, **args):
         visited.add(start)
         stack = [(start, iter(selector(start, keys=keys, **args)))]
         while stack:
-            parent, children = stack[-1]
+            _parent, children = stack[-1]
             try:
                 child = next(children)
                 node_to = child[1]
                 if node_to not in visited:
                     yield child
-                    visited.add(node_to) # add the to node to the visited set
+                    visited.add(node_to)  # add the to node to the visited set
                     stack.append((node_to, iter(selector(node_to, keys=keys, **args))))
             except StopIteration:
                 stack.pop()

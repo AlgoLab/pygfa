@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import gzip
+import lzma
+from typing import Callable, Optional
+
 try:
     import compression.zstd as z
 
@@ -7,13 +13,7 @@ except ImportError:
     z = None
 
 
-def compress_string_zstd(string):
-    """Compress a string using zstd compression.
-
-    :param string: The string to compress.
-    :returns: The compressed string as bytes.
-    :raises ImportError: If the zstd package is not installed.
-    """
+def compress_string_zstd(string: str) -> bytes:
     if not _ZSTD_AVAILABLE:
         raise ImportError(
             "The 'compression' package is required for zstd compression. "
@@ -22,59 +22,29 @@ def compress_string_zstd(string):
     return z.compress(string.encode("ascii"), level=19)
 
 
-def compress_string_gzip(string):
-    """Compress a string using gzip compression.
-
-    :param string: The string to compress.
-    :returns: The compressed string as bytes.
-    """
-    import gzip
-
+def compress_string_gzip(string: str) -> bytes:
     return gzip.compress(string.encode("ascii"))
 
 
-def compress_string_lzma(string):
-    """Compress a string using lzma compression.
-
-    :param string: The string to compress.
-    :returns: The compressed string as bytes.
-    """
-    import lzma
-
+def compress_string_lzma(string: str) -> bytes:
     return lzma.compress(string.encode("ascii"))
 
 
-def compress_string_none(string):
-    """Return the input string without compression.
-
-    :param string: The string to return.
-    :returns: The input string as bytes.
-    """
+def compress_string_none(string: str) -> bytes:
     return string.encode("ascii")
 
 
 def compress_string_list(
-    string_list,
-    compress_integer_list=None,
-    compression_method="zstd",
-    compression_level=19,
-):
-    """Compress a list of strings by encoding their lengths and compressing the concatenated strings.
-
-    :param string_list: List of strings to compress.
-    :param length_encoding: Method to encode string lengths ('varint', 'fixed32', 'fixed64').
-    :param compression_method: The compression method to use ('zstd', 'gzip', 'lzma', 'none').
-    :param compression_level: The compression level (1-19 for zstd, 1-9 for gzip/lzma).
-    :returns: Compressed data containing encoded lengths followed by compressed strings.
-    """
-
+    string_list: list[str],
+    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compression_method: str = "zstd",
+    compression_level: int = 19,
+) -> bytes:
     strings = [string.encode("ascii") for string in string_list]
     length_bytes = compress_integer_list([len(s) for s in strings])
 
-    # Concatenate all strings
     concatenated_strings = b"".join(strings)
 
-    # Compress the concatenated strings
     if compression_method == "zstd":
         if not _ZSTD_AVAILABLE:
             raise ImportError(
@@ -83,19 +53,12 @@ def compress_string_list(
             )
         compressed_data = z.compress(concatenated_strings, level=compression_level)
     elif compression_method == "gzip":
-        import gzip
-
-        compressed_data = gzip.compress(
-            concatenated_strings, compresslevel=compression_level
-        )
+        compressed_data = gzip.compress(concatenated_strings, compresslevel=compression_level)
     elif compression_method == "lzma":
-        import lzma
-
         compressed_data = lzma.compress(concatenated_strings, preset=compression_level)
     elif compression_method == "none":
         compressed_data = concatenated_strings
     else:
         raise ValueError(f"Unsupported compression method: {compression_method}")
 
-    # Return concatenated length bytes and compressed data
     return length_bytes + compressed_data

@@ -6,8 +6,6 @@ import logging
 import copy
 import re
 import os
-import warnings
-import numpy as np
 
 try:
     import compression.zstd as z
@@ -16,14 +14,14 @@ try:
 except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
+
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
 from itertools import islice
 
-from pygfa.graph_element.parser import header, segment, link, containment, path
-from pygfa.graph_element.parser import edge, gap, fragment, group, line
+from pygfa.graph_element.parser import segment, link, containment, path
+from pygfa.graph_element.parser import edge, gap, fragment, group
 from pygfa.graph_element import node, edge as ge, subgraph as sg
-from pygfa.serializer import gfa1_serializer as gs1
 
 from pygfa.graph_operations.compression import (
     compression_graph_by_nodes,
@@ -34,8 +32,6 @@ from benchmark.extract_subgraph import extract_subgraph
 
 from pygfa.encoding import (
     compress_integer_list_varint,
-    compress_integer_list_fixed,
-    compress_integer_list_none,
     compress_string_zstd,
     compress_string_gzip,
     compress_string_lzma,
@@ -108,12 +104,9 @@ class GFA:
 
         :param base graph: An instance of a networkx.MultiGraph.
         """
-        if base_graph != None and not isinstance(base_graph, nx.MultiGraph):
+        if base_graph is not None and not isinstance(base_graph, nx.MultiGraph):
             raise GFAError(
-                "{0} ".format(type(base_graph))
-                + "cannot be used as base "
-                + "graph, "
-                + "use networkx.MultiGraph instead."
+                f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead."
             )
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
@@ -174,12 +167,12 @@ class GFA:
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
-        for from_, to_, key in self.edges_iter(keys=True):
+        for from_node, to_node, key in self.edges_iter(keys=True):
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
 
-        for key, data in self._subgraphs.items():
+        for key in self._subgraphs.keys():
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -203,7 +196,7 @@ class GFA:
             a `sequence` property.
         """
         # return list(self.nodes_iter(data=data, with_sequence=with_sequence))
-        if not identifier is None:
+        if identifier is not None:
             if self._graph.has_node(identifier):
                 return self._graph.nodes(data=data)[identifier]
             else:
@@ -218,7 +211,7 @@ class GFA:
         """Return all the edges in the graph."""
         # return list(self._graph.edges(**kwargs))
 
-        if not identifier is None:
+        if identifier is not None:
             if isinstance(identifier, tuple):
                 return self._search_edge_by_nodes(identifier)
             else:
@@ -296,7 +289,7 @@ class GFA:
                 key = nodes[2]
                 return self._graph.get_edge_data(from_node, to_node, key)
             return self._graph.get_edge_data(from_node, to_node)
-        except:
+        except Exception:
             return None
 
     def _get_edge_end_nodes(self, edge_key):
@@ -328,9 +321,7 @@ class GFA:
         """
         element = self.get(key)
         if element is None:
-            raise InvalidElementError(
-                "No graph element has the given key: {0}".format(key)
-            )
+            raise InvalidElementError(f"No graph element has the given key: {key}")
 
         # Subgraph objects don't need to be converted
         if sg.is_subgraph(element):
@@ -414,9 +405,7 @@ class GFA:
             an exception
         """
         if isinstance(new_node, str) and new_node[0] == "S":
-            new_node = node.Node.from_line(
-                segment.SegmentV1.from_string(new_node.strip())
-            )
+            new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
 
         if not node.is_node(new_node):
             raise node.InvalidNodeError("The object given is not a node.")
@@ -444,10 +433,8 @@ class GFA:
         """
         try:
             self._graph.remove_node(nid)
-        except:
-            raise node.InvalidNodeError(
-                "{0} doesn't point".format(nid) + " to any node in the graph."
-            )
+        except Exception:
+            raise node.InvalidNodeError(f"{nid} doesn't point to any node in the graph.")
 
     def nodes_iter(self, data=False, with_sequence=False):
         """Return an iterator over nodes in the graph.
@@ -464,9 +451,7 @@ class GFA:
                 )
             else:
                 return iter(
-                    nid
-                    for nid, data_ in self._graph.nodes(data=True)
-                    if "sequence" in data_
+                    nid for nid, data_ in self._graph.nodes(data=True) if "sequence" in data_
                 )
         else:
             return iter(list(self._graph.nodes(data=data)))
@@ -495,22 +480,18 @@ class GFA:
             if new_edge[0] == "L":
                 new_edge = ge.Edge.from_line(link.Link.from_string(new_edge.strip()))
             elif new_edge[0] == "C":
-                new_edge = ge.Edge.from_line(
-                    containment.Containment.from_string(new_edge.strip())
-                )
+                new_edge = ge.Edge.from_line(containment.Containment.from_string(new_edge.strip()))
             elif new_edge[0] == "E":
                 new_edge = ge.Edge.from_line(edge.Edge.from_string(new_edge.strip()))
             elif new_edge[0] == "G":
                 new_edge = ge.Edge.from_line(gap.Gap.from_string(new_edge.strip()))
             elif new_edge[0] == "F":
-                new_edge = ge.Edge.from_line(
-                    fragment.Fragment.from_string(new_edge.strip())
-                )
+                new_edge = ge.Edge.from_line(fragment.Fragment.from_string(new_edge.strip()))
             else:
                 raise ge.InvalidEdgeError(
-                    "The string given doesn't represent a GFA line that could"
-                    + " be represented as an edge,\n"
-                    + "given: {0}".format(new_edge)
+                    f"The string given doesn't represent a GFA line that could"
+                    f" be represented as an edge,\n"
+                    f"given: {new_edge}"
                 )
 
         if not ge.is_edge(new_edge):
@@ -518,7 +499,7 @@ class GFA:
 
         key = new_edge.eid
         if new_edge.eid is None or new_edge.eid == "*":
-            key = "virtual_{0}".format(self._get_virtual_id())
+            key = f"virtual_{self._get_virtual_id()}"
 
         if safe:
             edge_exists = key in self
@@ -592,9 +573,7 @@ class GFA:
 
     def edges_iter(self, nbunch=None, data=False, keys=False, default=None):
         """Interface to networx edges iterator."""
-        return iter(
-            self._graph.edges(nbunch=nbunch, data=data, keys=keys, default=default)
-        )
+        return iter(self._graph.edges(nbunch=nbunch, data=data, keys=keys, default=default))
 
     def add_subgraph(self, subgraph, safe=False):
         """Add a Subgraph object to the graph.
@@ -611,15 +590,14 @@ class GFA:
                 subgraph = sg.Subgraph.from_line(group.UGroup.from_string(subgraph))
             else:
                 raise sg.InvalidSubgraphError(
-                    "The string given cannot be represented as a subgraph,\n"
-                    + "given: {0}".format(subgraph)
+                    f"The string given cannot be represented as a subgraph,\ngiven: {subgraph}"
                 )
         if not sg.is_subgraph(subgraph):
             raise sg.InvalidSubgraphError("The object given is not a subgraph.")
 
         key = subgraph.sub_id
         if key == "*":
-            key = "virtual_{0}".format(self._get_virtual_id())
+            key = f"virtual_{self._get_virtual_id()}"
         if safe and key in self:
             raise GFAError("An element with the same id already exists.")
         self._subgraphs[key] = copy.deepcopy(subgraph)
@@ -628,10 +606,8 @@ class GFA:
         """Remove the Subgraph object identified by the given id."""
         try:
             del self._subgraphs[subgraph_id]
-        except:
-            raise sg.InvalidSubgraphError(
-                "The given id doesn't " + " identify any subgraph."
-            )
+        except Exception:
+            raise sg.InvalidSubgraphError("The given id doesn't " + " identify any subgraph.")
 
     def subgraphs_iter(self, data=False):
         """Return an iterator over subgraphs elements
@@ -663,9 +639,7 @@ class GFA:
                     "path_name": path_obj.fields["path_name"].value,
                     "segments": path_obj.fields["seqs_names"].value,
                     "overlaps": (
-                        path_obj.fields["overlaps"].value
-                        if "overlaps" in path_obj.fields
-                        else []
+                        path_obj.fields["overlaps"].value if "overlaps" in path_obj.fields else []
                     ),
                 }
                 # Add optional fields
@@ -678,7 +652,7 @@ class GFA:
 
         key = path_data["path_name"]
         if key == "*":
-            key = "virtual_{0}".format(self._get_virtual_id())
+            key = f"virtual_{self._get_virtual_id()}"
         if safe and key in self._paths:
             raise GFAError("A path with the same id already exists.")
 
@@ -689,7 +663,7 @@ class GFA:
         """Remove the path identified by the given id."""
         try:
             del self._paths[path_id]
-        except:
+        except Exception:
             raise GFAError("The given id doesn't identify any path.")
 
     def paths_iter(self, data=False):
@@ -747,7 +721,7 @@ class GFA:
         """Remove the walk identified by the given id."""
         try:
             del self._walks[walk_id]
-        except:
+        except Exception:
             raise GFAError("The given id doesn't identify any walk.")
 
     def walks_iter(self, data=False):
@@ -773,7 +747,7 @@ class GFA:
             raise sg.InvalidSubgraphError("There is no subgraph pointed by this key.")
         subgraph = self._subgraphs[sub_key]
         sub_gfa = GFA()
-        for id_, orn in subgraph.elements.items():
+        for id_ in subgraph.elements.keys():
             # creating a new GFA graph and the add method,
             # the virtual id are recomputed
             sub_gfa.add_graph_element(self.as_graph_element(id_))
@@ -841,7 +815,7 @@ class GFA:
 
     def search_on_edges(self, comparator):
         retval = []
-        for u, v, key, data in self.edges_iter(data=True, keys=True):
+        for _u, _v, key, data in self.edges_iter(data=True, keys=True):
             try:
                 if comparator(data):
                     retval.append(key)
@@ -896,13 +870,9 @@ class GFA:
                             segment_data = {}
                             for seg_child in child.children:
                                 if seg_child.data == "segment_name":
-                                    segment_data["segment_name"] = seg_child.children[
-                                        0
-                                    ].value
+                                    segment_data["segment_name"] = seg_child.children[0].value
                                 elif seg_child.data == "seq_string":
-                                    segment_data["sequence"] = seg_child.children[
-                                        0
-                                    ].value
+                                    segment_data["sequence"] = seg_child.children[0].value
                                 elif seg_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = seg_child.children[0].children[0].value
@@ -910,10 +880,7 @@ class GFA:
                                     value = seg_child.children[2].children[0].value
                                     segment_data[tag] = value
 
-                            if (
-                                "segment_name" in segment_data
-                                and "sequence" in segment_data
-                            ):
+                            if "segment_name" in segment_data and "sequence" in segment_data:
                                 self.add_node(
                                     node.Node(
                                         segment_data["segment_name"],
@@ -932,9 +899,7 @@ class GFA:
                             link_data = {}
                             for link_child in child.children:
                                 if link_child.data == "segment_from":
-                                    link_data["from_node"] = link_child.children[
-                                        0
-                                    ].value
+                                    link_data["from_node"] = link_child.children[0].value
                                 elif link_child.data == "orientation_from":
                                     link_data["from_orn"] = link_child.children[0].value
                                 elif link_child.data == "segment_to":
@@ -942,15 +907,11 @@ class GFA:
                                 elif link_child.data == "orientation_to":
                                     link_data["to_orn"] = link_child.children[0].value
                                 elif link_child.data == "link_overlap":
-                                    link_data["alignment"] = link_child.children[
-                                        0
-                                    ].value
+                                    link_data["alignment"] = link_child.children[0].value
                                 elif link_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = link_child.children[0].children[0].value
-                                    value_type = (
-                                        link_child.children[1].children[0].value
-                                    )
+                                    value_type = link_child.children[1].children[0].value
                                     value = link_child.children[2].children[0].value
                                     link_data[tag] = value
 
@@ -1001,9 +962,7 @@ class GFA:
                             path_data = {}
                             for path_child in child.children:
                                 if path_child.data == "pathname":
-                                    path_data["path_name"] = path_child.children[
-                                        0
-                                    ].value
+                                    path_data["path_name"] = path_child.children[0].value
                                 elif path_child.data == "segment_list":
                                     # Extract oriented segments
                                     segments = []
@@ -1019,18 +978,13 @@ class GFA:
                                     # Extract overlaps
                                     overlaps = []
                                     for ov_child in path_child.children:
-                                        if (
-                                            hasattr(ov_child, "children")
-                                            and ov_child.children
-                                        ):
+                                        if hasattr(ov_child, "children") and ov_child.children:
                                             overlaps.append(ov_child.children[0].value)
                                     path_data["overlaps"] = overlaps
                                 elif path_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = path_child.children[0].children[0].value
-                                    value_type = (
-                                        path_child.children[1].children[0].value
-                                    )
+                                    value_type = path_child.children[1].children[0].value
                                     value = path_child.children[2].children[0].value
                                     path_data[tag] = value
 
@@ -1042,33 +996,23 @@ class GFA:
                             walk_data = {}
                             for walk_child in child.children:
                                 if walk_child.data == "sample_id":
-                                    walk_data["sample_id"] = walk_child.children[
-                                        0
-                                    ].value
+                                    walk_data["sample_id"] = walk_child.children[0].value
                                 elif walk_child.data == "hapindex":
-                                    walk_data["hapindex"] = int(
-                                        walk_child.children[0].value
-                                    )
+                                    walk_data["hapindex"] = int(walk_child.children[0].value)
                                 elif walk_child.data == "seq_id":
                                     walk_data["seq_id"] = walk_child.children[0].value
                                 elif walk_child.data == "seq_start":
                                     value = walk_child.children[0].value
-                                    walk_data["seq_start"] = (
-                                        None if value == "*" else int(value)
-                                    )
+                                    walk_data["seq_start"] = None if value == "*" else int(value)
                                 elif walk_child.data == "seq_end":
                                     value = walk_child.children[0].value
-                                    walk_data["seq_end"] = (
-                                        None if value == "*" else int(value)
-                                    )
+                                    walk_data["seq_end"] = None if value == "*" else int(value)
                                 elif walk_child.data == "walk":
                                     walk_data["walk"] = walk_child.children[0].value
                                 elif walk_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = walk_child.children[0].children[0].value
-                                    value_type = (
-                                        walk_child.children[1].children[0].value
-                                    )
+                                    value_type = walk_child.children[1].children[0].value
                                     value = walk_child.children[2].children[0].value
                                     walk_data[tag] = value
 
@@ -1146,9 +1090,7 @@ class GFA:
         return bytes(
             b"".join(
                 [
-                    int(len(list(names))).to_bytes(
-                        2, byteorder="big", signed=False
-                    ),  ## block size
+                    int(len(list(names))).to_bytes(2, byteorder="big", signed=False),  ## block size
                     int(len(compressed_names)).to_bytes(
                         8, byteorder="big", signed=False
                     ),  ## size compressed names
@@ -1174,9 +1116,7 @@ class GFA:
             )
         )
 
-    def segments_block(
-        self, first, last, compression_method="zstd", compression_level=19
-    ):
+    def segments_block(self, first, last, compression_method="zstd", compression_level=19):
         """Extract a portion of the segments, with index from first to last (last excluded)
         and compute the corresponding segment block, according to the specification at
         https://github.com/AlgoLab/bgfatools/blob/main/spec/gfa_binary_format.md
@@ -1218,15 +1158,11 @@ class GFA:
 
         # Create the complete segment block:
         # block_size (uint16) | segment_entries...
-        block = block_size.to_bytes(2, byteorder="big", signed=False) + b"".join(
-            segment_data
-        )
+        block = block_size.to_bytes(2, byteorder="big", signed=False) + b"".join(segment_data)
 
         return block
 
-    def segments_blocks(
-        self, block_size=1024, compression_method="zstd", compression_level=19
-    ):
+    def segments_blocks(self, block_size=1024, compression_method="zstd", compression_level=19):
         n = len(self.nodes())
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
 
@@ -1238,9 +1174,7 @@ class GFA:
         for i in range(0, n, block_size):
             first = i
             last = min(i + block_size, n)
-            block = self.segments_block(
-                first, last, compression_method, compression_level
-            )
+            block = self.segments_block(first, last, compression_method, compression_level)
             blocks.append(block)
 
         return bytes(b"".join(blocks))
@@ -1304,42 +1238,6 @@ class GFA:
                 ]
             )
         )
-
-    def to_bgfa(self, block_size, compression_method="zstd", compression_level=19):
-        """
-        Convert the graph g to a binary format.
-        It computes the concatenation of the binary format of all sections.
-        """
-
-        return bytes(
-            b"".join(
-                [
-                    self.header(block_size),
-                    self.names_blocks(block_size),
-                    self.segments_blocks(
-                        block_size, compression_method, compression_level
-                    ),
-                    self.links_blocks(block_size),
-                    self.paths_blocks(block_size),
-                    self.walks_blocks(block_size),
-                ]
-            )
-        )
-
-    def write_bgfa(
-        self, file, block_size=1024, compression_method="zstd", compression_level=19
-    ):
-        """
-        Convert the graph g to a binary format and save it to the file.
-        :param g: The graph to convert.
-        """
-
-        if not isinstance(self, GFA):
-            raise TypeError("The input graph must be a GFA object.")
-
-        # open the file in binary mode and write the binary data
-        with open(file, "wb") as f:
-            f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
     def to_gfa(self):
         """Output a GFA string associated to this GFA graph.
@@ -1525,26 +1423,17 @@ class GFA:
                                 segment_data = {}
                                 for seg_child in child.children:
                                     if seg_child.data == "segment_name":
-                                        segment_data["segment_name"] = (
-                                            seg_child.children[0].value
-                                        )
+                                        segment_data["segment_name"] = seg_child.children[0].value
                                     elif seg_child.data == "seq_string":
-                                        segment_data["sequence"] = seg_child.children[
-                                            0
-                                        ].value
+                                        segment_data["sequence"] = seg_child.children[0].value
                                     elif seg_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = seg_child.children[0].children[0].value
-                                        value_type = (
-                                            seg_child.children[1].children[0].value
-                                        )
+                                        value_type = seg_child.children[1].children[0].value
                                         value = seg_child.children[2].children[0].value
                                         segment_data[tag] = value
 
-                                if (
-                                    "segment_name" in segment_data
-                                    and "sequence" in segment_data
-                                ):
+                                if "segment_name" in segment_data and "sequence" in segment_data:
                                     g.add_node(
                                         node.Node(
                                             segment_data["segment_name"],
@@ -1563,31 +1452,19 @@ class GFA:
                                 link_data = {}
                                 for link_child in child.children:
                                     if link_child.data == "segment_from":
-                                        link_data["from_node"] = link_child.children[
-                                            0
-                                        ].value
+                                        link_data["from_node"] = link_child.children[0].value
                                     elif link_child.data == "orientation_from":
-                                        link_data["from_orn"] = link_child.children[
-                                            0
-                                        ].value
+                                        link_data["from_orn"] = link_child.children[0].value
                                     elif link_child.data == "segment_to":
-                                        link_data["to_node"] = link_child.children[
-                                            0
-                                        ].value
+                                        link_data["to_node"] = link_child.children[0].value
                                     elif link_child.data == "orientation_to":
-                                        link_data["to_orn"] = link_child.children[
-                                            0
-                                        ].value
+                                        link_data["to_orn"] = link_child.children[0].value
                                     elif link_child.data == "link_overlap":
-                                        link_data["alignment"] = link_child.children[
-                                            0
-                                        ].value
+                                        link_data["alignment"] = link_child.children[0].value
                                     elif link_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = link_child.children[0].children[0].value
-                                        value_type = (
-                                            link_child.children[1].children[0].value
-                                        )
+                                        value_type = link_child.children[1].children[0].value
                                         value = link_child.children[2].children[0].value
                                         link_data[tag] = value
 
@@ -1638,9 +1515,7 @@ class GFA:
                                 path_data = {}
                                 for path_child in child.children:
                                     if path_child.data == "pathname":
-                                        path_data["path_name"] = path_child.children[
-                                            0
-                                        ].value
+                                        path_data["path_name"] = path_child.children[0].value
                                     elif path_child.data == "segment_list":
                                         # Extract oriented segments
                                         segments = []
@@ -1648,9 +1523,7 @@ class GFA:
                                             if hasattr(seg_child, "children"):
                                                 # Handle oriented_segment_sign or oriented_segment_char
                                                 if len(seg_child.children) == 2:
-                                                    seg_name = seg_child.children[
-                                                        0
-                                                    ].value
+                                                    seg_name = seg_child.children[0].value
                                                     orn = seg_child.children[1].value
                                                     segments.append(f"{seg_name}{orn}")
                                         path_data["segments"] = segments
@@ -1658,20 +1531,13 @@ class GFA:
                                         # Extract overlaps
                                         overlaps = []
                                         for ov_child in path_child.children:
-                                            if (
-                                                hasattr(ov_child, "children")
-                                                and ov_child.children
-                                            ):
-                                                overlaps.append(
-                                                    ov_child.children[0].value
-                                                )
+                                            if hasattr(ov_child, "children") and ov_child.children:
+                                                overlaps.append(ov_child.children[0].value)
                                         path_data["overlaps"] = overlaps
                                     elif path_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = path_child.children[0].children[0].value
-                                        value_type = (
-                                            path_child.children[1].children[0].value
-                                        )
+                                        value_type = path_child.children[1].children[0].value
                                         value = path_child.children[2].children[0].value
                                         path_data[tag] = value
 
@@ -1683,17 +1549,11 @@ class GFA:
                                 walk_data = {}
                                 for walk_child in child.children:
                                     if walk_child.data == "sample_id":
-                                        walk_data["sample_id"] = walk_child.children[
-                                            0
-                                        ].value
+                                        walk_data["sample_id"] = walk_child.children[0].value
                                     elif walk_child.data == "hapindex":
-                                        walk_data["hapindex"] = int(
-                                            walk_child.children[0].value
-                                        )
+                                        walk_data["hapindex"] = int(walk_child.children[0].value)
                                     elif walk_child.data == "seq_id":
-                                        walk_data["seq_id"] = walk_child.children[
-                                            0
-                                        ].value
+                                        walk_data["seq_id"] = walk_child.children[0].value
                                     elif walk_child.data == "seq_start":
                                         value = walk_child.children[0].value
                                         walk_data["seq_start"] = (
@@ -1701,17 +1561,13 @@ class GFA:
                                         )
                                     elif walk_child.data == "seq_end":
                                         value = walk_child.children[0].value
-                                        walk_data["seq_end"] = (
-                                            None if value == "*" else int(value)
-                                        )
+                                        walk_data["seq_end"] = None if value == "*" else int(value)
                                     elif walk_child.data == "walk":
                                         walk_data["walk"] = walk_child.children[0].value
                                     elif walk_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = walk_child.children[0].children[0].value
-                                        value_type = (
-                                            walk_child.children[1].children[0].value
-                                        )
+                                        value_type = walk_child.children[1].children[0].value
                                         value = walk_child.children[2].children[0].value
                                         walk_data[tag] = value
 
