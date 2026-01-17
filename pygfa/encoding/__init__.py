@@ -7,6 +7,8 @@ from pygfa.encoding.integer_list_encoding import (
     compress_integer_list_elias_omega as compress_integer_list_elias_omega,
     compress_integer_list_golomb as compress_integer_list_golomb,
     compress_integer_list_rice as compress_integer_list_rice,
+    compress_integer_list_streamvbyte as compress_integer_list_streamvbyte,
+    compress_integer_list_vbyte as compress_integer_list_vbyte,
 )
 
 from pygfa.encoding.string_encoding import (

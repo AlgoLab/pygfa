@@ -85,3 +85,309 @@ def compress_integer_list_rice(int_list: Iterable[int], size: int = 4) -> bytes:
         quotient, remainder = divmod(n, b)
         out.append(b"\x80" * quotient + bytes([remainder | (1 if quotient else 0)]))
     return b"".join(out)
+
+
+def compress_integer_list_streamvbyte(int_list: Iterable[int], size: int = 0) -> bytes:
+    int_list = list(int_list)
+    if not int_list:
+        return b""
+    n = len(int_list)
+    out = bytearray(4 + n * 4 + ((n + 3) // 4) * 4)
+    out[0] = n & 0xFF
+    out[1] = (n >> 8) & 0xFF
+    out[2] = (n >> 16) & 0xFF
+    out[3] = (n >> 24) & 0xFF
+    ctrl_idx = 4
+    data_idx = 4 + ((n + 3) // 4) * 4
+    for i, val in enumerate(int_list):
+        if val < 0x80:
+            out[ctrl_idx] = 0
+            out[data_idx] = val
+            data_idx += 1
+        elif val < 0x4000:
+            out[ctrl_idx] = 1
+            out[data_idx] = val & 0xFF
+            out[data_idx + 1] = (val >> 8) & 0xFF
+            data_idx += 2
+        elif val < 0x200000:
+            out[ctrl_idx] = 2
+            out[data_idx] = val & 0xFF
+            out[data_idx + 1] = (val >> 8) & 0xFF
+            out[data_idx + 2] = (val >> 16) & 0xFF
+            data_idx += 3
+        else:
+            out[ctrl_idx] = 3
+            out[data_idx] = val & 0xFF
+            out[data_idx + 1] = (val >> 8) & 0xFF
+            out[data_idx + 2] = (val >> 16) & 0xFF
+            out[data_idx + 3] = (val >> 24) & 0xFF
+            data_idx += 4
+        if (i & 3) == 3:
+            ctrl_idx += 4
+    return bytes(out[:data_idx])
+
+
+_VBYTE_CTRL = bytes(
+    [
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x40,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0xC0,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+    ]
+)
+
+
+def compress_integer_list_vbyte(int_list: Iterable[int], size: int = 0) -> bytes:
+    out = bytearray()
+    for val in int_list:
+        if val < 0x40:
+            out.append(val)
+        elif val < 0x4000:
+            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
+            out.append(val >> 6)
+        elif val < 0x400000:
+            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
+            out.append(_VBYTE_CTRL[(val >> 8) & 0xFF] | ((val >> 6) & 0x3F))
+            out.append(val >> 14)
+        else:
+            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
+            out.append(_VBYTE_CTRL[(val >> 8) & 0xFF] | ((val >> 6) & 0x3F))
+            out.append(_VBYTE_CTRL[(val >> 16) & 0xFF] | ((val >> 14) & 0x3F))
+            out.append(val >> 22)
+    return bytes(out)
