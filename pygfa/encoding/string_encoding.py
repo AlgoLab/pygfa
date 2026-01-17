@@ -177,3 +177,125 @@ def compress_string_list_dictionary(
     offsets_bytes = compress_integer_list(dict_offsets)
 
     return struct.pack("<I", len(unique_strings)) + offsets_bytes + dict_data + indices_bytes
+
+
+class _HuffmanNode:
+    __slots__ = ("char", "freq", "left", "right")
+
+    def __init__(self, char: Optional[int], freq: int):
+        self.char = char
+        self.freq = freq
+        self.left: Optional[_HuffmanNode] = None
+        self.right: Optional[_HuffmanNode] = None
+
+    def __lt__(self, other: "_HuffmanNode") -> bool:
+        return self.freq < other.freq
+
+
+def _build_huffman_tree(freq: dict[int, int]) -> _HuffmanNode:
+    import heapq
+
+    nodes = [_HuffmanNode(c, f) for c, f in freq.items()]
+    heapq.heapify(nodes)
+
+    while len(nodes) > 1:
+        left = heapq.heappop(nodes)
+        right = heapq.heappop(nodes)
+        parent = _HuffmanNode(None, left.freq + right.freq)
+        parent.left = left
+        parent.right = right
+        heapq.heappush(nodes, parent)
+
+    return nodes[0] if nodes else _HuffmanNode(0, 0)
+
+
+def _build_codes(
+    node: Optional[_HuffmanNode],
+    current: int = 0,
+    bits: list[int] | None = None,
+    codes: dict[int, list[int]] | None = None,
+) -> dict[int, list[int]]:
+    if codes is None:
+        codes = {}
+    if bits is None:
+        bits = []
+
+    if node is None:
+        return codes
+
+    if node.char is not None:
+        codes[node.char] = bits.copy()
+        if len(bits) == 0:
+            codes[node.char] = [0]
+    else:
+        if node.left:
+            _build_codes(node.left, current, bits + [0], codes)
+        if node.right:
+            _build_codes(node.right, current, bits + [1], codes)
+
+    return codes
+
+
+def compress_string_list_huffman(
+    string_list: list[str],
+    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+) -> bytes:
+    if not string_list:
+        return b""
+
+    if compress_integer_list is None:
+        from pygfa.encoding import compress_integer_list_varint
+
+        compress_integer_list = compress_integer_list_varint
+
+    data = b"".join(s.encode("ascii") for s in string_list)
+    if not data:
+        return b"\x00\x00\x00\x00"
+
+    freq: dict[int, int] = {}
+    for byte in data:
+        freq[byte] = freq.get(byte, 0) + 1
+
+    if len(freq) == 1:
+        single_char = next(iter(freq))
+        codes = {single_char: [0]}
+    else:
+        tree = _build_huffman_tree(freq)
+        codes = _build_codes(tree)
+
+    bitstream: list[int] = []
+    for byte in data:
+        bitstream.extend(codes[byte])
+
+    while len(bitstream) % 8 != 0:
+        bitstream.append(0)
+
+    encoded_bytes = 0
+    bit_count = 0
+    result = bytearray()
+    for bit in bitstream:
+        encoded_bytes = (encoded_bytes << 1) | bit
+        bit_count += 1
+        if bit_count == 8:
+            result.append(encoded_bytes & 0xFF)
+            encoded_bytes = 0
+            bit_count = 0
+
+    codebook: list[tuple[int, list[int]]] = sorted(codes.items(), key=lambda x: x[0])
+    codebook_entries: list[int] = []
+    for char, code in codebook:
+        code_len = len(code)
+        codebook_entries.append(code_len)
+        codebook_entries.extend(code)
+
+    codebook_bytes = compress_integer_list(codebook_entries)
+    lengths = compress_integer_list([len(s.encode("ascii")) for s in string_list])
+
+    return (
+        struct.pack("<I", len(data))
+        + struct.pack("<I", len(codebook_bytes))
+        + codebook_bytes
+        + struct.pack("<I", len(result))
+        + lengths
+        + bytes(result)
+    )
