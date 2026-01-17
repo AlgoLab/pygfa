@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
-import argparse
 import sys
 import os
-import toml
+
+# Add the project root to the Python path to ensure imports work correctly
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import argparse
+import tomllib
 from pygfa.gfa import GFA
 
 
@@ -17,15 +23,8 @@ def main():
         default=1024,
         help="Block size for BGFA format (default: 1024)",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
-    parser.add_argument(
-        "--help", action="store_true", help="Show usage example and exit"
-    )
-    parser.add_argument(
-        "--config", "-c", type=str, help="Path to TOML configuration file"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
+    parser.add_argument("--config", "-c", type=str, help="Path to TOML configuration file")
 
     # Compression method options for each component
     parser.add_argument(
@@ -193,32 +192,18 @@ def main():
         "": "compress_string_none",
     }
 
-    if args.help:
-        print("Usage example:")
-        print("  python to_bgfa.py input.gfa output.bgfa")
-        print("  python to_bgfa.py input.gfa output.bgfa --block-size 2048")
-        print(
-            "  python to_bgfa.py input.gfa output.bgfa --segments-payload-strings zstd --links-payload-cigar gzip"
-        )
-        print("  python to_bgfa.py input.gfa output.bgfa --config config.toml")
-        sys.exit(0)
-
     # Load configuration from TOML file if provided
     config = {}
     if args.config:
         if not os.path.exists(args.config):
-            print(
-                f"Error: Configuration file '{args.config}' not found", file=sys.stderr
-            )
+            print(f"Error: Configuration file '{args.config}' not found", file=sys.stderr)
             sys.exit(1)
 
         try:
-            with open(args.config, "r") as f:
-                config = toml.load(f)
-        except toml.TomlDecodeError as e:
-            print(
-                f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr
-            )
+            with open(args.config, "rb") as f:
+                config = tomllib.load(f)
+        except ValueError as e:
+            print(f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr)
             sys.exit(1)
         except Exception as e:
             print(
@@ -234,9 +219,7 @@ def main():
 
     # Get compression methods from config or use defaults
     compression_methods = {
-        "segment_names_header": config.get(
-            "segment_names_header", args.segment_names_header
-        ),
+        "segment_names_header": config.get("segment_names_header", args.segment_names_header),
         "segment_names_payload_lengths": config.get(
             "segment_names_payload_lengths", args.segment_names_payload_lengths
         ),
@@ -256,25 +239,17 @@ def main():
         "links_payload_cigar_lengths": config.get(
             "links_payload_cigar_lengths", args.links_payload_cigar_lengths
         ),
-        "links_payload_cigar": config.get(
-            "links_payload_cigar", args.links_payload_cigar
-        ),
+        "links_payload_cigar": config.get("links_payload_cigar", args.links_payload_cigar),
         "paths_header": config.get("paths_header", args.paths_header),
-        "paths_payload_names": config.get(
-            "paths_payload_names", args.paths_payload_names
-        ),
+        "paths_payload_names": config.get("paths_payload_names", args.paths_payload_names),
         "paths_payload_segment_lengths": config.get(
             "paths_payload_segment_lengths", args.paths_payload_segment_lengths
         ),
-        "paths_payload_path_ids": config.get(
-            "paths_payload_path_ids", args.paths_payload_path_ids
-        ),
+        "paths_payload_path_ids": config.get("paths_payload_path_ids", args.paths_payload_path_ids),
         "paths_payload_cigar_lengths": config.get(
             "paths_payload_cigar_lengths", args.paths_payload_cigar_lengths
         ),
-        "paths_payload_cigar": config.get(
-            "paths_payload_cigar", args.paths_payload_cigar
-        ),
+        "paths_payload_cigar": config.get("paths_payload_cigar", args.paths_payload_cigar),
         "walks_header": config.get("walks_header", args.walks_header),
         "walks_payload_sample_ids": config.get(
             "walks_payload_sample_ids", args.walks_payload_sample_ids
@@ -285,21 +260,19 @@ def main():
         "walks_payload_sequence_ids": config.get(
             "walks_payload_sequence_ids", args.walks_payload_sequence_ids
         ),
-        "walks_payload_start": config.get(
-            "walks_payload_start", args.walks_payload_start
-        ),
+        "walks_payload_start": config.get("walks_payload_start", args.walks_payload_start),
         "walks_payload_end": config.get("walks_payload_end", args.walks_payload_end),
-        "walks_payload_walks": config.get(
-            "walks_payload_walks", args.walks_payload_walks
-        ),
+        "walks_payload_walks": config.get("walks_payload_walks", args.walks_payload_walks),
     }
 
     # Validate compression methods
     for component, method in compression_methods.items():
         if method and method not in integers_encoding and method not in string_encoding:
-            print(f"Error: Invalid compression method '{method}' for {component}. "
-                  f"Valid methods are: {list(integers_encoding.keys()) + list(string_encoding.keys())}", 
-                  file=sys.stderr)
+            print(
+                f"Error: Invalid compression method '{method}' for {component}. "
+                f"Valid methods are: {list(integers_encoding.keys()) + list(string_encoding.keys())}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     try:
