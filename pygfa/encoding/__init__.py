@@ -20,4 +20,5 @@ from pygfa.encoding.string_encoding import (
     compress_string_list_frontcoding as compress_string_list_frontcoding,
     compress_string_list_delta as compress_string_list_delta,
     compress_string_list_dictionary as compress_string_list_dictionary,
+    compress_string_list_huffman as compress_string_list_huffman,
 )

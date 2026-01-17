@@ -51,6 +51,7 @@ def main():
         "frontcoding": "compress_string_list_frontcoding",
         "delta": "compress_string_list_delta",
         "dictionary": "compress_string_list_dictionary",
+        "huffman": "compress_string_list_huffman",
         "": "compress_string_none",
     }
     string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"
