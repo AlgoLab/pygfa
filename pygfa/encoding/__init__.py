@@ -2,6 +2,11 @@ from pygfa.encoding.integer_list_encoding import (
     compress_integer_list_varint as compress_integer_list_varint,
     compress_integer_list_fixed as compress_integer_list_fixed,
     compress_integer_list_none as compress_integer_list_none,
+    compress_integer_list_delta as compress_integer_list_delta,
+    compress_integer_list_elias_gamma as compress_integer_list_elias_gamma,
+    compress_integer_list_elias_omega as compress_integer_list_elias_omega,
+    compress_integer_list_golomb as compress_integer_list_golomb,
+    compress_integer_list_rice as compress_integer_list_rice,
 )
 
 from pygfa.encoding.string_encoding import (
