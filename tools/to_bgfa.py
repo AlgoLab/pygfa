@@ -26,12 +26,31 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     parser.add_argument("--config", "-c", type=str, help="Path to TOML configuration file")
 
+    # create the dictionary integers_encoding where the keys are all
+    # possible functions to encode a list of integers, taken from gfa.py
+    integers_encoding = {
+        "varint": "compress_integer_list_varint",
+        "fixed32": "compress_integer_list_fixed",
+        "fixed64": "compress_integer_list_fixed",
+        "": "compress_integer_list_none",
+    }
+    integers_encoding_str = f" possible values: {'/'.join(integers_encoding.keys())[:-1]}"
+    # create the dictionary string_encoding where the keys are all
+    # possible functions to encode a string, taken from gfa.py
+    string_encoding = {
+        "zstd": "compress_string_zstd",
+        "gzip": "compress_string_gzip",
+        "lzma": "compress_string_lzma",
+        "": "compress_string_none",
+    }
+    string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"
+
     # Compression method options for each component
     parser.add_argument(
         "--segment-names-header",
         type=str,
         default="",
-        help="Compression method for segment names header (default: '')",
+        help="Compression method for segment names header (default: '')" + string_encoding_str,
     )
     parser.add_argument(
         "--segment-names-payload-lengths",
@@ -43,13 +62,14 @@ def main():
         "--segment-names-payload-names",
         type=str,
         default="",
-        help="Compression method for segment names payload names (default: '')",
+        help="Compression method for segment names payload names (default: '')"
+        + string_encoding_str,
     )
     parser.add_argument(
         "--segments-header",
         type=str,
         default="",
-        help="Compression method for segments header (default: '')",
+        help="Compression method for segments header (default: '')" + string_encoding_str,
     )
     parser.add_argument(
         "--segments-payload-lengths",
@@ -61,7 +81,7 @@ def main():
         "--segments-payload-strings",
         type=str,
         default="",
-        help="Compression method for segments payload strings (default: '')",
+        help="Compression method for segments payload strings (default: '')" + string_encoding_str,
     )
     parser.add_argument(
         "--links-header",
@@ -115,7 +135,7 @@ def main():
         "--paths-payload-path-ids",
         type=str,
         default="",
-        help="Compression method for paths payload path ids (default: '')",
+        help=f"Compression method for paths payload path ids (default: ''), possible values: {'/'.join(string_encoding.keys())}",
     )
     parser.add_argument(
         "--paths-payload-cigar-lengths",
@@ -173,24 +193,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    # create the dictionary integers_encoding where the keys are all
-    # possible functions to encode a list of integers, taken from gfa.py
-    integers_encoding = {
-        "varint": "compress_integer_list_varint",
-        "fixed32": "compress_integer_list_fixed",
-        "fixed64": "compress_integer_list_fixed",
-        "": "compress_integer_list_none",
-    }
-
-    # create the dictionary string_encoding where the keys are all
-    # possible functions to encode a string, taken from gfa.py
-    string_encoding = {
-        "zstd": "compress_string_zstd",
-        "gzip": "compress_string_gzip",
-        "lzma": "compress_string_lzma",
-        "": "compress_string_none",
-    }
 
     # Load configuration from TOML file if provided
     config = {}
@@ -277,7 +279,7 @@ def main():
 
     try:
         # Read GFA file
-        g = GFA.from_file(args.input_file)
+        g = GFA.from_gfa(args.input_file)
 
         # Write BGFA file
         g.write_bgfa(args.output_file, block_size=block_size)
