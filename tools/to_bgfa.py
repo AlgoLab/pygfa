@@ -32,6 +32,11 @@ def main():
         "varint": "compress_integer_list_varint",
         "fixed32": "compress_integer_list_fixed",
         "fixed64": "compress_integer_list_fixed",
+        "delta": "compress_integer_list_delta",
+        "gamma": "compress_integer_list_elias_gamma",
+        "omega": "compress_integer_list_elias_omega",
+        "golomb": "compress_integer_list_golomb",
+        "rice": "compress_integer_list_rice",
         "": "compress_integer_list_none",
     }
     integers_encoding_str = f" possible values: {'/'.join(integers_encoding.keys())[:-1]}"
