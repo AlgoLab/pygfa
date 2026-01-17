@@ -48,6 +48,9 @@ def main():
         "zstd": "compress_string_zstd",
         "gzip": "compress_string_gzip",
         "lzma": "compress_string_lzma",
+        "frontcoding": "compress_string_list_frontcoding",
+        "delta": "compress_string_list_delta",
+        "dictionary": "compress_string_list_dictionary",
         "": "compress_string_none",
     }
     string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"

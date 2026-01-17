@@ -17,4 +17,7 @@ from pygfa.encoding.string_encoding import (
     compress_string_lzma as compress_string_lzma,
     compress_string_none as compress_string_none,
     compress_string_list as compress_string_list,
+    compress_string_list_frontcoding as compress_string_list_frontcoding,
+    compress_string_list_delta as compress_string_list_delta,
+    compress_string_list_dictionary as compress_string_list_dictionary,
 )
