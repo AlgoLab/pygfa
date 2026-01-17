@@ -1,4 +1,10 @@
-import compression.zstd as z
+try:
+    import compression.zstd as z
+
+    _ZSTD_AVAILABLE = True
+except ImportError:
+    _ZSTD_AVAILABLE = False
+    z = None
 
 
 def compress_string_zstd(string):
@@ -6,7 +12,13 @@ def compress_string_zstd(string):
 
     :param string: The string to compress.
     :returns: The compressed string as bytes.
+    :raises ImportError: If the zstd package is not installed.
     """
+    if not _ZSTD_AVAILABLE:
+        raise ImportError(
+            "The 'compression' package is required for zstd compression. "
+            "Install it with: pip install compression"
+        )
     return z.compress(string.encode("ascii"), level=19)
 
 
@@ -64,6 +76,11 @@ def compress_string_list(
 
     # Compress the concatenated strings
     if compression_method == "zstd":
+        if not _ZSTD_AVAILABLE:
+            raise ImportError(
+                "The 'compression' package is required for zstd compression. "
+                "Install it with: pip install compression"
+            )
         compressed_data = z.compress(concatenated_strings, level=compression_level)
     elif compression_method == "gzip":
         import gzip

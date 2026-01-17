@@ -1,9 +1,23 @@
 [project]
 authors = [{name = "Gianluca Della Vedova", email = "gianluca@dellavedova.org"}]
-dependencies = []
+dependencies = [
+    "networkx>=3.6.1,<4",
+    "lark>=1.3.1,<2",
+    "biopython>=1.86,<2",
+    "numpy>=2.4.0,<3",
+    "compression>=1.0,<2",
+]
 name = "pygfa"
 requires-python = ">= 3.14"
 version = "0.1.0"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.2,<10",
+    "ruff>=0.8.0,<1",
+    "mypy>=1.13.0,<2",
+    "coverage>=7.0.0,<8",
+]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -25,3 +39,17 @@ lark = ">=1.3.1,<2"
 networkx = ">=3.6.1,<4"
 biopython = ">=1.86,<2"
 pytest = ">=9.0.2,<10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "ISC", "ARG", "PL", "PERF", "RUF"]
+ignore = ["B008", "C901"]
+
+[tool.mypy]
+python_version = "3.14"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
