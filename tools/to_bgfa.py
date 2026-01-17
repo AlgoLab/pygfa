@@ -37,6 +37,8 @@ def main():
         "omega": "compress_integer_list_elias_omega",
         "golomb": "compress_integer_list_golomb",
         "rice": "compress_integer_list_rice",
+        "streamvbyte": "compress_integer_list_streamvbyte",
+        "vbyte": "compress_integer_list_vbyte",
         "": "compress_integer_list_none",
     }
     integers_encoding_str = f" possible values: {'/'.join(integers_encoding.keys())[:-1]}"
