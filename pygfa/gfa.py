@@ -39,6 +39,8 @@ from pygfa.encoding import (
     compress_string_list,
 )
 
+from pygfa.bgfa import BGFAWriter
+
 import lark
 
 GRAPH_LOGGER = logging.getLogger(__name__)
@@ -1743,6 +1745,39 @@ class GFA:
 
     def subgraphs_extractor(self, n_source, distance):
         extract_subgraph(self, n_source, distance)
+
+    def to_bgfa(
+        self,
+        block_size: int = 1024,
+        compression_method: str = "zstd",
+        compression_level: int = 19,
+    ) -> bytes:
+        """Convert this GFA graph to BGFA binary format.
+
+        :param block_size: Block size for BGFA format (default: 1024)
+        :param compression_method: Compression method for string data (default: "zstd")
+        :param compression_level: Compression level (default: 19)
+        :return: BGFA binary data
+        """
+        writer = BGFAWriter(self)
+        return writer.to_bgfa(block_size, compression_method, compression_level)
+
+    def write_bgfa(
+        self,
+        file,
+        block_size: int = 1024,
+        compression_method: str = "zstd",
+        compression_level: int = 19,
+    ) -> None:
+        """Convert this GFA graph to BGFA binary format and write to file.
+
+        :param file: Output file path or file object
+        :param block_size: Block size for BGFA format (default: 1024)
+        :param compression_method: Compression method for string data (default: "zstd")
+        :param compression_level: Compression level (default: 19)
+        """
+        writer = BGFAWriter(self)
+        writer.write_bgfa(file, block_size, compression_method, compression_level)
 
 
 if __name__ == "__main__":  # pragma: no cover
