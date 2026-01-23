@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pygfa.gfa import GFA
+    from pygfa.graph_element import node, edge as ge
 
-__all__ = ["BGFAWriter", "to_bgfa", "write_bgfa"]
+__all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "write_bgfa", "read_bgfa"]
 
 try:
     import compression.zstd as z
@@ -26,11 +27,217 @@ except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
 
+import gzip
+import lzma
+
 from pygfa.encoding import (
     compress_integer_list_varint,
     compress_string_list,
 )
 
+import struct
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class ReaderBGFA:
+    def __init__(self):
+        pass
+
+    def read_bgfa(self, file_path: str) -> GFA:
+        """Read a BGFA file and create the corresponding GFA graph.
+
+        :param file_path: Path to the BGFA file
+        :return: GFA graph object
+        """
+        from pygfa.gfa import GFA
+
+        with open(file_path, "rb") as f:
+            bgfa_data = f.read()
+
+        return self._parse_bgfa_data(bgfa_data)
+
+    def _parse_bgfa_data(self, bgfa_data: bytes) -> GFA:
+        """Parse BGFA binary data and create a GFA graph.
+
+        :param bgfa_data: Binary BGFA data
+        :return: GFA graph object
+        """
+        from pygfa.gfa import GFA
+
+        gfa = GFA()
+
+        # Parse header
+        header = self._parse_header(bgfa_data)
+        print(f"Header parsed: {header}")
+
+        # Parse segment names
+        segment_names = self._parse_segment_names(bgfa_data, header)
+        print(f"Segment names: {segment_names}")
+
+        # Parse segments
+        segments = self._parse_segments(bgfa_data, header, segment_names)
+        print(f"Segments: {segments}")
+
+        # Add nodes to GFA graph
+        for segment_id, segment_data in segments.items():
+            gfa.add_node(
+                node.Node(
+                    segment_id,
+                    segment_data["sequence"],
+                    segment_data["length"],
+                    opt_fields={}
+                )
+            )
+
+        return gfa
+
+    def _parse_header(self, bgfa_data: bytes) -> dict:
+        """Parse the BGFA file header.
+
+        :param bgfa_data: Binary BGFA data
+        :return: Dictionary containing header information
+        """
+        # Parse header fields according to the specification
+        offset = 0
+
+        # Read S_len (uint64) - Number of Segments
+        s_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read L_len (uint64) - Number of Links
+        l_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read P_len (uint64) - Number of Paths
+        p_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read W_len (uint64) - Number of Walks
+        w_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read S_offset (uint64) - offset to first segment block
+        s_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read L_offset (uint64) - offset to first link block
+        l_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read P_offset (uint64) - offset to first path block
+        p_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read W_offset (uint64) - offset to first walk block
+        w_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read block_size (uint64) - number of objects stored in each block
+        block_size = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read version (uint64)
+        version = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+        offset += 8
+
+        # Read header text (C string)
+        header_text = ""
+        while offset < len(bgfa_data) and bgfa_data[offset] != 0:
+            header_text += chr(bgfa_data[offset])
+            offset += 1
+        offset += 1  # Skip null terminator
+
+        return {
+            "version": version,
+            "s_len": s_len,
+            "l_len": l_len,
+            "p_len": p_len,
+            "w_len": w_len,
+            "s_offset": s_offset,
+            "l_offset": l_offset,
+            "p_offset": p_offset,
+            "w_offset": w_offset,
+            "block_size": block_size,
+            "header_text": header_text,
+            "header_size": offset
+        }
+
+    def _parse_segment_names(self, bgfa_data: bytes, header: dict) -> list:
+        """Parse segment names from BGFA data.
+
+        :param bgfa_data: Binary BGFA data
+        :param header: Parsed header information
+        :return: List of segment names
+        """
+        if header["s_len"] == 0:
+            return []
+
+        # Start from the segment names offset (after header)
+        offset = header["header_size"]
+        segment_names = []
+
+        # Read segment names (null-terminated strings)
+        while len(segment_names) < header["s_len"] and offset < len(bgfa_data):
+            name = ""
+            while offset < len(bgfa_data) and bgfa_data[offset] != 0:
+                name += chr(bgfa_data[offset])
+                offset += 1
+            offset += 1  # Skip null terminator
+            if name:  # Only add non-empty names
+                segment_names.append(name)
+
+        return segment_names
+
+    def _parse_segments(self, bgfa_data: bytes, header: dict, segment_names: list) -> dict:
+        """Parse segments from BGFA data.
+
+        :param bgfa_data: Binary BGFA data
+        :param header: Parsed header information
+        :param segment_names: List of segment names
+        :return: Dictionary mapping segment IDs to segment data
+        """
+        if header["s_len"] == 0:
+            return {}
+
+        # Start from the segments offset (after header)
+        offset = header["header_size"]
+        segments = {}
+
+        # Read segments blocks
+        segments_read = 0
+        while segments_read < header["s_len"] and offset < len(bgfa_data):
+            # Read segment ID (uint64)
+            segment_id = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            offset += 8
+
+            # Read sequence length (uint64)
+            sequence_length = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            offset += 8
+
+            # Read sequence (null-terminated string)
+            sequence = ""
+            while offset < len(bgfa_data) and bgfa_data[offset] != 0:
+                sequence += chr(bgfa_data[offset])
+                offset += 1
+            offset += 1  # Skip null terminator
+
+            # Get segment name from segment_names list
+            if segment_id <= len(segment_names):
+                segment_name = segment_names[segment_id - 1]  # 1-based indexing
+            else:
+                segment_name = f"segment_{segment_id}"
+
+            segments[segment_name] = {
+                "sequence": sequence,
+                "length": sequence_length
+            }
+            segments_read += 1
+
+        return segments
 
 class BGFAWriter:
     def __init__(self, gfa_graph: GFA):
@@ -47,7 +254,9 @@ class BGFAWriter:
                 [
                     self.header(block_size),
                     self.names_blocks(block_size),
-                    self.segments_blocks(block_size, compression_method, compression_level),
+                    self.segments_blocks(
+                        block_size, compression_method, compression_level
+                    ),
                     self.links_blocks(block_size),
                     self.paths_blocks(block_size),
                     self.walks_blocks(block_size),
@@ -223,6 +432,15 @@ def to_bgfa(
     return writer.to_bgfa(block_size, compression_method, compression_level)
 
 
+def read_bgfa(file_path: str) -> GFA:
+    """Read a BGFA file and create the corresponding GFA graph.
+
+    :param file_path: Path to the BGFA file
+    :return: GFA graph object
+    """
+    reader = ReaderBGFA()
+    return reader.read_bgfa(file_path)
+
 def write_bgfa(
     gfa_graph: GFA,
     file,
@@ -232,3 +450,7 @@ def write_bgfa(
 ) -> None:
     writer = BGFAWriter(gfa_graph)
     writer.write_bgfa(file, block_size, compression_method, compression_level)
+
+
+# AI! add a read_bgfa method that reads a bgfa file and creates the
+# corresponding graph
