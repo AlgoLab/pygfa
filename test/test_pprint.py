@@ -69,9 +69,11 @@ class TestPPrint(unittest.TestCase):
                 # Differences found
                 self.fail(
                     f"PPrint output does not match expected file content.\n"
+                    f"Expected file: {expected_filename}\n"
+                    f"Actual file: {temp_filename}\n"
                     f"Differences:\n{result.stdout}"
                 )
-            
+
             # Remove temporary file only on success
             os.unlink(temp_filename)
 
