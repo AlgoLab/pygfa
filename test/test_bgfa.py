@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import subprocess
 import sys
 import tempfile
 import shutil
@@ -42,87 +43,43 @@ def gfa_file_path(request):
     return file_path
 
 
-def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, temp_dir):
+def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     """
-    Regression test that reads a gfa file and:
-    1. converts the gfa file to a bgfa file
-    2. converts the bgfa file to a gfa file
-    3. obtain a canonical version of the first gfa file
-    4. checks if the canonical gfa file and the result of the conversion from a
-       bgfa are equal
+    Regression test that receives a gfa filename and:
+    1. reads the gfa file to obtain a graph g
+    2. writes the graph g to a bgfa file
+    3. reads the bgfa file to obtain a graph h
+    4. runs pprint on both g and h and checks if the outputs are the same
+    5. if the outputs are not the same, both are saved in two separate files
     """
     print(f"\n--- Testing file: {gfa_file_path} ---")
 
     # 1. Load the original GFA file
-    gfa_original = GFA.from_gfa(gfa_file_path)
+    g = GFA.from_gfa(gfa_file_path)
 
-    # 2. Convert the GFA to BGFA
+    # 2. write the graph g to a bgfa file
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", ".bgfa")
-    bgfa_path = os.path.join(temp_dir, bgfa_filename)
-    gfa_original.write_bgfa(bgfa_path, block_size=1024)
+    bgfa_path = os.path.join(bgfa_filename)
+    g.write_bgfa(bgfa_path)
 
-    # 3. Convert the BGFA file back to a GFA object
-    # Note: The current implementation of from_gfa only parses text GFA.
-    # A proper BGFA reader would be needed for a full test.
-    # For this regression test, we will simulate the BGFA->GFA step
-    # by creating a new GFA object from the original data.
-    # This is a placeholder until a proper BGFA reader is implemented.
-    gfa_from_bgfa = GFA.from_gfa(gfa_file_path)
+    # AI! read the bgfa file to obtain a graph h
 
-    # 4. Obtain a canonical version of the original GFA
-    canonical_gfa_string = gfa_original.to_gfa()
+    # 4. runs pprint on both g and h and checks if the outputs are the same
 
-    # 5. Compare the canonical GFA with the GFA from BGFA
-    gfa_from_bgfa_string = gfa_from_bgfa.to_gfa()
+    # 5. if the outputs are not the same, both are saved in two separate files
 
-    assert canonical_gfa_string == gfa_from_bgfa_string, \
-        "Canonical GFA does not match simulated BGFA conversion"
+def test_bgfa_idempotent_1(self):
+    """Test that pprint output matches expected file content."""
+    test_gfa_to_bgfa_to_gfa_regression("data/example_1.gfa")
+    )
 
-    # Additional check: ensure the canonical output is sorted correctly
-    lines = canonical_gfa_string.split("\n")
+def test_bgfa_idempotent_2(self):
+    """Test that pprint output matches expected file content."""
+    test_gfa_to_bgfa_to_gfa_regression("data/example_2.gfa")
 
-    # Check header
-    assert lines[0].startswith("H\t"), f"First line is not a header: {lines[0]}"
-
-    # Check segments are sorted
-    segment_lines = [l for l in lines if l.startswith("S\t")]
-    if len(segment_lines) > 1:
-        for i in range(len(segment_lines) - 1):
-            name1 = segment_lines[i].split("\t")[1]
-            name2 = segment_lines[i + 1].split("\t")[1]
-            assert name1 <= name2, f"Segments not sorted: {name1} > {name2}"
-
-    # Check links are sorted
-    link_lines = [l for l in lines if l.startswith("L\t")]
-    if len(link_lines) > 1:
-        for i in range(len(link_lines) - 1):
-            from1 = link_lines[i].split("\t")[2]
-            to1 = link_lines[i].split("\t")[4]
-            from2 = link_lines[i + 1].split("\t")[2]
-            to2 = link_lines[i + 1].split("\t")[4]
-            assert (from1, to1) <= (from2, to2), \
-                f"Links not sorted: ({from1}, {to1}) > ({from2}, {to2})"
-
-    # Check paths are sorted
-    path_lines = [l for l in lines if l.startswith("P\t")]
-    if len(path_lines) > 1:
-        for i in range(len(path_lines) - 1):
-            name1 = path_lines[i].split("\t")[1]
-            name2 = path_lines[i + 1].split("\t")[1]
-            assert name1 <= name2, f"Paths not sorted: {name1} > {name2}"
-
-    # Check walks are sorted
-    walk_lines = [l for l in lines if l.startswith("W\t")]
-    if len(walk_lines) > 1:
-        for i in range(len(walk_lines) - 1):
-            sample1 = walk_lines[i].split("\t")[1]
-            seq1 = walk_lines[i].split("\t")[3]
-            sample2 = walk_lines[i + 1].split("\t")[1]
-            seq2 = walk_lines[i + 1].split("\t")[3]
-            assert (sample1, seq1) <= (sample2, seq2), \
-                f"Walks not sorted: ({sample1}, {seq1}) > ({sample2}, {seq2})"
-
-    print(f"  [PASS] All checks passed for {os.path.basename(gfa_file_path)}")
+def test_bgfa_idempotent_3(self):
+    """Test that pprint output matches expected file content."""
+    test_gfa_to_bgfa_to_gfa_regression("data/example_3.gfa")
 
 
 if __name__ == "__main__":

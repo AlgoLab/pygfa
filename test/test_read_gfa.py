@@ -6,6 +6,7 @@ import unittest
 import os
 import tempfile
 import subprocess
+import shutil
 import pygfa
 from pygfa import gfa
 
@@ -36,8 +37,8 @@ class TestPPrint(unittest.TestCase):
             finally:
                 sys.stdout = original_stdout
 
-            # AI! if the expected_filename does not exists, copy temp_filename
-            # to expected_filename, using an os operation
+        if not os.path.exists(expected_filename):
+            shutil.copy(temp_filename, expected_filename)
         # Use the standard diff program to look for differences
         result = subprocess.run(
             ["diff", "-u", expected_filename, temp_filename],
@@ -48,14 +49,15 @@ class TestPPrint(unittest.TestCase):
 
         if result.returncode != 0:
             # Differences found
-            # Remove temporary file only on success
-            os.unlink(temp_filename)
             self.fail(
                 f"PPrint output does not match expected file content.\n"
                 f"Expected file: {expected_filename}\n"
                 f"Actual file: {temp_filename}\n"
                 f"Differences:\n{result.stdout}"
             )
+        else:
+            # Remove temporary file only on success
+            os.unlink(temp_filename)
 
     def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""
