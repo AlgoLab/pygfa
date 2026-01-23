@@ -1032,30 +1032,52 @@ class GFA:
     def header(self, block_size=1024):
         """Generate the header corresponding to a graph.
 
-        S_len 	Numero dei Segmenti 	Uint64
-        L_len 	Numero dei Link 	uint64
-        P_len 	Numero dei Path 	uint64
-        W_len 	Numero dei Walk 	uint64
-        S_offset 	start offset primo blocco segmenti (in bytes) 	uint64
-        L_offset 	start offset primo blocco Link 	uint64
-        P_offset 	start offset primo blocco Path 	uint64
-        W_offset 	start offset primo blocco Walk 	uint64
-        block_size 	number of objects stored in each block 	uint64 = 1024
-        version
-        header 	testo dell' header del file gfa 	string + \0
+        According to the BGFA specification:
+        version (uint16)
+        S_len (uint64) - Number of Segments
+        L_len (uint64) - Number of Links
+        P_len (uint64) - Number of Paths
+        W_len (uint64) - Number of Walks
+        S_offset (uint64) - offset to first segment block
+        L_offset (uint64) - offset to first link block
+        P_offset (uint64) - offset to first path block
+        W_offset (uint64) - offset to first walk block
+        block_size (uint16) - number of objects stored in each block
+        header (C string) - GFA header text
         """
+        # For now, we'll use version 1
+        version = 1
+        
+        # Counts
+        s_len = len(self.nodes())
+        l_len = len(self.edges())
+        p_len = len(self.paths())
+        w_len = len(self.walks())
+        
+        # Offsets will be calculated later when writing the full file
+        # For now, set them to 0
+        s_offset = 0
+        l_offset = 0
+        p_offset = 0
+        w_offset = 0
+        
+        # Header text from GFA
+        header_text = "H\tVN:Z:1.0"
+        
         header = bytes(
             b"".join(
                 [
-                    len(self.nodes()).to_bytes(8, byteorder="big", signed=False),
-                    len(self.edges()).to_bytes(8, byteorder="big", signed=False),
-                    int(0).to_bytes(8, byteorder="big", signed=False),
-                    int(0).to_bytes(8, byteorder="big", signed=False),
-                    int(0).to_bytes(8, byteorder="big", signed=False),
-                    int(0).to_bytes(8, byteorder="big", signed=False),
-                    block_size.to_bytes(8, byteorder="big", signed=False),
-                    int(0).to_bytes(8, byteorder="big", signed=False),
-                    b"header\0",
+                    version.to_bytes(2, byteorder="big", signed=False),
+                    s_len.to_bytes(8, byteorder="big", signed=False),
+                    l_len.to_bytes(8, byteorder="big", signed=False),
+                    p_len.to_bytes(8, byteorder="big", signed=False),
+                    w_len.to_bytes(8, byteorder="big", signed=False),
+                    s_offset.to_bytes(8, byteorder="big", signed=False),
+                    l_offset.to_bytes(8, byteorder="big", signed=False),
+                    p_offset.to_bytes(8, byteorder="big", signed=False),
+                    w_offset.to_bytes(8, byteorder="big", signed=False),
+                    block_size.to_bytes(2, byteorder="big", signed=False),
+                    header_text.encode('ascii') + b'\0',
                 ]
             )
         )
