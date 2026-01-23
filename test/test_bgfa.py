@@ -80,16 +80,15 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     else:
         print("Pprint outputs are the same")
 
-def test_bgfa_idempotent_1(self):
+def test_bgfa_idempotent_1():
     """Test that pprint output matches expected file content."""
     test_gfa_to_bgfa_to_gfa_regression("data/example_1.gfa")
-    )
 
-def test_bgfa_idempotent_2(self):
+def test_bgfa_idempotent_2():
     """Test that pprint output matches expected file content."""
     test_gfa_to_bgfa_to_gfa_regression("data/example_2.gfa")
 
-def test_bgfa_idempotent_3(self):
+def test_bgfa_idempotent_3():
     """Test that pprint output matches expected file content."""
     test_gfa_to_bgfa_to_gfa_regression("data/example_3.gfa")
 
