@@ -105,6 +105,10 @@ class ReaderBGFA:
         # Parse header fields according to the specification
         offset = 0
 
+        # Read version (uint16)
+        version = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+        offset += 2
+
         # Read S_len (uint64) - Number of Segments
         s_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
@@ -137,13 +141,9 @@ class ReaderBGFA:
         w_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
 
-        # Read block_size (uint64) - number of objects stored in each block
-        block_size = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
-        offset += 8
-
-        # Read version (uint64)
-        version = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
-        offset += 8
+        # Read block_size (uint16) - number of objects stored in each block
+        block_size = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+        offset += 2
 
         # Read header text (C string)
         header_text = ""
@@ -264,6 +264,7 @@ class ReaderBGFA:
         :return: GFA graph object
         """
         from pygfa.gfa import GFA
+        from pygfa.graph_element import node
 
         gfa = GFA()
 
@@ -628,15 +629,6 @@ def to_bgfa(
     writer = BGFAWriter(gfa_graph)
     return writer.to_bgfa(block_size, compression_method, compression_level)
 
-
-def read_bgfa(file_path: str) -> GFA:
-    """Read a BGFA file and create the corresponding GFA graph.
-
-    :param file_path: Path to the BGFA file
-    :return: GFA graph object
-    """
-    reader = ReaderBGFA()
-    return reader.read_bgfa(file_path)
 
 def read_bgfa(file_path: str) -> GFA:
     """Read a BGFA file and create the corresponding GFA graph.
