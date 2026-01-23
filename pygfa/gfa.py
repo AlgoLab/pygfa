@@ -1817,6 +1817,61 @@ class GFA:
         for walk_id, walk_data in bgfa_gfa.walks(data=True):
             self.add_walk(walk_data)
 
+    def read_bgfa(self, file_path: str) -> None:
+        """Read a BGFA file and populate this GFA graph.
+
+        :param file_path: Path to the BGFA file
+        """
+        from pygfa.bgfa import read_bgfa
+        bgfa_gfa = read_bgfa(file_path)
+
+        # Clear current graph
+        self.clear()
+
+        # Copy nodes from BGFA graph
+        for node_id, node_data in bgfa_gfa.nodes(data=True):
+            self.add_node(
+                node.Node(
+                    node_id,
+                    node_data.get("sequence", ""),
+                    node_data.get("slen", 0),
+                    opt_fields={k: v for k, v in node_data.items()
+                              if k not in ["nid", "sequence", "slen"]}
+                )
+            )
+
+        # Copy edges from BGFA graph
+        for u, v, key, edge_data in bgfa_gfa.edges(data=True, keys=True):
+            self.add_edge(
+                ge.Edge(
+                    edge_data.get("eid"),
+                    edge_data.get("from_node", u),
+                    edge_data.get("from_orn", "+"),
+                    edge_data.get("to_node", v),
+                    edge_data.get("to_orn", "+"),
+                    edge_data.get("from_positions", (None, None)),
+                    edge_data.get("to_positions", (None, None)),
+                    edge_data.get("alignment", "*"),
+                    edge_data.get("distance"),
+                    edge_data.get("variance"),
+                    opt_fields={k: v for k, v in edge_data.items()
+                              if k not in ["eid", "from_node", "from_orn", "to_node",
+                                         "to_orn", "from_positions", "to_positions",
+                                         "alignment", "distance", "variance",
+                                         "is_dovetail", "from_segment_end", "to_segment_end"]},
+                    is_dovetail=edge_data.get("is_dovetail", False)
+                ),
+                key=key
+            )
+
+        # Copy paths from BGFA graph
+        for path_id, path_data in bgfa_gfa.paths(data=True):
+            self.add_path(path_data)
+
+        # Copy walks from BGFA graph
+        for walk_id, walk_data in bgfa_gfa.walks(data=True):
+            self.add_walk(walk_data)
+
     def write_bgfa(
         self,
         file,
