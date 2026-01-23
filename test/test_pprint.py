@@ -21,7 +21,7 @@ class TestPPrint(unittest.TestCase):
             expected_filename: Path to the file containing expected output
         """
         # Create a GFA graph from a file
-        graph = gfa.read_gfa(gfa_filename)
+        graph = gfa.GFA.from_gfa(gfa_filename)
 
         # Write to a temporary file instead of using StringIO
         with tempfile.NamedTemporaryFile(
@@ -36,6 +36,8 @@ class TestPPrint(unittest.TestCase):
             finally:
                 sys.stdout = original_stdout
 
+            # AI! if the expected_filename does not exists, copy temp_filename
+            # to expected_filename, using an os operation
         # Use the standard diff program to look for differences
         result = subprocess.run(
             ["diff", "-u", expected_filename, temp_filename],
