@@ -67,6 +67,7 @@ class ReaderBGFA:
         :return: GFA graph object
         """
         from pygfa.gfa import GFA
+        from pygfa.graph_element import node
 
         gfa = GFA()
 
