@@ -21,13 +21,7 @@ class TestPPrint(unittest.TestCase):
             expected_filename: Path to the file containing expected output
         """
         # Create a GFA graph from a file
-        graph = gfa.GFA()
-
-        # Read the GFA file
-        with open(gfa_filename, "r") as f:
-            gfa_content = f.read()
-
-        graph.from_string(gfa_content)
+        graph = gfa.read_gfa(gfa_filename)
 
         # Write to a temporary file instead of using StringIO
         with tempfile.NamedTemporaryFile(
@@ -42,45 +36,41 @@ class TestPPrint(unittest.TestCase):
             finally:
                 sys.stdout = original_stdout
 
-        # Read the temporary file content
-        with open(temp_filename, "r") as f:
-            pprint_output = f.read()
+        # Use the standard diff program to look for differences
+        result = subprocess.run(
+            ["diff", "-u", expected_filename, temp_filename],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
-        # Check if expected file exists, if not create it
-        if not os.path.exists(expected_filename):
-            # Create the expected file for future comparisons
-            with open(expected_filename, "w") as f:
-                f.write(pprint_output)
-
-            # For the first run, just check that pprint ran without error
-            self.assertTrue(
-                True, "Expected file created. Run test again to verify output."
-            )
-        else:
-            # Use the standard diff program to look for differences
-            result = subprocess.run(
-                ["diff", "-u", expected_filename, temp_filename],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if result.returncode != 0:
-                # Differences found
-                self.fail(
-                    f"PPrint output does not match expected file content.\n"
-                    f"Expected file: {expected_filename}\n"
-                    f"Actual file: {temp_filename}\n"
-                    f"Differences:\n{result.stdout}"
-                )
-
+        if result.returncode != 0:
+            # Differences found
             # Remove temporary file only on success
             os.unlink(temp_filename)
+            self.fail(
+                f"PPrint output does not match expected file content.\n"
+                f"Expected file: {expected_filename}\n"
+                f"Actual file: {temp_filename}\n"
+                f"Differences:\n{result.stdout}"
+            )
 
-    def test_pprint_output_matches_expected_file(self):
+    def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""
         self._test_pprint_output_matches_expected_file(
-            "data/example1.gfa", "data/example1_pprint_expected.txt"
+            "data/example_1.gfa", "results/example_1.txt"
+        )
+
+    def test_pprint_output_matches_expected_file_2(self):
+        """Test that pprint output matches expected file content."""
+        self._test_pprint_output_matches_expected_file(
+            "data/example_2.gfa", "results/example_2.txt"
+        )
+
+    def test_pprint_output_matches_expected_file_3(self):
+        """Test that pprint output matches expected file content."""
+        self._test_pprint_output_matches_expected_file(
+            "data/example_3.gfa", "results/example_3.txt"
         )
 
 

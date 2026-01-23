@@ -108,3 +108,4 @@ ENV/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+.cecli*

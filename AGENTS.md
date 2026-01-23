@@ -12,6 +12,13 @@ pygfa is a Python library for managing GFA (Graphical Fragment Assembly) files u
 
 ## Build, Lint, and Test Commands
 
+## Environment
+
+This project is inside a pixi environment, therefore all commands should be
+prefixed by 
+```pixi run```
+
+
 ### Installation
 
 ```bash
@@ -26,18 +33,18 @@ pixi install
 
 ```bash
 # Run all tests
-python -m pytest test/
+pixi run python -m pytest test/
 
 # Run a single test file
-python -m pytest test/test_graph_element.py -v
+pixi run python -m pytest test/test_graph_element.py -v
 
 # Run a single test
-python -m pytest test/test_graph_element.py::TestGraphElement::test_node -v
+pixi run python -m pytest test/test_graph_element.py::TestGraphElement::test_node -v
 
 # Run with coverage
-coverage run -p test/run_tests.sh
-coverage combine
-coverage html --omit=/usr/*
+pixi run coverage run -p test/run_tests.sh
+pixi run coverage combine
+pixi run coverage html --omit=/usr/*
 ```
 
 ### Development Tools
