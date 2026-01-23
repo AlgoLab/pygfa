@@ -657,5 +657,4 @@ def write_bgfa(
     writer.write_bgfa(file, block_size, compression_method, compression_level)
 
 
-# AI! add a read_bgfa method that reads a bgfa file and creates the
-# corresponding graph
+

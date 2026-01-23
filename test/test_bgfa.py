@@ -62,11 +62,23 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     bgfa_path = os.path.join(bgfa_filename)
     g.write_bgfa(bgfa_path)
 
-    # AI! read the bgfa file to obtain a graph h
+    # 3. read the bgfa file to obtain a graph h
+    h = GFA()
+    h.read_bgfa(bgfa_path)
 
     # 4. runs pprint on both g and h and checks if the outputs are the same
-
-    # 5. if the outputs are not the same, both are saved in two separate files
+    g_pprint = g.pprint()
+    h_pprint = h.pprint()
+    
+    if g_pprint != h_pprint:
+        # 5. if the outputs are not the same, both are saved in two separate files
+        with open("g_pprint.txt", "w") as f:
+            f.write(g_pprint)
+        with open("h_pprint.txt", "w") as f:
+            f.write(h_pprint)
+        assert False, "Pprint outputs are not the same"
+    else:
+        print("Pprint outputs are the same")
 
 def test_bgfa_idempotent_1(self):
     """Test that pprint output matches expected file content."""
