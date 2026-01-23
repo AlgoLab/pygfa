@@ -4,7 +4,8 @@ sys.path.insert(0, "../")
 
 import unittest
 import os
-from io import StringIO
+import tempfile
+import subprocess
 import pygfa
 from pygfa import gfa
 
@@ -26,17 +27,20 @@ class TestPPrint(unittest.TestCase):
 
         graph.from_string(gfa_content)
 
-        # Capture pprint output
-        output = StringIO()
-        original_stdout = sys.stdout
-        sys.stdout = output
+        # Write to a temporary file instead of using StringIO
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+            temp_filename = temp_file.name
+            original_stdout = sys.stdout
+            sys.stdout = temp_file
 
-        try:
-            graph.pprint()
-        finally:
-            sys.stdout = original_stdout
+            try:
+                graph.pprint()
+            finally:
+                sys.stdout = original_stdout
 
-        pprint_output = output.getvalue()
+        # Read the temporary file content
+        with open(temp_filename, 'r') as f:
+            pprint_output = f.read()
 
         # Check if expected file exists, if not create it
         if not os.path.exists(expected_filename):
@@ -49,16 +53,24 @@ class TestPPrint(unittest.TestCase):
                 True, "Expected file created. Run test again to verify output."
             )
         else:
-            # Read expected content
-            with open(expected_filename, "r") as f:
-                expected_content = f.read()
-
-            # Compare outputs
-            self.assertEqual(
-                pprint_output,
-                expected_content,
-                "PPrint output does not match expected file content",
-            )
+            # Use the standard diff program to look for differences
+            try:
+                result = subprocess.run(
+                    ["diff", "-u", expected_filename, temp_filename],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                if result.returncode != 0:
+                    # Differences found
+                    self.fail(
+                        f"PPrint output does not match expected file content.\n"
+                        f"Differences:\n{result.stdout}"
+                    )
+            finally:
+                # Clean up temporary file
+                os.unlink(temp_filename)
 
     def test_pprint_output_matches_expected_file(self):
         """Test that pprint output matches expected file content."""
