@@ -43,6 +43,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+import io
+import struct
+
 class ReaderBGFA:
     def __init__(self):
         pass
@@ -67,30 +70,53 @@ class ReaderBGFA:
         :return: GFA graph object
         """
         from pygfa.gfa import GFA
-        from pygfa.graph_element import node
+        from pygfa.graph_element import node, edge as ge
 
         gfa = GFA()
 
         # Parse header
         header = self._parse_header(bgfa_data)
-        print(f"Header parsed: {header}")
+        logger.info(f"Header parsed: {header}")
 
         # Parse segment names
         segment_names = self._parse_segment_names(bgfa_data, header)
-        print(f"Segment names: {segment_names}")
+        logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
         segments = self._parse_segments(bgfa_data, header, segment_names)
-        print(f"Segments: {segments}")
+        logger.info(f"Segments: {segments}")
 
         # Add nodes to GFA graph
-        for segment_id, segment_data in segments.items():
+        for segment_name, segment_data in segments.items():
             gfa.add_node(
                 node.Node(
-                    segment_id,
+                    segment_name,
                     segment_data["sequence"],
                     segment_data["length"],
                     opt_fields={}
+                )
+            )
+
+        # Parse links
+        links = self._parse_links(bgfa_data, header, segment_names)
+        logger.info(f"Links: {links}")
+        
+        # Add edges to GFA graph
+        for link in links:
+            gfa.add_edge(
+                ge.Edge(
+                    None,  # eid
+                    link["from_node"],
+                    link["from_orn"],
+                    link["to_node"],
+                    link["to_orn"],
+                    (None, None),  # from_positions
+                    (None, None),  # to_positions
+                    link["alignment"],
+                    None,  # distance
+                    None,  # variance
+                    opt_fields={},
+                    is_dovetail=True
                 )
             )
 
@@ -102,46 +128,33 @@ class ReaderBGFA:
         :param bgfa_data: Binary BGFA data
         :return: Dictionary containing header information
         """
-        # Parse header fields according to the specification
         offset = 0
 
         # Read version (uint16)
         version = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
         offset += 2
 
-        # Read S_len (uint64) - Number of Segments
+        # Read counts
         s_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read L_len (uint64) - Number of Links
         l_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read P_len (uint64) - Number of Paths
         p_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read W_len (uint64) - Number of Walks
         w_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
 
-        # Read S_offset (uint64) - offset to first segment block
+        # Read offsets
         s_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read L_offset (uint64) - offset to first link block
         l_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read P_offset (uint64) - offset to first path block
         p_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
-
-        # Read W_offset (uint64) - offset to first walk block
         w_offset = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
         offset += 8
 
-        # Read block_size (uint16) - number of objects stored in each block
+        # Read block_size (uint16)
         block_size = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
         offset += 2
 
@@ -177,7 +190,6 @@ class ReaderBGFA:
         if header["s_len"] == 0:
             return []
 
-        # Start from the segment names offset (after header)
         offset = header["header_size"]
         segment_names = []
 
@@ -199,46 +211,128 @@ class ReaderBGFA:
         :param bgfa_data: Binary BGFA data
         :param header: Parsed header information
         :param segment_names: List of segment names
-        :return: Dictionary mapping segment IDs to segment data
+        :return: Dictionary mapping segment names to segment data
         """
         if header["s_len"] == 0:
             return {}
 
-        # Start from the segments offset (after header)
-        offset = header["header_size"]
+        # The segments block comes after the names block
+        offset = header["s_offset"]
         segments = {}
 
         # Read segments blocks
         segments_read = 0
         while segments_read < header["s_len"] and offset < len(bgfa_data):
-            # Read segment ID (uint64)
-            segment_id = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            # Read block header
+            record_num = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+            offset += 2
+            compressed_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
             offset += 8
-
-            # Read sequence length (uint64)
-            sequence_length = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            uncompressed_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
             offset += 8
+            compression_str = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+            offset += 2
 
-            # Read sequence (null-terminated string)
-            sequence = ""
-            while offset < len(bgfa_data) and bgfa_data[offset] != 0:
-                sequence += chr(bgfa_data[offset])
-                offset += 1
-            offset += 1  # Skip null terminator
+            # Read segment data
+            segment_data = bgfa_data[offset:offset+compressed_len]
+            offset += compressed_len
 
-            # Get segment name from segment_names list
-            if segment_id <= len(segment_names):
-                segment_name = segment_names[segment_id - 1]  # 1-based indexing
-            else:
-                segment_name = f"segment_{segment_id}"
+            # For now, assume simple format without compression
+            # In a real implementation, we would decompress based on compression_str
+            pos = 0
+            for _ in range(record_num):
+                # Read segment ID (uint64) - this is the index in the segment_names list
+                segment_id = int.from_bytes(segment_data[pos:pos+8], byteorder="big", signed=False)
+                pos += 8
+                # Read sequence length (uint64)
+                sequence_length = int.from_bytes(segment_data[pos:pos+8], byteorder="big", signed=False)
+                pos += 8
+                # Read sequence (null-terminated string)
+                sequence = ""
+                while pos < len(segment_data) and segment_data[pos] != 0:
+                    sequence += chr(segment_data[pos])
+                    pos += 1
+                pos += 1  # Skip null terminator
 
-            segments[segment_name] = {
-                "sequence": sequence,
-                "length": sequence_length
-            }
-            segments_read += 1
+                # Get segment name from segment_names list using 1-based indexing
+                if 0 < segment_id <= len(segment_names):
+                    segment_name = segment_names[segment_id - 1]
+                else:
+                    segment_name = f"segment_{segment_id}"
+
+                segments[segment_name] = {
+                    "sequence": sequence,
+                    "length": sequence_length
+                }
+                segments_read += 1
 
         return segments
+
+    def _parse_links(self, bgfa_data: bytes, header: dict, segment_names: list) -> list:
+        """Parse links from BGFA data.
+
+        :param bgfa_data: Binary BGFA data
+        :param header: Parsed header information
+        :param segment_names: List of segment names
+        :return: List of link dictionaries
+        """
+        if header["l_len"] == 0:
+            return []
+
+        offset = header["l_offset"]
+        links = []
+
+        # Read links blocks
+        links_read = 0
+        while links_read < header["l_len"] and offset < len(bgfa_data):
+            # Read block header
+            record_num = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+            offset += 2
+            compressed_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            offset += 8
+            uncompressed_len = int.from_bytes(bgfa_data[offset:offset+8], byteorder="big", signed=False)
+            offset += 8
+            compression_fromto = int.from_bytes(bgfa_data[offset:offset+2], byteorder="big", signed=False)
+            offset += 2
+            compression_cigars = int.from_bytes(bgfa_data[offset:offset+4], byteorder="big", signed=False)
+            offset += 4
+
+            # Read link data
+            link_data = bgfa_data[offset:offset+compressed_len]
+            offset += compressed_len
+
+            # For now, assume simple format without compression
+            pos = 0
+            for _ in range(record_num):
+                # Read from node (uint64) - this is the index in the segment_names list
+                from_node_id = int.from_bytes(link_data[pos:pos+8], byteorder="big", signed=False)
+                pos += 8
+                # Read to node (uint64) - this is the index in the segment_names list
+                to_node_id = int.from_bytes(link_data[pos:pos+8], byteorder="big", signed=False)
+                pos += 8
+                # Read cigar string (null-terminated string)
+                cigar = ""
+                while pos < len(link_data) and link_data[pos] != 0:
+                    cigar += chr(link_data[pos])
+                    pos += 1
+                pos += 1  # Skip null terminator
+
+                # Convert node IDs to names using segment_names list
+                from_name = segment_names[from_node_id - 1] if 0 < from_node_id <= len(segment_names) else f"node_{from_node_id}"
+                to_name = segment_names[to_node_id - 1] if 0 < to_node_id <= len(segment_names) else f"node_{to_node_id}"
+                orientation_from = "+"
+                orientation_to = "+"
+
+                links.append({
+                    "from_node": from_name,
+                    "from_orn": orientation_from,
+                    "to_node": to_name,
+                    "to_orn": orientation_to,
+                    "alignment": cigar
+                })
+                links_read += 1
+
+        return links
 
 class ReaderBGFA:
     def __init__(self):
@@ -447,20 +541,45 @@ class BGFAWriter:
         compression_method: str = "zstd",
         compression_level: int = 19,
     ) -> bytes:
-        return bytes(
-            b"".join(
-                [
-                    self.header(block_size),
-                    self.names_blocks(block_size),
-                    self.segments_blocks(
-                        block_size, compression_method, compression_level
-                    ),
-                    self.links_blocks(block_size),
-                    self.paths_blocks(block_size),
-                    self.walks_blocks(block_size),
-                ]
-            )
-        )
+        # Create a BytesIO buffer
+        buffer = io.BytesIO()
+
+        # Compute counts
+        s_len = len(self._gfa.nodes())
+        l_len = len(self._gfa.edges())
+        p_len = len(self._gfa.paths())
+        w_len = len(self._gfa.walks())
+
+        # Write placeholder header
+        placeholder_header = self.header(block_size)
+        buffer.write(placeholder_header)
+
+        # Write the blocks
+        names_blocks = self.names_blocks(block_size)
+        segments_blocks = self.segments_blocks(block_size, compression_method, compression_level)
+        links_blocks = self.links_blocks(block_size)
+        paths_blocks = self.paths_blocks(block_size)
+        walks_blocks = self.walks_blocks(block_size)
+
+        buffer.write(names_blocks)
+        buffer.write(segments_blocks)
+        buffer.write(links_blocks)
+        buffer.write(paths_blocks)
+        buffer.write(walks_blocks)
+
+        # Compute actual offsets
+        header_size = len(placeholder_header)
+        s_offset = header_size + len(names_blocks)
+        l_offset = header_size + len(names_blocks) + len(segments_blocks)
+        p_offset = header_size + len(names_blocks) + len(segments_blocks) + len(links_blocks)
+        w_offset = header_size + len(names_blocks) + len(segments_blocks) + len(links_blocks) + len(paths_blocks)
+
+        # Seek back and write real header
+        buffer.seek(0)
+        self._write_header(buffer, s_len, l_len, p_len, w_len, s_offset, l_offset, p_offset, w_offset, block_size)
+
+        # Get the entire buffer as bytes
+        return buffer.getvalue()
 
     def write_bgfa(
         self,
@@ -472,15 +591,36 @@ class BGFAWriter:
         with open(file, "wb") as f:
             f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
+    def _write_header(self, buffer, s_len, l_len, p_len, w_len, s_offset, l_offset, p_offset, w_offset, block_size):
+        """Write BGFA header in binary format."""
+        # Write version (uint16)
+        buffer.write(struct.pack('>H', 1))  # big-endian, unsigned short
+
+        # Write counts
+        buffer.write(struct.pack('>Q', s_len))  # uint64
+        buffer.write(struct.pack('>Q', l_len))
+        buffer.write(struct.pack('>Q', p_len))
+        buffer.write(struct.pack('>Q', w_len))
+
+        # Write offsets
+        buffer.write(struct.pack('>Q', s_offset))
+        buffer.write(struct.pack('>Q', l_offset))
+        buffer.write(struct.pack('>Q', p_offset))
+        buffer.write(struct.pack('>Q', w_offset))
+
+        # Write block_size (uint16)
+        buffer.write(struct.pack('>H', block_size))
+
+        # Write header text (C string)
+        header_text = "H\tVN:Z:1.0"
+        buffer.write(header_text.encode('ascii'))
+        buffer.write(b'\x00')  # null terminator
+
     def header(self, block_size: int = 1024) -> bytes:
-        header_content = "H\tVN:Z:1.0\n"
-        header_bytes = header_content.encode("ascii")
-
-        padding_needed = block_size - len(header_bytes) % block_size
-        if padding_needed < block_size:
-            header_bytes += b"\x00" * padding_needed
-
-        return header_bytes
+        """Create placeholder header with zeros."""
+        buffer = io.BytesIO()
+        self._write_header(buffer, 0, 0, 0, 0, 0, 0, 0, 0, block_size)
+        return buffer.getvalue()
 
     def names_blocks(self, block_size: int = 1024) -> bytes:
         names = list(self._gfa.nodes())

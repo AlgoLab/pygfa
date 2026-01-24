@@ -57,9 +57,11 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     g = GFA.from_gfa(gfa_file_path)
 
     # 2. write the graph g to a bgfa file
-    # AI! the bgfa file must be in the results directory
+    # Create results directory if it doesn't exist
+    results_dir = "results"
+    os.makedirs(results_dir, exist_ok=True)
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", ".bgfa")
-    bgfa_path = os.path.join(bgfa_filename)
+    bgfa_path = os.path.join(results_dir, bgfa_filename)
     try:
         g.write_bgfa(bgfa_path)
     except Exception as e:
