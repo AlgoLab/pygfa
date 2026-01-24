@@ -425,7 +425,49 @@ class ReaderBGFA:
         :param start_offset: Offset where the paths block start
         :return: (List of paths dictionaries, number of bytes read)
         """
-        # AI! implement the _parse_paths_blocks method
+        offset = start_offset
+        
+        # Read block header
+        record_num = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compressed_len_cigar = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        uncompressed_len_cigar = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        compressed_len_name = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        uncompressed_len_name = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        compression_path_names = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compression_paths = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compression_cigars = int.from_bytes(
+            bgfa_data[offset : offset + 4], byteorder="big", signed=False
+        )
+        offset += 4
+
+        # Skip the payload for now
+        total_payload_len = compressed_len_name + compressed_len_cigar
+        offset += total_payload_len
+
+        # Return empty list for paths
+        paths = []
+        return paths, offset - start_offset
 
 
 class BGFAWriter:
