@@ -68,6 +68,7 @@ class ReaderBGFA:
         # Parse header
         header = self._parse_header(bgfa_data)
         # Store header information in the GFA object
+        # AI! save all header information in variables
         gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
         S_len = gfa._header_info["S_len"]
