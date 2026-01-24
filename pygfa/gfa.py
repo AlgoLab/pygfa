@@ -116,10 +116,13 @@ class GFA:
         self._segment_map = {}
         self._paths = {}  # New attribute to store paths
         self._walks = {}  # New attribute to store walks
+        self._header_info = {}  # Store BGFA header information
         
         # Initialize segment map from base_graph if provided
         if base_graph is not None and hasattr(base_graph, '_segment_map'):
             self._segment_map = base_graph._segment_map.copy()
+        if base_graph is not None and hasattr(base_graph, '_header_info'):
+            self._header_info = base_graph._header_info.copy()
 
     def __contains__(self, id_):
         try:
