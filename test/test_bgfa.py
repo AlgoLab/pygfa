@@ -78,27 +78,24 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
         h.read_bgfa(bgfa_path)
     except Exception as e:
         # Print the bgfa_path to a log file for debugging
-        log_file = "bgfa_error.log"
+        log_file = "/tmp/bgfa_error.log"
         with open(log_file, "a") as f:
             f.write(f"Error reading BGFA file: {bgfa_path}\n")
             f.write(f"Error: {e}\n")
-        # Clean up the temporary file
-        if os.path.exists(bgfa_path):
-            os.remove(bgfa_path)
         pytest.skip(f"Cannot read BGFA: {e}")
 
     # 4. runs pprint on both g and h and checks if the outputs are the same
     # Capture pprint output
     import io
     import sys
-    
+
     # Capture g's pprint
     g_output = io.StringIO()
     sys.stdout = g_output
     g.pprint()
     sys.stdout = sys.__stdout__
     g_pprint = g_output.getvalue()
-    
+
     # Capture h's pprint
     h_output = io.StringIO()
     sys.stdout = h_output
