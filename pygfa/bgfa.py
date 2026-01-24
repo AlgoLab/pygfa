@@ -80,10 +80,9 @@ class ReaderBGFA:
             )
             offset += read_bytes
             for name in segment_names_block:
-                segment_names.append(name)
-        # Create mapping from segment_id to name
-        id_to_name = {i: name for i, name in enumerate(segment_names)}
-        logger.info(f"Segment names: {id_to_name}")
+                segment_names.append(segment_names_block)
+        names = {v: k for k, v in enumerate(segment_names)}
+        logger.info(f"Segment names: {names}")
 
         # Parse segments
         for _ in range(math.ceil(header["S_len"] / header["block_size"])):
@@ -95,14 +94,11 @@ class ReaderBGFA:
             for segment_name, segment_data in segment_block.items():
                 # Get segment_id from segment_data
                 segment_id = segment_data.get("segment_id")
-                if segment_id is None:
-                    # Try to get it from the segment_name mapping
-                    # This is a fallback
-                    segment_id = list(id_to_name.keys())[list(id_to_name.values()).index(segment_name)]
                 # Get node name from id_to_name, fallback to segment_name
-                node_name = id_to_name.get(segment_id, segment_name)
+                node_name = segment_names[segment_id]
                 n = node.Node(
                     node_name,
+                    names[segment_id],
                     segment_data["sequence"],
                     segment_data["length"],
                     opt_fields={},
@@ -434,7 +430,7 @@ class ReaderBGFA:
         :return: (List of paths dictionaries, number of bytes read)
         """
         offset = start_offset
-        
+
         # Read block header
         record_num = int.from_bytes(
             bgfa_data[offset : offset + 2], byteorder="big", signed=False
