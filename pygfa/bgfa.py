@@ -67,10 +67,12 @@ class ReaderBGFA:
 
         # Parse header
         header = self._parse_header(bgfa_data)
+        # AI! after reading the header, add all information into gfa
         logger.info(f"Header parsed: {header}")
 
         # Parse segment names
         segment_names = self._parse_segment_names(bgfa_data, header)
+        # after reading the header, add all information into gfa
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
@@ -216,7 +218,9 @@ class ReaderBGFA:
             # Decode payload according to compression_names
             # For now, assume identity (0x0000): payload is concatenated null-terminated strings
             if compression_names != 0x0000:
-                raise ValueError(f"Unsupported compression_names: {compression_names:#06x}")
+                raise ValueError(
+                    f"Unsupported compression_names: {compression_names:#06x}"
+                )
 
             pos = 0
             for _ in range(record_num):
@@ -505,15 +509,17 @@ class BGFAWriter:
 
         # Sort names by segment ID
         names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
-        segment_names = [name for name, seg_id in names_by_id]  # only segment names, not paths
+        segment_names = [
+            name for name, seg_id in names_by_id
+        ]  # only segment names, not paths
 
         # Split into blocks of size block_size
         all_blocks = []
         total_segments = len(segment_names)
         for start in range(0, total_segments, block_size):
-            chunk = segment_names[start:start + block_size]
+            chunk = segment_names[start : start + block_size]
             record_num = len(chunk)
-            
+
             # Payload: each name as null-terminated ASCII string
             payload = b"".join([name.encode("ascii") + b"\x00" for name in chunk])
             compressed_len = len(payload)
@@ -522,10 +528,10 @@ class BGFAWriter:
 
             # Write block header
             header = (
-                record_num.to_bytes(2, byteorder="big", signed=False) +
-                compressed_len.to_bytes(8, byteorder="big", signed=False) +
-                uncompressed_len.to_bytes(8, byteorder="big", signed=False) +
-                compression_names.to_bytes(2, byteorder="big", signed=False)
+                record_num.to_bytes(2, byteorder="big", signed=False)
+                + compressed_len.to_bytes(8, byteorder="big", signed=False)
+                + uncompressed_len.to_bytes(8, byteorder="big", signed=False)
+                + compression_names.to_bytes(2, byteorder="big", signed=False)
             )
             all_blocks.append(header + payload)
 
@@ -558,9 +564,10 @@ class BGFAWriter:
             seq_len = len(sequence) if sequence != "*" else 0
             # Each segment entry: segment_id (uint64), sequence_length (uint64), sequence (null-terminated string)
             entry = (
-                seg_id.to_bytes(8, byteorder="big", signed=False) +
-                seq_len.to_bytes(8, byteorder="big", signed=False) +
-                sequence.encode("ascii") + b"\x00"
+                seg_id.to_bytes(8, byteorder="big", signed=False)
+                + seq_len.to_bytes(8, byteorder="big", signed=False)
+                + sequence.encode("ascii")
+                + b"\x00"
             )
             segments_data.append(entry)
 
@@ -568,7 +575,7 @@ class BGFAWriter:
         all_blocks = []
         total_segments = len(segments_data)
         for start in range(0, total_segments, block_size):
-            chunk = segments_data[start:start + block_size]
+            chunk = segments_data[start : start + block_size]
             record_num = len(chunk)
             payload = b"".join(chunk)
             compressed_len = len(payload)
@@ -577,10 +584,10 @@ class BGFAWriter:
 
             # Write block header
             header = (
-                record_num.to_bytes(2, byteorder="big", signed=False) +
-                compressed_len.to_bytes(8, byteorder="big", signed=False) +
-                uncompressed_len.to_bytes(8, byteorder="big", signed=False) +
-                compression_str.to_bytes(2, byteorder="big", signed=False)
+                record_num.to_bytes(2, byteorder="big", signed=False)
+                + compressed_len.to_bytes(8, byteorder="big", signed=False)
+                + uncompressed_len.to_bytes(8, byteorder="big", signed=False)
+                + compression_str.to_bytes(2, byteorder="big", signed=False)
             )
             all_blocks.append(header + payload)
 
