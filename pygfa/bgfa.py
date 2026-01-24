@@ -181,21 +181,53 @@ class ReaderBGFA:
         :param header: Parsed header information
         :return: List of segment names
         """
-        if header["s_len"] == 0:
+        s_len = header["s_len"]
+        if s_len == 0:
             return []
 
+        block_size = header["block_size"]
         offset = header["header_size"]
         segment_names = []
+        total_read = 0
 
-        # Read segment names (null-terminated strings)
-        while len(segment_names) < header["s_len"] and offset < len(bgfa_data):
-            name = ""
-            while offset < len(bgfa_data) and bgfa_data[offset] != 0:
-                name += chr(bgfa_data[offset])
-                offset += 1
-            offset += 1  # Skip null terminator
-            if name:  # Only add non-empty names
+        while total_read < s_len and offset < len(bgfa_data):
+            # Read block header
+            record_num = int.from_bytes(
+                bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            )
+            offset += 2
+            compressed_len = int.from_bytes(
+                bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            )
+            offset += 8
+            uncompressed_len = int.from_bytes(
+                bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            )
+            offset += 8
+            compression_names = int.from_bytes(
+                bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            )
+            offset += 2
+
+            # Read payload
+            payload = bgfa_data[offset : offset + compressed_len]
+            offset += compressed_len
+
+            # Decode payload according to compression_names
+            # For now, assume identity (0x0000): payload is concatenated null-terminated strings
+            if compression_names != 0x0000:
+                raise ValueError(f"Unsupported compression_names: {compression_names:#06x}")
+
+            pos = 0
+            for _ in range(record_num):
+                name_bytes = bytearray()
+                while pos < len(payload) and payload[pos] != 0:
+                    name_bytes.append(payload[pos])
+                    pos += 1
+                pos += 1  # skip null terminator
+                name = name_bytes.decode("ascii")
                 segment_names.append(name)
+                total_read += 1
 
         return segment_names
 
