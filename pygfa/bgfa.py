@@ -71,11 +71,21 @@ class ReaderBGFA:
         gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
         # Parse segment names
-        segment_names, offset_after_names = self._parse_segment_names(bgfa_data, header)
+        offset = 36 + len(header["header"])
+        segment_names = []
+        for _ in range(ceiling(header["S_len"] / header["block_size"])):
+            segment_names_block, read_bytes = self._parse_segment_names_block(
+                bgfa_data, header, offset
+            )
+            offset += read_bytes
+            for name in segment_names_block:
+                segment_names.append(segment_names_block)
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
-        segments, offset_after_segments = self._parse_segments(bgfa_data, header, segment_names, offset_after_names)
+        segments, offset_after_segments = self._parse_segments(
+            bgfa_data, header, segment_names, offset_after_names
+        )
         logger.info(f"Segments: {segments}")
 
         # Add nodes to GFA graph with segment IDs
@@ -92,7 +102,9 @@ class ReaderBGFA:
             gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
 
         # Parse links
-        links, offset_after_links = self._parse_links(bgfa_data, header, segment_names, offset_after_segments)
+        links, offset_after_links = self._parse_links(
+            bgfa_data, header, segment_names, offset_after_segments
+        )
         logger.info(f"Links: {links}")
 
         # Add edges to GFA graph
@@ -175,64 +187,59 @@ class ReaderBGFA:
             "header_size": offset,
         }
 
-    def _parse_segment_names(self, bgfa_data: bytes, header: dict) -> tuple[list, int]:
+    def _parse_segment_names_block(
+        self, bgfa_data: bytes, header: dict, offset: int
+    ) -> (list[str], int):
         """Parse segment names from BGFA data.
 
         :param bgfa_data: Binary BGFA data
         :param header: Parsed header information
-        :return: (List of segment names, offset after reading all segment names blocks)
+        :param offset: number of bytes to skip
+        :return: (List of segment names, number of bytes read)
         """
-        s_len = header["s_len"]
-        if s_len == 0:
-            return [], header["header_size"]
 
-        block_size = header["block_size"]
-        offset = header["header_size"]
         segment_names = []
-        total_read = 0
+        initial_offset = offset
+        # Read block header
+        record_num = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        uncompressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        compression_names = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
 
-        while total_read < s_len and offset < len(bgfa_data):
-            # Read block header
-            record_num = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
-            compressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            uncompressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            compression_names = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
+        # Read payload
+        payload = bgfa_data[offset : offset + compressed_len]
+        offset += compressed_len
 
-            # Read payload
-            payload = bgfa_data[offset : offset + compressed_len]
-            offset += compressed_len
+        # Decode payload according to compression_names
+        # For now, assume identity (0x0000): payload is concatenated null-terminated strings
+        if compression_names != 0x0000:
+            raise ValueError(f"Unsupported compression_names: {compression_names:#06x}")
 
-            # Decode payload according to compression_names
-            # For now, assume identity (0x0000): payload is concatenated null-terminated strings
-            if compression_names != 0x0000:
-                raise ValueError(
-                    f"Unsupported compression_names: {compression_names:#06x}"
-                )
-
-            pos = 0
-            for _ in range(record_num):
-                name_bytes = bytearray()
-                while pos < len(payload) and payload[pos] != 0:
-                    name_bytes.append(payload[pos])
-                    pos += 1
+        pos = 0
+        for _ in range(record_num):
+            name_bytes = bytearray()
+            while pos < len(payload) and payload[pos] != 0:
+                name_bytes.append(payload[pos])
+                pos += 1
                 pos += 1  # skip null terminator
                 name = name_bytes.decode("ascii")
                 segment_names.append(name)
-                total_read += 1
 
-        return segment_names, offset
+        # if the total length of the decoded segment names is more than
+        # uncompressed_len, then throw an exception
+        return segment_names, offset - initial_offset
 
     def _parse_segments(
         self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
@@ -312,7 +319,9 @@ class ReaderBGFA:
 
         return segments, offset
 
-    def _parse_links(self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int) -> tuple[list, int]:
+    def _parse_links(
+        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+    ) -> tuple[list, int]:
         """Parse links from BGFA data.
 
         :param bgfa_data: Binary BGFA data
