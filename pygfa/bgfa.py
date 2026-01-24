@@ -233,12 +233,17 @@ class ReaderBGFA:
             while pos < len(payload) and payload[pos] != 0:
                 name_bytes.append(payload[pos])
                 pos += 1
-                pos += 1  # skip null terminator
-                name = name_bytes.decode("ascii")
-                segment_names.append(name)
+            if pos >= len(payload):
+                raise ValueError("Missing null terminator in segment name")
+            pos += 1  # skip null terminator
+            name = name_bytes.decode("ascii")
+            segment_names.append(name)
 
-        # AI! if the total length of the decoded segment names is more than
-        # uncompressed_len, then throw an exception
+        # Verify that the total length of the decoded segment names (including null terminators) matches uncompressed_len
+        if pos != uncompressed_len:
+            raise ValueError(
+                f"Segment names length mismatch: expected {uncompressed_len} bytes, got {pos}"
+            )
         return segment_names, offset - initial_offset
 
     def _parse_segments(
