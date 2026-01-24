@@ -93,6 +93,12 @@ class ReaderBGFA:
             offset += read_bytes
             # Add nodes to GFA graph with segment IDs
             for segment_name, segment_data in segment_block.items():
+                # Get segment_id from segment_data
+                segment_id = segment_data.get("segment_id")
+                if segment_id is None:
+                    # Try to get it from the segment_name mapping
+                    # This is a fallback
+                    segment_id = list(id_to_name.keys())[list(id_to_name.values()).index(segment_name)]
                 n = node.Node(
                     id_to_name[segment_id],
                     segment_data["sequence"],
@@ -101,8 +107,8 @@ class ReaderBGFA:
                 )
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
-                gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
-        logger.info(f"Segments: {segments}")
+                gfa._segment_map[segment_name] = segment_id
+        logger.info(f"Segments: {segment_block}")
 
         # Parse links
         for _ in range(math.ceil(header["S_len"] / header["block_size"])):
