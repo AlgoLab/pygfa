@@ -51,7 +51,6 @@ class ReaderBGFA:
     def __init__(self):
         pass
 
-    # AI! merge _parse_bgfa_data into read_bgfa
     def read_bgfa(self, file_path: str) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
@@ -59,20 +58,10 @@ class ReaderBGFA:
         :return: GFA graph object
         """
         from pygfa.gfa import GFA
+        from pygfa.graph_element import node, edge as ge
 
         with open(file_path, "rb") as f:
             bgfa_data = f.read()
-
-        return self._parse_bgfa_data(bgfa_data)
-
-    def _parse_bgfa_data(self, bgfa_data: bytes) -> GFA:
-        """Parse BGFA binary data and create a GFA graph.
-
-        :param bgfa_data: Binary BGFA data
-        :return: GFA graph object
-        """
-        from pygfa.gfa import GFA
-        from pygfa.graph_element import node, edge as ge
 
         gfa = GFA()
 
@@ -121,9 +110,6 @@ class ReaderBGFA:
                     is_dovetail=True,
                 )
             )
-
-        # TODO: Parse paths
-        # TODO: Parse walks
 
         # TODO: Parse paths
         # TODO: Parse walks
