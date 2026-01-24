@@ -70,9 +70,15 @@ class ReaderBGFA:
         # Store header information in the GFA object
         gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
-
+        S_len = gfa._header_info["S_len"]
+        block_size = gfa._header_info["block_size"]
         # Parse segment names
-        segment_names = self._parse_segment_names(bgfa_data, header)
+        segment_names = []
+        segment_id = 0
+        for _ in range(ceiling(S_len / block_size)):
+            segment_names_block = self._parse_segment_names(bgfa_data, header)
+            for name in segment_names_block:
+                segment_names.append(segment_names_block)
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
