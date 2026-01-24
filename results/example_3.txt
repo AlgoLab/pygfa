@@ -1,0 +1,62 @@
+=== GFA Graph ===
+Nodes: 3
+Edges: 3
+Subgraphs: 0
+Paths: 2
+Walks: 0
+
+--- Nodes ---
+  Node: 11
+    sequence: ACCTT
+    length: 5
+  Node: 12
+    sequence: TCAAGG
+    length: 6
+  Node: 13
+    sequence: CTTGATT
+    length: 7
+
+--- Edges ---
+  Edge: virtual_0 (11 -> 12)
+    from_orn: +
+    to_orn: -
+    from_positions: (None, None)
+    to_positions: (None, None)
+    alignment: 4M
+    distance: None
+    variance: None
+    is_dovetail: True
+    from_segment_end: None
+    to_segment_end: None
+  Edge: virtual_2 (11 -> 13)
+    from_orn: +
+    to_orn: +
+    from_positions: (None, None)
+    to_positions: (None, None)
+    alignment: 3M
+    distance: None
+    variance: None
+    is_dovetail: True
+    from_segment_end: None
+    to_segment_end: None
+  Edge: virtual_1 (12 -> 13)
+    from_orn: -
+    to_orn: +
+    from_positions: (None, None)
+    to_positions: (None, None)
+    alignment: 5M
+    distance: None
+    variance: None
+    is_dovetail: True
+    from_segment_end: None
+    to_segment_end: None
+
+--- Paths ---
+  Path: 14
+    path_name: 14
+    segments: ['11+', '12-', '13+']
+  Path: 16
+    path_name: 16
+    segments: ['11+', '12-', '13+']
+    overlaps: ['4M', '5M']
+
