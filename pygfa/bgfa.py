@@ -67,12 +67,12 @@ class ReaderBGFA:
 
         # Parse header
         header = self._parse_header(bgfa_data)
-        # AI! after reading the header, add all information into gfa
+        # Store header information in the GFA object
+        gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
 
         # Parse segment names
         segment_names = self._parse_segment_names(bgfa_data, header)
-        # after reading the header, add all information into gfa
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
