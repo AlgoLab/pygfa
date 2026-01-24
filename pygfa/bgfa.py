@@ -85,24 +85,23 @@ class ReaderBGFA:
         logger.info(f"Segment names: {names}")
 
         # Parse segments
-        segments, read_bytes = self._parse_segments(
-            bgfa_data, header, segment_names, offset
-        )
-        offset += read_bytes
-        logger.info(f"Segments: {segments}")
-
-        # Add nodes to GFA graph with segment IDs
-        for segment_name, segment_data in segments.items():
-            n = node.Node(
-                segment_name,
-                segment_data["sequence"],
-                segment_data["length"],
-                opt_fields={},
+        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
+            segment_block, read_bytes = self._parse_segment_block(
+                bgfa_data, header, offset
             )
-            gfa.add_node(n)
-            # Store segment ID (0-based) in the graph
-            # The GFA class has a _segment_map attribute
-            gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
+            offset += read_bytes
+            # Add nodes to GFA graph with segment IDs
+            for segment_name, segment_data in segment_block.items():
+                n = node.Node(
+                    names[segment_id],
+                    segment_data["sequence"],
+                    segment_data["length"],
+                    opt_fields={},
+                )
+                gfa.add_node(n)
+                # The GFA class has a _segment_map attribute
+                gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
+        logger.info(f"Segments: {segments}")
 
         # Parse links
         links, offset_after_links = self._parse_links(
@@ -249,7 +248,7 @@ class ReaderBGFA:
             )
         return segment_names, offset - initial_offset
 
-    def _parse_segments(
+    def _parse_segments_block(
         self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
     ) -> tuple[dict, int]:
         """Parse segments from BGFA data.
@@ -260,70 +259,66 @@ class ReaderBGFA:
         :param start_offset: Offset where segments blocks start
         :return: (Dictionary mapping segment names to segment data, offset after reading all segments blocks)
         """
-        if header["s_len"] == 0:
-            return {}, start_offset
-
         offset = start_offset
         segments = {}
 
         # Read segments blocks
         segments_read = 0
-        while segments_read < header["s_len"] and offset < len(bgfa_data):
-            # Read block header
-            record_num = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
-            compressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            uncompressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            compression_str = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
+        # Read block header
+        record_num = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        uncompressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        compression_str = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
 
-            # Read segment data
-            segment_data = bgfa_data[offset : offset + compressed_len]
-            offset += compressed_len
+        # Read segment data
+        segment_data = bgfa_data[offset : offset + compressed_len]
+        offset += compressed_len
 
-            # For now, assume simple format without compression
-            # In a real implementation, we would decompress based on compression_str
-            pos = 0
-            for _ in range(record_num):
-                # Read segment ID (uint64) - this is the index in the segment_names list
-                segment_id = int.from_bytes(
-                    segment_data[pos : pos + 8], byteorder="big", signed=False
-                )
-                pos += 8
-                # Read sequence length (uint64)
-                sequence_length = int.from_bytes(
-                    segment_data[pos : pos + 8], byteorder="big", signed=False
-                )
-                pos += 8
-                # Read sequence (null-terminated string)
-                sequence = ""
-                while pos < len(segment_data) and segment_data[pos] != 0:
-                    sequence += chr(segment_data[pos])
-                    pos += 1
-                pos += 1  # Skip null terminator
+        # For now, assume simple format without compression
+        # In a real implementation, we would decompress based on compression_str
+        pos = 0
+        for _ in range(record_num):
+            # Read segment ID (uint64) - this is the index in the segment_names list
+            segment_id = int.from_bytes(
+                segment_data[pos : pos + 8], byteorder="big", signed=False
+            )
+            pos += 8
+            # Read sequence length (uint64)
+            sequence_length = int.from_bytes(
+                segment_data[pos : pos + 8], byteorder="big", signed=False
+            )
+            pos += 8
+            # Read sequence (null-terminated string)
+            sequence = ""
+            while pos < len(segment_data) and segment_data[pos] != 0:
+                sequence += chr(segment_data[pos])
+                pos += 1
+            pos += 1  # Skip null terminator
 
-                # Get segment name from segment_names list using 1-based indexing
-                if 0 < segment_id <= len(segment_names):
-                    segment_name = segment_names[segment_id - 1]
-                else:
-                    segment_name = f"segment_{segment_id}"
+            # Get segment name from segment_names list using 1-based indexing
+            if 0 < segment_id <= len(segment_names):
+                segment_name = segment_names[segment_id - 1]
+            else:
+                segment_name = f"segment_{segment_id}"
 
-                segments[segment_name] = {
-                    "segment_id": segment_id - 1,  # Convert to 0-based
-                    "sequence": sequence,
-                    "length": sequence_length,
-                }
-                segments_read += 1
+            segments[segment_name] = {
+                "segment_id": segment_id - 1,  # Convert to 0-based
+                "sequence": sequence,
+                "length": sequence_length,
+            }
+            segments_read += 1
 
         return segments, offset
 
