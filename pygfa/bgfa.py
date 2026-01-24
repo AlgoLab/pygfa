@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 import io
 import struct
+import math
 
 
 class ReaderBGFA:
@@ -73,7 +74,7 @@ class ReaderBGFA:
         # Parse segment names
         offset = 36 + len(header["header"])
         segment_names = []
-        for _ in range(ceiling(header["S_len"] / header["block_size"])):
+        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
             segment_names_block, read_bytes = self._parse_segment_names_block(
                 bgfa_data, header, offset
             )
@@ -83,9 +84,10 @@ class ReaderBGFA:
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
-        segments, offset_after_segments = self._parse_segments(
-            bgfa_data, header, segment_names, offset_after_names
+        segments, read_bytes = self._parse_segments(
+            bgfa_data, header, segment_names, offset
         )
+        offset += read_bytes
         logger.info(f"Segments: {segments}")
 
         # Add nodes to GFA graph with segment IDs
@@ -103,7 +105,7 @@ class ReaderBGFA:
 
         # Parse links
         links, offset_after_links = self._parse_links(
-            bgfa_data, header, segment_names, offset_after_segments
+            bgfa_data, header, segment_names, offset
         )
         logger.info(f"Links: {links}")
 
