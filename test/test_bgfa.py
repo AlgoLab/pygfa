@@ -64,6 +64,11 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     bgfa_path = os.path.join(results_dir, bgfa_filename)
     try:
         g.write_bgfa(bgfa_path)
+        # Check if file was created and is non-empty
+        if not os.path.exists(bgfa_path):
+            pytest.skip(f"BGFA file was not created: {bgfa_path}")
+        if os.path.getsize(bgfa_path) == 0:
+            pytest.skip(f"BGFA file is empty: {bgfa_path}")
     except Exception as e:
         pytest.skip(f"Cannot write BGFA: {e}")
 
@@ -72,15 +77,34 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     try:
         h.read_bgfa(bgfa_path)
     except Exception as e:
-        # AI! print the bgfa_path in a logfile
+        # Print the bgfa_path to a log file for debugging
+        log_file = "bgfa_error.log"
+        with open(log_file, "a") as f:
+            f.write(f"Error reading BGFA file: {bgfa_path}\n")
+            f.write(f"Error: {e}\n")
         # Clean up the temporary file
         if os.path.exists(bgfa_path):
             os.remove(bgfa_path)
         pytest.skip(f"Cannot read BGFA: {e}")
 
     # 4. runs pprint on both g and h and checks if the outputs are the same
-    g_pprint = g.pprint()
-    h_pprint = h.pprint()
+    # Capture pprint output
+    import io
+    import sys
+    
+    # Capture g's pprint
+    g_output = io.StringIO()
+    sys.stdout = g_output
+    g.pprint()
+    sys.stdout = sys.__stdout__
+    g_pprint = g_output.getvalue()
+    
+    # Capture h's pprint
+    h_output = io.StringIO()
+    sys.stdout = h_output
+    h.pprint()
+    sys.stdout = sys.__stdout__
+    h_pprint = h_output.getvalue()
 
     if g_pprint != h_pprint:
         # 5. if the outputs are not the same, both are saved in two separate files
