@@ -72,6 +72,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     try:
         h.read_bgfa(bgfa_path)
     except Exception as e:
+        # AI! print the bgfa_path in a logfile
         # Clean up the temporary file
         if os.path.exists(bgfa_path):
             os.remove(bgfa_path)
