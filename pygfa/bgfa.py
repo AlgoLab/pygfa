@@ -70,8 +70,6 @@ class ReaderBGFA:
         logger.info(f"Header parsed: {header}")
 
         # Parse segment names
-        # AI! _parse_segment_names must read a single block
-        # Add here the logic to iterate over all segment names blocks
         segment_names = self._parse_segment_names(bgfa_data, header)
         logger.info(f"Segment names: {segment_names}")
 
@@ -467,10 +465,7 @@ class BGFAWriter:
 
     def names_blocks(self, block_size: int = 1024) -> bytes:
         # Get all nodes sorted by segment ID (which should be stored in _segment_map)
-        # First, create a mapping from segment ID to name
         segment_map = getattr(self._gfa, "_segment_map", {})
-
-        # If segment_map is empty, create one with 0-based IDs
         if not segment_map:
             nodes_list = list(self._gfa.nodes())
             segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
@@ -478,30 +473,34 @@ class BGFAWriter:
 
         # Sort names by segment ID
         names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
-        names = [name for name, seg_id in names_by_id]
+        segment_names = [name for name, seg_id in names_by_id]  # only segment names, not paths
 
-        # Also include path names
-        for path_id in self._gfa.paths():
-            names.append(path_id)
+        # Split into blocks of size block_size
+        all_blocks = []
+        total_segments = len(segment_names)
+        for start in range(0, total_segments, block_size):
+            chunk = segment_names[start:start + block_size]
+            record_num = len(chunk)
+            
+            # Payload: each name as null-terminated ASCII string
+            payload = b"".join([name.encode("ascii") + b"\x00" for name in chunk])
+            compressed_len = len(payload)
+            uncompressed_len = compressed_len  # identity compression
+            compression_names = 0x0000  # identity for both lengths and strings
 
-        seen = set()
-        unique_names = []
-        for name in names:
-            if name not in seen:
-                seen.add(name)
-                unique_names.append(name)
+            # Write block header
+            header = (
+                record_num.to_bytes(2, byteorder="big", signed=False) +
+                compressed_len.to_bytes(8, byteorder="big", signed=False) +
+                uncompressed_len.to_bytes(8, byteorder="big", signed=False) +
+                compression_names.to_bytes(2, byteorder="big", signed=False)
+            )
+            all_blocks.append(header + payload)
 
-        names_bytes = compress_string_list(
-            unique_names,
-            compress_integer_list=compress_integer_list_varint,
-            compression_method="none",
-        )
-
-        padding_needed = block_size - len(names_bytes) % block_size
-        if padding_needed < block_size:
-            names_bytes += b"\x00" * padding_needed
-
-        return names_bytes
+        # Concatenate all blocks
+        result = b"".join(all_blocks)
+        # No additional padding needed because blocks are already formed
+        return result
 
     def segments_blocks(
         self,
@@ -519,36 +518,42 @@ class BGFAWriter:
         # Sort nodes by segment ID
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
 
-        sequences = []
-        lengths = []
-        segment_ids = []
-
+        # Prepare data for each segment
+        segments_data = []
         for node_id, seg_id in sorted_items:
             node_data = dict(self._gfa.nodes(data=True))[node_id]
             sequence = node_data.get("sequence", "*")
-            sequences.append(sequence)
-            lengths.append(len(sequence) if sequence != "*" else 0)
-            segment_ids.append(seg_id)  # 0-based
+            seq_len = len(sequence) if sequence != "*" else 0
+            # Each segment entry: segment_id (uint64), sequence_length (uint64), sequence (null-terminated string)
+            entry = (
+                seg_id.to_bytes(8, byteorder="big", signed=False) +
+                seq_len.to_bytes(8, byteorder="big", signed=False) +
+                sequence.encode("ascii") + b"\x00"
+            )
+            segments_data.append(entry)
 
-        # Write segment IDs, lengths, and sequences
-        # First, write segment IDs (0-based) as varint encoded
-        segment_ids_bytes = compress_integer_list_varint(segment_ids)
+        # Split into blocks
+        all_blocks = []
+        total_segments = len(segments_data)
+        for start in range(0, total_segments, block_size):
+            chunk = segments_data[start:start + block_size]
+            record_num = len(chunk)
+            payload = b"".join(chunk)
+            compressed_len = len(payload)
+            uncompressed_len = compressed_len  # identity compression
+            compression_str = 0x0000  # identity for sequences (and for IDs/lengths)
 
-        lengths_bytes = compress_integer_list_varint(lengths)
+            # Write block header
+            header = (
+                record_num.to_bytes(2, byteorder="big", signed=False) +
+                compressed_len.to_bytes(8, byteorder="big", signed=False) +
+                uncompressed_len.to_bytes(8, byteorder="big", signed=False) +
+                compression_str.to_bytes(2, byteorder="big", signed=False)
+            )
+            all_blocks.append(header + payload)
 
-        sequences_bytes = compress_string_list(
-            sequences,
-            compress_integer_list=compress_integer_list_varint,
-            compression_method=compression_method,
-            compression_level=compression_level,
-        )
-
-        result = segment_ids_bytes + lengths_bytes + sequences_bytes
-
-        padding_needed = block_size - len(result) % block_size
-        if padding_needed < block_size:
-            result += b"\x00" * padding_needed
-
+        # Concatenate all blocks
+        result = b"".join(all_blocks)
         return result
 
     def links_blocks(self, block_size: int = 1024) -> bytes:
