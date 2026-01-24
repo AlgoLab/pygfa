@@ -81,7 +81,8 @@ class ReaderBGFA:
             offset += read_bytes
             for name in segment_names_block:
                 segment_names.append(segment_names_block)
-        logger.info(f"Segment names: {segment_names}")
+        names = {v: k for k, v in enumerate(segment_names)}
+        logger.info(f"Segment names: {names}")
 
         # Parse segments
         segments, read_bytes = self._parse_segments(
