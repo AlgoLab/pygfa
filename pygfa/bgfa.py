@@ -70,6 +70,8 @@ class ReaderBGFA:
         logger.info(f"Header parsed: {header}")
 
         # Parse segment names
+        # AI! _parse_segment_names must read a single block
+        # Add here the logic to iterate over all segment names blocks
         segment_names = self._parse_segment_names(bgfa_data, header)
         logger.info(f"Segment names: {segment_names}")
 
@@ -466,14 +468,14 @@ class BGFAWriter:
     def names_blocks(self, block_size: int = 1024) -> bytes:
         # Get all nodes sorted by segment ID (which should be stored in _segment_map)
         # First, create a mapping from segment ID to name
-        segment_map = getattr(self._gfa, '_segment_map', {})
-        
+        segment_map = getattr(self._gfa, "_segment_map", {})
+
         # If segment_map is empty, create one with 0-based IDs
         if not segment_map:
             nodes_list = list(self._gfa.nodes())
             segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
             self._gfa._segment_map = segment_map
-        
+
         # Sort names by segment ID
         names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
         names = [name for name, seg_id in names_by_id]
@@ -508,15 +510,15 @@ class BGFAWriter:
         compression_level: int = 19,
     ) -> bytes:
         # Get segment map
-        segment_map = getattr(self._gfa, '_segment_map', {})
+        segment_map = getattr(self._gfa, "_segment_map", {})
         if not segment_map:
             nodes_list = list(self._gfa.nodes())
             segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
             self._gfa._segment_map = segment_map
-        
+
         # Sort nodes by segment ID
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
-        
+
         sequences = []
         lengths = []
         segment_ids = []
@@ -531,7 +533,7 @@ class BGFAWriter:
         # Write segment IDs, lengths, and sequences
         # First, write segment IDs (0-based) as varint encoded
         segment_ids_bytes = compress_integer_list_varint(segment_ids)
-        
+
         lengths_bytes = compress_integer_list_varint(lengths)
 
         sequences_bytes = compress_string_list(
