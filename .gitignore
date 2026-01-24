@@ -109,3 +109,4 @@ ENV/
 .pixi/*
 !.pixi/config.toml
 .cecli*
+results/*
