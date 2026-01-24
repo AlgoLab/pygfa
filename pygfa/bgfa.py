@@ -120,6 +120,12 @@ class ReaderBGFA:
                 )
             )
 
+        # TODO: Parse paths
+        # TODO: Parse walks
+        
+        # TODO: Parse paths
+        # TODO: Parse walks
+        
         return gfa
 
     def _parse_header(self, bgfa_data: bytes) -> dict:
