@@ -104,29 +104,31 @@ class ReaderBGFA:
         logger.info(f"Segments: {segments}")
 
         # Parse links
-        links, offset_after_links = self._parse_links(
-            bgfa_data, header, segment_names, offset
-        )
-        logger.info(f"Links: {links}")
-
-        # Add edges to GFA graph
-        for link in links:
-            gfa.add_edge(
-                ge.Edge(
-                    None,  # eid
-                    link["from_node"],
-                    link["from_orn"],
-                    link["to_node"],
-                    link["to_orn"],
-                    (None, None),  # from_positions
-                    (None, None),  # to_positions
-                    link["alignment"],
-                    None,  # distance
-                    None,  # variance
-                    opt_fields={},
-                    is_dovetail=True,
-                )
+        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
+            links, offset_after_links = self._parse_links_block(
+                bgfa_data, header, segment_names, offset
             )
+            offset += read_bytes
+
+            # Add edges to GFA graph
+            for link in links:
+                gfa.add_edge(
+                    ge.Edge(
+                        None,  # eid
+                        link["from_node"],
+                        link["from_orn"],
+                        link["to_node"],
+                        link["to_orn"],
+                        (None, None),  # from_positions
+                        (None, None),  # to_positions
+                        link["alignment"],
+                        None,  # distance
+                        None,  # variance
+                        opt_fields={},
+                        is_dovetail=True,
+                    )
+                )
+        logger.info(f"Links: {links}")
 
         # TODO: Parse paths
         # TODO: Parse walks
@@ -322,7 +324,7 @@ class ReaderBGFA:
 
         return segments, offset
 
-    def _parse_links(
+    def _parse_links_block(
         self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
     ) -> tuple[list, int]:
         """Parse links from BGFA data.
@@ -333,85 +335,82 @@ class ReaderBGFA:
         :param start_offset: Offset where links blocks start
         :return: (List of link dictionaries, offset after reading all links blocks)
         """
-        if header["l_len"] == 0:
-            return [], start_offset
 
         offset = start_offset
         links = []
 
         # Read links blocks
         links_read = 0
-        while links_read < header["l_len"] and offset < len(bgfa_data):
-            # Read block header
-            record_num = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
-            compressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            uncompressed_len = int.from_bytes(
-                bgfa_data[offset : offset + 8], byteorder="big", signed=False
-            )
-            offset += 8
-            compression_fromto = int.from_bytes(
-                bgfa_data[offset : offset + 2], byteorder="big", signed=False
-            )
-            offset += 2
-            compression_cigars = int.from_bytes(
-                bgfa_data[offset : offset + 4], byteorder="big", signed=False
-            )
-            offset += 4
+        # Read block header
+        record_num = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        uncompressed_len = int.from_bytes(
+            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+        )
+        offset += 8
+        compression_fromto = int.from_bytes(
+            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+        )
+        offset += 2
+        compression_cigars = int.from_bytes(
+            bgfa_data[offset : offset + 4], byteorder="big", signed=False
+        )
+        offset += 4
 
-            # Read link data
-            link_data = bgfa_data[offset : offset + compressed_len]
-            offset += compressed_len
+        # Read link data
+        link_data = bgfa_data[offset : offset + compressed_len]
+        offset += compressed_len
 
-            # For now, assume simple format without compression
-            pos = 0
-            for _ in range(record_num):
-                # Read from node (uint64) - this is the index in the segment_names list
-                from_node_id = int.from_bytes(
-                    link_data[pos : pos + 8], byteorder="big", signed=False
-                )
-                pos += 8
-                # Read to node (uint64) - this is the index in the segment_names list
-                to_node_id = int.from_bytes(
-                    link_data[pos : pos + 8], byteorder="big", signed=False
-                )
-                pos += 8
-                # Read cigar string (null-terminated string)
-                cigar = ""
-                while pos < len(link_data) and link_data[pos] != 0:
-                    cigar += chr(link_data[pos])
-                    pos += 1
-                pos += 1  # Skip null terminator
+        # For now, assume simple format without compression
+        pos = 0
+        for _ in range(record_num):
+            # Read from node (uint64) - this is the index in the segment_names list
+            from_node_id = int.from_bytes(
+                link_data[pos : pos + 8], byteorder="big", signed=False
+            )
+            pos += 8
+            # Read to node (uint64) - this is the index in the segment_names list
+            to_node_id = int.from_bytes(
+                link_data[pos : pos + 8], byteorder="big", signed=False
+            )
+            pos += 8
+            # Read cigar string (null-terminated string)
+            cigar = ""
+            while pos < len(link_data) and link_data[pos] != 0:
+                cigar += chr(link_data[pos])
+                pos += 1
+            pos += 1  # Skip null terminator
 
-                # Convert node IDs to names using segment_names list
-                from_name = (
-                    segment_names[from_node_id - 1]
-                    if 0 < from_node_id <= len(segment_names)
-                    else f"node_{from_node_id}"
-                )
-                to_name = (
-                    segment_names[to_node_id - 1]
-                    if 0 < to_node_id <= len(segment_names)
-                    else f"node_{to_node_id}"
-                )
-                orientation_from = "+"
-                orientation_to = "+"
+            # Convert node IDs to names using segment_names list
+            from_name = (
+                segment_names[from_node_id - 1]
+                if 0 < from_node_id <= len(segment_names)
+                else f"node_{from_node_id}"
+            )
+            to_name = (
+                segment_names[to_node_id - 1]
+                if 0 < to_node_id <= len(segment_names)
+                else f"node_{to_node_id}"
+            )
+            orientation_from = "+"
+            orientation_to = "+"
 
-                links.append(
-                    {
-                        "from_node": from_name,
-                        "from_orn": orientation_from,
-                        "to_node": to_name,
-                        "to_orn": orientation_to,
-                        "alignment": cigar,
-                    }
-                )
-                links_read += 1
+            links.append(
+                {
+                    "from_node": from_name,
+                    "from_orn": orientation_from,
+                    "to_node": to_name,
+                    "to_orn": orientation_to,
+                    "alignment": cigar,
+                }
+            )
+            links_read += 1
 
         return links, offset
 
