@@ -237,7 +237,7 @@ class ReaderBGFA:
                 name = name_bytes.decode("ascii")
                 segment_names.append(name)
 
-        # if the total length of the decoded segment names is more than
+        # AI! if the total length of the decoded segment names is more than
         # uncompressed_len, then throw an exception
         return segment_names, offset - initial_offset
 
