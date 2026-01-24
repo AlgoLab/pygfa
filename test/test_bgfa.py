@@ -15,7 +15,6 @@ if project_root not in sys.path:
 
 from pygfa.gfa import GFA
 
-
 # Dynamically find all .gfa files in the test directory
 # This will match files like test/sample1.gfa, test/sample2.gfa, etc.
 TEST_FILES = glob.glob("test/*.gfa")
@@ -35,11 +34,11 @@ def temp_dir():
 def gfa_file_path(request):
     """Provide the path to a GFA file for testing."""
     file_path = request.param
-    
+
     # Check if file exists (it should, since glob found it)
     if not os.path.exists(file_path):
         pytest.skip(f"Test file not found: {file_path}")
-    
+
     return file_path
 
 
@@ -58,6 +57,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     g = GFA.from_gfa(gfa_file_path)
 
     # 2. write the graph g to a bgfa file
+    # AI! the bgfa file must be in the results directory
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", ".bgfa")
     bgfa_path = os.path.join(bgfa_filename)
     try:
@@ -78,7 +78,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     # 4. runs pprint on both g and h and checks if the outputs are the same
     g_pprint = g.pprint()
     h_pprint = h.pprint()
-    
+
     if g_pprint != h_pprint:
         # 5. if the outputs are not the same, both are saved in two separate files
         with open("g_pprint.txt", "w") as f:
@@ -88,18 +88,21 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
         assert False, "Pprint outputs are not the same"
     else:
         print("Pprint outputs are the same")
-    
+
     # Clean up the temporary file
     if os.path.exists(bgfa_path):
         os.remove(bgfa_path)
+
 
 def test_bgfa_idempotent_1():
     """Test that pprint output matches expected file content."""
     test_gfa_to_bgfa_to_gfa_regression("data/example_1.gfa")
 
+
 def test_bgfa_idempotent_2():
     """Test that pprint output matches expected file content."""
     test_gfa_to_bgfa_to_gfa_regression("data/example_2.gfa")
+
 
 def test_bgfa_idempotent_3():
     """Test that pprint output matches expected file content."""
