@@ -486,9 +486,15 @@ class BGFAWriter:
         p_len = len(self._gfa.paths())
         w_len = len(self._gfa.walks())
 
-        # Write placeholder header
-        placeholder_header = self.header(block_size)
-        buffer.write(placeholder_header)
+        # Write the header
+        self._write_header(
+            buffer,
+            s_len,
+            l_len,
+            p_len,
+            w_len,
+            block_size,
+        )
 
         # Write the blocks
         names_blocks = self.names_blocks(block_size)
@@ -507,14 +513,6 @@ class BGFAWriter:
 
         # Seek back and write real header
         buffer.seek(0)
-        self._write_header(
-            buffer,
-            s_len,
-            l_len,
-            p_len,
-            w_len,
-            block_size,
-        )
 
         # Get the entire buffer as bytes
         return buffer.getvalue()
