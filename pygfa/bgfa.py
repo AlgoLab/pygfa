@@ -68,22 +68,14 @@ class ReaderBGFA:
         # Parse header
         header = self._parse_header(bgfa_data)
         # Store header information in the GFA object
-        # AI! save all header information in variables
         gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
-        S_len = gfa._header_info["S_len"]
-        block_size = gfa._header_info["block_size"]
         # Parse segment names
-        segment_names = []
-        segment_id = 0
-        for _ in range(ceiling(S_len / block_size)):
-            segment_names_block = self._parse_segment_names(bgfa_data, header)
-            for name in segment_names_block:
-                segment_names.append(segment_names_block)
+        segment_names, offset_after_names = self._parse_segment_names(bgfa_data, header)
         logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
-        segments = self._parse_segments(bgfa_data, header, segment_names)
+        segments, offset_after_segments = self._parse_segments(bgfa_data, header, segment_names, offset_after_names)
         logger.info(f"Segments: {segments}")
 
         # Add nodes to GFA graph with segment IDs
@@ -100,7 +92,7 @@ class ReaderBGFA:
             gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
 
         # Parse links
-        links = self._parse_links(bgfa_data, header, segment_names)
+        links, offset_after_links = self._parse_links(bgfa_data, header, segment_names, offset_after_segments)
         logger.info(f"Links: {links}")
 
         # Add edges to GFA graph
@@ -183,16 +175,16 @@ class ReaderBGFA:
             "header_size": offset,
         }
 
-    def _parse_segment_names(self, bgfa_data: bytes, header: dict) -> list:
+    def _parse_segment_names(self, bgfa_data: bytes, header: dict) -> tuple[list, int]:
         """Parse segment names from BGFA data.
 
         :param bgfa_data: Binary BGFA data
         :param header: Parsed header information
-        :return: List of segment names
+        :return: (List of segment names, offset after reading all segment names blocks)
         """
         s_len = header["s_len"]
         if s_len == 0:
-            return []
+            return [], header["header_size"]
 
         block_size = header["block_size"]
         offset = header["header_size"]
@@ -240,23 +232,23 @@ class ReaderBGFA:
                 segment_names.append(name)
                 total_read += 1
 
-        return segment_names
+        return segment_names, offset
 
     def _parse_segments(
-        self, bgfa_data: bytes, header: dict, segment_names: list
-    ) -> dict:
+        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+    ) -> tuple[dict, int]:
         """Parse segments from BGFA data.
 
         :param bgfa_data: Binary BGFA data
         :param header: Parsed header information
         :param segment_names: List of segment names
-        :return: Dictionary mapping segment names to segment data
+        :param start_offset: Offset where segments blocks start
+        :return: (Dictionary mapping segment names to segment data, offset after reading all segments blocks)
         """
         if header["s_len"] == 0:
-            return {}
+            return {}, start_offset
 
-        # The segments block comes after the names block
-        offset = header["s_offset"]
+        offset = start_offset
         segments = {}
 
         # Read segments blocks
@@ -318,20 +310,21 @@ class ReaderBGFA:
                 }
                 segments_read += 1
 
-        return segments
+        return segments, offset
 
-    def _parse_links(self, bgfa_data: bytes, header: dict, segment_names: list) -> list:
+    def _parse_links(self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int) -> tuple[list, int]:
         """Parse links from BGFA data.
 
         :param bgfa_data: Binary BGFA data
         :param header: Parsed header information
         :param segment_names: List of segment names
-        :return: List of link dictionaries
+        :param start_offset: Offset where links blocks start
+        :return: (List of link dictionaries, offset after reading all links blocks)
         """
         if header["l_len"] == 0:
-            return []
+            return [], start_offset
 
-        offset = header["l_offset"]
+        offset = start_offset
         links = []
 
         # Read links blocks
@@ -408,7 +401,7 @@ class ReaderBGFA:
                 )
                 links_read += 1
 
-        return links
+        return links, offset
 
 
 class BGFAWriter:
