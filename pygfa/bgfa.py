@@ -99,15 +99,17 @@ class ReaderBGFA:
                     # Try to get it from the segment_name mapping
                     # This is a fallback
                     segment_id = list(id_to_name.keys())[list(id_to_name.values()).index(segment_name)]
+                # Get node name from id_to_name, fallback to segment_name
+                node_name = id_to_name.get(segment_id, segment_name)
                 n = node.Node(
-                    id_to_name[segment_id],
+                    node_name,
                     segment_data["sequence"],
                     segment_data["length"],
                     opt_fields={},
                 )
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
-                gfa._segment_map[segment_name] = segment_id
+                gfa._segment_map[node_name] = segment_id
         logger.info(f"Segments: {segment_block}")
 
         # Parse links
