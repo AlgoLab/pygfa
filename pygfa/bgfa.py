@@ -414,6 +414,17 @@ class ReaderBGFA:
 
         return links, offset
 
+    def _parse_paths_blocks(
+        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+    ) -> tuple[list, int]:
+        """Parse a paths block from BGFA data.
+
+        :param bgfa_data: Binary BGFA data
+        :param header: Parsed header information
+        :param start_offset: Offset where the paths block start
+        :return: (List of paths dictionaries, number of bytes read)
+        """
+
 
 class BGFAWriter:
     def __init__(self, gfa_graph: GFA):
