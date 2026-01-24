@@ -73,9 +73,8 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
         pytest.skip(f"Cannot write BGFA: {e}")
 
     # 3. read the bgfa file to obtain a graph h
-    h = GFA()
     try:
-        h.read_bgfa(bgfa_path)
+        h = GFA.from_bgfa(bgfa_path)
     except Exception as e:
         # Print the bgfa_path to a log file for debugging
         log_file = "/tmp/bgfa_error.log"
