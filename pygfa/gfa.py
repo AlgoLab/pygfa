@@ -116,6 +116,10 @@ class GFA:
         self._segment_map = {}
         self._paths = {}  # New attribute to store paths
         self._walks = {}  # New attribute to store walks
+        
+        # Initialize segment map from base_graph if provided
+        if base_graph is not None and hasattr(base_graph, '_segment_map'):
+            self._segment_map = base_graph._segment_map.copy()
 
     def __contains__(self, id_):
         try:

@@ -77,16 +77,18 @@ class ReaderBGFA:
         segments = self._parse_segments(bgfa_data, header, segment_names)
         logger.info(f"Segments: {segments}")
 
-        # Add nodes to GFA graph
+        # Add nodes to GFA graph with segment IDs
         for segment_name, segment_data in segments.items():
-            gfa.add_node(
-                node.Node(
-                    segment_name,
-                    segment_data["sequence"],
-                    segment_data["length"],
-                    opt_fields={},
-                )
+            n = node.Node(
+                segment_name,
+                segment_data["sequence"],
+                segment_data["length"],
+                opt_fields={},
             )
+            gfa.add_node(n)
+            # Store segment ID (0-based) in the graph
+            # The GFA class has a _segment_map attribute
+            gfa._segment_map[segment_name] = segment_data.get("segment_id", None)
 
         # Parse links
         links = self._parse_links(bgfa_data, header, segment_names)
@@ -148,24 +150,6 @@ class ReaderBGFA:
         )
         offset += 8
 
-        # Read offsets
-        s_offset = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
-        offset += 8
-        l_offset = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
-        offset += 8
-        p_offset = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
-        offset += 8
-        w_offset = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
-        offset += 8
-
         # Read block_size (uint16)
         block_size = int.from_bytes(
             bgfa_data[offset : offset + 2], byteorder="big", signed=False
@@ -185,10 +169,6 @@ class ReaderBGFA:
             "l_len": l_len,
             "p_len": p_len,
             "w_len": w_len,
-            "s_offset": s_offset,
-            "l_offset": l_offset,
-            "p_offset": p_offset,
-            "w_offset": w_offset,
             "block_size": block_size,
             "header_text": header_text,
             "header_size": offset,
@@ -289,6 +269,7 @@ class ReaderBGFA:
                     segment_name = f"segment_{segment_id}"
 
                 segments[segment_name] = {
+                    "segment_id": segment_id - 1,  # Convert to 0-based
                     "sequence": sequence,
                     "length": sequence_length,
                 }
@@ -425,21 +406,6 @@ class BGFAWriter:
         buffer.write(paths_blocks)
         buffer.write(walks_blocks)
 
-        # Compute actual offsets
-        header_size = len(placeholder_header)
-        s_offset = header_size + len(names_blocks)
-        l_offset = header_size + len(names_blocks) + len(segments_blocks)
-        p_offset = (
-            header_size + len(names_blocks) + len(segments_blocks) + len(links_blocks)
-        )
-        w_offset = (
-            header_size
-            + len(names_blocks)
-            + len(segments_blocks)
-            + len(links_blocks)
-            + len(paths_blocks)
-        )
-
         # Seek back and write real header
         buffer.seek(0)
         self._write_header(
@@ -448,10 +414,6 @@ class BGFAWriter:
             l_len,
             p_len,
             w_len,
-            s_offset,
-            l_offset,
-            p_offset,
-            w_offset,
             block_size,
         )
 
@@ -475,10 +437,6 @@ class BGFAWriter:
         l_len,
         p_len,
         w_len,
-        s_offset,
-        l_offset,
-        p_offset,
-        w_offset,
         block_size,
     ):
         """Write BGFA header in binary format."""
@@ -491,12 +449,6 @@ class BGFAWriter:
         buffer.write(struct.pack(">Q", p_len))
         buffer.write(struct.pack(">Q", w_len))
 
-        # Write offsets
-        buffer.write(struct.pack(">Q", s_offset))
-        buffer.write(struct.pack(">Q", l_offset))
-        buffer.write(struct.pack(">Q", p_offset))
-        buffer.write(struct.pack(">Q", w_offset))
-
         # Write block_size (uint16)
         buffer.write(struct.pack(">H", block_size))
 
@@ -508,12 +460,25 @@ class BGFAWriter:
     def header(self, block_size: int = 1024) -> bytes:
         """Create placeholder header with zeros."""
         buffer = io.BytesIO()
-        self._write_header(buffer, 0, 0, 0, 0, 0, 0, 0, 0, block_size)
+        self._write_header(buffer, 0, 0, 0, 0, block_size)
         return buffer.getvalue()
 
     def names_blocks(self, block_size: int = 1024) -> bytes:
-        names = list(self._gfa.nodes())
+        # Get all nodes sorted by segment ID (which should be stored in _segment_map)
+        # First, create a mapping from segment ID to name
+        segment_map = getattr(self._gfa, '_segment_map', {})
+        
+        # If segment_map is empty, create one with 0-based IDs
+        if not segment_map:
+            nodes_list = list(self._gfa.nodes())
+            segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
+            self._gfa._segment_map = segment_map
+        
+        # Sort names by segment ID
+        names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
+        names = [name for name, seg_id in names_by_id]
 
+        # Also include path names
         for path_id in self._gfa.paths():
             names.append(path_id)
 
@@ -542,17 +507,31 @@ class BGFAWriter:
         compression_method: str = "zstd",
         compression_level: int = 19,
     ) -> bytes:
+        # Get segment map
+        segment_map = getattr(self._gfa, '_segment_map', {})
+        if not segment_map:
+            nodes_list = list(self._gfa.nodes())
+            segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
+            self._gfa._segment_map = segment_map
+        
+        # Sort nodes by segment ID
+        sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
+        
         sequences = []
         lengths = []
-        names = []
+        segment_ids = []
 
-        for node_id in sorted(self._gfa.nodes()):
+        for node_id, seg_id in sorted_items:
             node_data = dict(self._gfa.nodes(data=True))[node_id]
             sequence = node_data.get("sequence", "*")
             sequences.append(sequence)
             lengths.append(len(sequence) if sequence != "*" else 0)
-            names.append(node_id)
+            segment_ids.append(seg_id)  # 0-based
 
+        # Write segment IDs, lengths, and sequences
+        # First, write segment IDs (0-based) as varint encoded
+        segment_ids_bytes = compress_integer_list_varint(segment_ids)
+        
         lengths_bytes = compress_integer_list_varint(lengths)
 
         sequences_bytes = compress_string_list(
@@ -562,7 +541,7 @@ class BGFAWriter:
             compression_level=compression_level,
         )
 
-        result = lengths_bytes + sequences_bytes
+        result = segment_ids_bytes + lengths_bytes + sequences_bytes
 
         padding_needed = block_size - len(result) % block_size
         if padding_needed < block_size:
