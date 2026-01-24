@@ -86,7 +86,7 @@ class ReaderBGFA:
 
         # Parse segments
         for _ in range(math.ceil(header["S_len"] / header["block_size"])):
-            segment_block, read_bytes = self._parse_segment_block(
+            segment_block, read_bytes = self._parse_segments_block(
                 bgfa_data, header, offset
             )
             offset += read_bytes
@@ -106,11 +106,11 @@ class ReaderBGFA:
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
                 gfa._segment_map[node_name] = segment_id
-        logger.info(f"Segments: {segment_block}")
+                logger.info(f"Segments: {segment_name}, {segment_data}")
 
         # Parse links
         for _ in range(math.ceil(header["S_len"] / header["block_size"])):
-            links, offset_after_links = self._parse_links_block(
+            links, read_bytes = self._parse_links_block(
                 bgfa_data, header, segment_names, offset
             )
             offset += read_bytes
@@ -133,7 +133,7 @@ class ReaderBGFA:
                         is_dovetail=True,
                     )
                 )
-        logger.info(f"Links: {links}")
+            logger.info(f"Links: {links}")
 
         # TODO: Parse paths
         # TODO: Parse walks
@@ -197,8 +197,8 @@ class ReaderBGFA:
         }
 
     def _parse_segment_names_block(
-        self, bgfa_data: bytes, header: dict, offset: int
-    ) -> (list[str], int):
+        self, bgfa_data: bytes, offset: int
+    ) -> tuple[list[str], int]:
         """Parse segment names from BGFA data.
 
         :param bgfa_data: Binary BGFA data
@@ -256,7 +256,7 @@ class ReaderBGFA:
         return segment_names, offset - initial_offset
 
     def _parse_segments_block(
-        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+        self, bgfa_data: bytes, start_offset: int
     ) -> tuple[dict, int]:
         """Parse segments from BGFA data.
 
@@ -314,14 +314,7 @@ class ReaderBGFA:
                 pos += 1
             pos += 1  # Skip null terminator
 
-            # Get segment name from segment_names list using 1-based indexing
-            if 0 < segment_id <= len(segment_names):
-                segment_name = segment_names[segment_id - 1]
-            else:
-                segment_name = f"segment_{segment_id}"
-
-            segments[segment_name] = {
-                "segment_id": segment_id - 1,  # Convert to 0-based
+            segments[segment_id] = {
                 "sequence": sequence,
                 "length": sequence_length,
             }
@@ -330,7 +323,7 @@ class ReaderBGFA:
         return segments, offset
 
     def _parse_links_block(
-        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+        self, bgfa_data: bytes, segment_names: list, start_offset: int
     ) -> tuple[list, int]:
         """Parse links from BGFA data.
 
