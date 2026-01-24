@@ -80,9 +80,10 @@ class ReaderBGFA:
             )
             offset += read_bytes
             for name in segment_names_block:
-                segment_names.append(segment_names_block)
-        names = {v: k for k, v in enumerate(segment_names)}
-        logger.info(f"Segment names: {names}")
+                segment_names.append(name)
+        # Create mapping from segment_id to name
+        id_to_name = {i: name for i, name in enumerate(segment_names)}
+        logger.info(f"Segment names: {id_to_name}")
 
         # Parse segments
         for _ in range(math.ceil(header["S_len"] / header["block_size"])):
@@ -93,7 +94,7 @@ class ReaderBGFA:
             # Add nodes to GFA graph with segment IDs
             for segment_name, segment_data in segment_block.items():
                 n = node.Node(
-                    names[segment_id],
+                    id_to_name[segment_id],
                     segment_data["sequence"],
                     segment_data["length"],
                     opt_fields={},
