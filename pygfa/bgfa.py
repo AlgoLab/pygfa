@@ -424,6 +424,7 @@ class ReaderBGFA:
         :param start_offset: Offset where the paths block start
         :return: (List of paths dictionaries, number of bytes read)
         """
+        # AI! implement the _parse_paths_blocks method
 
 
 class BGFAWriter:
