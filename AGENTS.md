@@ -144,32 +144,6 @@ class Node:
 - Use descriptive test method names: `test_node_creation_with_valid_input`
 - Use `assertRaises` for error cases
 
-### File Organization
-
-```
-pygfa/
-├── __init__.py           # Public API exports
-├── gfa.py                # Main GFA graph class
-├── operations.py         # Common operations
-├── algorithms/           # Graph algorithms
-│   ├── __init__.py
-│   ├── traversal.py
-│   └── simple_paths.py
-├── graph_element/        # Node, Edge, Subgraph classes
-│   ├── node.py
-│   ├── edge.py
-│   ├── subgraph.py
-│   ├── parser/           # GFA line parsing
-│   │   ├── header.py
-│   │   ├── segment.py
-│   │   ├── link.py
-│   │   └── ...
-├── graph_operations/     # Graph manipulation
-├── dovetail_operations/  # Dovetail-specific ops
-├── encoding/             # Compression utilities
-└── serializer/           # GFA serialization
-```
-
 ### Logging
 
 Use module-level loggers:
@@ -194,14 +168,5 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 
 - Virtual IDs for edges without explicit IDs: `virtual_#`
 - Use `networkx.MultiGraph` as base structure
-- GFA1 vs GFA2 compatibility: GFA2 is more tolerant, use it for validation
 - Use lark for parsing GFA line formats
 
-### Git Workflow
-
-- Commit all changes after each interaction with clear, descriptive messages
-- No force pushes to main
-- Create feature branches for new work
-- Run tests before committing
-
-After completing any task or interaction, **all changes must be committed** before starting a new task or ending the session.
