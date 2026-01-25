@@ -148,35 +148,22 @@ class ReaderBGFA:
         """
         offset = 0
 
-        # Read version (uint16)
-        version = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
-        )
+        # Read version (uint32)
+        version = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 2
+        # Read block_size
+        block_size = struct.unpack_from("<I", bgfa_data, offset)[0]
         offset += 2
 
-        # Read counts
-        s_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
+        # Read counts (uint64)
+        s_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        l_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
+        l_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        p_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
+        p_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        w_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
-        )
+        w_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-
-        # Read block_size (uint16)
-        block_size = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
-        )
-        offset += 2
 
         # Read header text (C string)
         header_text = ""
@@ -211,19 +198,19 @@ class ReaderBGFA:
         initial_offset = offset
         # Read block header
         record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         compression_names = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
 
@@ -273,19 +260,19 @@ class ReaderBGFA:
         segments_read = 0
         # Read block header
         record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         compression_str = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
 
@@ -299,12 +286,12 @@ class ReaderBGFA:
         for _ in range(record_num):
             # Read segment ID (uint64) - this is the index in the segment_names list
             segment_id = int.from_bytes(
-                segment_data[pos : pos + 8], byteorder="big", signed=False
+                segment_data[pos : pos + 8], byteorder="little", signed=False
             )
             pos += 8
             # Read sequence length (uint64)
             sequence_length = int.from_bytes(
-                segment_data[pos : pos + 8], byteorder="big", signed=False
+                segment_data[pos : pos + 8], byteorder="little", signed=False
             )
             pos += 8
             # Read sequence (null-terminated string)
@@ -341,23 +328,23 @@ class ReaderBGFA:
         links_read = 0
         # Read block header
         record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         compression_fromto = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compression_cigars = int.from_bytes(
-            bgfa_data[offset : offset + 4], byteorder="big", signed=False
+            bgfa_data[offset : offset + 4], byteorder="little", signed=False
         )
         offset += 4
 
@@ -370,12 +357,12 @@ class ReaderBGFA:
         for _ in range(record_num):
             # Read from node (uint64) - this is the index in the segment_names list
             from_node_id = int.from_bytes(
-                link_data[pos : pos + 8], byteorder="big", signed=False
+                link_data[pos : pos + 8], byteorder="little", signed=False
             )
             pos += 8
             # Read to node (uint64) - this is the index in the segment_names list
             to_node_id = int.from_bytes(
-                link_data[pos : pos + 8], byteorder="big", signed=False
+                link_data[pos : pos + 8], byteorder="little", signed=False
             )
             pos += 8
             # Read cigar string (null-terminated string)
@@ -426,35 +413,35 @@ class ReaderBGFA:
 
         # Read block header
         record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compressed_len_cigar = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         uncompressed_len_cigar = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         compressed_len_name = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         uncompressed_len_name = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="big", signed=False
+            bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
         compression_path_names = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compression_paths = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="big", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
         compression_cigars = int.from_bytes(
-            bgfa_data[offset : offset + 4], byteorder="big", signed=False
+            bgfa_data[offset : offset + 4], byteorder="little", signed=False
         )
         offset += 4
 
@@ -537,20 +524,19 @@ class BGFAWriter:
         block_size,
     ):
         """Write BGFA header in binary format."""
-        # Write version (uint16)
-        buffer.write(struct.pack(">H", 1))  # big-endian, unsigned short
-
+        # Write version and block_size (uint32)
+        buffer.write(struct.pack("<I", 1))  # little-endian, uint16
+        buffer.write(struct.pack("<I", block_size))
         # Write counts
-        buffer.write(struct.pack(">Q", s_len))  # uint64
-        buffer.write(struct.pack(">Q", l_len))
-        buffer.write(struct.pack(">Q", p_len))
-        buffer.write(struct.pack(">Q", w_len))
+        buffer.write(struct.pack("<Q", s_len))  # uint64
+        buffer.write(struct.pack("<Q", l_len))
+        buffer.write(struct.pack("<Q", p_len))
+        buffer.write(struct.pack("<Q", w_len))
 
         # Write block_size (uint16)
-        buffer.write(struct.pack(">H", block_size))
 
         # Write header text (C string)
-        header_text = "H\tVN:Z:1.0"
+        header_text = "HEADERTEXT"
         buffer.write(header_text.encode("ascii"))
         buffer.write(b"\x00")  # null terminator
 
@@ -589,10 +575,10 @@ class BGFAWriter:
 
             # Write block header
             header = (
-                record_num.to_bytes(2, byteorder="big", signed=False)
-                + compressed_len.to_bytes(8, byteorder="big", signed=False)
-                + uncompressed_len.to_bytes(8, byteorder="big", signed=False)
-                + compression_names.to_bytes(2, byteorder="big", signed=False)
+                record_num.to_bytes(2, byteorder="little", signed=False)
+                + compressed_len.to_bytes(8, byteorder="little", signed=False)
+                + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
+                + compression_names.to_bytes(2, byteorder="little", signed=False)
             )
             all_blocks.append(header + payload)
 
@@ -625,8 +611,8 @@ class BGFAWriter:
             seq_len = len(sequence) if sequence != "*" else 0
             # Each segment entry: segment_id (uint64), sequence_length (uint64), sequence (null-terminated string)
             entry = (
-                seg_id.to_bytes(8, byteorder="big", signed=False)
-                + seq_len.to_bytes(8, byteorder="big", signed=False)
+                seg_id.to_bytes(8, byteorder="little", signed=False)
+                + seq_len.to_bytes(8, byteorder="little", signed=False)
                 + sequence.encode("ascii")
                 + b"\x00"
             )
@@ -645,10 +631,10 @@ class BGFAWriter:
 
             # Write block header
             header = (
-                record_num.to_bytes(2, byteorder="big", signed=False)
-                + compressed_len.to_bytes(8, byteorder="big", signed=False)
-                + uncompressed_len.to_bytes(8, byteorder="big", signed=False)
-                + compression_str.to_bytes(2, byteorder="big", signed=False)
+                record_num.to_bytes(2, byteorder="little", signed=False)
+                + compressed_len.to_bytes(8, byteorder="little", signed=False)
+                + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
+                + compression_str.to_bytes(2, byteorder="little", signed=False)
             )
             all_blocks.append(header + payload)
 
