@@ -443,14 +443,22 @@ class BGFAWriter:
             block_size,
         )
 
-        # Write the blocks
-        names_blocks = self.names_blocks(block_size)
+        # Get segment names sorted by segment ID
+        segment_map = getattr(self._gfa, "_segment_map", {})
+        if not segment_map:
+            # Create segment map if it doesn't exist
+            nodes_list = list(self._gfa.nodes())
+            segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
+            self._gfa._segment_map = segment_map
+        
+        # Sort names by segment ID
+        names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
+        segment_names = [name for name, seg_id in names_by_id]
 
-        # write segment names
+        # Write segment names in blocks
         offset = 0
         while offset < s_len:
-            # AI! fix the next line, getting the segment names from a graph
-            chunk = self._map_segment[offset : offset + block_size]
+            chunk = segment_names[offset : offset + block_size]
             written_bytes = self._write_segment_names_block(buffer, chunk)
             offset += len(chunk)
             logger.info(f"Written {written_bytes} bytes as segment names")
@@ -463,7 +471,6 @@ class BGFAWriter:
         paths_blocks = self.paths_blocks(block_size)
         walks_blocks = self.walks_blocks(block_size)
 
-        buffer.write(names_blocks)
         buffer.write(segments_blocks)
         buffer.write(links_blocks)
         buffer.write(paths_blocks)
