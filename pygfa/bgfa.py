@@ -198,23 +198,15 @@ class ReaderBGFA:
 
         segment_names = []
         initial_offset = offset
-        # Read block header
-        record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
-        compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        # Read block header - new order: uint32 fields first
+        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compression_names = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        compression_names = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
 
         # Read payload
         payload = bgfa_data[offset : offset + compressed_len]
@@ -258,25 +250,15 @@ class ReaderBGFA:
         offset = start_offset
         segments = {}
 
-        # Read segments blocks
-        segments_read = 0
-        # Read block header
-        record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
-        compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        # Read block header - new order: uint32 fields first
+        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compression_str = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        compression_str = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
 
         # Read segment data
         segment_data = bgfa_data[offset : offset + compressed_len]
@@ -287,27 +269,23 @@ class ReaderBGFA:
         pos = 0
         for _ in range(record_num):
             # Read segment ID (uint64) - this is the index in the segment_names list
-            segment_id = int.from_bytes(
-                segment_data[pos : pos + 8], byteorder="little", signed=False
-            )
+            segment_id = struct.unpack_from("<Q", segment_data, pos)[0]
             pos += 8
             # Read sequence length (uint64)
-            sequence_length = int.from_bytes(
-                segment_data[pos : pos + 8], byteorder="little", signed=False
-            )
+            sequence_length = struct.unpack_from("<Q", segment_data, pos)[0]
             pos += 8
             # Read sequence (null-terminated string)
-            sequence = ""
+            sequence_bytes = bytearray()
             while pos < len(segment_data) and segment_data[pos] != 0:
-                sequence += chr(segment_data[pos])
+                sequence_bytes.append(segment_data[pos])
                 pos += 1
             pos += 1  # Skip null terminator
+            sequence = sequence_bytes.decode("ascii")
 
             segments[segment_id] = {
                 "sequence": sequence,
                 "length": sequence_length,
             }
-            segments_read += 1
 
         return segments, offset
 
@@ -326,29 +304,17 @@ class ReaderBGFA:
         offset = start_offset
         links = []
 
-        # Read links blocks
-        links_read = 0
-        # Read block header
-        record_num = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
-        compressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
-        offset += 8
-        uncompressed_len = int.from_bytes(
-            bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
-        offset += 8
-        compression_fromto = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
-        offset += 2
-        compression_cigars = int.from_bytes(
-            bgfa_data[offset : offset + 4], byteorder="little", signed=False
-        )
+        # Read block header - new order: uint32 fields first
+        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
         offset += 4
+        compression_fromto = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compression_cigars = struct.unpack_from("<I", bgfa_data, offset)[0]
+        offset += 4
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
 
         # Read link data
         link_data = bgfa_data[offset : offset + compressed_len]
@@ -358,21 +324,18 @@ class ReaderBGFA:
         pos = 0
         for _ in range(record_num):
             # Read from node (uint64) - this is the index in the segment_names list
-            from_node_id = int.from_bytes(
-                link_data[pos : pos + 8], byteorder="little", signed=False
-            )
+            from_node_id = struct.unpack_from("<Q", link_data, pos)[0]
             pos += 8
             # Read to node (uint64) - this is the index in the segment_names list
-            to_node_id = int.from_bytes(
-                link_data[pos : pos + 8], byteorder="little", signed=False
-            )
+            to_node_id = struct.unpack_from("<Q", link_data, pos)[0]
             pos += 8
             # Read cigar string (null-terminated string)
-            cigar = ""
+            cigar_bytes = bytearray()
             while pos < len(link_data) and link_data[pos] != 0:
-                cigar += chr(link_data[pos])
+                cigar_bytes.append(link_data[pos])
                 pos += 1
             pos += 1  # Skip null terminator
+            cigar = cigar_bytes.decode("ascii")
 
             # Convert node IDs to names using segment_names list
             from_name = (
@@ -397,7 +360,6 @@ class ReaderBGFA:
                     "alignment": cigar,
                 }
             )
-            links_read += 1
 
         return links, offset
 
