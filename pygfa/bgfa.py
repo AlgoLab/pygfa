@@ -150,10 +150,10 @@ class ReaderBGFA:
 
         # Read version (uint16)
         version = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         # Read block_size (uint16)
         block_size = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
 
         # Read counts (uint64)
         s_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -198,9 +198,9 @@ class ReaderBGFA:
         initial_offset = offset
         # Read block header - new order: uint16 fields first
         record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
         uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -250,9 +250,9 @@ class ReaderBGFA:
 
         # Read block header - new order: uint16 fields first
         record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compression_str = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
         uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -304,11 +304,11 @@ class ReaderBGFA:
 
         # Read block header - new order: uint16 fields first
         record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compression_fromto = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 4
+        offset += 2
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
         uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -403,9 +403,9 @@ class ReaderBGFA:
         )
         offset += 2
         compression_cigars = int.from_bytes(
-            bgfa_data[offset : offset + 4], byteorder="little", signed=False
+            bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
-        offset += 4
+        offset += 2
 
         # Skip the payload for now
         total_payload_len = compressed_len_name + compressed_len_cigar
@@ -447,6 +447,19 @@ class BGFAWriter:
 
         # Write the blocks
         names_blocks = self.names_blocks(block_size)
+
+        # write segment names
+        offset = 0
+        while offset < s_len:
+            #
+            chunk = self._map_segment[offset: offset + block_size]
+            written_bytes = self._write_segment_names_block(buffer, chunk)
+            offset += len(chunk)
+            logger.info(f"Written {written_bytes} bytes as segment names")
+        logger.info(f"Segment names: {segment_names}")
+
+
+
         segments_blocks = self.segments_blocks(
             block_size, compression_method, compression_level
         )
@@ -507,46 +520,24 @@ class BGFAWriter:
         self._write_header(buffer, 0, 0, 0, 0, block_size)
         return buffer.getvalue()
 
-    def names_blocks(self, block_size: int = 1024) -> bytes:
-        # Get all nodes sorted by segment ID (which should be stored in _segment_map)
-        segment_map = getattr(self._gfa, "_segment_map", {})
-        if not segment_map:
-            nodes_list = list(self._gfa.nodes())
-            segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
-            self._gfa._segment_map = segment_map
+    def _write_segment_names_block(self, buffer, to_write) -> bytes:
+        payload = b"".join([name.encode("ascii") + b"\x00" for name in to_write])
+        record_num = len(to_write)
+        compressed_len = len(payload)
+        uncompressed_len = compressed_len  # identity compression
+        compression_names = 0x0000  # identity for both lengths and strings
 
-        # Sort names by segment ID
-        names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
-        segment_names = [
-            name for name, seg_id in names_by_id
-        ]  # only segment names, not paths
+        # Write block header
+        header = (
+            record_num.to_bytes(2, byteorder="little", signed=False)
+            + compression_names.to_bytes(2, byteorder="little", signed=False)
+            + compressed_len.to_bytes(8, byteorder="little", signed=False)
+            + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
+        )
+        buffer.write(header)
+        buffer.write(payload)
 
-        # Split into blocks of size block_size
-        all_blocks = []
-        total_segments = len(segment_names)
-        for start in range(0, total_segments, block_size):
-            chunk = segment_names[start : start + block_size]
-            record_num = len(chunk)
-
-            # Payload: each name as null-terminated ASCII string
-            payload = b"".join([name.encode("ascii") + b"\x00" for name in chunk])
-            compressed_len = len(payload)
-            uncompressed_len = compressed_len  # identity compression
-            compression_names = 0x0000  # identity for both lengths and strings
-
-            # Write block header - new order: uint16 fields first
-            header = (
-                record_num.to_bytes(4, byteorder="little", signed=False)
-                + compression_names.to_bytes(4, byteorder="little", signed=False)
-                + compressed_len.to_bytes(8, byteorder="little", signed=False)
-                + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
-            )
-            all_blocks.append(header + payload)
-
-        # Concatenate all blocks
-        result = b"".join(all_blocks)
-        # No additional padding needed because blocks are already formed
-        return result
+        return len(header) + len(payload)
 
     def segments_blocks(
         self,
@@ -592,8 +583,8 @@ class BGFAWriter:
 
             # Write block header - new order: uint16 fields first
             header = (
-                record_num.to_bytes(4, byteorder="little", signed=False)
-                + compression_str.to_bytes(4, byteorder="little", signed=False)
+                record_num.to_bytes(2, byteorder="little", signed=False)
+                + compression_str.to_bytes(2, byteorder="little", signed=False)
                 + compressed_len.to_bytes(8, byteorder="little", signed=False)
                 + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
             )
