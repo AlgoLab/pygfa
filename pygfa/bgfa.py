@@ -451,14 +451,12 @@ class BGFAWriter:
         # write segment names
         offset = 0
         while offset < s_len:
-            #
-            chunk = self._map_segment[offset: offset + block_size]
+            # AI! fix the next line, getting the segment names from a graph
+            chunk = self._map_segment[offset : offset + block_size]
             written_bytes = self._write_segment_names_block(buffer, chunk)
             offset += len(chunk)
             logger.info(f"Written {written_bytes} bytes as segment names")
         logger.info(f"Segment names: {segment_names}")
-
-
 
         segments_blocks = self.segments_blocks(
             block_size, compression_method, compression_level
