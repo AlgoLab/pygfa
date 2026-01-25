@@ -72,33 +72,34 @@ class ReaderBGFA:
         gfa._header_info = header.copy()
         logger.info(f"Header parsed: {header}")
         # Parse segment names
-        offset = 36 + len(header["header"])
+        offset = header["header_size"]
         segment_names = []
-        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
+        num_blocks = math.ceil(header["s_len"] / header["block_size"])
+        for _ in range(num_blocks):
             segment_names_block, read_bytes = self._parse_segment_names_block(
-                bgfa_data, header, offset
+                bgfa_data, offset
             )
             offset += read_bytes
-            for name in segment_names_block:
-                segment_names.append(segment_names_block)
-        names = {v: k for k, v in enumerate(segment_names)}
-        logger.info(f"Segment names: {names}")
+            segment_names.extend(segment_names_block)
+        logger.info(f"Segment names: {segment_names}")
 
         # Parse segments
-        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
+        num_blocks = math.ceil(header["s_len"] / header["block_size"])
+        for _ in range(num_blocks):
             segment_block, read_bytes = self._parse_segments_block(
-                bgfa_data, header, offset
+                bgfa_data, offset
             )
             offset += read_bytes
             # Add nodes to GFA graph with segment IDs
-            for segment_name, segment_data in segment_block.items():
-                # Get segment_id from segment_data
-                segment_id = segment_data.get("segment_id")
-                # Get node name from id_to_name, fallback to segment_name
-                node_name = segment_names[segment_id]
+            for segment_id, segment_data in segment_block.items():
+                # Get node name from segment_names list (0-based index)
+                if 0 <= segment_id < len(segment_names):
+                    node_name = segment_names[segment_id]
+                else:
+                    node_name = f"segment_{segment_id}"
+                
                 n = node.Node(
                     node_name,
-                    names[segment_id],
                     segment_data["sequence"],
                     segment_data["length"],
                     opt_fields={},
@@ -106,12 +107,13 @@ class ReaderBGFA:
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
                 gfa._segment_map[node_name] = segment_id
-                logger.info(f"Segments: {segment_name}, {segment_data}")
+                logger.info(f"Segment: {node_name}, {segment_data}")
 
         # Parse links
-        for _ in range(math.ceil(header["S_len"] / header["block_size"])):
+        num_blocks = math.ceil(header["l_len"] / header["block_size"])
+        for _ in range(num_blocks):
             links, read_bytes = self._parse_links_block(
-                bgfa_data, header, segment_names, offset
+                bgfa_data, segment_names, offset
             )
             offset += read_bytes
 
@@ -150,10 +152,10 @@ class ReaderBGFA:
 
         # Read version (uint32)
         version = struct.unpack_from("<I", bgfa_data, offset)[0]
-        offset += 2
-        # Read block_size
+        offset += 4
+        # Read block_size (uint32)
         block_size = struct.unpack_from("<I", bgfa_data, offset)[0]
-        offset += 2
+        offset += 4
 
         # Read counts (uint64)
         s_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -524,19 +526,18 @@ class BGFAWriter:
         block_size,
     ):
         """Write BGFA header in binary format."""
-        # Write version and block_size (uint32)
-        buffer.write(struct.pack("<I", 1))  # little-endian, uint16
+        # Write version (uint32)
+        buffer.write(struct.pack("<I", 1))
+        # Write block_size (uint32)
         buffer.write(struct.pack("<I", block_size))
-        # Write counts
-        buffer.write(struct.pack("<Q", s_len))  # uint64
+        # Write counts (uint64)
+        buffer.write(struct.pack("<Q", s_len))
         buffer.write(struct.pack("<Q", l_len))
         buffer.write(struct.pack("<Q", p_len))
         buffer.write(struct.pack("<Q", w_len))
 
-        # Write block_size (uint16)
-
         # Write header text (C string)
-        header_text = "HEADERTEXT"
+        header_text = "H\tVN:Z:1.0"
         buffer.write(header_text.encode("ascii"))
         buffer.write(b"\x00")  # null terminator
 
@@ -573,12 +574,12 @@ class BGFAWriter:
             uncompressed_len = compressed_len  # identity compression
             compression_names = 0x0000  # identity for both lengths and strings
 
-            # Write block header
+            # Write block header - new order: uint32 fields first
             header = (
-                record_num.to_bytes(2, byteorder="little", signed=False)
+                record_num.to_bytes(4, byteorder="little", signed=False)
+                + compression_names.to_bytes(4, byteorder="little", signed=False)
                 + compressed_len.to_bytes(8, byteorder="little", signed=False)
                 + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
-                + compression_names.to_bytes(2, byteorder="little", signed=False)
             )
             all_blocks.append(header + payload)
 
@@ -629,12 +630,12 @@ class BGFAWriter:
             uncompressed_len = compressed_len  # identity compression
             compression_str = 0x0000  # identity for sequences (and for IDs/lengths)
 
-            # Write block header
+            # Write block header - new order: uint32 fields first
             header = (
-                record_num.to_bytes(2, byteorder="little", signed=False)
+                record_num.to_bytes(4, byteorder="little", signed=False)
+                + compression_str.to_bytes(4, byteorder="little", signed=False)
                 + compressed_len.to_bytes(8, byteorder="little", signed=False)
                 + uncompressed_len.to_bytes(8, byteorder="little", signed=False)
-                + compression_str.to_bytes(2, byteorder="little", signed=False)
             )
             all_blocks.append(header + payload)
 
