@@ -402,9 +402,7 @@ class ReaderBGFA:
             bgfa_data[offset : offset + 2], byteorder="little", signed=False
         )
         offset += 2
-        compression_cigars = int.from_bytes(
-            bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
+        compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
 
         # Skip the payload for now
@@ -518,14 +516,20 @@ class BGFAWriter:
         self._write_header(buffer, 0, 0, 0, 0, block_size)
         return buffer.getvalue()
 
-    def _write_segment_names_block(self, buffer, to_write) -> bytes:
+    def _write_segment_names_block(self, buffer, to_write) -> int:
+        """Write a segment names block to the buffer.
+        
+        :param buffer: BytesIO buffer to write to
+        :param to_write: List of segment names to write
+        :return: Number of bytes written
+        """
         payload = b"".join([name.encode("ascii") + b"\x00" for name in to_write])
         record_num = len(to_write)
         compressed_len = len(payload)
         uncompressed_len = compressed_len  # identity compression
         compression_names = 0x0000  # identity for both lengths and strings
 
-        # Write block header
+        # Write block header according to spec: uint16, uint16, uint64, uint64
         header = (
             record_num.to_bytes(2, byteorder="little", signed=False)
             + compression_names.to_bytes(2, byteorder="little", signed=False)
@@ -579,7 +583,7 @@ class BGFAWriter:
             uncompressed_len = compressed_len  # identity compression
             compression_str = 0x0000  # identity for sequences (and for IDs/lengths)
 
-            # Write block header - new order: uint16 fields first
+            # Write block header according to spec: uint16, uint16, uint64, uint64
             header = (
                 record_num.to_bytes(2, byteorder="little", signed=False)
                 + compression_str.to_bytes(2, byteorder="little", signed=False)
