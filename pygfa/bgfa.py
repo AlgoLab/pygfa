@@ -450,7 +450,7 @@ class BGFAWriter:
             nodes_list = list(self._gfa.nodes())
             segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
             self._gfa._segment_map = segment_map
-        
+
         # Sort names by segment ID
         names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
         segment_names = [name for name, seg_id in names_by_id]
@@ -462,23 +462,28 @@ class BGFAWriter:
             chunk = segment_names[offset : min(offset + block_size, total_names)]
             self._write_segment_names_block(buffer, chunk)
             offset += len(chunk)
-        
+
         # Write segments blocks
+        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
+        # method _write_segments_block that works on a single block. The method _write_segments_block is extracted from _write_segments_blocks
         self._write_segments_blocks(
             buffer, segment_names, block_size, compression_method, compression_level
         )
-        
-        # Write links blocks
-        self._write_links_blocks(buffer, segment_names, block_size)
-        
-        # Write paths blocks
-        self._write_paths_blocks(buffer, block_size)
-        
-        # Write walks blocks
-        self._write_walks_blocks(buffer, block_size)
 
-        # Seek back and write real header
-        buffer.seek(0)
+        # Write links blocks
+        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
+        # method _write_links_block that works on a single block. The method _write_links_block is extracted from _write_links_blocks
+        self._write_links_blocks(buffer, segment_names, block_size)
+
+        # Write paths blocks
+        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
+        # method _paths_segments_block that works on a single block. The method _write_paths_block is extracted from _write_paths_blocks
+        self._write_paths_blocks(buffer, block_size)
+
+        # Write walks blocks
+        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
+        # method _write_walks_block that works on a single block. The method _write_walks_block is extracted from _write_walks_blocks
+        self._write_walks_blocks(buffer, block_size)
 
         # Get the entire buffer as bytes
         return buffer.getvalue()
@@ -526,7 +531,7 @@ class BGFAWriter:
 
     def _write_segment_names_block(self, buffer, to_write) -> int:
         """Write a segment names block to the buffer.
-        
+
         :param buffer: BytesIO buffer to write to
         :param to_write: List of segment names to write
         :return: Number of bytes written
@@ -545,7 +550,7 @@ class BGFAWriter:
         buffer.write(payload)
 
         return 2 + 2 + 8 + 8 + len(payload)
-    
+
     def _write_segments_blocks(
         self, buffer, segment_names, block_size, compression_method, compression_level
     ) -> None:
@@ -554,73 +559,73 @@ class BGFAWriter:
         segment_map = getattr(self._gfa, "_segment_map", {})
         # Ensure segment_names are in order of segment_id
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
-        
+
         total_segments = len(sorted_items)
         offset = 0
         while offset < total_segments:
             chunk = sorted_items[offset : offset + block_size]
             record_num = len(chunk)
-            
+
             # Prepare payload
             payload_parts = []
             for name, seg_id in chunk:
                 node_data = dict(self._gfa.nodes(data=True))[name]
                 sequence = node_data.get("sequence", "*")
                 seq_len = len(sequence) if sequence != "*" else 0
-                
+
                 # Write segment_id (uint64), sequence_length (uint64), sequence (null-terminated)
                 payload_parts.append(struct.pack("<Q", seg_id))
                 payload_parts.append(struct.pack("<Q", seq_len))
                 payload_parts.append(sequence.encode("ascii") + b"\x00")
-            
+
             payload = b"".join(payload_parts)
             compressed_len = len(payload)
             uncompressed_len = compressed_len
             compression_str = 0x0000  # identity
-            
+
             # Write header
             buffer.write(struct.pack("<H", record_num))
             buffer.write(struct.pack("<H", compression_str))
             buffer.write(struct.pack("<Q", compressed_len))
             buffer.write(struct.pack("<Q", uncompressed_len))
             buffer.write(payload)
-            
+
             offset += record_num
-    
+
     def _write_links_blocks(self, buffer, segment_names, block_size) -> None:
         """Write links blocks to buffer."""
         # Get all edges
         edges = list(self._gfa.edges(data=True, keys=True))
         total_links = len(edges)
         offset = 0
-        
+
         while offset < total_links:
             chunk = edges[offset : offset + block_size]
             record_num = len(chunk)
-            
+
             payload_parts = []
             for u, v, key, data in chunk:
                 # Get from and to IDs from segment_names
                 from_name = data.get("from_node", u)
                 to_name = data.get("to_node", v)
                 alignment = data.get("alignment", "*")
-                
+
                 # Find segment IDs (assume they exist in segment_map)
                 segment_map = getattr(self._gfa, "_segment_map", {})
                 from_id = segment_map.get(from_name, 0)
                 to_id = segment_map.get(to_name, 0)
-                
+
                 # Write from_id, to_id, cigar
                 payload_parts.append(struct.pack("<Q", from_id))
                 payload_parts.append(struct.pack("<Q", to_id))
                 payload_parts.append(alignment.encode("ascii") + b"\x00")
-            
+
             payload = b"".join(payload_parts)
             compressed_len = len(payload)
             uncompressed_len = compressed_len
             compression_fromto = 0x0000
             compression_cigars = 0x0000
-            
+
             # Write header
             buffer.write(struct.pack("<H", record_num))
             buffer.write(struct.pack("<H", compression_fromto))
@@ -628,14 +633,14 @@ class BGFAWriter:
             buffer.write(struct.pack("<Q", compressed_len))
             buffer.write(struct.pack("<Q", uncompressed_len))
             buffer.write(payload)
-            
+
             offset += record_num
-    
+
     def _write_paths_blocks(self, buffer, block_size) -> None:
         """Write paths blocks to buffer."""
         # For now, write empty blocks
         pass
-    
+
     def _write_walks_blocks(self, buffer, block_size) -> None:
         """Write walks blocks to buffer."""
         # For now, write empty blocks
