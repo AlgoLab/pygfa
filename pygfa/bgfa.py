@@ -464,16 +464,29 @@ class BGFAWriter:
             offset += len(chunk)
 
         # Write segments blocks
-        self._write_segments_blocks(
-            buffer, segment_names, block_size, compression_method, compression_level
-        )
-        
+        offset = 0
+        # Get all nodes in order of segment_names
+        segment_map = getattr(self._gfa, "_segment_map", {})
+        # Ensure segment_names are in order of segment_id
+        sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
+        total_segments = len(sorted_items)
+        while offset < total_names:
+            chunk = sorted_items[offset : min(offset + block_size, total_names)]
+            self._write_segments_block(buffer, chunk)
+            offset += len(chunk)
+
         # Write links blocks
-        self._write_links_blocks(buffer, segment_names, block_size)
-        
+        edges = list(self._gfa.edges(data=True, keys=True))
+        offset = 0
+        total_links = len(edges)
+        while offset < total_links:
+            chunk = edges[offset : offset + block_size]
+            self._write_links_block(buffer, chunk)
+            offset += block_size
+
         # Write paths blocks
         self._write_paths_blocks(buffer, block_size)
-        
+
         # Write walks blocks
         self._write_walks_blocks(buffer, block_size)
 
@@ -584,49 +597,39 @@ class BGFAWriter:
 
             offset += record_num
 
-    def _write_links_blocks(self, buffer, segment_names, block_size) -> None:
-        """Write links blocks to buffer."""
-        # Get all edges
-        edges = list(self._gfa.edges(data=True, keys=True))
-        total_links = len(edges)
-        offset = 0
+    def _write_links_block(self, buffer, chunk) -> None:
+        record_num = len(chunk)
 
-        while offset < total_links:
-            chunk = edges[offset : offset + block_size]
-            record_num = len(chunk)
+        payload_parts = []
+        for u, v, key, data in chunk:
+            # Get from and to IDs from segment_names
+            from_name = data.get("from_node", u)
+            to_name = data.get("to_node", v)
+            alignment = data.get("alignment", "*")
 
-            payload_parts = []
-            for u, v, key, data in chunk:
-                # Get from and to IDs from segment_names
-                from_name = data.get("from_node", u)
-                to_name = data.get("to_node", v)
-                alignment = data.get("alignment", "*")
+            # Find segment IDs (assume they exist in segment_map)
+            segment_map = getattr(self._gfa, "_segment_map", {})
+            from_id = segment_map.get(from_name, 0)
+            to_id = segment_map.get(to_name, 0)
 
-                # Find segment IDs (assume they exist in segment_map)
-                segment_map = getattr(self._gfa, "_segment_map", {})
-                from_id = segment_map.get(from_name, 0)
-                to_id = segment_map.get(to_name, 0)
+            # Write from_id, to_id, cigar
+            payload_parts.append(struct.pack("<Q", from_id))
+            payload_parts.append(struct.pack("<Q", to_id))
+            payload_parts.append(alignment.encode("ascii") + b"\x00")
 
-                # Write from_id, to_id, cigar
-                payload_parts.append(struct.pack("<Q", from_id))
-                payload_parts.append(struct.pack("<Q", to_id))
-                payload_parts.append(alignment.encode("ascii") + b"\x00")
+        payload = b"".join(payload_parts)
+        compressed_len = len(payload)
+        uncompressed_len = compressed_len
+        compression_fromto = 0x0000
+        compression_cigars = 0x0000
 
-            payload = b"".join(payload_parts)
-            compressed_len = len(payload)
-            uncompressed_len = compressed_len
-            compression_fromto = 0x0000
-            compression_cigars = 0x0000
-
-            # Write header
-            buffer.write(struct.pack("<H", record_num))
-            buffer.write(struct.pack("<H", compression_fromto))
-            buffer.write(struct.pack("<H", compression_cigars))
-            buffer.write(struct.pack("<Q", compressed_len))
-            buffer.write(struct.pack("<Q", uncompressed_len))
-            buffer.write(payload)
-
-            offset += record_num
+        # Write header
+        buffer.write(struct.pack("<H", record_num))
+        buffer.write(struct.pack("<H", compression_fromto))
+        buffer.write(struct.pack("<H", compression_cigars))
+        buffer.write(struct.pack("<Q", compressed_len))
+        buffer.write(struct.pack("<Q", uncompressed_len))
+        buffer.write(payload)
 
     def _write_paths_blocks(self, buffer, block_size) -> None:
         """Write paths blocks to buffer."""
