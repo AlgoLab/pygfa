@@ -464,25 +464,17 @@ class BGFAWriter:
             offset += len(chunk)
 
         # Write segments blocks
-        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
-        # method _write_segments_block that works on a single block. The method _write_segments_block is extracted from _write_segments_blocks
         self._write_segments_blocks(
             buffer, segment_names, block_size, compression_method, compression_level
         )
-
+        
         # Write links blocks
-        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
-        # method _write_links_block that works on a single block. The method _write_links_block is extracted from _write_links_blocks
         self._write_links_blocks(buffer, segment_names, block_size)
-
+        
         # Write paths blocks
-        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
-        # method _paths_segments_block that works on a single block. The method _write_paths_block is extracted from _write_paths_blocks
         self._write_paths_blocks(buffer, block_size)
-
+        
         # Write walks blocks
-        # AI! follow the same logic as the portion that writes the segment names: divide here into blocks and call a
-        # method _write_walks_block that works on a single block. The method _write_walks_block is extracted from _write_walks_blocks
         self._write_walks_blocks(buffer, block_size)
 
         # Get the entire buffer as bytes
