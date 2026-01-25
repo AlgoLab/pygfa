@@ -86,9 +86,7 @@ class ReaderBGFA:
         # Parse segments
         num_blocks = math.ceil(header["s_len"] / header["block_size"])
         for _ in range(num_blocks):
-            segment_block, read_bytes = self._parse_segments_block(
-                bgfa_data, offset
-            )
+            segment_block, read_bytes = self._parse_segments_block(bgfa_data, offset)
             offset += read_bytes
             # Add nodes to GFA graph with segment IDs
             for segment_id, segment_data in segment_block.items():
@@ -97,7 +95,7 @@ class ReaderBGFA:
                     node_name = segment_names[segment_id]
                 else:
                     node_name = f"segment_{segment_id}"
-                
+
                 n = node.Node(
                     node_name,
                     segment_data["sequence"],
@@ -150,11 +148,11 @@ class ReaderBGFA:
         """
         offset = 0
 
-        # Read version (uint32)
-        version = struct.unpack_from("<I", bgfa_data, offset)[0]
+        # Read version (uint16)
+        version = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
-        # Read block_size (uint32)
-        block_size = struct.unpack_from("<I", bgfa_data, offset)[0]
+        # Read block_size (uint16)
+        block_size = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
 
         # Read counts (uint64)
@@ -198,10 +196,10 @@ class ReaderBGFA:
 
         segment_names = []
         initial_offset = offset
-        # Read block header - new order: uint32 fields first
-        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
+        # Read block header - new order: uint16 fields first
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
-        compression_names = struct.unpack_from("<I", bgfa_data, offset)[0]
+        compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
@@ -250,10 +248,10 @@ class ReaderBGFA:
         offset = start_offset
         segments = {}
 
-        # Read block header - new order: uint32 fields first
-        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
+        # Read block header - new order: uint16 fields first
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
-        compression_str = struct.unpack_from("<I", bgfa_data, offset)[0]
+        compression_str = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
@@ -304,12 +302,12 @@ class ReaderBGFA:
         offset = start_offset
         links = []
 
-        # Read block header - new order: uint32 fields first
-        record_num = struct.unpack_from("<I", bgfa_data, offset)[0]
+        # Read block header - new order: uint16 fields first
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
-        compression_fromto = struct.unpack_from("<I", bgfa_data, offset)[0]
+        compression_fromto = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
-        compression_cigars = struct.unpack_from("<I", bgfa_data, offset)[0]
+        compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 4
         compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
@@ -488,10 +486,10 @@ class BGFAWriter:
         block_size,
     ):
         """Write BGFA header in binary format."""
-        # Write version (uint32)
-        buffer.write(struct.pack("<I", 1))
-        # Write block_size (uint32)
-        buffer.write(struct.pack("<I", block_size))
+        # Write version (uint16)
+        buffer.write(struct.pack("<H", 1))
+        # Write block_size (uint16)
+        buffer.write(struct.pack("<H", block_size))
         # Write counts (uint64)
         buffer.write(struct.pack("<Q", s_len))
         buffer.write(struct.pack("<Q", l_len))
@@ -536,7 +534,7 @@ class BGFAWriter:
             uncompressed_len = compressed_len  # identity compression
             compression_names = 0x0000  # identity for both lengths and strings
 
-            # Write block header - new order: uint32 fields first
+            # Write block header - new order: uint16 fields first
             header = (
                 record_num.to_bytes(4, byteorder="little", signed=False)
                 + compression_names.to_bytes(4, byteorder="little", signed=False)
@@ -592,7 +590,7 @@ class BGFAWriter:
             uncompressed_len = compressed_len  # identity compression
             compression_str = 0x0000  # identity for sequences (and for IDs/lengths)
 
-            # Write block header - new order: uint32 fields first
+            # Write block header - new order: uint16 fields first
             header = (
                 record_num.to_bytes(4, byteorder="little", signed=False)
                 + compression_str.to_bytes(4, byteorder="little", signed=False)
