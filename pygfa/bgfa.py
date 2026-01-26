@@ -485,10 +485,22 @@ class BGFAWriter:
             offset += block_size
 
         # Write paths blocks
-        self._write_paths_blocks(buffer, block_size)
+        paths = list(self._gfa.paths(data=True, keys=True))
+        offset = 0
+        total_paths = len(paths)
+        while offset < total_paths:
+            chunk = paths[offset : offset + block_size]
+            self._write_paths_block(buffer, chunk)
+            offset += block_size
 
         # Write walks blocks
-        self._write_walks_blocks(buffer, block_size)
+        walks = list(self._gfa.walks(data=True, keys=True))
+        offset = 0
+        total_walks = len(walks)
+        while offset < total_walks:
+            chunk = walks[offset : offset + block_size]
+            self._write_walks_block(buffer, chunk)
+            offset += block_size
 
         # Get the entire buffer as bytes
         return buffer.getvalue()
@@ -556,46 +568,33 @@ class BGFAWriter:
 
         return 2 + 2 + 8 + 8 + len(payload)
 
-    def _write_segments_blocks(
-        self, buffer, segment_names, block_size, compression_method, compression_level
-    ) -> None:
-        """Write segments blocks to buffer."""
-        # Get all nodes in order of segment_names
-        segment_map = getattr(self._gfa, "_segment_map", {})
-        # Ensure segment_names are in order of segment_id
-        sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
+    def _write_segments_block(self, buffer, chunk) -> None:
+        """Write a segments block to buffer."""
+        record_num = len(chunk)
 
-        total_segments = len(sorted_items)
-        offset = 0
-        while offset < total_segments:
-            chunk = sorted_items[offset : offset + block_size]
-            record_num = len(chunk)
+        # Prepare payload
+        payload_parts = []
+        for name, seg_id in chunk:
+            node_data = dict(self._gfa.nodes(data=True))[name]
+            sequence = node_data.get("sequence", "*")
+            seq_len = len(sequence) if sequence != "*" else 0
 
-            # Prepare payload
-            payload_parts = []
-            for name, seg_id in chunk:
-                node_data = dict(self._gfa.nodes(data=True))[name]
-                sequence = node_data.get("sequence", "*")
-                seq_len = len(sequence) if sequence != "*" else 0
+            # Write segment_id (uint64), sequence_length (uint64), sequence (null-terminated)
+            payload_parts.append(struct.pack("<Q", seg_id))
+            payload_parts.append(struct.pack("<Q", seq_len))
+            payload_parts.append(sequence.encode("ascii") + b"\x00")
 
-                # Write segment_id (uint64), sequence_length (uint64), sequence (null-terminated)
-                payload_parts.append(struct.pack("<Q", seg_id))
-                payload_parts.append(struct.pack("<Q", seq_len))
-                payload_parts.append(sequence.encode("ascii") + b"\x00")
+        payload = b"".join(payload_parts)
+        compressed_len = len(payload)
+        uncompressed_len = compressed_len
+        compression_str = 0x0000  # identity
 
-            payload = b"".join(payload_parts)
-            compressed_len = len(payload)
-            uncompressed_len = compressed_len
-            compression_str = 0x0000  # identity
-
-            # Write header
-            buffer.write(struct.pack("<H", record_num))
-            buffer.write(struct.pack("<H", compression_str))
-            buffer.write(struct.pack("<Q", compressed_len))
-            buffer.write(struct.pack("<Q", uncompressed_len))
-            buffer.write(payload)
-
-            offset += record_num
+        # Write header
+        buffer.write(struct.pack("<H", record_num))
+        buffer.write(struct.pack("<H", compression_str))
+        buffer.write(struct.pack("<Q", compressed_len))
+        buffer.write(struct.pack("<Q", uncompressed_len))
+        buffer.write(payload)
 
     def _write_links_block(self, buffer, chunk) -> None:
         record_num = len(chunk)
@@ -631,13 +630,13 @@ class BGFAWriter:
         buffer.write(struct.pack("<Q", uncompressed_len))
         buffer.write(payload)
 
-    def _write_paths_blocks(self, buffer, block_size) -> None:
-        """Write paths blocks to buffer."""
+    def _write_paths_block(self, buffer, chunk) -> None:
+        """Write a paths block to buffer."""
         # For now, write empty blocks
         pass
 
-    def _write_walks_blocks(self, buffer, block_size) -> None:
-        """Write walks blocks to buffer."""
+    def _write_walks_block(self, buffer, chunk) -> None:
+        """Write a walks block to buffer."""
         # For now, write empty blocks
         pass
 
