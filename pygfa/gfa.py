@@ -1915,9 +1915,6 @@ class GFA:
                 'compression_method': 'zstd',
                 'compression_level': 19,
             }
-            'compression_method': compression_method,
-            'compression_level': compression_level,
-        }
         writer = BGFAWriter(self)
         writer.write_bgfa(file, compression_options)
 
