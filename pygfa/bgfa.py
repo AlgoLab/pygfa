@@ -417,13 +417,19 @@ class ReaderBGFA:
 class BGFAWriter:
     def __init__(self, gfa_graph: GFA):
         self._gfa = gfa_graph
+        self._compression_options = {}
 
     def to_bgfa(
         self,
         block_size: int = 1024,
         compression_method: str = "zstd",
         compression_level: int = 19,
+        compression_options: dict = None,
     ) -> bytes:
+        if compression_options is None:
+            compression_options = {}
+        # Store compression_options for use in block writing methods
+        self._compression_options = compression_options
         # Create a BytesIO buffer
         buffer = io.BytesIO()
 
@@ -514,7 +520,7 @@ class BGFAWriter:
         compression_method = compression_options.get("compression_method", "zstd")
         compression_level = compression_options.get("compression_level", 19)
         with open(file, "wb") as f:
-            f.write(self.to_bgfa(block_size, compression_method, compression_level))
+            f.write(self.to_bgfa(block_size, compression_method, compression_level, compression_options))
 
     def _write_header(
         self,
@@ -554,10 +560,16 @@ class BGFAWriter:
         :param to_write: List of segment names to write
         :return: Number of bytes written
         """
+        # Get compression method for segment names from options
+        segment_names_header = self._compression_options.get("segment_names_header", "")
+        segment_names_payload_lengths = self._compression_options.get("segment_names_payload_lengths", "")
+        segment_names_payload_names = self._compression_options.get("segment_names_payload_names", "")
+        
         payload = b"".join([name.encode("ascii") + b"\x00" for name in to_write])
         record_num = len(to_write)
         compressed_len = len(payload)
         uncompressed_len = compressed_len  # identity compression
+        # TODO: Actually implement compression based on the options
         compression_names = 0x0000  # identity for both lengths and strings
 
         # Write block header according to spec: uint16, uint16, uint64, uint64
@@ -780,9 +792,16 @@ def to_bgfa(
     block_size: int = 1024,
     compression_method: str = "zstd",
     compression_level: int = 19,
+    compression_options: dict = None,
 ) -> bytes:
+    if compression_options is None:
+        compression_options = {
+            "block_size": block_size,
+            "compression_method": compression_method,
+            "compression_level": compression_level,
+        }
     writer = BGFAWriter(gfa_graph)
-    return writer.to_bgfa(block_size, compression_method, compression_level)
+    return writer.to_bgfa(block_size, compression_method, compression_level, compression_options)
 
 
 def read_bgfa(file_path: str) -> GFA:
@@ -798,18 +817,13 @@ def read_bgfa(file_path: str) -> GFA:
 def write_bgfa(
     gfa_graph: GFA,
     file,
-    block_size: int = 1024,
-    compression_method: str = "zstd",
-    compression_level: int = 19,
+    compression_options=None,
 ) -> None:
-    # Create a dict called compression_options, with keys all possible options for compressing or encoding part of
-    # the input and values the values received.
-    # AI! the compression options are the options managed by optparse in to_bgfa.py
-    compression_options = {
-        "block_size": block_size,
-        "compression_method": compression_method,
-        "compression_level": compression_level,
-        # Add other compression options as needed
-    }
+    if compression_options is None:
+        compression_options = {
+            "block_size": 1024,
+            "compression_method": "zstd",
+            "compression_level": 19,
+        }
     writer = BGFAWriter(gfa_graph)
     writer.write_bgfa(file, compression_options)

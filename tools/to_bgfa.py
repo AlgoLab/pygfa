@@ -292,8 +292,16 @@ def main():
         # Read GFA file
         g = GFA.from_gfa(args.input_file)
 
+        # Build compression options dictionary
+        compression_options = {
+            "block_size": block_size,
+        }
+        # Add all compression methods to the options
+        for key, value in compression_methods.items():
+            compression_options[key] = value
+
         # Write BGFA file
-        g.write_bgfa(args.output_file, block_size=block_size)
+        g.write_bgfa(args.output_file, compression_options=compression_options)
 
         if verbose:
             print(f"Successfully converted {args.input_file} to {args.output_file}")
