@@ -6,13 +6,13 @@ Paths: 1
 Walks: 0
 
 --- Nodes ---
-  Node: 11 (Segment: None)
+  Node: 11
     sequence: ACCTT
     length: 5
-  Node: 12 (Segment: None)
+  Node: 12
     sequence: TCAAGG
     length: 6
-  Node: 13 (Segment: None)
+  Node: 13
     sequence: CTTGATT
     length: 7
 

@@ -64,12 +64,8 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     bgfa_path = os.path.join(results_dir, bgfa_filename)
     try:
         # Create compression options with default values
-        compression_options = {
-            'block_size': 1024,
-            'compression_method': 'zstd',
-            'compression_level': 19,
-        }
-        g.write_bgfa(bgfa_path, compression_options=compression_options)
+        block_size = 1024
+        g.to_bgfa(bgfa_path, block_size)
         # Check if file was created and is non-empty
         if not os.path.exists(bgfa_path):
             pytest.skip(f"BGFA file was not created: {bgfa_path}")
@@ -115,7 +111,9 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
             f.write(g_pprint)
         with open("h_pprint.txt", "w") as f:
             f.write(h_pprint)
-        assert False, f"Graph elements count mismatch: nodes {len(g.nodes())} vs {len(h.nodes())}, edges {len(g.edges())} vs {len(h.edges())}"
+        assert (
+            False
+        ), f"Graph elements count mismatch: nodes {len(g.nodes())} vs {len(h.nodes())}, edges {len(g.edges())} vs {len(h.edges())}"
     else:
         print("Basic graph structure matches")
 

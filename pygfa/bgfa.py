@@ -424,8 +424,7 @@ class BGFAWriter:
     def to_bgfa(
         self,
     ) -> bytes:
-        if self._compression_options is None:
-            self._compression_options = {}
+        block_size = self._block_size
         # Create a BytesIO buffer
         buffer = io.BytesIO()
 
