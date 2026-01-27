@@ -446,16 +446,10 @@ class BGFAWriter:
         )
 
         # Get segment names sorted by segment ID
-        segment_map = getattr(self._gfa, "_segment_map", {})
-        if not segment_map:
-            # Create segment map if it doesn't exist
-            nodes_list = list(self._gfa.nodes())
-            segment_map = {name: idx for idx, name in enumerate(sorted(nodes_list))}
-            self._gfa._segment_map = segment_map
-
-        # Sort names by segment ID
-        names_by_id = sorted(segment_map.items(), key=lambda x: x[1])
-        segment_names = [name for name, seg_id in names_by_id]
+        segment_map = {}
+        # AI! segment_names is the unordered list of names of all nodes of the gfa graph
+        segment_names = list(self._gfa.nodes())
+        segment_map = {name: idx for idx, name in enumerate(segment_names)}
 
         # Write segment names in blocks
         offset = 0
