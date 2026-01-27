@@ -63,7 +63,13 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", ".bgfa")
     bgfa_path = os.path.join(results_dir, bgfa_filename)
     try:
-        g.write_bgfa(bgfa_path, compression_options={})
+        # Create compression options with default values
+        compression_options = {
+            'block_size': 1024,
+            'compression_method': 'zstd',
+            'compression_level': 19,
+        }
+        g.write_bgfa(bgfa_path, compression_options=compression_options)
         # Check if file was created and is non-empty
         if not os.path.exists(bgfa_path):
             pytest.skip(f"BGFA file was not created: {bgfa_path}")
