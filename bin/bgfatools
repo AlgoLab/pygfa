@@ -38,7 +38,7 @@ def main():
         "--output", "-o", type=str, help="Output file (default: stdout)"
     )
     
-    args = parser.parse_args(args)
+    args = parser.parse_args()
     
     if args.command == "bgfa":
         # Import and run the to_bgfa functionality
