@@ -117,11 +117,11 @@ class GFA:
         self._paths = {}  # New attribute to store paths
         self._walks = {}  # New attribute to store walks
         self._header_info = {}  # Store BGFA header information
-        
+
         # Initialize segment map from base_graph if provided
-        if base_graph is not None and hasattr(base_graph, '_segment_map'):
+        if base_graph is not None and hasattr(base_graph, "_segment_map"):
             self._segment_map = base_graph._segment_map.copy()
-        if base_graph is not None and hasattr(base_graph, '_header_info'):
+        if base_graph is not None and hasattr(base_graph, "_header_info"):
             self._header_info = base_graph._header_info.copy()
 
     def __contains__(self, id_):
@@ -1728,6 +1728,7 @@ class GFA:
         # Print nodes
         if self.nodes():
             print("--- Nodes ---")
+            # AI! print both the node ID and its segment name
             for node_id, data in self.nodes_iter(data=True):
                 print(f"  Node: {node_id}")
                 for key, value in data.items():
@@ -1897,6 +1898,7 @@ class GFA:
         :return: GFA graph object
         """
         from pygfa.bgfa import read_bgfa
+
         return read_bgfa(file_path)
 
     def write_bgfa(
@@ -1911,9 +1913,9 @@ class GFA:
         """
         if compression_options is None:
             compression_options = {
-                'block_size': 1024,
-                'compression_method': 'zstd',
-                'compression_level': 19,
+                "block_size": 1024,
+                "compression_method": "zstd",
+                "compression_level": 19,
             }
         writer = BGFAWriter(self)
         writer.write_bgfa(file, compression_options)
