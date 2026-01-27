@@ -13,7 +13,10 @@ import tomllib
 from pygfa.gfa import GFA
 
 
-def main():
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    
     parser = argparse.ArgumentParser(description="Convert GFA file to BGFA format")
     parser.add_argument("input_file", help="Path to input GFA file")
     parser.add_argument("output_file", help="Path to output BGFA file")
@@ -212,7 +215,7 @@ def main():
         help="Compression method for walks payload walks (default: '')",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # Load configuration from TOML file if provided
     config = {}

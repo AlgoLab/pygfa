@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""
+bgfatools - Command line tool for working with BGFA files
+"""
+
+import sys
+import argparse
+import os
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Tool for converting between GFA and BGFA formats",
+        prog="bgfatools"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Subcommands")
+    
+    # bgfa subcommand
+    bgfa_parser = subparsers.add_parser("bgfa", help="Convert GFA to BGFA format")
+    bgfa_parser.add_argument("input_file", help="Path to input GFA file")
+    bgfa_parser.add_argument("output_file", help="Path to output BGFA file")
+    bgfa_parser.add_argument(
+        "--block-size",
+        type=int,
+        default=1024,
+        help="Block size for BGFA format (default: 1024)",
+    )
+    bgfa_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+    bgfa_parser.add_argument(
+        "--config", "-c", type=str, help="Path to TOML configuration file"
+    )
+    
+    # cat subcommand
+    cat_parser = subparsers.add_parser("cat", help="Convert BGFA to GFA format and output to stdout")
+    cat_parser.add_argument("input_file", help="Path to input BGFA file")
+    cat_parser.add_argument(
+        "--output", "-o", type=str, help="Output file (default: stdout)"
+    )
+    
+    args = parser.parse_args(args)
+    
+    if args.command == "bgfa":
+        # Import and run the to_bgfa functionality
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from tools.to_bgfa import main as to_bgfa_main
+        
+        # Create sys.argv for the to_bgfa script
+        sys.argv = [
+            "to_bgfa.py",
+            args.input_file,
+            args.output_file,
+            "--block-size", str(args.block_size),
+        ]
+        if args.verbose:
+            sys.argv.append("--verbose")
+        if args.config:
+            sys.argv.extend(["--config", args.config])
+        
+        to_bgfa_main()
+        
+    elif args.command == "cat":
+        # Import GFA module
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from pygfa.gfa import GFA
+        
+        # Read BGFA file
+        gfa = GFA.from_bgfa(args.input_file)
+        
+        # Output to stdout or file
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write(gfa.to_gfa())
+        else:
+            print(gfa.to_gfa())
+    
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
