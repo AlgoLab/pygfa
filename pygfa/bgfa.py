@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from networkx.generators import grid_graph
-
 if TYPE_CHECKING:
     from pygfa.gfa import GFA
     from pygfa.graph_element import node, edge as ge
@@ -815,12 +813,38 @@ def to_bgfa(
     walks_payload_end_compression_strategy=None,
     walks_payload_walks_compression_strategy=None,
 ) -> bytes:
-    # AI! write list of input parameters in the comment below. The function parameters are correct
     """Computes a BGFA representing the GFA graph. If a file is given, then write the BGFA to the file.
 
-    :param
+    :param gfa_graph: The GFA graph to convert to BGFA format
+    :param file: Optional file path to write the BGFA data to
+    :param block_size: Block size for BGFA format (default: 1024)
+    :param segment_names_header_compression_strategy: Compression strategy for segment names block header
+    :param segment_names_payload_lengths_compression_strategy: Compression strategy for segment names payload lengths
+    :param segment_names_payload_names_compression_strategy: Compression strategy for segment names payload names
+    :param segments_header_compression_strategy: Compression strategy for segments block header
+    :param segments_payload_lengths_compression_strategy: Compression strategy for segments payload lengths
+    :param segments_payload_strings_compression_strategy: Compression strategy for segments payload strings
+    :param links_header_compression_strategy: Compression strategy for links block header
+    :param links_payload_from_compression_strategy: Compression strategy for links payload 'from' field
+    :param links_payload_to_compression_strategy: Compression strategy for links payload 'to' field
+    :param links_payload_cigar_lengths_compression_strategy: Compression strategy for links payload cigar lengths
+    :param links_payload_cigar_compression_strategy: Compression strategy for links payload cigar strings
+    :param paths_header_compression_strategy: Compression strategy for paths block header
+    :param paths_payload_names_compression_strategy: Compression strategy for paths payload names
+    :param paths_payload_segment_lengths_compression_strategy: Compression strategy for paths payload segment lengths
+    :param paths_payload_path_ids_compression_strategy: Compression strategy for paths payload path IDs
+    :param paths_payload_cigar_lengths_compression_strategy: Compression strategy for paths payload cigar lengths
+    :param paths_payload_cigar_compression_strategy: Compression strategy for paths payload cigar strings
+    :param walks_header_compression_strategy: Compression strategy for walks block header
+    :param walks_payload_sample_ids_compression_strategy: Compression strategy for walks payload sample IDs
+    :param walks_payload_hep_indices_compression_strategy: Compression strategy for walks payload haplotype indices
+    :param walks_payload_sequence_ids_compression_strategy: Compression strategy for walks payload sequence IDs
+    :param walks_payload_start_compression_strategy: Compression strategy for walks payload start positions
+    :param walks_payload_end_compression_strategy: Compression strategy for walks payload end positions
+    :param walks_payload_walks_compression_strategy: Compression strategy for walks payload walks
 
-    :return: the BGFA representation of the input grid_graph"""
+    :return: The BGFA representation of the input GFA graph as bytes, or empty bytes if file is provided
+    """
     compression_options = {
         "segment_names_header_compression_strategy": segment_names_header_compression_strategy,
         "segment_names_payload_lengths_compression_strategy": segment_names_payload_lengths_compression_strategy,
