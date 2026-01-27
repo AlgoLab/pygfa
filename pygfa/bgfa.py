@@ -801,5 +801,8 @@ def write_bgfa(
     compression_method: str = "zstd",
     compression_level: int = 19,
 ) -> None:
+    # AI! create a dict called compression_options, with keys all possible options for compressing or encoding part of
+    # the input and values the values received.
+    # Pass that dictionary to the writer.write_bgfa method
     writer = BGFAWriter(gfa_graph)
     writer.write_bgfa(file, block_size, compression_method, compression_level)
