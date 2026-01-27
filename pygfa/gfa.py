@@ -1730,11 +1730,7 @@ class GFA:
             print("--- Nodes ---")
             for node_id, data in self.nodes_iter(data=True):
                 # Get segment name if available
-                segment_name = self.get_segment_id(node_id)
-                if segment_name is not None:
-                    print(f"  Node: {node_id} (Segment: {segment_name})")
-                else:
-                    print(f"  Node: {node_id}")
+                print(f"  Node: {node_id}")
                 for key, value in data.items():
                     if key not in ["nid", "sequence", "slen"]:
                         print(f"    {key}: {value}")
