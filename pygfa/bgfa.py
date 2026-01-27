@@ -511,20 +511,9 @@ class BGFAWriter:
     def write_bgfa(
         self,
         file,
-        compression_options: dict,
     ) -> None:
-        block_size = compression_options.get("block_size", 1024)
-        compression_method = compression_options.get("compression_method", "zstd")
-        compression_level = compression_options.get("compression_level", 19)
         with open(file, "wb") as f:
-            f.write(
-                self.to_bgfa(
-                    block_size,
-                    compression_method,
-                    compression_level,
-                    compression_options,
-                )
-            )
+            f.write(self.to_bgfa())
 
     def _write_header(
         self,
@@ -808,10 +797,8 @@ def to_bgfa(
             "compression_method": compression_method,
             "compression_level": compression_level,
         }
-    writer = BGFAWriter(gfa_graph)
-    return writer.to_bgfa(
-        block_size, compression_method, compression_level, compression_options
-    )
+    writer = BGFAWriter(gfa_graph, block_size, compression_options)
+    return writer.to_bgfa()
 
 
 def read_bgfa(file_path: str) -> GFA:
