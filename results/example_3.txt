@@ -1,8 +1,8 @@
 === GFA Graph ===
 Nodes: 3
-Edges: 3
+Edges: 2
 Subgraphs: 0
-Paths: 2
+Paths: 1
 Walks: 0
 
 --- Nodes ---
@@ -28,17 +28,6 @@ Walks: 0
     is_dovetail: True
     from_segment_end: None
     to_segment_end: None
-  Edge: virtual_2 (11 -> 13)
-    from_orn: +
-    to_orn: +
-    from_positions: (None, None)
-    to_positions: (None, None)
-    alignment: 3M
-    distance: None
-    variance: None
-    is_dovetail: True
-    from_segment_end: None
-    to_segment_end: None
   Edge: virtual_1 (12 -> 13)
     from_orn: -
     to_orn: +
@@ -54,9 +43,5 @@ Walks: 0
 --- Paths ---
   Path: 14
     path_name: 14
-    segments: ['11+', '12-', '13+']
-  Path: 16
-    path_name: 16
-    segments: ['11+', '12-', '13+']
-    overlaps: ['4M', '5M']
+    segments: ['11+', '12-']
 
