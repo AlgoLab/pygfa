@@ -328,7 +328,7 @@ def main():
             compression_options[key] = value
 
         # Write BGFA file
-        g.to_bgfa(args.output_file, *list(compression_methods))
+        g.to_bgfa(args.output_file, block_size, compression_options)
 
         if verbose:
             print(f"Successfully converted {args.input_file} to {args.output_file}")
