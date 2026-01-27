@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from pygfa.gfa import GFA
     from pygfa.graph_element import node, edge as ge
 
-__all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "write_bgfa", "read_bgfa"]
+__all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "read_bgfa"]
 
 try:
     import compression.zstd as z
@@ -446,8 +446,6 @@ class BGFAWriter:
         )
 
         # Get segment names sorted by segment ID
-        segment_map = {}
-        # AI! segment_names is the unordered list of names of all nodes of the gfa graph
         segment_names = list(self._gfa.nodes())
         segment_map = {name: idx for idx, name in enumerate(segment_names)}
 
