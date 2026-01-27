@@ -415,21 +415,18 @@ class ReaderBGFA:
 
 
 class BGFAWriter:
-    def __init__(self, gfa_graph: GFA):
+    def __init__(
+        self, gfa_graph: GFA, block_size: int = 1024, compression_options: dict = None
+    ):
         self._gfa = gfa_graph
-        self._compression_options = {}
+        self._compression_options = compression_options
+        self._block_size = block_size
 
     def to_bgfa(
         self,
-        block_size: int = 1024,
-        compression_method: str = "zstd",
-        compression_level: int = 19,
-        compression_options: dict = None,
     ) -> bytes:
-        if compression_options is None:
-            compression_options = {}
-        # Store compression_options for use in block writing methods
-        self._compression_options = compression_options
+        if self._compression_options is None:
+            self._compression_options = {}
         # Create a BytesIO buffer
         buffer = io.BytesIO()
 
@@ -446,7 +443,7 @@ class BGFAWriter:
             l_len,
             p_len,
             w_len,
-            block_size,
+            self._block_size,
         )
 
         # Get segment names sorted by segment ID
@@ -520,7 +517,14 @@ class BGFAWriter:
         compression_method = compression_options.get("compression_method", "zstd")
         compression_level = compression_options.get("compression_level", 19)
         with open(file, "wb") as f:
-            f.write(self.to_bgfa(block_size, compression_method, compression_level, compression_options))
+            f.write(
+                self.to_bgfa(
+                    block_size,
+                    compression_method,
+                    compression_level,
+                    compression_options,
+                )
+            )
 
     def _write_header(
         self,
@@ -562,9 +566,13 @@ class BGFAWriter:
         """
         # Get compression method for segment names from options
         segment_names_header = self._compression_options.get("segment_names_header", "")
-        segment_names_payload_lengths = self._compression_options.get("segment_names_payload_lengths", "")
-        segment_names_payload_names = self._compression_options.get("segment_names_payload_names", "")
-        
+        segment_names_payload_lengths = self._compression_options.get(
+            "segment_names_payload_lengths", ""
+        )
+        segment_names_payload_names = self._compression_options.get(
+            "segment_names_payload_names", ""
+        )
+
         payload = b"".join([name.encode("ascii") + b"\x00" for name in to_write])
         record_num = len(to_write)
         compressed_len = len(payload)
@@ -801,7 +809,9 @@ def to_bgfa(
             "compression_level": compression_level,
         }
     writer = BGFAWriter(gfa_graph)
-    return writer.to_bgfa(block_size, compression_method, compression_level, compression_options)
+    return writer.to_bgfa(
+        block_size, compression_method, compression_level, compression_options
+    )
 
 
 def read_bgfa(file_path: str) -> GFA:
@@ -817,13 +827,57 @@ def read_bgfa(file_path: str) -> GFA:
 def write_bgfa(
     gfa_graph: GFA,
     file,
-    compression_options=None,
+    block_size=1024,
+    segment_names_header_compression_strategy=None,
+    segment_names_payload_lengths_compression_strategy=None,
+    segment_names_payload_names_compression_strategy=None,
+    segments_header_compression_strategy=None,
+    segments_payload_lengths_compression_strategy=None,
+    segments_payload_strings_compression_strategy=None,
+    links_header_compression_strategy=None,
+    links_payload_from_compression_strategy=None,
+    links_payload_to_compression_strategy=None,
+    links_payload_cigar_lengths_compression_strategy=None,
+    links_payload_cigar_compression_strategy=None,
+    paths_header_compression_strategy=None,
+    paths_payload_names_compression_strategy=None,
+    paths_payload_segment_lengths_compression_strategy=None,
+    paths_payload_path_ids_compression_strategy=None,
+    paths_payload_cigar_lengths_compression_strategy=None,
+    paths_payload_cigar_compression_strategy=None,
+    walks_header_compression_strategy=None,
+    walks_payload_sample_ids_compression_strategy=None,
+    walks_payload_hep_indices_compression_strategy=None,
+    walks_payload_sequence_ids_compression_strategy=None,
+    walks_payload_start_compression_strategy=None,
+    walks_payload_end_compression_strategy=None,
+    walks_payload_walks_compression_strategy=None,
 ) -> None:
-    if compression_options is None:
-        compression_options = {
-            "block_size": 1024,
-            "compression_method": "zstd",
-            "compression_level": 19,
-        }
-    writer = BGFAWriter(gfa_graph)
-    writer.write_bgfa(file, compression_options)
+    compression_options = {
+        "segment_names_header_compression_strategy": segment_names_header_compression_strategy,
+        "segment_names_payload_lengths_compression_strategy": segment_names_payload_lengths_compression_strategy,
+        "segment_names_payload_names_compression_strategy": segment_names_payload_names_compression_strategy,
+        "segments_header_compression_strategy": segments_header_compression_strategy,
+        "segments_payload_lengths_compression_strategy": segments_payload_lengths_compression_strategy,
+        "segments_payload_strings_compression_strategy": segments_payload_strings_compression_strategy,
+        "links_header_compression_strategy": links_header_compression_strategy,
+        "links_payload_from_compression_strategy": links_payload_from_compression_strategy,
+        "links_payload_to_compression_strategy": links_payload_to_compression_strategy,
+        "links_payload_cigar_lengths_compression_strategy": links_payload_cigar_lengths_compression_strategy,
+        "links_payload_cigar_compression_strategy": links_payload_cigar_compression_strategy,
+        "paths_header_compression_strategy": paths_header_compression_strategy,
+        "paths_payload_names_compression_strategy": paths_payload_names_compression_strategy,
+        "paths_payload_segment_lengths_compression_strategy": paths_payload_segment_lengths_compression_strategy,
+        "paths_payload_path_ids_compression_strategy": paths_payload_path_ids_compression_strategy,
+        "paths_payload_cigar_lengths_compression_strategy": paths_payload_cigar_lengths_compression_strategy,
+        "paths_payload_cigar_compression_strategy": paths_payload_cigar_compression_strategy,
+        "walks_header_compression_strategy": walks_header_compression_strategy,
+        "walks_payload_sample_ids_compression_strategy": walks_payload_sample_ids_compression_strategy,
+        "walks_payload_hep_indices_compression_strategy": walks_payload_hep_indices_compression_strategy,
+        "walks_payload_sequence_ids_compression_strategy": walks_payload_sequence_ids_compression_strategy,
+        "walks_payload_start_compression_strategy": walks_payload_start_compression_strategy,
+        "walks_payload_end_compression_strategy": walks_payload_end_compression_strategy,
+        "walks_payload_walks_compression_strategy": walks_payload_walks_compression_strategy,
+    }
+    writer = BGFAWriter(gfa_graph, block_size, compression_options)
+    writer.write_bgfa(file)
