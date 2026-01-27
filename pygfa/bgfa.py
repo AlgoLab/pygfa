@@ -508,10 +508,11 @@ class BGFAWriter:
     def write_bgfa(
         self,
         file,
-        block_size: int = 1024,
-        compression_method: str = "zstd",
-        compression_level: int = 19,
+        compression_options: dict,
     ) -> None:
+        block_size = compression_options.get('block_size', 1024)
+        compression_method = compression_options.get('compression_method', 'zstd')
+        compression_level = compression_options.get('compression_level', 19)
         with open(file, "wb") as f:
             f.write(self.to_bgfa(block_size, compression_method, compression_level))
 
@@ -801,8 +802,13 @@ def write_bgfa(
     compression_method: str = "zstd",
     compression_level: int = 19,
 ) -> None:
-    # AI! create a dict called compression_options, with keys all possible options for compressing or encoding part of
+    # Create a dict called compression_options, with keys all possible options for compressing or encoding part of
     # the input and values the values received.
-    # Pass that dictionary to the writer.write_bgfa method
+    compression_options = {
+        'block_size': block_size,
+        'compression_method': compression_method,
+        'compression_level': compression_level,
+        # Add other compression options as needed
+    }
     writer = BGFAWriter(gfa_graph)
-    writer.write_bgfa(file, block_size, compression_method, compression_level)
+    writer.write_bgfa(file, compression_options)
