@@ -1903,17 +1903,78 @@ class GFA:
 
     def to_bgfa(
         self,
-        file,
+        file=None,
         block_size=1024,
         compression_options=None,
-    ) -> None:
+    ) -> bytes:
         """Convert this GFA graph to BGFA binary format and write to file.
 
-        :param file: Output file path or file object
+        :param file: Output file path or file object (optional)
+        :param block_size: Block size for BGFA format
         :param compression_options: Dictionary of compression options
+        :return: BGFA binary data if file is None, otherwise writes to file
         """
-        writer = BGFAWriter(self)
-        writer.to_bgfa()
+        from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+        
+        if compression_options is None:
+            compression_options = {}
+        
+        # Extract all the compression strategy parameters from the dictionary
+        # with default values
+        segment_names_header = compression_options.get('segment_names_header', '')
+        segment_names_payload_lengths = compression_options.get('segment_names_payload_lengths', '')
+        segment_names_payload_names = compression_options.get('segment_names_payload_names', '')
+        segments_header = compression_options.get('segments_header', '')
+        segments_payload_lengths = compression_options.get('segments_payload_lengths', '')
+        segments_payload_strings = compression_options.get('segments_payload_strings', '')
+        links_header = compression_options.get('links_header', '')
+        links_payload_from = compression_options.get('links_payload_from', '')
+        links_payload_to = compression_options.get('links_payload_to', '')
+        links_payload_cigar_lengths = compression_options.get('links_payload_cigar_lengths', '')
+        links_payload_cigar = compression_options.get('links_payload_cigar', '')
+        paths_header = compression_options.get('paths_header', '')
+        paths_payload_names = compression_options.get('paths_payload_names', '')
+        paths_payload_segment_lengths = compression_options.get('paths_payload_segment_lengths', '')
+        paths_payload_path_ids = compression_options.get('paths_payload_path_ids', '')
+        paths_payload_cigar_lengths = compression_options.get('paths_payload_cigar_lengths', '')
+        paths_payload_cigar = compression_options.get('paths_payload_cigar', '')
+        walks_header = compression_options.get('walks_header', '')
+        walks_payload_sample_ids = compression_options.get('walks_payload_sample_ids', '')
+        walks_payload_hep_indices = compression_options.get('walks_payload_hep_indices', '')
+        walks_payload_sequence_ids = compression_options.get('walks_payload_sequence_ids', '')
+        walks_payload_start = compression_options.get('walks_payload_start', '')
+        walks_payload_end = compression_options.get('walks_payload_end', '')
+        walks_payload_walks = compression_options.get('walks_payload_walks', '')
+        
+        return bgfa_to_bgfa(
+            self,
+            file=file,
+            block_size=block_size,
+            segment_names_header_compression_strategy=segment_names_header,
+            segment_names_payload_lengths_compression_strategy=segment_names_payload_lengths,
+            segment_names_payload_names_compression_strategy=segment_names_payload_names,
+            segments_header_compression_strategy=segments_header,
+            segments_payload_lengths_compression_strategy=segments_payload_lengths,
+            segments_payload_strings_compression_strategy=segments_payload_strings,
+            links_header_compression_strategy=links_header,
+            links_payload_from_compression_strategy=links_payload_from,
+            links_payload_to_compression_strategy=links_payload_to,
+            links_payload_cigar_lengths_compression_strategy=links_payload_cigar_lengths,
+            links_payload_cigar_compression_strategy=links_payload_cigar,
+            paths_header_compression_strategy=paths_header,
+            paths_payload_names_compression_strategy=paths_payload_names,
+            paths_payload_segment_lengths_compression_strategy=paths_payload_segment_lengths,
+            paths_payload_path_ids_compression_strategy=paths_payload_path_ids,
+            paths_payload_cigar_lengths_compression_strategy=paths_payload_cigar_lengths,
+            paths_payload_cigar_compression_strategy=paths_payload_cigar,
+            walks_header_compression_strategy=walks_header,
+            walks_payload_sample_ids_compression_strategy=walks_payload_sample_ids,
+            walks_payload_hep_indices_compression_strategy=walks_payload_hep_indices,
+            walks_payload_sequence_ids_compression_strategy=walks_payload_sequence_ids,
+            walks_payload_start_compression_strategy=walks_payload_start,
+            walks_payload_end_compression_strategy=walks_payload_end,
+            walks_payload_walks_compression_strategy=walks_payload_walks,
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover
