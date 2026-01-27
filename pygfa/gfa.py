@@ -1902,19 +1902,19 @@ class GFA:
     def write_bgfa(
         self,
         file,
-        block_size: int = 1024,
-        compression_method: str = "zstd",
-        compression_level: int = 19,
+        compression_options=None,
     ) -> None:
         """Convert this GFA graph to BGFA binary format and write to file.
 
         :param file: Output file path or file object
-        :param block_size: Block size for BGFA format (default: 1024)
-        :param compression_method: Compression method for string data (default: "zstd")
-        :param compression_level: Compression level (default: 19)
+        :param compression_options: Dictionary of compression options
         """
-        compression_options = {
-            'block_size': block_size,
+        if compression_options is None:
+            compression_options = {
+                'block_size': 1024,
+                'compression_method': 'zstd',
+                'compression_level': 19,
+            }
             'compression_method': compression_method,
             'compression_level': compression_level,
         }
