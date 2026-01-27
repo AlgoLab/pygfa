@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from networkx.generators import grid_graph
+
 if TYPE_CHECKING:
     from pygfa.gfa import GFA
     from pygfa.graph_element import node, edge as ge
@@ -786,35 +788,8 @@ class BGFAWriter:
 
 def to_bgfa(
     gfa_graph: GFA,
+    file=None,
     block_size: int = 1024,
-    compression_method: str = "zstd",
-    compression_level: int = 19,
-    compression_options: dict = None,
-) -> bytes:
-    if compression_options is None:
-        compression_options = {
-            "block_size": block_size,
-            "compression_method": compression_method,
-            "compression_level": compression_level,
-        }
-    writer = BGFAWriter(gfa_graph, block_size, compression_options)
-    return writer.to_bgfa()
-
-
-def read_bgfa(file_path: str) -> GFA:
-    """Read a BGFA file and create the corresponding GFA graph.
-
-    :param file_path: Path to the BGFA file
-    :return: GFA graph object
-    """
-    reader = ReaderBGFA()
-    return reader.read_bgfa(file_path)
-
-
-def write_bgfa(
-    gfa_graph: GFA,
-    file,
-    block_size=1024,
     segment_names_header_compression_strategy=None,
     segment_names_payload_lengths_compression_strategy=None,
     segment_names_payload_names_compression_strategy=None,
@@ -839,7 +814,13 @@ def write_bgfa(
     walks_payload_start_compression_strategy=None,
     walks_payload_end_compression_strategy=None,
     walks_payload_walks_compression_strategy=None,
-) -> None:
+) -> bytes:
+    # AI! write list of input parameters in the comment below. The function parameters are correct
+    """Computes a BGFA representing the GFA graph. If a file is given, then write the BGFA to the file.
+
+    :param
+
+    :return: the BGFA representation of the input grid_graph"""
     compression_options = {
         "segment_names_header_compression_strategy": segment_names_header_compression_strategy,
         "segment_names_payload_lengths_compression_strategy": segment_names_payload_lengths_compression_strategy,
@@ -866,5 +847,17 @@ def write_bgfa(
         "walks_payload_end_compression_strategy": walks_payload_end_compression_strategy,
         "walks_payload_walks_compression_strategy": walks_payload_walks_compression_strategy,
     }
-    writer = BGFAWriter(gfa_graph, block_size, compression_options)
-    writer.write_bgfa(file)
+    bgfa = BGFAWriter(gfa_graph, block_size, compression_options)
+    if file != None:
+        bgfa.write_bgfa(file)
+    return bgfa.to_bgfa()
+
+
+def read_bgfa(file_path: str) -> GFA:
+    """Read a BGFA file and create the corresponding GFA graph.
+
+    :param file_path: Path to the BGFA file
+    :return: GFA graph object
+    """
+    reader = ReaderBGFA()
+    return reader.read_bgfa(file_path)
