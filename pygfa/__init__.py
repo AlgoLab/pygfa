@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 from pygfa import bgfa
 from pygfa import gfa
-from pygfa.bgfa import to_bgfa, write_bgfa
+from pygfa.bgfa import to_bgfa
 from pygfa.dovetail_operations.operations import *  # common operations
 from pygfa.operations import *  # common operations
 
@@ -17,5 +17,4 @@ __all__ = [
     "bgfa",
     "gfa",
     "to_bgfa",
-    "write_bgfa",
 ]

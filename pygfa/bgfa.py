@@ -6,7 +6,6 @@ for efficient storage and compression.
 
 Functions:
     to_bgfa: Convert a GFA graph to BGFA binary format.
-    write_bgfa: Convert a GFA graph to BGFA and save to file.
 """
 
 from __future__ import annotations
@@ -508,13 +507,6 @@ class BGFAWriter:
         # Get the entire buffer as bytes
         return buffer.getvalue()
 
-    def write_bgfa(
-        self,
-        file,
-    ) -> None:
-        with open(file, "wb") as f:
-            f.write(self.to_bgfa())
-
     def _write_header(
         self,
         buffer,
@@ -872,8 +864,10 @@ def to_bgfa(
         "walks_payload_walks_compression_strategy": walks_payload_walks_compression_strategy,
     }
     bgfa = BGFAWriter(gfa_graph, block_size, compression_options)
+    # If file is given, write the BGFA to the file
     if file != None:
-        bgfa.write_bgfa(file)
+        with open(file, "wb") as f:
+            f.write(bgfa.to_bgfa())
     return bgfa.to_bgfa()
 
 
