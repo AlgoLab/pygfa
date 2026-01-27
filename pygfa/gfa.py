@@ -1728,9 +1728,13 @@ class GFA:
         # Print nodes
         if self.nodes():
             print("--- Nodes ---")
-            # AI! print both the node ID and its segment name
             for node_id, data in self.nodes_iter(data=True):
-                print(f"  Node: {node_id}")
+                # Get segment name if available
+                segment_name = self.get_segment_id(node_id)
+                if segment_name is not None:
+                    print(f"  Node: {node_id} (Segment: {segment_name})")
+                else:
+                    print(f"  Node: {node_id}")
                 for key, value in data.items():
                     if key not in ["nid", "sequence", "slen"]:
                         print(f"    {key}: {value}")
@@ -1917,8 +1921,9 @@ class GFA:
                 "compression_method": "zstd",
                 "compression_level": 19,
             }
-        writer = BGFAWriter(self)
-        writer.write_bgfa(file, compression_options)
+        block_size = compression_options.get("block_size", 1024)
+        writer = BGFAWriter(self, block_size, compression_options)
+        writer.write_bgfa(file)
 
 
 if __name__ == "__main__":  # pragma: no cover
