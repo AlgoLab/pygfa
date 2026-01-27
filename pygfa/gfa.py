@@ -1913,8 +1913,13 @@ class GFA:
         :param compression_method: Compression method for string data (default: "zstd")
         :param compression_level: Compression level (default: 19)
         """
+        compression_options = {
+            'block_size': block_size,
+            'compression_method': compression_method,
+            'compression_level': compression_level,
+        }
         writer = BGFAWriter(self)
-        writer.write_bgfa(file, block_size, compression_method, compression_level)
+        writer.write_bgfa(file, compression_options)
 
 
 if __name__ == "__main__":  # pragma: no cover
