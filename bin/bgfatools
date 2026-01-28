@@ -20,8 +20,8 @@ def get_group_args(parser, group_name, parsed_args):
     return group_dict
 
 
-def parse_cli_options(args=None):
-    """Parse the command line, returns an options dict"""
+def parse_cli_options():
+    """Parse the command line, returns an options, positional_arguments, compression_options dicts"""
     options = {}
     parser = argparse.ArgumentParser(
         description="Tool for converting between GFA and BGFA formats", prog="bgfatools"
@@ -244,7 +244,7 @@ def parse_cli_options(args=None):
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
-    args = parser.parse_args(args)
+    args = parser.parse_args()
     positional_arguments = get_group_args(parser, "positional arguments", args)
     options = get_group_args(parser, "options", args)
     compression_options = get_group_args(parser, "compression", args)
