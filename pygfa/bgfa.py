@@ -51,11 +51,12 @@ class ReaderBGFA:
     def __init__(self):
         pass
 
-    def read_bgfa(self, file_path: str, verbose: bool = False) -> GFA:
+    def read_bgfa(self, file_path: str, verbose: bool = False, logfile: str = None) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
         :param verbose: If True, log detailed information
+        :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: GFA graph object
         """
         from pygfa.gfa import GFA
@@ -63,11 +64,19 @@ class ReaderBGFA:
 
         if verbose:
             import logging
+            import tempfile
+            if logfile is None:
+                # Create a temporary log file
+                temp_log = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log')
+                logfile = temp_log.name
+                temp_log.close()
+                print(f"Logging to temporary file: {logfile}")
+            
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 handlers=[
-                    logging.FileHandler('bgfa_reading.log'),
+                    logging.FileHandler(logfile),
                     logging.StreamHandler()
                 ]
             )
@@ -456,6 +465,7 @@ class BGFAWriter:
     def to_bgfa(
         self,
         verbose: bool = False,
+        logfile: str = None,
     ) -> bytes:
         block_size = self._block_size
         # Create a BytesIO buffer
@@ -463,12 +473,20 @@ class BGFAWriter:
         
         if verbose:
             import logging
+            import tempfile
             # Configure logging to write to a file
+            if logfile is None:
+                # Create a temporary log file
+                temp_log = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log')
+                logfile = temp_log.name
+                temp_log.close()
+                print(f"Logging to temporary file: {logfile}")
+            
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 handlers=[
-                    logging.FileHandler('bgfa_conversion.log'),
+                    logging.FileHandler(logfile),
                     logging.StreamHandler()
                 ]
             )
@@ -868,6 +886,7 @@ def to_bgfa(
     walks_payload_end_compression_strategy=None,
     walks_payload_walks_compression_strategy=None,
     verbose: bool = False,
+    logfile: str = None,
 ) -> bytes:
     """Computes a BGFA representing the GFA graph. If a file is given, then write the BGFA to the file.
 
@@ -931,16 +950,17 @@ def to_bgfa(
     # If file is given, write the BGFA to the file
     if file != None:
         with open(file, "wb") as f:
-            f.write(bgfa.to_bgfa(verbose=verbose))
-    return bgfa.to_bgfa(verbose=verbose)
+            f.write(bgfa.to_bgfa(verbose=verbose, logfile=logfile))
+    return bgfa.to_bgfa(verbose=verbose, logfile=logfile)
 
 
-def read_bgfa(file_path: str, verbose: bool = False) -> GFA:
+def read_bgfa(file_path: str, verbose: bool = False, logfile: str = None) -> GFA:
     """Read a BGFA file and create the corresponding GFA graph.
 
     :param file_path: Path to the BGFA file
     :param verbose: If True, log detailed information
+    :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
     :return: GFA graph object
     """
     reader = ReaderBGFA()
-    return reader.read_bgfa(file_path, verbose=verbose)
+    return reader.read_bgfa(file_path, verbose=verbose, logfile=logfile)
