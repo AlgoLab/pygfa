@@ -10,6 +10,7 @@ import tomllib
 from pygfa.gfa import GFA
 
 
+# AI! fix the next function
 def get_group_args(parser, group_name, parsed_args):
     """Extracts only the arguments belonging to a specific group."""
     arg_group = next(g for g in parser._action_groups if g.title == group_name)
