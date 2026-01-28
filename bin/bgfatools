@@ -10,7 +10,19 @@ import tomllib
 from pygfa.gfa import GFA
 
 
-def main():
+def get_group_args(parser, group_name, parsed_args):
+    """Extracts only the arguments belonging to a specific group."""
+    arg_group = next(g for g in parser._action_groups if g.title == group_name)
+    group_dict = {
+        action.dest: getattr(parsed_args, action.dest)
+        for action in arg_group._group_actions
+    }
+    return group_dict
+
+
+def parse_cli_options(args=None):
+    """Parse the command line, returns an options dict"""
+    options = {}
     parser = argparse.ArgumentParser(
         description="Tool for converting between GFA and BGFA formats", prog="bgfatools"
     )
@@ -32,48 +44,6 @@ def main():
     bgfa_parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
-
-    # cat subcommand
-    cat_parser = subparsers.add_parser(
-        "cat", help="Convert BGFA to GFA format and output to stdout"
-    )
-    cat_parser.add_argument("input_file", help="Path to input BGFA file")
-    cat_parser.add_argument(
-        "--output", "-o", type=str, help="Output file (default: stdout)"
-    )
-
-    args = parser.parse_args()
-
-
-def get_group_args(parser, group_name, parsed_args):
-    """Extracts only the arguments belonging to a specific group."""
-    arg_group = next(g for g in parser._action_groups if g.title == group_name)
-    group_dict = {
-        action.dest: getattr(parsed_args, action.dest)
-        for action in arg_group._group_actions
-    }
-    return group_dict
-
-
-def parse_cli_options(args=None):
-    """Parse the command line, returns an options dict"""
-    options = {}
-    parser = argparse.ArgumentParser(description="Convert GFA file to BGFA format")
-    parser.add_argument("input_file", help="Path to input GFA file")
-    parser.add_argument("output_file", help="Path to output BGFA file")
-    parser.add_argument(
-        "--block-size",
-        type=int,
-        default=1024,
-        help="Block size for BGFA format (default: 1024)",
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
-    parser.add_argument(
-        "--config", "-c", type=str, help="Path to TOML configuration file"
-    )
-
     # create the dictionary integers_encoding where the keys are all
     # possible functions to encode a list of integers, taken from gfa.py
     integers_encoding = {
@@ -107,7 +77,7 @@ def parse_cli_options(args=None):
     string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"
 
     # Compression method options for each component
-    compression_group = parser.add_argument_group("Compression Options")
+    compression_group = bgfa_parser.add_argument_group("Compression Options")
     compression_group.add_argument(
         "--segment-names-header",
         type=str,
@@ -255,6 +225,23 @@ def parse_cli_options(args=None):
         type=str,
         default="",
         help="Compression method for walks payload walks (default: '')",
+    )
+
+    # cat subcommand
+    cat_parser = subparsers.add_parser(
+        "cat", help="Convert BGFA to GFA format and output to stdout"
+    )
+    cat_parser.add_argument("input_file", help="Path to input BGFA file")
+    cat_parser.add_argument(
+        "--output", "-o", type=str, help="Output file (default: stdout)"
+    )
+
+    # Options common to all commands
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+    parser.add_argument(
+        "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
     args = parser.parse_args(args)
