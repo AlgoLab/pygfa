@@ -250,6 +250,9 @@ def parse_cli_options():
         "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
     parser.add_argument(
+        "--logfile", "-l", type=str, help="Path to log file (if not specified and verbose=True, uses a temporary file)"
+    )
+    parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
@@ -272,6 +275,8 @@ def parse_cli_options():
         options["block_size"] = args.block_size
     if hasattr(args, "verbose"):
         options["verbose"] = args.verbose
+    if hasattr(args, "logfile"):
+        options["logfile"] = args.logfile
     if hasattr(args, "config"):
         options["config"] = args.config
     if hasattr(args, "output"):
@@ -387,6 +392,7 @@ if __name__ == "__main__":
                 options.get("block_size", 1024),
                 comp_dict,
                 verbose=options.get("verbose", False),
+                logfile=options.get("logfile"),
             )
 
             if options.get("verbose"):
@@ -399,7 +405,11 @@ if __name__ == "__main__":
             sys.exit(1)
 
     elif options.get("command") == "cat":
-        gfa = GFA.from_bgfa(options.get("input_file"), verbose=options.get("verbose", False))
+        gfa = GFA.from_bgfa(
+            options.get("input_file"), 
+            verbose=options.get("verbose", False),
+            logfile=options.get("logfile")
+        )
 
         # Output to stdout or file
         output_file = options.get("output")
