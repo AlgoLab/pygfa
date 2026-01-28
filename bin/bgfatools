@@ -6,14 +6,16 @@ bgfatools - Command line tool for working with BGFA files
 import sys
 import argparse
 import os
+import tomllib
+from pygfa.gfa import GFA
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Tool for converting between GFA and BGFA formats",
-        prog="bgfatools"
+        description="Tool for converting between GFA and BGFA formats", prog="bgfatools"
     )
     subparsers = parser.add_subparsers(dest="command", help="Subcommands")
-    
+
     # bgfa subcommand
     bgfa_parser = subparsers.add_parser("bgfa", help="Convert GFA to BGFA format")
     bgfa_parser.add_argument("input_file", help="Path to input GFA file")
@@ -30,53 +32,316 @@ def main():
     bgfa_parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
-    
+
     # cat subcommand
-    cat_parser = subparsers.add_parser("cat", help="Convert BGFA to GFA format and output to stdout")
+    cat_parser = subparsers.add_parser(
+        "cat", help="Convert BGFA to GFA format and output to stdout"
+    )
     cat_parser.add_argument("input_file", help="Path to input BGFA file")
     cat_parser.add_argument(
         "--output", "-o", type=str, help="Output file (default: stdout)"
     )
-    
+
     args = parser.parse_args()
-    
-    if args.command == "bgfa":
-        # Import and run the to_bgfa functionality
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from tools.to_bgfa import main as to_bgfa_main
-        
-        # Create sys.argv for the to_bgfa script
-        sys.argv = [
-            "to_bgfa.py",
-            args.input_file,
-            args.output_file,
-            "--block-size", str(args.block_size),
-        ]
-        if args.verbose:
-            sys.argv.append("--verbose")
-        if args.config:
-            sys.argv.extend(["--config", args.config])
-        
-        to_bgfa_main()
-        
-    elif args.command == "cat":
-        # Import GFA module
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from pygfa.gfa import GFA
-        
-        # Read BGFA file
-        gfa = GFA.from_bgfa(args.input_file)
-        
+
+
+def get_group_args(parser, group_name, parsed_args):
+    """Extracts only the arguments belonging to a specific group."""
+    arg_group = next(g for g in parser._action_groups if g.title == group_name)
+    group_dict = {
+        action.dest: getattr(parsed_args, action.dest)
+        for action in arg_group._group_actions
+    }
+    return group_dict
+
+
+def parse_cli_options(args=None):
+    """Parse the command line, returns an options dict"""
+    options = {}
+    parser = argparse.ArgumentParser(description="Convert GFA file to BGFA format")
+    parser.add_argument("input_file", help="Path to input GFA file")
+    parser.add_argument("output_file", help="Path to output BGFA file")
+    parser.add_argument(
+        "--block-size",
+        type=int,
+        default=1024,
+        help="Block size for BGFA format (default: 1024)",
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+    parser.add_argument(
+        "--config", "-c", type=str, help="Path to TOML configuration file"
+    )
+
+    # create the dictionary integers_encoding where the keys are all
+    # possible functions to encode a list of integers, taken from gfa.py
+    integers_encoding = {
+        "varint": "compress_integer_list_varint",
+        "fixed32": "compress_integer_list_fixed",
+        "fixed64": "compress_integer_list_fixed",
+        "delta": "compress_integer_list_delta",
+        "gamma": "compress_integer_list_elias_gamma",
+        "omega": "compress_integer_list_elias_omega",
+        "golomb": "compress_integer_list_golomb",
+        "rice": "compress_integer_list_rice",
+        "streamvbyte": "compress_integer_list_streamvbyte",
+        "vbyte": "compress_integer_list_vbyte",
+        "": "compress_integer_list_none",
+    }
+    integers_encoding_str = (
+        f" possible values: {'/'.join(integers_encoding.keys())[:-1]}"
+    )
+    # create the dictionary string_encoding where the keys are all
+    # possible functions to encode a string, taken from gfa.py
+    string_encoding = {
+        "zstd": "compress_string_zstd",
+        "gzip": "compress_string_gzip",
+        "lzma": "compress_string_lzma",
+        "frontcoding": "compress_string_list_frontcoding",
+        "delta": "compress_string_list_delta",
+        "dictionary": "compress_string_list_dictionary",
+        "huffman": "compress_string_list_huffman",
+        "": "compress_string_none",
+    }
+    string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"
+
+    # Compression method options for each component
+    compression_group = parser.add_argument_group("Compression Options")
+    compression_group.add_argument(
+        "--segment-names-header",
+        type=str,
+        default="",
+        help="Compression method for segment names header (default: '')"
+        + string_encoding_str,
+    )
+    compression_group.add_argument(
+        "--segment-names-payload-lengths",
+        type=str,
+        default="",
+        help="Compression method for segment names payload lengths (default: '')",
+    )
+    compression_group.add_argument(
+        "--segment-names-payload-names",
+        type=str,
+        default="",
+        help="Compression method for segment names payload names (default: '')"
+        + string_encoding_str,
+    )
+    compression_group.add_argument(
+        "--segments-header",
+        type=str,
+        default="",
+        help="Compression method for segments header (default: '')"
+        + string_encoding_str,
+    )
+    compression_group.add_argument(
+        "--segments-payload-lengths",
+        type=str,
+        default="",
+        help="Compression method for segments payload lengths (default: '')",
+    )
+    compression_group.add_argument(
+        "--segments-payload-strings",
+        type=str,
+        default="",
+        help="Compression method for segments payload strings (default: '')"
+        + string_encoding_str,
+    )
+    compression_group.add_argument(
+        "--links-header",
+        type=str,
+        default="",
+        help="Compression method for links header (default: '')",
+    )
+    compression_group.add_argument(
+        "--links-payload-from",
+        type=str,
+        default="",
+        help="Compression method for links payload from (default: '')",
+    )
+    compression_group.add_argument(
+        "--links-payload-to",
+        type=str,
+        default="",
+        help="Compression method for links payload to (default: '')",
+    )
+    compression_group.add_argument(
+        "--links-payload-cigar-lengths",
+        type=str,
+        default="",
+        help="Compression method for links payload cigar lengths (default: '')",
+    )
+    compression_group.add_argument(
+        "--links-payload-cigar",
+        type=str,
+        default="",
+        help="Compression method for links payload cigar (default: '')",
+    )
+    compression_group.add_argument(
+        "--paths-header",
+        type=str,
+        default="",
+        help="Compression method for paths header (default: '')",
+    )
+    compression_group.add_argument(
+        "--paths-payload-names",
+        type=str,
+        default="",
+        help="Compression method for paths payload names (default: '')",
+    )
+    compression_group.add_argument(
+        "--paths-payload-segment-lengths",
+        type=str,
+        default="",
+        help="Compression method for paths payload segment lengths (default: '')",
+    )
+    compression_group.add_argument(
+        "--paths-payload-path-ids",
+        type=str,
+        default="",
+        help=f"Compression method for paths payload path ids (default: ''), possible values: {'/'.join(string_encoding.keys())}",
+    )
+    compression_group.add_argument(
+        "--paths-payload-cigar-lengths",
+        type=str,
+        default="",
+        help="Compression method for paths payload cigar lengths (default: '')",
+    )
+    compression_group.add_argument(
+        "--paths-payload-cigar",
+        type=str,
+        default="",
+        help="Compression method for paths payload cigar (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-header",
+        type=str,
+        default="",
+        help="Compression method for walks header (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-sample-ids",
+        type=str,
+        default="",
+        help="Compression method for walks payload sample ids (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-hep-indices",
+        type=str,
+        default="",
+        help="Compression method for walks payload hep indices (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-sequence-ids",
+        type=str,
+        default="",
+        help="Compression method for walks payload sequence ids (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-start",
+        type=str,
+        default="",
+        help="Compression method for walks payload start (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-end",
+        type=str,
+        default="",
+        help="Compression method for walks payload end (default: '')",
+    )
+    compression_group.add_argument(
+        "--walks-payload-walks",
+        type=str,
+        default="",
+        help="Compression method for walks payload walks (default: '')",
+    )
+
+    args = parser.parse_args(args)
+    positional_arguments = get_group_args(parser, "positional arguments", args)
+    options = get_group_args(parser, "options", args)
+    compression_options = get_group_args(parser, "compression", args)
+
+    # Load configuration from TOML file if provided
+    config = {}
+    if args.config:
+        if not os.path.exists(args.config):
+            print(
+                f"Error: Configuration file '{args.config}' not found", file=sys.stderr
+            )
+            sys.exit(1)
+
+        try:
+            with open(args.config, "rb") as f:
+                config = tomllib.load(f)
+        except ValueError as e:
+            print(
+                f"Error: Invalid TOML format in '{args.config}': {e}", file=sys.stderr
+            )
+            sys.exit(1)
+        except Exception as e:
+            print(
+                f"Error: Failed to read configuration file '{args.config}': {e}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    # Merge command line arguments with configuration file values
+    for opt in compression_options.keys():
+        if opt in config:
+            compression_options[opt] = config[opt]
+    for opt in options.keys():
+        if opt in config:
+            options[opt] = config[opt]
+    for opt in positional_arguments.keys():
+        if opt in config:
+            positional_arguments[opt] = config[opt]
+    # Validate compression methods
+    for component, method in compression_options.items():
+        if method and method not in integers_encoding and method not in string_encoding:
+            print(
+                f"Error: Invalid compression method '{method}' for {component}. "
+                f"Valid methods are: {list(integers_encoding.keys()) + list(string_encoding.keys())}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    return options, positional_arguments, compression_options
+
+
+if __name__ == "__main__":
+    options, positional_arguments, compression_options = parse_cli_options()
+    if options["command"] == "bgfa":
+        try:
+            # Read GFA file
+            g = GFA.from_gfa(options["input_file"])
+            # Write BGFA file
+            g.to_bgfa(
+                options["output_file"],
+                options["block_size"],
+                compression_options,
+                options["verbose"],
+            )
+
+            if options["verbose"]:
+                print(
+                    f"Successfully converted {options['input_file']} to {options['output_file']}"
+                )
+
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif options["command"] == "cat":
+        gfa = GFA.from_bgfa(options["input_file"])
+
         # Output to stdout or file
-        if args.output:
-            with open(args.output, 'w') as f:
+        if options["output_file"]:
+            with open(options["output_file"], "w") as f:
                 f.write(gfa.to_gfa())
         else:
             print(gfa.to_gfa())
-    
+
     else:
         parser.print_help()
         sys.exit(1)
-
-if __name__ == "__main__":
-    main()
