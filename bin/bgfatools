@@ -10,14 +10,22 @@ import tomllib
 from pygfa.gfa import GFA
 
 
-# AI! fix the next function
 def get_group_args(parser, group_name, parsed_args):
     """Extracts only the arguments belonging to a specific group."""
-    arg_group = next(g for g in parser._action_groups if g.title == group_name)
-    group_dict = {
-        action.dest: getattr(parsed_args, action.dest)
-        for action in arg_group._group_actions
-    }
+    arg_group = None
+    for g in parser._action_groups:
+        if g.title == group_name:
+            arg_group = g
+            break
+    if arg_group is None:
+        return {}
+    
+    group_dict = {}
+    for action in arg_group._group_actions:
+        # Skip actions that don't have a dest attribute
+        if hasattr(action, 'dest') and action.dest:
+            if hasattr(parsed_args, action.dest):
+                group_dict[action.dest] = getattr(parsed_args, action.dest)
     return group_dict
 
 
@@ -245,10 +253,69 @@ def parse_cli_options():
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
-    args = parser.parse_args()
-    positional_arguments = get_group_args(parser, "positional arguments", args)
-    options = get_group_args(parser, "options", args)
-    compression_options = get_group_args(parser, "compression", args)
+    # Parse arguments
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        # argparse will call sys.exit() on error, so we catch it
+        sys.exit(1)
+    
+    # The actual group titles in argparse might be different
+    # Let's manually extract what we need
+    options = {}
+    positional_arguments = {}
+    compression_options = {}
+    
+    # Extract known options
+    if hasattr(args, 'command'):
+        options['command'] = args.command
+    if hasattr(args, 'block_size'):
+        options['block_size'] = args.block_size
+    if hasattr(args, 'verbose'):
+        options['verbose'] = args.verbose
+    if hasattr(args, 'config'):
+        options['config'] = args.config
+    if hasattr(args, 'output'):
+        options['output'] = args.output
+    
+    # Extract positional arguments
+    if hasattr(args, 'input_file'):
+        positional_arguments['input_file'] = args.input_file
+    if hasattr(args, 'output_file'):
+        positional_arguments['output_file'] = args.output_file
+    
+    # Extract compression options (they have specific names)
+    comp_prefixes = [
+        'segment_names_header',
+        'segment_names_payload_lengths',
+        'segment_names_payload_names',
+        'segments_header',
+        'segments_payload_lengths',
+        'segments_payload_strings',
+        'links_header',
+        'links_payload_from',
+        'links_payload_to',
+        'links_payload_cigar_lengths',
+        'links_payload_cigar',
+        'paths_header',
+        'paths_payload_names',
+        'paths_payload_segment_lengths',
+        'paths_payload_path_ids',
+        'paths_payload_cigar_lengths',
+        'paths_payload_cigar',
+        'walks_header',
+        'walks_payload_sample_ids',
+        'walks_payload_hep_indices',
+        'walks_payload_sequence_ids',
+        'walks_payload_start',
+        'walks_payload_end',
+        'walks_payload_walks',
+    ]
+    
+    for prefix in comp_prefixes:
+        attr_name = prefix.replace('-', '_')
+        if hasattr(args, attr_name):
+            compression_options[prefix] = getattr(args, attr_name)
 
     # Load configuration from TOML file if provided
     config = {}
@@ -298,38 +365,53 @@ def parse_cli_options():
 
 
 if __name__ == "__main__":
+    import sys
     options, positional_arguments, compression_options = parse_cli_options()
-    if options["command"] == "bgfa":
+    
+    # Check if we got the required data
+    if not options:
+        print("Error: Failed to parse command line options.", file=sys.stderr)
+        sys.exit(1)
+    
+    if options.get("command") == "bgfa":
         try:
+            # Build compression options dictionary
+            comp_dict = {}
+            # Add all compression methods to the options
+            for key, value in compression_options.items():
+                comp_dict[key] = value
+            
             # Read GFA file
-            g = GFA.from_gfa(options["input_file"])
+            g = GFA.from_gfa(positional_arguments.get("input_file"))
+            
             # Write BGFA file
             g.to_bgfa(
-                options["output_file"],
-                options["block_size"],
-                compression_options,
-                options["verbose"],
+                positional_arguments.get("output_file"),
+                options.get("block_size", 1024),
+                comp_dict,
             )
 
-            if options["verbose"]:
+            if options.get("verbose"):
                 print(
-                    f"Successfully converted {options['input_file']} to {options['output_file']}"
+                    f"Successfully converted {positional_arguments.get('input_file')} to {positional_arguments.get('output_file')}"
                 )
 
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
-    elif options["command"] == "cat":
-        gfa = GFA.from_bgfa(options["input_file"])
+    elif options.get("command") == "cat":
+        gfa = GFA.from_bgfa(positional_arguments.get("input_file"))
 
         # Output to stdout or file
-        if options["output_file"]:
-            with open(options["output_file"], "w") as f:
+        output_file = options.get("output")
+        if output_file:
+            with open(output_file, "w") as f:
                 f.write(gfa.to_gfa())
         else:
             print(gfa.to_gfa())
 
     else:
-        parser.print_help()
+        # No command specified
+        print("Error: No command specified. Use 'bgfa' or 'cat'.", file=sys.stderr)
         sys.exit(1)
