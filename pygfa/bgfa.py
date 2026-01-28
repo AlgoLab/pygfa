@@ -482,6 +482,8 @@ class BGFAWriter:
         w_len = len(self._gfa.walks())
 
         # Write the header
+        if verbose:
+            logger.info(f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}")
         self._write_header(
             buffer,
             s_len,
