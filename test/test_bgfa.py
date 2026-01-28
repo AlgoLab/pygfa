@@ -66,7 +66,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
         # Create compression options with default values
         block_size = 1024
         compression_options = {}
-        g.to_bgfa(bgfa_path, block_size, compression_options)
+        g.to_bgfa(bgfa_path, block_size, compression_options, verbose=False)
         # Check if file was created and is non-empty
         if not os.path.exists(bgfa_path):
             pytest.skip(f"BGFA file was not created: {bgfa_path}")
@@ -77,7 +77,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path):
 
     # 3. read the bgfa file to obtain a graph h
     try:
-        h = GFA.from_bgfa(bgfa_path)
+        h = GFA.from_bgfa(bgfa_path, verbose=False)
     except Exception as e:
         # Print the bgfa_path to a log file for debugging
         log_file = "/tmp/bgfa_error.log"

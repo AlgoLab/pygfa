@@ -386,6 +386,7 @@ if __name__ == "__main__":
                 options.get("output_file"),
                 options.get("block_size", 1024),
                 comp_dict,
+                verbose=options.get("verbose", False),
             )
 
             if options.get("verbose"):
@@ -398,7 +399,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     elif options.get("command") == "cat":
-        gfa = GFA.from_bgfa(options.get("input_file"))
+        gfa = GFA.from_bgfa(options.get("input_file"), verbose=options.get("verbose", False))
 
         # Output to stdout or file
         output_file = options.get("output")
