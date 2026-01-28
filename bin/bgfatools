@@ -19,11 +19,11 @@ def get_group_args(parser, group_name, parsed_args):
             break
     if arg_group is None:
         return {}
-    
+
     group_dict = {}
     for action in arg_group._group_actions:
         # Skip actions that don't have a dest attribute
-        if hasattr(action, 'dest') and action.dest:
+        if hasattr(action, "dest") and action.dest:
             if hasattr(parsed_args, action.dest):
                 group_dict[action.dest] = getattr(parsed_args, action.dest)
     return group_dict
@@ -259,61 +259,60 @@ def parse_cli_options():
     except SystemExit:
         # argparse will call sys.exit() on error, so we catch it
         sys.exit(1)
-    
+
     # The actual group titles in argparse might be different
     # Let's manually extract what we need
     options = {}
-    positional_arguments = {}
     compression_options = {}
-    
+
     # Extract known options
-    if hasattr(args, 'command'):
-        options['command'] = args.command
-    if hasattr(args, 'block_size'):
-        options['block_size'] = args.block_size
-    if hasattr(args, 'verbose'):
-        options['verbose'] = args.verbose
-    if hasattr(args, 'config'):
-        options['config'] = args.config
-    if hasattr(args, 'output'):
-        options['output'] = args.output
-    
-    # Extract positional arguments
-    if hasattr(args, 'input_file'):
-        positional_arguments['input_file'] = args.input_file
-    if hasattr(args, 'output_file'):
-        positional_arguments['output_file'] = args.output_file
-    
+    if hasattr(args, "command"):
+        options["command"] = args.command
+    if hasattr(args, "block_size"):
+        options["block_size"] = args.block_size
+    if hasattr(args, "verbose"):
+        options["verbose"] = args.verbose
+    if hasattr(args, "config"):
+        options["config"] = args.config
+    if hasattr(args, "output"):
+        options["output"] = args.output
+
+    # Extract positional arguments and save them to the options dict
+    if hasattr(args, "input_file"):
+        options["input_file"] = args.input_file
+    if hasattr(args, "output_file"):
+        options["output_file"] = args.output_file
+
     # Extract compression options (they have specific names)
     comp_prefixes = [
-        'segment_names_header',
-        'segment_names_payload_lengths',
-        'segment_names_payload_names',
-        'segments_header',
-        'segments_payload_lengths',
-        'segments_payload_strings',
-        'links_header',
-        'links_payload_from',
-        'links_payload_to',
-        'links_payload_cigar_lengths',
-        'links_payload_cigar',
-        'paths_header',
-        'paths_payload_names',
-        'paths_payload_segment_lengths',
-        'paths_payload_path_ids',
-        'paths_payload_cigar_lengths',
-        'paths_payload_cigar',
-        'walks_header',
-        'walks_payload_sample_ids',
-        'walks_payload_hep_indices',
-        'walks_payload_sequence_ids',
-        'walks_payload_start',
-        'walks_payload_end',
-        'walks_payload_walks',
+        "segment_names_header",
+        "segment_names_payload_lengths",
+        "segment_names_payload_names",
+        "segments_header",
+        "segments_payload_lengths",
+        "segments_payload_strings",
+        "links_header",
+        "links_payload_from",
+        "links_payload_to",
+        "links_payload_cigar_lengths",
+        "links_payload_cigar",
+        "paths_header",
+        "paths_payload_names",
+        "paths_payload_segment_lengths",
+        "paths_payload_path_ids",
+        "paths_payload_cigar_lengths",
+        "paths_payload_cigar",
+        "walks_header",
+        "walks_payload_sample_ids",
+        "walks_payload_hep_indices",
+        "walks_payload_sequence_ids",
+        "walks_payload_start",
+        "walks_payload_end",
+        "walks_payload_walks",
     ]
-    
+
     for prefix in comp_prefixes:
-        attr_name = prefix.replace('-', '_')
+        attr_name = prefix.replace("-", "_")
         if hasattr(args, attr_name):
             compression_options[prefix] = getattr(args, attr_name)
 
@@ -348,9 +347,6 @@ def parse_cli_options():
     for opt in options.keys():
         if opt in config:
             options[opt] = config[opt]
-    for opt in positional_arguments.keys():
-        if opt in config:
-            positional_arguments[opt] = config[opt]
     # Validate compression methods
     for component, method in compression_options.items():
         if method and method not in integers_encoding and method not in string_encoding:
@@ -361,18 +357,19 @@ def parse_cli_options():
             )
             sys.exit(1)
 
-    return options, positional_arguments, compression_options
+    return options, compression_options
 
 
 if __name__ == "__main__":
     import sys
-    options, positional_arguments, compression_options = parse_cli_options()
-    
+
+    options, compression_options = parse_cli_options()
+
     # Check if we got the required data
     if not options:
         print("Error: Failed to parse command line options.", file=sys.stderr)
         sys.exit(1)
-    
+
     if options.get("command") == "bgfa":
         try:
             # Build compression options dictionary
@@ -380,20 +377,20 @@ if __name__ == "__main__":
             # Add all compression methods to the options
             for key, value in compression_options.items():
                 comp_dict[key] = value
-            
+
             # Read GFA file
-            g = GFA.from_gfa(positional_arguments.get("input_file"))
-            
+            g = GFA.from_gfa(options.get("input_file"))
+
             # Write BGFA file
             g.to_bgfa(
-                positional_arguments.get("output_file"),
+                options.get("output_file"),
                 options.get("block_size", 1024),
                 comp_dict,
             )
 
             if options.get("verbose"):
                 print(
-                    f"Successfully converted {positional_arguments.get('input_file')} to {positional_arguments.get('output_file')}"
+                    f"Successfully converted {options.get('input_file')} to {options.get('output_file')}"
                 )
 
         except Exception as e:
@@ -401,7 +398,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     elif options.get("command") == "cat":
-        gfa = GFA.from_bgfa(positional_arguments.get("input_file"))
+        gfa = GFA.from_bgfa(options.get("input_file"))
 
         # Output to stdout or file
         output_file = options.get("output")
