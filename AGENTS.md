@@ -154,6 +154,9 @@ import logging
 GRAPH_LOGGER = logging.getLogger(__name__)
 ```
 
+*  Use '-v' to activate the default INFO log level option
+*  Use '-d' to activate the DEBUG log level option. If both `-d` and `-v` options are given, we activate `-d`
+
 ### Graph Element Pattern
 
 Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
