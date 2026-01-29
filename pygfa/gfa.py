@@ -39,7 +39,7 @@ from pygfa.encoding import (
     compress_string_list,
 )
 
-from pygfa.bgfa import BGFAWriter
+# BGFAWriter is imported locally in the to_bgfa method to avoid circular imports
 
 import lark
 
