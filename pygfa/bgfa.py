@@ -135,6 +135,7 @@ class ReaderBGFA:
                 logger.info(f"Parsed segment names block {i+1}: {len(segment_names_block)} names")
         if verbose:
             logger.info(f"Total segment names: {len(segment_names)}")
+            logger.debug(f"First 5 segment names: {segment_names[:5]}")
 
         # Parse segments
         num_blocks = math.ceil(header["s_len"] / header["block_size"])
