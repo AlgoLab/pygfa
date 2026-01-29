@@ -1887,8 +1887,9 @@ class GFA:
         :param compression_level: Compression level (default: 19)
         :return: BGFA binary data
         """
-        writer = BGFAWriter(self)
-        return writer.to_bgfa(block_size, compression_method, compression_level)
+        from pygfa.bgfa import BGFAWriter
+        writer = BGFAWriter(self, block_size=block_size, compression_options={})
+        return writer.to_bgfa()
 
     @classmethod
     def from_bgfa(cls, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> "GFA":
