@@ -627,7 +627,8 @@ class BGFAWriter:
                     f"Writing segments block {block_num}: {len(chunk)} segments"
                 )
                 if len(chunk) > 0:
-                    logger.debug(f"First segment in block {block_num}: {chunk[0][0]}")
+                    name, seg_id = chunk[0]
+                    logger.debug(f"First segment in block {block_num}: name={name}, id={seg_id}")
             self._write_segments_block(buffer, chunk)
             offset += len(chunk)
 
@@ -644,33 +645,26 @@ class BGFAWriter:
             offset += block_size
 
         # Write paths blocks
-        # AI! Fix the following instructions. Get the paths from the self
-        paths = list(self._gfa.paths(data=True, keys=True))
+        paths = list(self._gfa.paths_iter(data=True))
         offset = 0
         total_paths = len(paths)
-        if verbose:
-            logger.info(f"Writing {total_paths} paths in blocks of size {block_size}")
+        logger.info(f"Writing {total_paths} paths in blocks of size {block_size}")
         while offset < total_paths:
             chunk = paths[offset : offset + block_size]
-            if verbose:
-                logger.info(
-                    f"Writing paths block {offset//block_size + 1}: {len(chunk)} paths"
-                )
+            block_num = offset // block_size + 1
+            logger.info(f"Writing paths block {block_num}: {len(chunk)} paths")
             self._write_paths_block(buffer, chunk)
             offset += block_size
 
         # Write walks blocks
-        walks = list(self._gfa.walks(data=True, keys=True))
+        walks = list(self._gfa.walks_iter(data=True))
         offset = 0
         total_walks = len(walks)
-        if verbose:
-            logger.info(f"Writing {total_walks} walks in blocks of size {block_size}")
+        logger.info(f"Writing {total_walks} walks in blocks of size {block_size}")
         while offset < total_walks:
             chunk = walks[offset : offset + block_size]
-            if verbose:
-                logger.info(
-                    f"Writing walks block {offset//block_size + 1}: {len(chunk)} walks"
-                )
+            block_num = offset // block_size + 1
+            logger.info(f"Writing walks block {block_num}: {len(chunk)} walks")
             self._write_walks_block(buffer, chunk)
             offset += block_size
 
