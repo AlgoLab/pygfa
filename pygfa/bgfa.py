@@ -635,21 +635,16 @@ class BGFAWriter:
         edges = list(self._gfa.edges(data=True, keys=True))
         offset = 0
         total_links = len(edges)
-        if verbose:
-            logger.info(f"Writing {total_links} links in blocks of size {block_size}")
+        logger.info(f"Writing {total_links} links in blocks of size {block_size}")
         while offset < total_links:
             chunk = edges[offset : offset + block_size]
-            if verbose:
-                block_num = offset // block_size + 1
-                logger.info(f"Writing links block {block_num}: {len(chunk)} links")
-                if len(chunk) > 0:
-                    logger.debug(
-                        f"First link in block {block_num}: from={chunk[0][1].get('from_node', chunk[0][0])}, to={chunk[0][1].get('to_node', chunk[0][1])}"
-                    )
+            block_num = offset // block_size + 1
+            logger.info(f"Writing links block {block_num}: {len(chunk)} links")
             self._write_links_block(buffer, chunk)
             offset += block_size
 
         # Write paths blocks
+        # AI! Fix the following instructions. Get the paths from the self
         paths = list(self._gfa.paths(data=True, keys=True))
         offset = 0
         total_paths = len(paths)
