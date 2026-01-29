@@ -1891,7 +1891,7 @@ class GFA:
         return writer.to_bgfa(block_size, compression_method, compression_level)
 
     @classmethod
-    def from_bgfa(cls, file_path: str, verbose: bool = False, logfile: str = None) -> "GFA":
+    def from_bgfa(cls, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> "GFA":
         """Read a BGFA file and return the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
@@ -1901,7 +1901,7 @@ class GFA:
         """
         from pygfa.bgfa import read_bgfa
 
-        return read_bgfa(file_path, verbose=verbose, logfile=logfile)
+        return read_bgfa(file_path, verbose=verbose, debug=debug, logfile=logfile)
 
     def to_bgfa(
         self,
@@ -1909,6 +1909,7 @@ class GFA:
         block_size=1024,
         compression_options=None,
         verbose: bool = False,
+        debug: bool = False,
         logfile: str = None,
     ) -> bytes:
         """Convert this GFA graph to BGFA binary format and write to file.
@@ -1981,6 +1982,7 @@ class GFA:
             walks_payload_end_compression_strategy=walks_payload_end,
             walks_payload_walks_compression_strategy=walks_payload_walks,
             verbose=verbose,
+            debug=debug,
             logfile=logfile,
         )
 
