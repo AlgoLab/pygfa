@@ -36,8 +36,7 @@ from pygfa.encoding import (
 
 import struct
 import logging
-from pygfa.gfa import GFA
-from pygfa.graph_element import node, edge as ge
+# GFA and graph_element imports are moved inside methods to avoid circular imports
 
 import tempfile
 
@@ -1048,7 +1047,7 @@ def to_bgfa(
     return bgfa.to_bgfa(verbose=verbose, debug=debug, logfile=logfile)
 
 
-def read_bgfa(file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> GFA:
+def read_bgfa(file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> "GFA":
     """Read a BGFA file and create the corresponding GFA graph.
 
     :param file_path: Path to the BGFA file
