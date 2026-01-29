@@ -51,7 +51,9 @@ class ReaderBGFA:
     def __init__(self):
         pass
 
-    def read_bgfa(self, file_path: str, verbose: bool = False, logfile: str = None) -> GFA:
+    def read_bgfa(
+        self, file_path: str, verbose: bool = False, logfile: str = None
+    ) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
@@ -65,43 +67,46 @@ class ReaderBGFA:
         # Configure logging
         import logging
         import tempfile
-        
+
         if verbose:
             # Determine log level based on verbosity
             log_level = logging.DEBUG if verbose else logging.INFO
-            
+
             if logfile is None:
                 # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log')
+                temp_log = tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, suffix=".log"
+                )
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
-            
+
             # Clear any existing handlers
             logging.getLogger().handlers.clear()
-            
+
             # Create formatter
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+
             # Create file handler
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
-            
+
             # Create stream handler (console)
             stream_handler = logging.StreamHandler()
             stream_handler.setLevel(log_level)
             stream_handler.setFormatter(formatter)
-            
+
             # Configure root logger
             logging.basicConfig(
-                level=log_level,
-                handlers=[file_handler, stream_handler]
+                level=log_level, handlers=[file_handler, stream_handler]
             )
-        
+
         # Get logger for this module
         logger = logging.getLogger(__name__)
-        
+
         if verbose:
             logger.info(f"Reading BGFA file: {file_path}")
             logger.debug(f"Verbose mode enabled, logfile: {logfile}")
@@ -116,8 +121,10 @@ class ReaderBGFA:
         # Store header information in the GFA object
         gfa._header_info = header.copy()
         if verbose:
-            logger.info(f"Header parsed: version={header['version']}, s_len={header['s_len']}, "
-                       f"l_len={header['l_len']}, p_len={header['p_len']}, w_len={header['w_len']}")
+            logger.info(
+                f"Header parsed: version={header['version']}, s_len={header['s_len']}, "
+                f"l_len={header['l_len']}, p_len={header['p_len']}, w_len={header['w_len']}"
+            )
             logger.debug(f"Full header: {header}")
         # Parse segment names
         offset = header["header_size"]
@@ -132,7 +139,9 @@ class ReaderBGFA:
             offset += read_bytes
             segment_names.extend(segment_names_block)
             if verbose:
-                logger.info(f"Parsed segment names block {i+1}: {len(segment_names_block)} names")
+                logger.info(
+                    f"Parsed segment names block {i+1}: {len(segment_names_block)} names"
+                )
         if verbose:
             logger.info(f"Total segment names: {len(segment_names)}")
             logger.debug(f"First 5 segment names: {segment_names[:5]}")
@@ -145,7 +154,9 @@ class ReaderBGFA:
             segment_block, read_bytes = self._parse_segments_block(bgfa_data, offset)
             offset += read_bytes
             if verbose:
-                logger.info(f"Parsed segments block {i+1}: {len(segment_block)} segments")
+                logger.info(
+                    f"Parsed segments block {i+1}: {len(segment_block)} segments"
+                )
             # Add nodes to GFA graph with segment IDs
             for segment_id, segment_data in segment_block.items():
                 # Get node name from segment_names list (0-based index)
@@ -164,7 +175,9 @@ class ReaderBGFA:
                 # The GFA class has a _segment_map attribute
                 gfa._segment_map[node_name] = segment_id
                 if verbose and i == 0 and segment_id < 5:  # Log first few segments
-                    logger.debug(f"Added segment {segment_id}: {node_name}, length={segment_data['length']}")
+                    logger.debug(
+                        f"Added segment {segment_id}: {node_name}, length={segment_data['length']}"
+                    )
                 elif verbose and i == 0 and segment_id == 5:
                     logger.debug("... (remaining segments logged at debug level)")
 
@@ -207,7 +220,9 @@ class ReaderBGFA:
         # TODO: Parse walks
 
         if verbose:
-            logger.info(f"BGFA reading complete. Graph has {len(gfa.nodes())} nodes and {len(gfa.edges())} edges")
+            logger.info(
+                f"BGFA reading complete. Graph has {len(gfa.nodes())} nodes and {len(gfa.edges())} edges"
+            )
             logger.debug(f"Segment map size: {len(gfa._segment_map)}")
         return gfa
 
@@ -501,47 +516,50 @@ class BGFAWriter:
         block_size = self._block_size
         # Create a BytesIO buffer
         buffer = io.BytesIO()
-        
+
         # Configure logging
         import logging
         import tempfile
-        
+
         if verbose:
             # Determine log level based on verbosity
             log_level = logging.DEBUG if verbose else logging.INFO
-            
+
             if logfile is None:
                 # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log')
+                temp_log = tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, suffix=".log"
+                )
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
-            
+
             # Clear any existing handlers
             logging.getLogger().handlers.clear()
-            
+
             # Create formatter
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+
             # Create file handler
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
-            
+
             # Create stream handler (console)
             stream_handler = logging.StreamHandler()
             stream_handler.setLevel(log_level)
             stream_handler.setFormatter(formatter)
-            
+
             # Configure root logger
             logging.basicConfig(
-                level=log_level,
-                handlers=[file_handler, stream_handler]
+                level=log_level, handlers=[file_handler, stream_handler]
             )
-        
+
         # Get logger for this module
         logger = logging.getLogger(__name__)
-        
+
         if verbose:
             logger.info(f"Starting BGFA conversion with block_size={block_size}")
             logger.debug(f"Verbose mode enabled, logfile: {logfile}")
@@ -555,7 +573,9 @@ class BGFAWriter:
 
         # Write the header
         if verbose:
-            logger.info(f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}")
+            logger.info(
+                f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}"
+            )
         self._write_header(
             buffer,
             s_len,
@@ -572,15 +592,22 @@ class BGFAWriter:
         # Write segment names in blocks
         offset = 0
         total_names = len(segment_names)
-        if verbose:
-            logger.info(f"Writing {total_names} segment names in blocks of size {block_size}")
-            logger.debug(f"Segment names: {segment_names[:5] if len(segment_names) > 5 else segment_names}")
+        logger.info(
+            f"Writing {total_names} segment names in blocks of size {block_size}"
+        )
+        logger.debug(
+            f"Segment names: {segment_names[:5] if len(segment_names) > 5 else segment_names}"
+        )
         while offset < total_names:
             chunk = segment_names[offset : min(offset + block_size, total_names)]
             if verbose:
-                block_num = offset//block_size + 1
-                logger.info(f"Writing segment names block {block_num}: {len(chunk)} names")
-                logger.debug(f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}")
+                block_num = offset // block_size + 1
+                logger.info(
+                    f"Writing segment names block {block_num}: {len(chunk)} names"
+                )
+                logger.debug(
+                    f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}"
+                )
             self._write_segment_names_block(buffer, chunk)
             offset += len(chunk)
 
@@ -591,13 +618,14 @@ class BGFAWriter:
         # Ensure segment_names are in order of segment_id
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
         total_segments = len(sorted_items)
-        if verbose:
-            logger.info(f"Writing {total_segments} segments in blocks of size {block_size}")
-        while offset < total_names:
+        logger.info(f"Writing {total_segments} segments in blocks of size {block_size}")
+        while offset < total_segments:
             chunk = sorted_items[offset : min(offset + block_size, total_names)]
             if verbose:
-                block_num = offset//block_size + 1
-                logger.info(f"Writing segments block {block_num}: {len(chunk)} segments")
+                block_num = offset // block_size + 1
+                logger.info(
+                    f"Writing segments block {block_num}: {len(chunk)} segments"
+                )
                 if len(chunk) > 0:
                     logger.debug(f"First segment in block {block_num}: {chunk[0][0]}")
             self._write_segments_block(buffer, chunk)
@@ -612,10 +640,12 @@ class BGFAWriter:
         while offset < total_links:
             chunk = edges[offset : offset + block_size]
             if verbose:
-                block_num = offset//block_size + 1
+                block_num = offset // block_size + 1
                 logger.info(f"Writing links block {block_num}: {len(chunk)} links")
                 if len(chunk) > 0:
-                    logger.debug(f"First link in block {block_num}: from={chunk[0][1].get('from_node', chunk[0][0])}, to={chunk[0][1].get('to_node', chunk[0][1])}")
+                    logger.debug(
+                        f"First link in block {block_num}: from={chunk[0][1].get('from_node', chunk[0][0])}, to={chunk[0][1].get('to_node', chunk[0][1])}"
+                    )
             self._write_links_block(buffer, chunk)
             offset += block_size
 
@@ -628,7 +658,9 @@ class BGFAWriter:
         while offset < total_paths:
             chunk = paths[offset : offset + block_size]
             if verbose:
-                logger.info(f"Writing paths block {offset//block_size + 1}: {len(chunk)} paths")
+                logger.info(
+                    f"Writing paths block {offset//block_size + 1}: {len(chunk)} paths"
+                )
             self._write_paths_block(buffer, chunk)
             offset += block_size
 
@@ -641,7 +673,9 @@ class BGFAWriter:
         while offset < total_walks:
             chunk = walks[offset : offset + block_size]
             if verbose:
-                logger.info(f"Writing walks block {offset//block_size + 1}: {len(chunk)} walks")
+                logger.info(
+                    f"Writing walks block {offset//block_size + 1}: {len(chunk)} walks"
+                )
             self._write_walks_block(buffer, chunk)
             offset += block_size
 
@@ -649,8 +683,10 @@ class BGFAWriter:
         result = buffer.getvalue()
         if verbose:
             logger.info(f"BGFA conversion complete. Total size: {len(result)} bytes")
-            logger.debug(f"Result breakdown: header={self._compute_header_size()}, "
-                        f"segments={self._compute_segments_size()}, links={self._compute_links_size()}")
+            logger.debug(
+                f"Result breakdown: header={self._compute_header_size()}, "
+                f"segments={self._compute_segments_size()}, links={self._compute_links_size()}"
+            )
         return result
 
     def _compute_header_size(self):
