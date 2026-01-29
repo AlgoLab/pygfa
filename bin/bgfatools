@@ -247,13 +247,22 @@ def parse_cli_options():
 
     # Options common to all commands
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output (INFO level)"
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output (INFO level)",
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true", help="Enable debug output (more detailed than verbose)"
+        "--debug",
+        "-d",
+        action="store_true",
+        help="Enable debug output (more detailed than verbose)",
     )
     parser.add_argument(
-        "--logfile", "-l", type=str, help="Path to log file (if not specified and verbose/debug=True, uses a temporary file)"
+        "--logfile",
+        "-l",
+        type=str,
+        help="Path to log file (if not specified and verbose/debug=True, uses a temporary file)",
     )
     parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
@@ -389,9 +398,11 @@ if __name__ == "__main__":
                 comp_dict[key] = value
 
             # Read GFA file
+            # AI! add logging the current step
             g = GFA.from_gfa(options.get("input_file"))
 
             # Write BGFA file
+            # AI! add logging the current step
             verbose_mode = options.get("verbose", False) or options.get("debug", False)
             g.to_bgfa(
                 options.get("output_file"),
@@ -413,9 +424,9 @@ if __name__ == "__main__":
     elif options.get("command") == "cat":
         verbose_mode = options.get("verbose", False) or options.get("debug", False)
         gfa = GFA.from_bgfa(
-            options.get("input_file"), 
+            options.get("input_file"),
             verbose=verbose_mode,
-            logfile=options.get("logfile")
+            logfile=options.get("logfile"),
         )
 
         # Output to stdout or file
