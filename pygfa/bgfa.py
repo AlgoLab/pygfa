@@ -55,7 +55,7 @@ class ReaderBGFA:
         pass
 
     def read_bgfa(
-        self, file_path: str, verbose: bool = False, logfile: str = None
+        self, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
     ) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
@@ -66,7 +66,12 @@ class ReaderBGFA:
         """
 
         # Determine log level based on verbosity
-        log_level = logging.DEBUG if verbose else logging.INFO
+        if debug:
+            log_level = logging.DEBUG
+        elif verbose:
+            log_level = logging.INFO
+        else:
+            log_level = logging.WARNING
 
         # Create formatter
         formatter = logging.Formatter(
@@ -480,6 +485,7 @@ class BGFAWriter:
     def to_bgfa(
         self,
         verbose: bool = False,
+        debug: bool = False,
         logfile: str = None,
     ) -> bytes:
         block_size = self._block_size
@@ -490,9 +496,12 @@ class BGFAWriter:
         import logging
         import tempfile
 
-        if verbose:
+        if verbose or debug:
             # Determine log level based on verbosity
-            log_level = logging.DEBUG if verbose else logging.INFO
+            if debug:
+                log_level = logging.DEBUG
+            else:
+                log_level = logging.INFO
 
             if logfile is None:
                 # Create a temporary log file
@@ -529,9 +538,10 @@ class BGFAWriter:
         # Get logger for this module
         logger = logging.getLogger(__name__)
 
-        if verbose:
+        if verbose or debug:
             logger.info(f"Starting BGFA conversion with block_size={block_size}")
-            logger.debug(f"Verbose mode enabled, logfile: {logfile}")
+        if debug:
+            logger.debug(f"Debug mode enabled, logfile: {logfile}")
             logger.debug(f"Compression options: {self._compression_options}")
 
         # Compute counts
@@ -970,6 +980,7 @@ def to_bgfa(
     walks_payload_end_compression_strategy=None,
     walks_payload_walks_compression_strategy=None,
     verbose: bool = False,
+    debug: bool = False,
     logfile: str = None,
 ) -> bytes:
     """Computes a BGFA representing the GFA graph. If a file is given, then write the BGFA to the file.
@@ -1034,11 +1045,11 @@ def to_bgfa(
     # If file is given, write the BGFA to the file
     if file != None:
         with open(file, "wb") as f:
-            f.write(bgfa.to_bgfa(verbose=verbose, logfile=logfile))
-    return bgfa.to_bgfa(verbose=verbose, logfile=logfile)
+            f.write(bgfa.to_bgfa(verbose=verbose, debug=debug, logfile=logfile))
+    return bgfa.to_bgfa(verbose=verbose, debug=debug, logfile=logfile)
 
 
-def read_bgfa(file_path: str, verbose: bool = False, logfile: str = None) -> GFA:
+def read_bgfa(file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> GFA:
     """Read a BGFA file and create the corresponding GFA graph.
 
     :param file_path: Path to the BGFA file
@@ -1047,4 +1058,4 @@ def read_bgfa(file_path: str, verbose: bool = False, logfile: str = None) -> GFA
     :return: GFA graph object
     """
     reader = ReaderBGFA()
-    return reader.read_bgfa(file_path, verbose=verbose, logfile=logfile)
+    return reader.read_bgfa(file_path, verbose=verbose, debug=debug, logfile=logfile)

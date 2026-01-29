@@ -453,6 +453,7 @@ if __name__ == "__main__":
                 options.get("block_size", 1024),
                 comp_dict,
                 verbose=verbose_mode,
+                debug=options.get("debug", False),
                 logfile=options.get("logfile"),
             )
 
@@ -473,6 +474,7 @@ if __name__ == "__main__":
         gfa = GFA.from_bgfa(
             options.get("input_file"),
             verbose=verbose_mode,
+            debug=options.get("debug", False),
             logfile=options.get("logfile"),
         )
 
