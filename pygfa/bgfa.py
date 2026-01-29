@@ -55,14 +55,17 @@ class ReaderBGFA:
 
     def read_bgfa(
         self, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
-    ) -> GFA:
+    ) -> "GFA":
         """Read a BGFA file and create the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
         :param verbose: If True, log detailed information
+        :param debug: If True, log debug information
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: GFA graph object
         """
+        from pygfa.gfa import GFA
+        from pygfa.graph_element import node, edge as ge
 
         # Determine log level based on verbosity
         if debug:
@@ -950,7 +953,7 @@ class BGFAWriter:
 
 
 def to_bgfa(
-    gfa_graph: GFA,
+    gfa_graph: "GFA",
     file=None,
     block_size: int = 1024,
     segment_names_header_compression_strategy=None,
@@ -1010,6 +1013,9 @@ def to_bgfa(
     :param walks_payload_start_compression_strategy: Compression strategy for walks payload start positions
     :param walks_payload_end_compression_strategy: Compression strategy for walks payload end positions
     :param walks_payload_walks_compression_strategy: Compression strategy for walks payload walks
+    :param verbose: If True, log detailed information
+    :param debug: If True, log debug information
+    :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
 
     :return: The BGFA representation of the input GFA graph as bytes, or empty bytes if file is provided
     """
