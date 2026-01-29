@@ -27,10 +27,13 @@ def main(args=None):
         help="Block size for BGFA format (default: 1024)",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
+        "--verbose", "-v", action="store_true", help="Enable verbose output (INFO level)"
     )
     parser.add_argument(
-        "--logfile", "-l", type=str, help="Path to log file (if not specified and verbose=True, uses a temporary file)"
+        "--debug", "-d", action="store_true", help="Enable debug output (more detailed than verbose)"
+    )
+    parser.add_argument(
+        "--logfile", "-l", type=str, help="Path to log file (if not specified and verbose/debug=True, uses a temporary file)"
     )
     parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
@@ -247,7 +250,7 @@ def main(args=None):
     # Merge command line arguments with configuration file values
     # Command line arguments take precedence over configuration file values
     block_size = config.get("block_size", args.block_size)
-    verbose = config.get("verbose", args.verbose)
+    verbose = config.get("verbose", args.verbose) or config.get("debug", args.debug)
     logfile = config.get("logfile", args.logfile)
 
     # Get compression methods from config or use defaults
@@ -335,7 +338,8 @@ def main(args=None):
             compression_options[key] = value
 
         # Write BGFA file
-        g.to_bgfa(args.output_file, block_size, compression_options, verbose=args.verbose, logfile=args.logfile)
+        verbose_mode = args.verbose or args.debug
+        g.to_bgfa(args.output_file, block_size, compression_options, verbose=verbose_mode, logfile=args.logfile)
 
         if verbose:
             print(f"Successfully converted {args.input_file} to {args.output_file}")
