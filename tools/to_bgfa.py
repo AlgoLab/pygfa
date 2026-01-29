@@ -339,7 +339,7 @@ def main(args=None):
 
         # Write BGFA file
         verbose_mode = args.verbose or args.debug
-        g.to_bgfa(args.output_file, block_size, compression_options, verbose=verbose_mode, logfile=args.logfile)
+        g.to_bgfa(args.output_file, block_size, compression_options, verbose=verbose_mode, debug=args.debug, logfile=args.logfile)
 
         if verbose:
             print(f"Successfully converted {args.input_file} to {args.output_file}")
