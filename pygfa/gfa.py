@@ -1909,12 +1909,15 @@ class GFA:
         block_size=1024,
         compression_options=None,
         verbose: bool = False,
+        logfile: str = None,
     ) -> bytes:
         """Convert this GFA graph to BGFA binary format and write to file.
 
         :param file: Output file path or file object (optional)
         :param block_size: Block size for BGFA format
         :param compression_options: Dictionary of compression options
+        :param verbose: If True, log detailed information
+        :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: BGFA binary data if file is None, otherwise writes to file
         """
         from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
