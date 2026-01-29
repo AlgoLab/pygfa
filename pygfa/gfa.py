@@ -1896,6 +1896,7 @@ class GFA:
 
         :param file_path: Path to the BGFA file
         :param verbose: If True, log detailed information
+        :param debug: If True, log debug information
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: GFA graph object
         """
@@ -1918,6 +1919,7 @@ class GFA:
         :param block_size: Block size for BGFA format
         :param compression_options: Dictionary of compression options
         :param verbose: If True, log detailed information
+        :param debug: If True, log debug information
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: BGFA binary data if file is None, otherwise writes to file
         """
