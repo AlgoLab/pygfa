@@ -506,14 +506,19 @@ class BGFAWriter:
         else:
             log_level = logging.WARNING
 
-        if logfile is None:
-            # Create a temporary log file
-            temp_log = tempfile.NamedTemporaryFile(
-                mode="w", delete=False, suffix=".log"
-            )
-            logfile = temp_log.name
-            temp_log.close()
-            print(f"Logging to temporary file: {logfile}")
+        # Only create log file if we're actually logging something
+        if log_level <= logging.INFO:
+            if logfile is None:
+                # Create a temporary log file
+                temp_log = tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, suffix=".log"
+                )
+                logfile = temp_log.name
+                temp_log.close()
+                print(f"Logging to temporary file: {logfile}")
+        else:
+            # If we're not logging, use a dummy logfile
+            logfile = "/dev/null"
 
         # Clear any existing handlers
         logging.getLogger().handlers.clear()
@@ -523,19 +528,24 @@ class BGFAWriter:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-        # Create file handler
-        file_handler = logging.FileHandler(logfile)
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(formatter)
-
-        # Create stream handler (console)
+        handlers = []
+        
+        # Only add file handler if we're actually logging to a file
+        if logfile != "/dev/null":
+            file_handler = logging.FileHandler(logfile)
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            handlers.append(file_handler)
+        
+        # Always add stream handler for console output
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(log_level)
         stream_handler.setFormatter(formatter)
+        handlers.append(stream_handler)
 
         # Configure root logger
         logging.basicConfig(
-            level=log_level, handlers=[file_handler, stream_handler]
+            level=log_level, handlers=handlers
         )
 
         # Get logger for this module
@@ -621,8 +631,12 @@ class BGFAWriter:
             block_num = offset // block_size + 1
             logger.info(f"Writing links block {block_num}: {len(chunk)} links")
             if len(chunk) > 0:
+                # chunk[0] is (u, v, key, data)
+                u, v, key, data = chunk[0]
+                from_node = data.get('from_node', u)
+                to_node = data.get('to_node', v)
                 logger.debug(
-                    f"First link in block {block_num}: from={chunk[0][1].get('from_node', chunk[0][0])}, to={chunk[0][1].get('to_node', chunk[0][1])}"
+                    f"First link in block {block_num}: from={from_node}, to={to_node}"
                 )
             self._write_links_block(buffer, chunk)
             offset += block_size
