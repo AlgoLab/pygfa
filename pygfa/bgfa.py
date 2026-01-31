@@ -36,6 +36,7 @@ from pygfa.encoding import (
 
 import struct
 import logging
+
 # GFA and graph_element imports are moved inside methods to avoid circular imports
 
 import tempfile
@@ -54,7 +55,11 @@ class ReaderBGFA:
         pass
 
     def read_bgfa(
-        self, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
+        self,
+        file_path: str,
+        verbose: bool = False,
+        debug: bool = False,
+        logfile: str = None,
     ) -> "GFA":
         """Read a BGFA file and create the corresponding GFA graph.
 
@@ -529,14 +534,14 @@ class BGFAWriter:
         )
 
         handlers = []
-        
+
         # Only add file handler if we're actually logging to a file
         if logfile != "/dev/null":
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
             handlers.append(file_handler)
-        
+
         # Always add stream handler for console output
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(log_level)
@@ -544,9 +549,7 @@ class BGFAWriter:
         handlers.append(stream_handler)
 
         # Configure root logger
-        logging.basicConfig(
-            level=log_level, handlers=handlers
-        )
+        logging.basicConfig(level=log_level, handlers=handlers)
 
         # Get logger for this module
         logger = logging.getLogger(__name__)
@@ -590,9 +593,7 @@ class BGFAWriter:
         while offset < total_names:
             chunk = segment_names[offset : min(offset + block_size, total_names)]
             block_num = offset // block_size + 1
-            logger.info(
-                f"Writing segment names block {block_num}: {len(chunk)} names"
-            )
+            logger.info(f"Writing segment names block {block_num}: {len(chunk)} names")
             logger.debug(
                 f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}"
             )
@@ -600,8 +601,10 @@ class BGFAWriter:
             offset += len(chunk)
 
         # Write segments blocks
+        logger.debug(f"Writing segment blocks")
         offset = 0
         # Get all nodes in order of segment_names
+        # AI! the segments correspond to the vertices of the gfa graph
         segment_map = getattr(self._gfa, "_segment_map", {})
         # Ensure segment_names are in order of segment_id
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
@@ -610,9 +613,7 @@ class BGFAWriter:
         while offset < total_segments:
             chunk = sorted_items[offset : min(offset + block_size, total_names)]
             block_num = offset // block_size + 1
-            logger.info(
-                f"Writing segments block {block_num}: {len(chunk)} segments"
-            )
+            logger.info(f"Writing segments block {block_num}: {len(chunk)} segments")
             if len(chunk) > 0:
                 name, seg_id = chunk[0]
                 logger.debug(
@@ -633,8 +634,8 @@ class BGFAWriter:
             if len(chunk) > 0:
                 # chunk[0] is (u, v, key, data)
                 u, v, key, data = chunk[0]
-                from_node = data.get('from_node', u)
-                to_node = data.get('to_node', v)
+                from_node = data.get("from_node", u)
+                to_node = data.get("to_node", v)
                 logger.debug(
                     f"First link in block {block_num}: from={from_node}, to={to_node}"
                 )
@@ -1067,7 +1068,9 @@ def to_bgfa(
     return bgfa.to_bgfa(verbose=verbose, debug=debug, logfile=logfile)
 
 
-def read_bgfa(file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> "GFA":
+def read_bgfa(
+    file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
+) -> "GFA":
     """Read a BGFA file and create the corresponding GFA graph.
 
     :param file_path: Path to the BGFA file
