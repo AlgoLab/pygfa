@@ -80,29 +80,57 @@ class ReaderBGFA:
         else:
             log_level = logging.WARNING
 
+        # Only create log file if we're actually logging something
+        if log_level <= logging.INFO:
+            if logfile is None:
+                # Create a temporary log file
+                temp_log = tempfile.NamedTemporaryFile(
+                    mode="w", delete=False, suffix=".log"
+                )
+                logfile = temp_log.name
+                temp_log.close()
+                print(f"Logging to temporary file: {logfile}")
+        else:
+            # If we're not logging, use a dummy logfile
+            import os
+            if os.name == 'nt':  # Windows
+                logfile = "NUL"
+            else:  # Unix-like
+                logfile = "/dev/null"
+
+        # Clear any existing handlers
+        logging.getLogger().handlers.clear()
+
         # Create formatter
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-        # Create file handler
-        file_handler = logging.FileHandler(logfile)
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(formatter)
+        handlers = []
 
-        # Create stream handler (console)
+        # Only add file handler if we're actually logging to a file
+        import os
+        if logfile != "/dev/null" and logfile != "NUL":
+            file_handler = logging.FileHandler(logfile)
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            handlers.append(file_handler)
+
+        # Always add stream handler for console output
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(log_level)
         stream_handler.setFormatter(formatter)
+        handlers.append(stream_handler)
 
         # Configure root logger
-        logging.basicConfig(level=log_level, handlers=[file_handler, stream_handler])
+        logging.basicConfig(level=log_level, handlers=handlers)
 
         # Get logger for this module
         logger = logging.getLogger(__name__)
 
         logger.info(f"Reading BGFA file: {file_path}")
-        logger.debug(f"Verbose mode enabled, logfile: {logfile}")
+        if debug:
+            logger.debug(f"Debug mode enabled, logfile: {logfile}")
 
         with open(file_path, "rb") as f:
             bgfa_data = f.read()
@@ -560,8 +588,9 @@ class BGFAWriter:
         logger = logging.getLogger(__name__)
 
         logger.info(f"Starting BGFA conversion with block_size={block_size}")
-        logger.debug(f"Debug mode enabled, logfile: {logfile}")
-        logger.debug(f"Compression options: {self._compression_options}")
+        if debug:
+            logger.debug(f"Debug mode enabled, logfile: {logfile}")
+            logger.debug(f"Compression options: {self._compression_options}")
 
         # Compute counts
         s_len = len(self._gfa.nodes())
