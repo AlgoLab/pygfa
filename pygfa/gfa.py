@@ -1901,62 +1901,11 @@ class GFA:
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: GFA graph object
         """
-        # Log the start of BGFA reading
+        # Simple logging without setting up handlers (handled in bgfa.py)
         if verbose or debug:
             import logging
-            import tempfile
-            import os
-            
-            # Determine log level
-            log_level = logging.DEBUG if debug else logging.INFO
-            
-            # Only create log file if we're actually logging something
-            if log_level <= logging.INFO:
-                if logfile is None:
-                    # Create a temporary log file
-                    temp_log = tempfile.NamedTemporaryFile(
-                        mode="w", delete=False, suffix=".log"
-                    )
-                    logfile = temp_log.name
-                    temp_log.close()
-                    print(f"Logging to temporary file: {logfile}")
-            else:
-                # If we're not logging, use a dummy logfile
-                if os.name == 'nt':  # Windows
-                    logfile = "NUL"
-                else:  # Unix-like
-                    logfile = "/dev/null"
-
-            # Clear any existing handlers
-            logging.getLogger().handlers.clear()
-
-            # Create formatter
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-
-            handlers = []
-
-            # Only add file handler if we're actually logging to a file
-            if logfile != "/dev/null" and logfile != "NUL":
-                file_handler = logging.FileHandler(logfile)
-                file_handler.setLevel(log_level)
-                file_handler.setFormatter(formatter)
-                handlers.append(file_handler)
-
-            # Always add stream handler for console output
-            stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(log_level)
-            stream_handler.setFormatter(formatter)
-            handlers.append(stream_handler)
-
-            # Configure root logger
-            logging.basicConfig(level=log_level, handlers=handlers)
-
             logger = logging.getLogger(__name__)
-            logger.info(f"Starting GFA.from_bgfa() reading from {file_path}")
-            if debug:
-                logger.debug(f"Debug mode enabled")
+            logger.info(f"GFA.from_bgfa(): Starting to read BGFA file: {file_path}")
         
         from pygfa.bgfa import read_bgfa
 
@@ -1981,62 +1930,12 @@ class GFA:
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: BGFA binary data if file is None, otherwise writes to file
         """
-        # Log the start of BGFA conversion
+        # Simple logging without setting up handlers (handled in bgfa.py)
         if verbose or debug:
             import logging
-            import tempfile
-            import os
-            
-            # Determine log level
-            log_level = logging.DEBUG if debug else logging.INFO
-            
-            # Only create log file if we're actually logging something
-            if log_level <= logging.INFO:
-                if logfile is None:
-                    # Create a temporary log file
-                    temp_log = tempfile.NamedTemporaryFile(
-                        mode="w", delete=False, suffix=".log"
-                    )
-                    logfile = temp_log.name
-                    temp_log.close()
-                    print(f"Logging to temporary file: {logfile}")
-            else:
-                # If we're not logging, use a dummy logfile
-                if os.name == 'nt':  # Windows
-                    logfile = "NUL"
-                else:  # Unix-like
-                    logfile = "/dev/null"
-
-            # Clear any existing handlers
-            logging.getLogger().handlers.clear()
-
-            # Create formatter
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-
-            handlers = []
-
-            # Only add file handler if we're actually logging to a file
-            if logfile != "/dev/null" and logfile != "NUL":
-                file_handler = logging.FileHandler(logfile)
-                file_handler.setLevel(log_level)
-                file_handler.setFormatter(formatter)
-                handlers.append(file_handler)
-
-            # Always add stream handler for console output
-            stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(log_level)
-            stream_handler.setFormatter(formatter)
-            handlers.append(stream_handler)
-
-            # Configure root logger
-            logging.basicConfig(level=log_level, handlers=handlers)
-
             logger = logging.getLogger(__name__)
-            logger.info(f"Starting GFA.to_bgfa() conversion")
-            if debug:
-                logger.debug(f"Debug mode enabled")
+            output_file = file if file else "bytes"
+            logger.info(f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}")
         
         from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
         
