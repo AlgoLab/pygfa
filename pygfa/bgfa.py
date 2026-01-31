@@ -523,7 +523,11 @@ class BGFAWriter:
                 print(f"Logging to temporary file: {logfile}")
         else:
             # If we're not logging, use a dummy logfile
-            logfile = "/dev/null"
+            import os
+            if os.name == 'nt':  # Windows
+                logfile = "NUL"
+            else:  # Unix-like
+                logfile = "/dev/null"
 
         # Clear any existing handlers
         logging.getLogger().handlers.clear()
@@ -536,7 +540,8 @@ class BGFAWriter:
         handlers = []
 
         # Only add file handler if we're actually logging to a file
-        if logfile != "/dev/null":
+        import os
+        if logfile != "/dev/null" and logfile != "NUL":
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
@@ -604,14 +609,13 @@ class BGFAWriter:
         logger.debug(f"Writing segment blocks")
         offset = 0
         # Get all nodes in order of segment_names
-        # AI! the segments correspond to the vertices of the gfa graph
         segment_map = getattr(self._gfa, "_segment_map", {})
         # Ensure segment_names are in order of segment_id
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
         total_segments = len(sorted_items)
         logger.info(f"Writing {total_segments} segments in blocks of size {block_size}")
         while offset < total_segments:
-            chunk = sorted_items[offset : min(offset + block_size, total_names)]
+            chunk = sorted_items[offset : min(offset + block_size, total_segments)]
             block_num = offset // block_size + 1
             logger.info(f"Writing segments block {block_num}: {len(chunk)} segments")
             if len(chunk) > 0:
