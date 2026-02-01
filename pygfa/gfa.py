@@ -874,6 +874,7 @@ class GFA:
 
         # Create the parser
         parser = lark.Lark(grammar, start="start")
+        # AI! add a logging.debug instruction for each step in this function
 
         for line_ in lines:
             line_ = line_.strip()
