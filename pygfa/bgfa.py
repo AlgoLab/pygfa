@@ -131,6 +131,8 @@ class ReaderBGFA:
         logger.info(f"Reading BGFA file: {file_path}")
         if debug:
             logger.debug(f"Debug mode enabled, logfile: {logfile}")
+        else:
+            logger.debug(f"Verbose mode enabled, logfile: {logfile}")
 
         with open(file_path, "rb") as f:
             bgfa_data = f.read()
@@ -590,6 +592,9 @@ class BGFAWriter:
         logger.info(f"Starting BGFA conversion with block_size={block_size}")
         if debug:
             logger.debug(f"Debug mode enabled, logfile: {logfile}")
+            logger.debug(f"Compression options: {self._compression_options}")
+        elif verbose:
+            logger.debug(f"Verbose mode enabled, logfile: {logfile}")
             logger.debug(f"Compression options: {self._compression_options}")
 
         # Compute counts
