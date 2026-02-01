@@ -1093,10 +1093,12 @@ class GFA:
 
                         elif child.data == "jump_line":
                             # Handle jump line
+                            logger.debug(f"Processing jump line at line {i+1}")
                             pass
 
             except lark.exceptions.LarkError as e:
                 # Skip lines that don't parse correctly
+                logger.warning(f"Failed to parse line {i+1}: {line_[:50]}{'...' if len(line_) > 50 else ''} - {e}")
                 continue
 
     def header(self, block_size=1024):
