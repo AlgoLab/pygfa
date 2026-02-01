@@ -43,7 +43,6 @@ from pygfa.encoding import (
 
 import lark
 
-# AI! add logging instructions in the entire file. I need lots of logging for debug purposes
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 
@@ -1489,31 +1488,16 @@ class GFA:
         # Create the parser
         parser = lark.Lark(grammar, start="start")
 
-        # Log start of parsing
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"Starting to parse GFA file: {filepath}")
-
         # Read and parse the file line by line
         with open(filepath, "r") as f:
-            line_count = 0
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                line_count += 1
 
                 try:
                     # Parse the line
                     tree = parser.parse(line + "\n")
-                    # Log successful parsing (at debug level)
-                    import logging
-
-                    logger = logging.getLogger(__name__)
-                    logger.debug(
-                        f"Successfully parsed line: {line[:50]}{'...' if len(line) > 50 else ''}"
-                    )
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
                         for child in subtree.children:
@@ -1724,21 +1708,8 @@ class GFA:
 
                 except lark.exceptions.LarkError as e:
                     # Skip lines that don't parse correctly
-                    import logging
-
-                    logger = logging.getLogger(__name__)
-                    logger.warning(
-                        f"Failed to parse line {line_count}: {line[:50]}{'...' if len(line) > 50 else ''} - {e}"
-                    )
                     continue
 
-        # Log completion
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(
-            f"Finished parsing GFA file: {filepath}, processed {line_count} lines"
-        )
         return g
 
     def pprint(self):
