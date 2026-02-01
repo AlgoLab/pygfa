@@ -1165,10 +1165,13 @@ class GFA:
                     f"Failed to parse line {i+1}: {line_[:50]}{'...' if len(line_) > 50 else ''} - {e}"
                 )
                 continue
-        
+
         # Log graph dump
-        logger.debug(f"Graph after from_string(): nodes={len(self.nodes())}, edges={len(self.edges())}, "
-                    f"subgraphs={len(self.subgraphs())}, paths={len(self.paths())}, walks={len(self.walks())}")
+        logger.debug("Dumping the graph")
+        logger.debug(
+            f"Graph after from_string(): nodes={len(self.nodes())}, edges={len(self.edges())}, "
+            f"subgraphs={len(self.subgraphs())}, paths={len(self.paths())}, walks={len(self.walks())}"
+        )
 
     def header(self, block_size=1024):
         """Generate the header corresponding to a graph.
@@ -1907,8 +1910,11 @@ class GFA:
             f"Finished parsing {filepath}: {line_count} lines, {segment_count} segments, {link_count} links, {path_count} paths, {walk_count} walks"
         )
         # Log graph dump
-        logger.debug(f"Graph after from_gfa(): nodes={len(g.nodes())}, edges={len(g.edges())}, "
-                    f"subgraphs={len(g.subgraphs())}, paths={len(g.paths())}, walks={len(g.walks())}")
+        # AI! print the content of the graph, not only the size of its components
+        logger.debug(
+            f"Graph after from_gfa(): nodes={len(g.nodes())}, edges={len(g.edges())}, "
+            f"subgraphs={len(g.subgraphs())}, paths={len(g.paths())}, walks={len(g.walks())}"
+        )
         return g
 
     def pprint(self):
