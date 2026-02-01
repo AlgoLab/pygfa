@@ -1508,8 +1508,10 @@ class GFA:
 
         # Read and parse the file line by line
         with open(filepath, "r") as f:
+            line_count = 0
             for line in f:
                 line = line.strip()
+                line_count += 1
                 if not line or line.startswith("#"):
                     continue
 
@@ -1521,27 +1523,19 @@ class GFA:
                         for child in subtree.children:
                             if child.data == "header_line":
                                 # Handle header line
-                                import logging
-                                logger = logging.getLogger(__name__)
-                                logger.debug(f"Processing header line at line {i+1}")
                                 pass
                             elif child.data == "segment_line":
                                 # Handle segment line
-                                import logging
-                                logger = logging.getLogger(__name__)
-                                logger.debug(f"Processing segment line at line {i+1}")
                                 segment_data = {}
                                 for seg_child in child.children:
                                     if seg_child.data == "segment_name":
                                         segment_data["segment_name"] = (
                                             seg_child.children[0].value
                                         )
-                                        logger.debug(f"Segment name: {segment_data['segment_name']}")
                                     elif seg_child.data == "seq_string":
                                         segment_data["sequence"] = seg_child.children[
                                             0
                                         ].value
-                                        logger.debug(f"Sequence length: {len(segment_data['sequence'])}")
                                     elif seg_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = seg_child.children[0].children[0].value
@@ -1550,13 +1544,11 @@ class GFA:
                                         )
                                         value = seg_child.children[2].children[0].value
                                         segment_data[tag] = value
-                                        logger.debug(f"Optional field: {tag}={value}")
 
                                 if (
                                     "segment_name" in segment_data
                                     and "sequence" in segment_data
                                 ):
-                                    logger.debug(f"Adding node: {segment_data['segment_name']}")
                                     g.add_node(
                                         node.Node(
                                             segment_data["segment_name"],
@@ -1582,22 +1574,18 @@ class GFA:
                                         link_data["from_orn"] = link_child.children[
                                             0
                                         ].value
-                                        logger.debug(f"From orientation: {link_data['from_orn']}")
                                     elif link_child.data == "segment_to":
                                         link_data["to_node"] = link_child.children[
                                             0
                                         ].value
-                                        logger.debug(f"To node: {link_data['to_node']}")
                                     elif link_child.data == "orientation_to":
                                         link_data["to_orn"] = link_child.children[
                                             0
                                         ].value
-                                        logger.debug(f"To orientation: {link_data['to_orn']}")
                                     elif link_child.data == "link_overlap":
                                         link_data["alignment"] = link_child.children[
                                             0
                                         ].value
-                                        logger.debug(f"Alignment: {link_data['alignment']}")
                                     elif link_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = link_child.children[0].children[0].value
@@ -1606,7 +1594,6 @@ class GFA:
                                         )
                                         value = link_child.children[2].children[0].value
                                         link_data[tag] = value
-                                        logger.debug(f"Optional field: {tag}={value}")
 
                                 if all(
                                     k in link_data
@@ -1618,7 +1605,6 @@ class GFA:
                                         "alignment",
                                     ]
                                 ):
-                                    logger.debug(f"Adding edge: {link_data['from_node']} -> {link_data['to_node']}")
                                     g.add_edge(
                                         ge.Edge(
                                             None,  # eid
@@ -1742,9 +1728,6 @@ class GFA:
 
                 except lark.exceptions.LarkError as e:
                     # Skip lines that don't parse correctly
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"Failed to parse line {i+1}: {line_[:50]}{'...' if len(line_) > 50 else ''} - {e}")
                     continue
 
         return g
