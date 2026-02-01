@@ -340,8 +340,9 @@ class ReaderBGFA:
         :param header: Parsed header information
         :param segment_names: List of segment names
         :param start_offset: Offset where segments blocks start
-        :return: (Dictionary mapping segment names to segment data, offset after reading all segments blocks)
+        :return: (Dictionary mapping segment names to segment data, number of bytes read)
         """
+        initial_offset = start_offset
         offset = start_offset
         segments = {}
 
@@ -382,7 +383,7 @@ class ReaderBGFA:
                 "length": sequence_length,
             }
 
-        return segments, offset
+        return segments, offset - initial_offset
 
     def _parse_links_block(
         self, bgfa_data: bytes, segment_names: list, start_offset: int
@@ -619,6 +620,8 @@ class BGFAWriter:
         # Get segment names sorted by segment ID
         segment_names = list(self._gfa.nodes())
         segment_map = {name: idx for idx, name in enumerate(segment_names)}
+        # Store for use by _write_links_block
+        self._segment_map = segment_map
 
         # Write segment names in blocks
         offset = 0
@@ -642,9 +645,7 @@ class BGFAWriter:
         # Write segments blocks
         logger.debug(f"Writing segment blocks")
         offset = 0
-        # Get all nodes in order of segment_names
-        segment_map = getattr(self._gfa, "_segment_map", {})
-        # Ensure segment_names are in order of segment_id
+        # Use segment_map created above (contains all nodes)
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
         total_segments = len(sorted_items)
         logger.info(f"Writing {total_segments} segments in blocks of size {block_size}")
@@ -837,10 +838,10 @@ class BGFAWriter:
             to_name = data.get("to_node", v)
             alignment = data.get("alignment", "*")
 
-            # Find segment IDs (assume they exist in segment_map)
-            segment_map = getattr(self._gfa, "_segment_map", {})
-            from_id = segment_map.get(from_name, 0)
-            to_id = segment_map.get(to_name, 0)
+            # Find segment IDs using the segment_map created in to_bgfa
+            # Use 1-based indices to match what the reader expects
+            from_id = self._segment_map.get(from_name, -1) + 1
+            to_id = self._segment_map.get(to_name, -1) + 1
 
             # Write from_id, to_id, cigar
             payload_parts.append(struct.pack("<Q", from_id))
