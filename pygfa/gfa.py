@@ -1166,12 +1166,23 @@ class GFA:
                 )
                 continue
 
-        # Log graph dump
-        logger.debug("Dumping the graph")
-        logger.debug(
-            f"Graph after from_string(): nodes={len(self.nodes())}, edges={len(self.edges())}, "
-            f"subgraphs={len(self.subgraphs())}, paths={len(self.paths())}, walks={len(self.walks())}"
-        )
+        # Log graph dump - print actual content
+        logger.debug("Graph content after from_string():")
+        # Print nodes
+        for node_id, node_data in self.nodes_iter(data=True):
+            logger.debug(f"  Node {node_id}: sequence={node_data.get('sequence', 'N/A')[:20]}..., "
+                        f"length={node_data.get('slen', 'N/A')}")
+        # Print edges
+        for u, v, key, data in self.edges_iter(data=True, keys=True):
+            logger.debug(f"  Edge {key}: {u} -> {v}, alignment={data.get('alignment', 'N/A')}, "
+                        f"is_dovetail={data.get('is_dovetail', 'N/A')}")
+        # Print paths
+        for path_id, path_data in self.paths_iter(data=True):
+            logger.debug(f"  Path {path_id}: segments={len(path_data.get('segments', []))}")
+        # Print walks
+        for walk_id, walk_data in self.walks_iter(data=True):
+            logger.debug(f"  Walk {walk_id}: sample={walk_data.get('sample_id', 'N/A')}, "
+                        f"walk_length={len(walk_data.get('walk', ''))}")
 
     def header(self, block_size=1024):
         """Generate the header corresponding to a graph.
@@ -1909,12 +1920,23 @@ class GFA:
         logger.debug(
             f"Finished parsing {filepath}: {line_count} lines, {segment_count} segments, {link_count} links, {path_count} paths, {walk_count} walks"
         )
-        # Log graph dump
-        # AI! print the content of the graph, not only the size of its components
-        logger.debug(
-            f"Graph after from_gfa(): nodes={len(g.nodes())}, edges={len(g.edges())}, "
-            f"subgraphs={len(g.subgraphs())}, paths={len(g.paths())}, walks={len(g.walks())}"
-        )
+        # Log graph dump - print actual content
+        logger.debug("Graph content after from_gfa():")
+        # Print nodes
+        for node_id, node_data in g.nodes_iter(data=True):
+            logger.debug(f"  Node {node_id}: sequence={node_data.get('sequence', 'N/A')[:20]}..., "
+                        f"length={node_data.get('slen', 'N/A')}")
+        # Print edges
+        for u, v, key, data in g.edges_iter(data=True, keys=True):
+            logger.debug(f"  Edge {key}: {u} -> {v}, alignment={data.get('alignment', 'N/A')}, "
+                        f"is_dovetail={data.get('is_dovetail', 'N/A')}")
+        # Print paths
+        for path_id, path_data in g.paths_iter(data=True):
+            logger.debug(f"  Path {path_id}: segments={len(path_data.get('segments', []))}")
+        # Print walks
+        for walk_id, walk_data in g.walks_iter(data=True):
+            logger.debug(f"  Walk {walk_id}: sample={walk_data.get('sample_id', 'N/A')}, "
+                        f"walk_length={len(walk_data.get('walk', ''))}")
         return g
 
     def pprint(self):
