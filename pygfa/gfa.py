@@ -874,11 +874,10 @@ class GFA:
 
         # Create the parser
         parser = lark.Lark(grammar, start="start")
-        # AI! add a logging.debug instruction for each step in this function
         
         import logging
         logger = logging.getLogger(__name__)
-        logger.debug(f"Created parser for GFA parsing")
+        logger.debug("Created parser for GFA parsing")
 
         for i, line_ in enumerate(lines):
             line_ = line_.strip()
