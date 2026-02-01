@@ -43,6 +43,7 @@ from pygfa.encoding import (
 
 import lark
 
+# AI! add logging instructions in the entire file. I need lots of logging for debug purposes
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 
@@ -1490,6 +1491,7 @@ class GFA:
 
         # Log start of parsing
         import logging
+
         logger = logging.getLogger(__name__)
         logger.info(f"Starting to parse GFA file: {filepath}")
 
@@ -1507,8 +1509,11 @@ class GFA:
                     tree = parser.parse(line + "\n")
                     # Log successful parsing (at debug level)
                     import logging
+
                     logger = logging.getLogger(__name__)
-                    logger.debug(f"Successfully parsed line: {line[:50]}{'...' if len(line) > 50 else ''}")
+                    logger.debug(
+                        f"Successfully parsed line: {line[:50]}{'...' if len(line) > 50 else ''}"
+                    )
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
                         for child in subtree.children:
@@ -1720,14 +1725,20 @@ class GFA:
                 except lark.exceptions.LarkError as e:
                     # Skip lines that don't parse correctly
                     import logging
+
                     logger = logging.getLogger(__name__)
-                    logger.warning(f"Failed to parse line {line_count}: {line[:50]}{'...' if len(line) > 50 else ''} - {e}")
+                    logger.warning(
+                        f"Failed to parse line {line_count}: {line[:50]}{'...' if len(line) > 50 else ''} - {e}"
+                    )
                     continue
 
         # Log completion
         import logging
+
         logger = logging.getLogger(__name__)
-        logger.info(f"Finished parsing GFA file: {filepath}, processed {line_count} lines")
+        logger.info(
+            f"Finished parsing GFA file: {filepath}, processed {line_count} lines"
+        )
         return g
 
     def pprint(self):
@@ -1905,11 +1916,18 @@ class GFA:
         :return: BGFA binary data
         """
         from pygfa.bgfa import BGFAWriter
+
         writer = BGFAWriter(self, block_size=block_size, compression_options={})
         return writer.to_bgfa()
 
     @classmethod
-    def from_bgfa(cls, file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None) -> "GFA":
+    def from_bgfa(
+        cls,
+        file_path: str,
+        verbose: bool = False,
+        debug: bool = False,
+        logfile: str = None,
+    ) -> "GFA":
         """Read a BGFA file and return the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
@@ -1921,9 +1939,10 @@ class GFA:
         # Simple logging without setting up handlers (handled in bgfa.py)
         if verbose or debug:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.info(f"GFA.from_bgfa(): Starting to read BGFA file: {file_path}")
-        
+
         from pygfa.bgfa import read_bgfa
 
         return read_bgfa(file_path, verbose=verbose, debug=debug, logfile=logfile)
@@ -1950,42 +1969,65 @@ class GFA:
         # Simple logging without setting up handlers (handled in bgfa.py)
         if verbose or debug:
             import logging
+
             logger = logging.getLogger(__name__)
             output_file = file if file else "bytes"
-            logger.info(f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}")
-        
+            logger.info(
+                f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}"
+            )
+
         from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
-        
+
         if compression_options is None:
             compression_options = {}
-        
+
         # Extract all the compression strategy parameters from the dictionary
         # with default values
-        segment_names_header = compression_options.get('segment_names_header', None)
-        segment_names_payload_lengths = compression_options.get('segment_names_payload_lengths', None)
-        segment_names_payload_names = compression_options.get('segment_names_payload_names', None)
-        segments_header = compression_options.get('segments_header', None)
-        segments_payload_lengths = compression_options.get('segments_payload_lengths', None)
-        segments_payload_strings = compression_options.get('segments_payload_strings', None)
-        links_header = compression_options.get('links_header', None)
-        links_payload_from = compression_options.get('links_payload_from', None)
-        links_payload_to = compression_options.get('links_payload_to', None)
-        links_payload_cigar_lengths = compression_options.get('links_payload_cigar_lengths', None)
-        links_payload_cigar = compression_options.get('links_payload_cigar', None)
-        paths_header = compression_options.get('paths_header', None)
-        paths_payload_names = compression_options.get('paths_payload_names', None)
-        paths_payload_segment_lengths = compression_options.get('paths_payload_segment_lengths', None)
-        paths_payload_path_ids = compression_options.get('paths_payload_path_ids', None)
-        paths_payload_cigar_lengths = compression_options.get('paths_payload_cigar_lengths', None)
-        paths_payload_cigar = compression_options.get('paths_payload_cigar', None)
-        walks_header = compression_options.get('walks_header', None)
-        walks_payload_sample_ids = compression_options.get('walks_payload_sample_ids', None)
-        walks_payload_hep_indices = compression_options.get('walks_payload_hep_indices', None)
-        walks_payload_sequence_ids = compression_options.get('walks_payload_sequence_ids', None)
-        walks_payload_start = compression_options.get('walks_payload_start', None)
-        walks_payload_end = compression_options.get('walks_payload_end', None)
-        walks_payload_walks = compression_options.get('walks_payload_walks', None)
-        
+        segment_names_header = compression_options.get("segment_names_header", None)
+        segment_names_payload_lengths = compression_options.get(
+            "segment_names_payload_lengths", None
+        )
+        segment_names_payload_names = compression_options.get(
+            "segment_names_payload_names", None
+        )
+        segments_header = compression_options.get("segments_header", None)
+        segments_payload_lengths = compression_options.get(
+            "segments_payload_lengths", None
+        )
+        segments_payload_strings = compression_options.get(
+            "segments_payload_strings", None
+        )
+        links_header = compression_options.get("links_header", None)
+        links_payload_from = compression_options.get("links_payload_from", None)
+        links_payload_to = compression_options.get("links_payload_to", None)
+        links_payload_cigar_lengths = compression_options.get(
+            "links_payload_cigar_lengths", None
+        )
+        links_payload_cigar = compression_options.get("links_payload_cigar", None)
+        paths_header = compression_options.get("paths_header", None)
+        paths_payload_names = compression_options.get("paths_payload_names", None)
+        paths_payload_segment_lengths = compression_options.get(
+            "paths_payload_segment_lengths", None
+        )
+        paths_payload_path_ids = compression_options.get("paths_payload_path_ids", None)
+        paths_payload_cigar_lengths = compression_options.get(
+            "paths_payload_cigar_lengths", None
+        )
+        paths_payload_cigar = compression_options.get("paths_payload_cigar", None)
+        walks_header = compression_options.get("walks_header", None)
+        walks_payload_sample_ids = compression_options.get(
+            "walks_payload_sample_ids", None
+        )
+        walks_payload_hep_indices = compression_options.get(
+            "walks_payload_hep_indices", None
+        )
+        walks_payload_sequence_ids = compression_options.get(
+            "walks_payload_sequence_ids", None
+        )
+        walks_payload_start = compression_options.get("walks_payload_start", None)
+        walks_payload_end = compression_options.get("walks_payload_end", None)
+        walks_payload_walks = compression_options.get("walks_payload_walks", None)
+
         return bgfa_to_bgfa(
             self,
             file=file,
