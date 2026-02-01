@@ -1498,7 +1498,7 @@ class GFA:
                 try:
                     # Parse the line
                     tree = parser.parse(line + "\n")
-
+                    # AI! add logging instructions
                     # Process the parsed tree based on line type
                     for subtree in tree.children:
                         for child in subtree.children:
