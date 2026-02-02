@@ -803,13 +803,19 @@ class BGFAWriter:
     def _write_segments_block(self, buffer, chunk) -> None:
         """Write a segments block to buffer."""
         record_num = len(chunk)
+        logger.info(f"Writing segments block with {record_num} segments")
 
         # Prepare payload
         payload_parts = []
-        for name, seg_id in chunk:
+        for i, (name, seg_id) in enumerate(chunk):
             node_data = dict(self._gfa.nodes(data=True))[name]
             sequence = node_data.get("sequence", "*")
             seq_len = len(sequence) if sequence != "*" else 0
+
+            if i < 3:
+                logger.debug(f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}")
+            elif i == 3:
+                logger.debug("... (remaining segments omitted)")
 
             # Write segment_id (uint64), sequence_length (uint64), sequence (null-terminated)
             payload_parts.append(struct.pack("<Q", seg_id))
@@ -821,12 +827,19 @@ class BGFAWriter:
         uncompressed_len = compressed_len
         compression_str = 0x0000  # identity
 
+        logger.debug(
+            f"Segments block payload: compressed_len={compressed_len}, "
+            f"uncompressed_len={uncompressed_len}, compression=identity"
+        )
+
         # Write header
         buffer.write(struct.pack("<H", record_num))
         buffer.write(struct.pack("<H", compression_str))
         buffer.write(struct.pack("<Q", compressed_len))
         buffer.write(struct.pack("<Q", uncompressed_len))
         buffer.write(payload)
+
+        logger.info(f"Segments block written: {20 + compressed_len} bytes")
 
     def _write_links_block(self, buffer, chunk) -> None:
         record_num = len(chunk)
