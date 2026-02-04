@@ -1,0 +1,63 @@
+=== GFA Graph ===
+Nodes: 18
+Edges: 0
+Subgraphs: 0
+Paths: 0
+Walks: 0
+
+--- Nodes ---
+  Node: 1
+    sequence: *
+    length: 0
+  Node: 2
+    sequence: GGAGGTAGCTAG
+    length: 12
+  Node: 3
+    sequence: AGGATCTTATTTA
+    length: 13
+  Node: 4
+    sequence: ATTAGGGCCGGTAA
+    length: 14
+  Node: 5
+    sequence: GTAGGAGGTACG
+    length: 12
+  Node: 6
+    sequence: CTAGACCAG
+    length: 9
+  Node: 8
+    sequence: *
+    length: 0
+  Node: 23
+    sequence: TTTGGCCGGAAAATTAG
+    length: 17
+  Node: 10
+    sequence: GTCCAGTGATC
+    length: 11
+  Node: 11
+    sequence: ACTGGACTAGGTA
+    length: 13
+  Node: 14
+    sequence: *
+    length: 0
+  Node: 15
+    sequence: AGGTAGCTACCAGTA
+    length: 15
+  Node: 9
+    sequence: *
+    length: 0
+  Node: 18
+    sequence: *
+    length: 0
+  Node: 0
+    sequence: *
+    length: 0
+  Node: 7
+    sequence: TACGGTTGAAT
+    length: 11
+  Node: 12
+    sequence: GTGGGACATT
+    length: 10
+  Node: 13
+    sequence: *
+    length: 0
+
