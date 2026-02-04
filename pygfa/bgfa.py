@@ -46,6 +46,524 @@ import compression.zstd as z
 
 __all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "read_bgfa"]
 
+
+# =============================================================================
+# Decompression functions for reading BGFA files
+# =============================================================================
+
+
+def decompress_string_identity(data: bytes) -> bytes:
+    """Identity decompression (no-op)."""
+    return data
+
+
+def decompress_string_zstd(data: bytes) -> bytes:
+    """Decompress zstd-compressed data."""
+    return z.decompress(data)
+
+
+def decompress_string_gzip(data: bytes) -> bytes:
+    """Decompress gzip-compressed data."""
+    return gzip.decompress(data)
+
+
+def decompress_string_lzma(data: bytes) -> bytes:
+    """Decompress lzma-compressed data."""
+    return lzma.decompress(data)
+
+
+def decompress_string_huffman(data: bytes, num_strings: int) -> tuple[list[bytes], int]:
+    """Decompress Huffman-encoded string list.
+
+    The format is:
+    - uint32: total uncompressed data length
+    - uint32: codebook length
+    - codebook bytes (encoded with integer list encoding)
+    - uint32: compressed bitstream length
+    - lengths of each string (encoded with integer list encoding)
+    - compressed bitstream bytes
+
+    :param data: Compressed data
+    :param num_strings: Number of strings to decode
+    :return: Tuple of (list of decoded byte strings, bytes consumed)
+    """
+    pos = 0
+
+    # Read total uncompressed data length
+    total_len = struct.unpack_from("<I", data, pos)[0]
+    pos += 4
+
+    # Read codebook length
+    codebook_len = struct.unpack_from("<I", data, pos)[0]
+    pos += 4
+
+    # Parse codebook (encoded as integer list)
+    codebook_data = data[pos : pos + codebook_len]
+    pos += codebook_len
+
+    # Decode codebook entries using varint
+    codebook_entries, _ = decode_integer_list_varint(codebook_data, -1)
+
+    # Build decoding tree from codebook
+    # Codebook format: [code_len, code_bits..., code_len, code_bits..., ...]
+    # Characters are in sorted order (0-255)
+    decode_table: dict[tuple[int, ...], int] = {}
+    entry_idx = 0
+    char_val = 0
+    while entry_idx < len(codebook_entries):
+        code_len = codebook_entries[entry_idx]
+        entry_idx += 1
+        if code_len > 0 and entry_idx + code_len <= len(codebook_entries):
+            code_bits = tuple(codebook_entries[entry_idx : entry_idx + code_len])
+            decode_table[code_bits] = char_val
+            entry_idx += code_len
+        char_val += 1
+
+    # Read compressed bitstream length
+    bitstream_len = struct.unpack_from("<I", data, pos)[0]
+    pos += 4
+
+    # Decode string lengths using varint
+    lengths, lengths_consumed = decode_integer_list_varint(data[pos:], num_strings)
+    pos += lengths_consumed
+
+    # Read compressed bitstream
+    bitstream = data[pos : pos + bitstream_len]
+    pos += bitstream_len
+
+    # Decode bitstream
+    decoded_data = bytearray()
+    bit_pos = 0
+    current_bits: list[int] = []
+
+    while len(decoded_data) < total_len and bit_pos < len(bitstream) * 8:
+        byte_idx = bit_pos // 8
+        bit_idx = 7 - (bit_pos % 8)
+        bit = (bitstream[byte_idx] >> bit_idx) & 1
+        current_bits.append(bit)
+        bit_pos += 1
+
+        code = tuple(current_bits)
+        if code in decode_table:
+            decoded_data.append(decode_table[code])
+            current_bits = []
+
+    # Split decoded data into strings using lengths
+    strings = []
+    data_pos = 0
+    for length in lengths:
+        if data_pos + length <= len(decoded_data):
+            strings.append(bytes(decoded_data[data_pos : data_pos + length]))
+            data_pos += length
+        else:
+            break
+
+    return strings, pos
+
+
+def decode_integer_list_identity(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode identity-encoded integer list (comma-separated ASCII).
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    # Find the extent of comma-separated integers
+    result = []
+    pos = 0
+    current = bytearray()
+
+    while pos < len(data):
+        byte = data[pos]
+        if byte == ord(","):
+            if current:
+                result.append(int(current.decode("ascii")))
+                current = bytearray()
+            pos += 1
+            if count > 0 and len(result) >= count:
+                break
+        elif byte >= ord("0") and byte <= ord("9"):
+            current.append(byte)
+            pos += 1
+        else:
+            break
+
+    if current:
+        result.append(int(current.decode("ascii")))
+
+    return result, pos
+
+
+def decode_integer_list_varint(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode varint-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+    while pos < len(data) and (count < 0 or len(result) < count):
+        value = 0
+        shift = 0
+        while pos < len(data):
+            byte = data[pos]
+            pos += 1
+            value |= (byte & 0x7F) << shift
+            shift += 7
+            if (byte & 0x80) == 0:
+                break
+        result.append(value)
+    return result, pos
+
+
+def decode_integer_list_fixed16(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode fixed 16-bit integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+    max_count = len(data) // 2 if count < 0 else count
+    for _ in range(max_count):
+        if pos + 2 > len(data):
+            break
+        value = struct.unpack_from("<H", data, pos)[0]
+        pos += 2
+        result.append(value)
+    return result, pos
+
+
+def decode_integer_list_fixed32(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode fixed 32-bit integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+    max_count = len(data) // 4 if count < 0 else count
+    for _ in range(max_count):
+        if pos + 4 > len(data):
+            break
+        value = struct.unpack_from("<I", data, pos)[0]
+        pos += 4
+        result.append(value)
+    return result, pos
+
+
+def decode_integer_list_fixed64(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode fixed 64-bit integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+    max_count = len(data) // 8 if count < 0 else count
+    for _ in range(max_count):
+        if pos + 8 > len(data):
+            break
+        value = struct.unpack_from("<Q", data, pos)[0]
+        pos += 8
+        result.append(value)
+    return result, pos
+
+
+def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode delta-encoded integer list (deltas stored as varint).
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    deltas, consumed = decode_integer_list_varint(data, count)
+    if not deltas:
+        return [], consumed
+
+    # Reconstruct original values from deltas
+    result = [deltas[0]]
+    for i in range(1, len(deltas)):
+        result.append(result[-1] + deltas[i])
+
+    return result, consumed
+
+
+def decode_integer_list_elias_gamma(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Elias gamma-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        # Count leading 0x80 bytes (unary encoding of length-1)
+        length = 1
+        while pos < len(data) and data[pos] == 0x80:
+            length += 1
+            pos += 1
+
+        if pos >= len(data):
+            break
+
+        # Read the actual length value
+        actual_length = data[pos]
+        pos += 1
+        length = actual_length + 1
+
+        # Read the value bytes
+        num_bytes = (length + 7) // 8
+        if pos + num_bytes > len(data):
+            break
+
+        value = int.from_bytes(data[pos : pos + num_bytes], byteorder="big")
+        pos += num_bytes
+
+        # Elias gamma encodes n+1, so subtract 1
+        result.append(value - 1)
+
+    return result, pos
+
+
+def decode_integer_list_elias_omega(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Elias omega-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        if data[pos] == 0x01:
+            # Special case for 0
+            result.append(0)
+            pos += 1
+            continue
+
+        # Count leading 0x80 bytes
+        bit_count = 0
+        while pos < len(data) and data[pos] == 0x80:
+            bit_count += 1
+            pos += 1
+
+        if pos >= len(data):
+            break
+
+        # Read the remaining bits
+        remaining = data[pos : pos + bit_count + 1]
+        pos += len(remaining)
+
+        # Reconstruct the value
+        value = 0
+        for b in remaining:
+            value = (value << 1) | (b & 1)
+
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Golomb-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    if len(data) < 1:
+        return [], 0
+
+    # First byte is the divisor b
+    b = data[0]
+    if b == 0:
+        b = 1
+    pos = 1
+    result = []
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        # Count leading 0x80 bytes (quotient in unary)
+        quotient = 0
+        while pos < len(data) and data[pos] == 0x80:
+            quotient += 1
+            pos += 1
+
+        if pos >= len(data):
+            break
+
+        # Read remainder (lower bits)
+        byte_val = data[pos]
+        pos += 1
+        remainder = byte_val & 0x7F
+
+        value = quotient * b + remainder
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_rice(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Rice-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    if len(data) < 1:
+        return [], 0
+
+    # First byte is k (the Rice parameter)
+    k = data[0]
+    b = 1 << k
+    pos = 1
+    result = []
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        # Count leading 0x80 bytes (quotient in unary)
+        quotient = 0
+        while pos < len(data) and data[pos] == 0x80:
+            quotient += 1
+            pos += 1
+
+        if pos >= len(data):
+            break
+
+        # Read remainder
+        byte_val = data[pos]
+        pos += 1
+        remainder = byte_val & 0x7F
+
+        value = quotient * b + remainder
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode StreamVByte-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available, but we use header)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    if len(data) < 4:
+        return [], 0
+
+    # First 4 bytes: count of integers
+    n = struct.unpack_from("<I", data, 0)[0]
+    if count >= 0:
+        n = min(n, count)
+
+    ctrl_start = 4
+    data_start = 4 + ((n + 3) // 4) * 4
+
+    result = []
+    ctrl_idx = ctrl_start
+    data_idx = data_start
+
+    for i in range(n):
+        if ctrl_idx >= len(data) or data_idx >= len(data):
+            break
+
+        ctrl = data[ctrl_idx]
+        if ctrl == 0:
+            # 1 byte
+            if data_idx < len(data):
+                result.append(data[data_idx])
+                data_idx += 1
+        elif ctrl == 1:
+            # 2 bytes
+            if data_idx + 2 <= len(data):
+                result.append(data[data_idx] | (data[data_idx + 1] << 8))
+                data_idx += 2
+        elif ctrl == 2:
+            # 3 bytes
+            if data_idx + 3 <= len(data):
+                result.append(
+                    data[data_idx] | (data[data_idx + 1] << 8) | (data[data_idx + 2] << 16)
+                )
+                data_idx += 3
+        else:
+            # 4 bytes
+            if data_idx + 4 <= len(data):
+                result.append(struct.unpack_from("<I", data, data_idx)[0])
+                data_idx += 4
+
+        if (i & 3) == 3:
+            ctrl_idx += 4
+
+    return result, data_idx
+
+
+def decode_integer_list_vbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode VByte-encoded integer list.
+
+    :param data: Encoded data
+    :param count: Expected number of integers (-1 for all available)
+    :return: Tuple of (list of integers, bytes consumed)
+    """
+    result = []
+    pos = 0
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        byte = data[pos]
+        ctrl = byte & 0xC0
+
+        if ctrl == 0x00:
+            # 4-byte value (but this shouldn't happen as first byte)
+            # Actually this means end of vbyte or different encoding
+            if byte < 0x40:
+                result.append(byte)
+                pos += 1
+            else:
+                break
+        elif ctrl == 0x40:
+            # 1-byte value (6 bits)
+            result.append(byte & 0x3F)
+            pos += 1
+        elif ctrl == 0x80:
+            # 2-byte value
+            if pos + 2 > len(data):
+                break
+            val = (byte & 0x3F) | (data[pos + 1] << 6)
+            result.append(val)
+            pos += 2
+        elif ctrl == 0xC0:
+            # 3 or 4 byte value
+            if pos + 2 > len(data):
+                break
+            next_ctrl = data[pos + 1] & 0xC0
+            if next_ctrl == 0xC0:
+                # 4-byte value
+                if pos + 4 > len(data):
+                    break
+                val = (
+                    (byte & 0x3F)
+                    | ((data[pos + 1] & 0x3F) << 6)
+                    | ((data[pos + 2] & 0x3F) << 14)
+                    | (data[pos + 3] << 22)
+                )
+                result.append(val)
+                pos += 4
+            else:
+                # 3-byte value
+                if pos + 3 > len(data):
+                    break
+                val = (byte & 0x3F) | ((data[pos + 1] & 0x3F) << 6) | (data[pos + 2] << 14)
+                result.append(val)
+                pos += 3
+
+    return result, pos
+
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,6 +624,31 @@ STRING_ENCODERS = {
     STRING_ENCODING_HUFFMAN: None,  # Huffman requires special handling (list-based)
 }
 
+# Mapping from integer encoding codes to decompression functions
+INTEGER_DECODERS = {
+    INTEGER_ENCODING_IDENTITY: decode_integer_list_identity,
+    INTEGER_ENCODING_VARINT: decode_integer_list_varint,
+    INTEGER_ENCODING_FIXED16: decode_integer_list_fixed16,
+    INTEGER_ENCODING_DELTA: decode_integer_list_delta,
+    INTEGER_ENCODING_ELIAS_GAMMA: decode_integer_list_elias_gamma,
+    INTEGER_ENCODING_ELIAS_OMEGA: decode_integer_list_elias_omega,
+    INTEGER_ENCODING_GOLOMB: decode_integer_list_golomb,
+    INTEGER_ENCODING_RICE: decode_integer_list_rice,
+    INTEGER_ENCODING_STREAMVBYTE: decode_integer_list_streamvbyte,
+    INTEGER_ENCODING_VBYTE: decode_integer_list_vbyte,
+    INTEGER_ENCODING_FIXED32: decode_integer_list_fixed32,
+    INTEGER_ENCODING_FIXED64: decode_integer_list_fixed64,
+}
+
+# Mapping from string encoding codes to decompression functions
+STRING_DECODERS = {
+    STRING_ENCODING_IDENTITY: decompress_string_identity,
+    STRING_ENCODING_ZSTD: decompress_string_zstd,
+    STRING_ENCODING_GZIP: decompress_string_gzip,
+    STRING_ENCODING_LZMA: decompress_string_lzma,
+    # Huffman requires special handling (decompress_string_huffman)
+}
+
 
 def get_integer_encoder(code: int):
     """Get the integer encoding function for a compression code.
@@ -125,6 +668,26 @@ def get_string_encoder(code: int):
     """
     str_code = code & 0xFF
     return STRING_ENCODERS.get(str_code, compress_string_none)
+
+
+def get_integer_decoder(code: int):
+    """Get the integer decoding function for a compression code.
+
+    :param code: The uint16 compression code
+    :return: The decompression function for integers
+    """
+    int_code = (code >> 8) & 0xFF
+    return INTEGER_DECODERS.get(int_code, decode_integer_list_identity)
+
+
+def get_string_decoder(code: int):
+    """Get the string decoding function for a compression code.
+
+    :param code: The uint16 compression code
+    :return: The decompression function for strings
+    """
+    str_code = code & 0xFF
+    return STRING_DECODERS.get(str_code, decompress_string_identity)
 
 
 def make_compression_code(int_encoding: int, str_encoding: int) -> int:
@@ -368,14 +931,18 @@ class ReaderBGFA:
     ) -> tuple[list[str], int]:
         """Parse segment names from BGFA data.
 
+        Supports all compression methods defined in the BGFA spec:
+        - Integer encoding (high byte): identity, varint, fixed16, delta, elias_gamma,
+          elias_omega, golomb, rice, streamvbyte, vbyte, fixed32, fixed64
+        - String encoding (low byte): identity, zstd, gzip, lzma, huffman
+
         :param bgfa_data: Binary BGFA data
-        :param header: Parsed header information
         :param offset: number of bytes to skip
         :return: (List of segment names, number of bytes read)
         """
-
         segment_names = []
         initial_offset = offset
+
         # Read block header - new order: uint16 fields first
         record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
@@ -390,28 +957,85 @@ class ReaderBGFA:
         payload = bgfa_data[offset : offset + compressed_len]
         offset += compressed_len
 
-        # Decode payload according to compression_names
-        # For now, assume identity (0x0000): payload is concatenated null-terminated strings
-        if compression_names != 0x0000:
-            raise ValueError(f"Unsupported compression_names: {compression_names:#06x}")
+        # Extract encoding strategies from compression code
+        int_encoding = (compression_names >> 8) & 0xFF
+        str_encoding = compression_names & 0xFF
 
-        pos = 0
-        for _ in range(record_num):
-            name_bytes = bytearray()
-            while pos < len(payload) and payload[pos] != 0:
-                name_bytes.append(payload[pos])
-                pos += 1
-            if pos >= len(payload):
-                raise ValueError("Missing null terminator in segment name")
-            pos += 1  # skip null terminator
-            name = name_bytes.decode("ascii")
-            segment_names.append(name)
+        logger.debug(
+            f"Parsing segment names block: record_num={record_num}, "
+            f"compression={compression_names:#06x} (int={int_encoding:#04x}, str={str_encoding:#04x}), "
+            f"compressed_len={compressed_len}, uncompressed_len={uncompressed_len}"
+        )
 
-        # Verify that the total length of the decoded segment names (including null terminators) matches uncompressed_len
-        if pos != uncompressed_len:
+        # Handle identity encoding (0x0000): null-terminated strings
+        if compression_names == 0x0000:
+            pos = 0
+            for _ in range(record_num):
+                name_bytes = bytearray()
+                while pos < len(payload) and payload[pos] != 0:
+                    name_bytes.append(payload[pos])
+                    pos += 1
+                if pos >= len(payload):
+                    raise ValueError("Missing null terminator in segment name")
+                pos += 1  # skip null terminator
+                name = name_bytes.decode("ascii")
+                segment_names.append(name)
+
+            # Verify length
+            if pos != uncompressed_len:
+                raise ValueError(
+                    f"Segment names length mismatch: expected {uncompressed_len} bytes, got {pos}"
+                )
+            return segment_names, offset - initial_offset
+
+        # Handle Huffman encoding specially (0x??04)
+        if str_encoding == STRING_ENCODING_HUFFMAN:
+            strings, _ = decompress_string_huffman(payload, record_num)
+            segment_names = [s.decode("ascii") for s in strings]
+            return segment_names, offset - initial_offset
+
+        # For other encodings, the payload format is:
+        # 1. Encoded lengths of strings (using integer encoding)
+        # 2. Compressed concatenated strings (using string encoding)
+
+        # Get the appropriate decoders
+        int_decoder = get_integer_decoder(compression_names)
+        str_decoder = get_string_decoder(compression_names)
+
+        # The payload contains: [encoded_lengths][compressed_strings]
+        # We need to decode lengths first to know how many bytes they take
+
+        # Decode string lengths from the payload
+        lengths, lengths_consumed = int_decoder(payload, record_num)
+
+        if len(lengths) != record_num:
             raise ValueError(
-                f"Segment names length mismatch: expected {uncompressed_len} bytes, got {pos}"
+                f"Length count mismatch: expected {record_num}, got {len(lengths)}"
             )
+
+        # Get the compressed string data (rest of payload after lengths)
+        compressed_strings = payload[lengths_consumed:]
+
+        # Decompress the concatenated strings
+        if str_encoding == STRING_ENCODING_IDENTITY:
+            decompressed_strings = compressed_strings
+        else:
+            decompressed_strings = str_decoder(compressed_strings)
+
+        # Split the decompressed data into individual names using lengths
+        pos = 0
+        for length in lengths:
+            if pos + length > len(decompressed_strings):
+                raise ValueError(
+                    f"Decompressed data too short: need {pos + length} bytes, "
+                    f"have {len(decompressed_strings)}"
+                )
+            name = decompressed_strings[pos : pos + length].decode("ascii")
+            segment_names.append(name)
+            pos += length
+
+        logger.debug(f"Decoded {len(segment_names)} segment names")
+
         return segment_names, offset - initial_offset
 
     def _parse_segments_block(
