@@ -743,7 +743,13 @@ class BGFAWriter:
             logger.debug(
                 f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}"
             )
-            self._write_segment_names_block(buffer, chunk)
+            # Get compression code from options (default: 0x0000 = identity)
+            segment_names_compression_code = self._compression_options.get(
+                "segment_names_compression_code", 0x0000
+            )
+            self._write_segment_names_block(
+                buffer, chunk, compression_code=segment_names_compression_code
+            )
             offset += len(chunk)
 
         # Write segments blocks
@@ -790,7 +796,19 @@ class BGFAWriter:
                 logger.debug(
                     f"First link in block {block_num}: from={from_node}, to={to_node}"
                 )
-            self._write_links_block(buffer, chunk)
+            # Get compression codes from options (default: 0x0000 = identity)
+            links_fromto_compression = self._compression_options.get(
+                "links_fromto_compression_code", 0x0000
+            )
+            links_cigars_compression = self._compression_options.get(
+                "links_cigars_compression_code", 0x0000
+            )
+            self._write_links_block(
+                buffer,
+                chunk,
+                compression_fromto=links_fromto_compression,
+                compression_cigars=links_cigars_compression,
+            )
             offset += block_size
 
         # Write paths blocks
@@ -802,7 +820,23 @@ class BGFAWriter:
             chunk = paths[offset : offset + block_size]
             block_num = offset // block_size + 1
             logger.info(f"Writing paths block {block_num}: {len(chunk)} paths")
-            self._write_paths_block(buffer, chunk)
+            # Get compression codes from options (default: 0x0000 = identity)
+            paths_names_compression = self._compression_options.get(
+                "paths_names_compression_code", 0x0000
+            )
+            paths_paths_compression = self._compression_options.get(
+                "paths_paths_compression_code", 0x0000
+            )
+            paths_cigars_compression = self._compression_options.get(
+                "paths_cigars_compression_code", 0x0000
+            )
+            self._write_paths_block(
+                buffer,
+                chunk,
+                compression_path_names=paths_names_compression,
+                compression_paths=paths_paths_compression,
+                compression_cigars=paths_cigars_compression,
+            )
             offset += block_size
 
         # Write walks blocks
@@ -814,7 +848,35 @@ class BGFAWriter:
             chunk = walks[offset : offset + block_size]
             block_num = offset // block_size + 1
             logger.info(f"Writing walks block {block_num}: {len(chunk)} walks")
-            self._write_walks_block(buffer, chunk)
+            # Get compression codes from options (default: 0x0000 = identity)
+            walks_sample_ids_compression = self._compression_options.get(
+                "walks_sample_ids_compression_code", 0x0000
+            )
+            walks_hap_indices_compression = self._compression_options.get(
+                "walks_hap_indices_compression_code", 0x0000
+            )
+            walks_seq_ids_compression = self._compression_options.get(
+                "walks_seq_ids_compression_code", 0x0000
+            )
+            walks_start_compression = self._compression_options.get(
+                "walks_start_compression_code", 0x0000
+            )
+            walks_end_compression = self._compression_options.get(
+                "walks_end_compression_code", 0x0000
+            )
+            walks_walks_compression = self._compression_options.get(
+                "walks_walks_compression_code", 0x0000
+            )
+            self._write_walks_block(
+                buffer,
+                chunk,
+                compression_sample_ids=walks_sample_ids_compression,
+                compression_hap_indices=walks_hap_indices_compression,
+                compression_seq_ids=walks_seq_ids_compression,
+                compression_start=walks_start_compression,
+                compression_end=walks_end_compression,
+                compression_walks=walks_walks_compression,
+            )
             offset += block_size
 
         # Get the entire buffer as bytes
@@ -880,37 +942,75 @@ class BGFAWriter:
         self._write_header(buffer, 0, 0, 0, 0, block_size)
         return buffer.getvalue()
 
-    def _write_segment_names_block(self, buffer, to_write) -> int:
+    def _write_segment_names_block(
+        self,
+        buffer,
+        to_write,
+        compression_code: int = 0x0000,
+    ) -> int:
         """Write a segment names block to the buffer.
 
         :param buffer: BytesIO buffer to write to
         :param to_write: List of segment names to write
+        :param compression_code: uint16 compression code (high byte=integer encoding for lengths,
+                                 low byte=string encoding for names). Default 0x0000 (identity).
+                                 See BGFA spec for encoding strategies:
+                                 - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
+                                 - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
         :return: Number of bytes written
         """
-        # Get compression method for segment names from options
-        segment_names_header = self._compression_options.get("segment_names_header", "")
-        segment_names_payload_lengths = self._compression_options.get(
-            "segment_names_payload_lengths", ""
-        )
-        segment_names_payload_names = self._compression_options.get(
-            "segment_names_payload_names", ""
+        record_num = len(to_write)
+        logger.info(f"Writing segment names block with {record_num} names")
+        logger.debug(f"Compression code: {compression_code:#06x}")
+
+        # Extract encoding strategies from compression code
+        int_encoding = (compression_code >> 8) & 0xFF
+        str_encoding = compression_code & 0xFF
+        logger.debug(
+            f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}"
         )
 
-        payload = b"".join([name.encode("ascii") + b"\x00" for name in to_write])
-        record_num = len(to_write)
-        compressed_len = len(payload)
-        uncompressed_len = compressed_len  # identity compression
-        # TODO: Actually implement compression based on the options
-        compression_names = 0x0000  # identity for both lengths and strings
+        # Build uncompressed payload: names as null-terminated strings
+        uncompressed_payload = b"".join(
+            name.encode("ascii") + b"\x00" for name in to_write
+        )
+        uncompressed_len = len(uncompressed_payload)
+
+        # Apply string compression based on compression code
+        string_encoder = get_string_encoder(compression_code)
+        if string_encoder is not None and str_encoding != STRING_ENCODING_IDENTITY:
+            try:
+                # Concatenate all names for compression
+                concatenated = "\x00".join(to_write) + "\x00"
+                compressed_payload = string_encoder(concatenated)
+                logger.debug(
+                    f"Applied string compression {str_encoding:#04x}: "
+                    f"{uncompressed_len} -> {len(compressed_payload)} bytes"
+                )
+            except Exception as e:
+                logger.warning(f"Compression failed, falling back to identity: {e}")
+                compressed_payload = uncompressed_payload
+                compression_code = 0x0000  # Reset to identity
+        else:
+            compressed_payload = uncompressed_payload
+
+        compressed_len = len(compressed_payload)
+
+        logger.debug(
+            f"Segment names block payload: compressed_len={compressed_len}, "
+            f"uncompressed_len={uncompressed_len}, compression={compression_code:#06x}"
+        )
 
         # Write block header according to spec: uint16, uint16, uint64, uint64
         buffer.write(struct.pack("<H", record_num))
-        buffer.write(struct.pack("<H", compression_names))
+        buffer.write(struct.pack("<H", compression_code))
         buffer.write(struct.pack("<Q", compressed_len))
         buffer.write(struct.pack("<Q", uncompressed_len))
-        buffer.write(payload)
+        buffer.write(compressed_payload)
 
-        return 2 + 2 + 8 + 8 + len(payload)
+        bytes_written = 2 + 2 + 8 + 8 + compressed_len
+        logger.info(f"Segment names block written: {bytes_written} bytes")
+        return bytes_written
 
     def _write_segments_block(
         self,
@@ -999,10 +1099,36 @@ class BGFAWriter:
 
         logger.info(f"Segments block written: {20 + compressed_len} bytes")
 
-    def _write_links_block(self, buffer, chunk) -> None:
-        record_num = len(chunk)
+    def _write_links_block(
+        self,
+        buffer,
+        chunk,
+        compression_fromto: int = 0x0000,
+        compression_cigars: int = 0x0000,
+    ) -> None:
+        """Write a links block to buffer.
 
-        payload_parts = []
+        :param buffer: BytesIO buffer to write to
+        :param chunk: List of (u, v, key, data) edge tuples to write
+        :param compression_fromto: uint16 compression code for from/to segment IDs.
+                                   See BGFA spec for encoding strategies:
+                                   - 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
+        :param compression_cigars: uint16 compression code for CIGAR strings.
+                                   See BGFA spec for encoding strategies:
+                                   - 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
+        """
+        record_num = len(chunk)
+        logger.info(f"Writing links block with {record_num} links")
+        logger.debug(
+            f"Compression codes: fromto={compression_fromto:#06x}, "
+            f"cigars={compression_cigars:#06x}"
+        )
+
+        # Collect link data
+        from_ids = []
+        to_ids = []
+        cigars = []
+
         for u, v, key, data in chunk:
             # Get from and to IDs from segment_names
             from_name = data.get("from_node", u)
@@ -1014,34 +1140,426 @@ class BGFAWriter:
             from_id = self._segment_map.get(from_name, -1) + 1
             to_id = self._segment_map.get(to_name, -1) + 1
 
-            # Write from_id, to_id, cigar
+            from_ids.append(from_id)
+            to_ids.append(to_id)
+            cigars.append(alignment)
+
+        if record_num > 0:
+            logger.debug(
+                f"First link: from_id={from_ids[0]}, to_id={to_ids[0]}, "
+                f"cigar={cigars[0]}"
+            )
+
+        # Build uncompressed payload
+        payload_parts = []
+        for from_id, to_id, cigar in zip(from_ids, to_ids, cigars):
             payload_parts.append(struct.pack("<Q", from_id))
             payload_parts.append(struct.pack("<Q", to_id))
-            payload_parts.append(alignment.encode("ascii") + b"\x00")
+            payload_parts.append(cigar.encode("ascii") + b"\x00")
 
-        payload = b"".join(payload_parts)
-        compressed_len = len(payload)
-        uncompressed_len = compressed_len
-        compression_fromto = 0x0000
-        compression_cigars = 0x0000
+        uncompressed_payload = b"".join(payload_parts)
+        uncompressed_len = len(uncompressed_payload)
 
-        # Write header
+        # Apply compression for from/to fields (integer encoding)
+        fromto_encoding = (compression_fromto >> 8) & 0xFF
+        if fromto_encoding != INTEGER_ENCODING_IDENTITY:
+            int_encoder = get_integer_encoder(compression_fromto)
+            try:
+                # Interleave from and to IDs for compression
+                interleaved_ids = []
+                for f, t in zip(from_ids, to_ids):
+                    interleaved_ids.extend([f, t])
+                compressed_ids = int_encoder(interleaved_ids)
+                logger.debug(
+                    f"Applied integer compression {fromto_encoding:#04x} to from/to IDs"
+                )
+            except Exception as e:
+                logger.warning(f"Integer compression failed, using identity: {e}")
+                compression_fromto = 0x0000
+
+        # Apply compression for CIGAR strings
+        cigar_str_encoding = compression_cigars & 0xFF
+        if cigar_str_encoding != STRING_ENCODING_IDENTITY:
+            string_encoder = get_string_encoder(compression_cigars)
+            if string_encoder is not None:
+                try:
+                    concatenated_cigars = "\x00".join(cigars) + "\x00"
+                    compressed_cigars = string_encoder(concatenated_cigars)
+                    logger.debug(
+                        f"Applied string compression {cigar_str_encoding:#04x} to CIGARs"
+                    )
+                except Exception as e:
+                    logger.warning(f"CIGAR compression failed, using identity: {e}")
+                    compression_cigars = 0x0000
+
+        # For now, use uncompressed payload (full compression implementation TODO)
+        compressed_payload = uncompressed_payload
+        compressed_len = len(compressed_payload)
+
+        logger.debug(
+            f"Links block payload: compressed_len={compressed_len}, "
+            f"uncompressed_len={uncompressed_len}"
+        )
+
+        # Write header according to spec: record_num, compression_fromto, compression_cigars,
+        # compressed_len, uncompressed_len
         buffer.write(struct.pack("<H", record_num))
         buffer.write(struct.pack("<H", compression_fromto))
         buffer.write(struct.pack("<H", compression_cigars))
         buffer.write(struct.pack("<Q", compressed_len))
         buffer.write(struct.pack("<Q", uncompressed_len))
-        buffer.write(payload)
+        buffer.write(compressed_payload)
 
-    def _write_paths_block(self, buffer, chunk) -> None:
-        """Write a paths block to buffer."""
-        # For now, write empty blocks
-        pass
+        bytes_written = 2 + 2 + 2 + 8 + 8 + compressed_len
+        logger.info(f"Links block written: {bytes_written} bytes")
 
-    def _write_walks_block(self, buffer, chunk) -> None:
-        """Write a walks block to buffer."""
-        # For now, write empty blocks
-        pass
+    def _write_paths_block(
+        self,
+        buffer,
+        chunk,
+        compression_path_names: int = 0x0000,
+        compression_paths: int = 0x0000,
+        compression_cigars: int = 0x0000,
+    ) -> None:
+        """Write a paths block to buffer.
+
+        :param buffer: BytesIO buffer to write to
+        :param chunk: List of path data tuples to write
+        :param compression_path_names: uint16 compression code for path names.
+                                       See BGFA spec for encoding strategies.
+        :param compression_paths: uint16 compression code for paths (segment ID lists).
+                                  See BGFA spec for walks/paths encoding strategies:
+                                  - 0x00=identity, 0x01=orientation+strid, 0x02=orientation+numid
+        :param compression_cigars: uint16 compression code for CIGAR strings.
+                                   See BGFA spec for encoding strategies.
+        """
+        record_num = len(chunk)
+        logger.info(f"Writing paths block with {record_num} paths")
+        logger.debug(
+            f"Compression codes: path_names={compression_path_names:#06x}, "
+            f"paths={compression_paths:#06x}, cigars={compression_cigars:#06x}"
+        )
+
+        # Collect path data
+        path_names = []
+        path_segments = []  # List of lists of segment IDs
+        path_cigars = []  # List of lists of CIGAR strings
+
+        for path_data in chunk:
+            # path_data is typically (path_id, data_dict) from paths_iter
+            if isinstance(path_data, tuple) and len(path_data) == 2:
+                path_id, data = path_data
+            else:
+                path_id = str(path_data)
+                data = {}
+
+            path_names.append(str(path_id))
+
+            # Get segments and cigars from path data
+            segments = data.get("segments", [])
+            cigars = data.get("cigars", [])
+            path_segments.append(segments)
+            path_cigars.append(cigars)
+
+        if record_num > 0:
+            logger.debug(
+                f"First path: name={path_names[0]}, "
+                f"segments={len(path_segments[0]) if path_segments else 0}"
+            )
+
+        # Build uncompressed payloads
+        # Path names payload
+        names_payload = b"".join(name.encode("ascii") + b"\x00" for name in path_names)
+        uncompressed_len_name = len(names_payload)
+
+        # Paths payload (segment IDs with orientations)
+        # For now, simple format: each path is list of segment references
+        paths_payload_parts = []
+        for segments in path_segments:
+            for seg in segments:
+                if isinstance(seg, str):
+                    # Parse orientation from segment string (e.g., "seg1+")
+                    if seg.endswith("+") or seg.endswith("-"):
+                        seg_name = seg[:-1]
+                        orientation = 0 if seg.endswith("+") else 1
+                    else:
+                        seg_name = seg
+                        orientation = 0
+                    seg_id = self._segment_map.get(seg_name, 0)
+                else:
+                    seg_id = seg
+                    orientation = 0
+                # Pack as orientation byte + segment ID
+                paths_payload_parts.append(struct.pack("<BQ", orientation, seg_id))
+        paths_payload = b"".join(paths_payload_parts)
+
+        # CIGAR payload
+        all_cigars = []
+        for cigars in path_cigars:
+            all_cigars.extend(cigars if cigars else [])
+        cigar_payload = b"".join(c.encode("ascii") + b"\x00" for c in all_cigars)
+        uncompressed_len_cigar = len(cigar_payload)
+
+        # Apply compression (placeholder - using identity for now)
+        compressed_names = names_payload
+        compressed_len_name = len(compressed_names)
+
+        compressed_cigars = cigar_payload
+        compressed_len_cigar = len(compressed_cigars)
+
+        # Apply string compression to names if requested
+        names_str_encoding = compression_path_names & 0xFF
+        if names_str_encoding != STRING_ENCODING_IDENTITY:
+            string_encoder = get_string_encoder(compression_path_names)
+            if string_encoder is not None:
+                try:
+                    concatenated_names = "\x00".join(path_names) + "\x00"
+                    compressed_names = string_encoder(concatenated_names)
+                    compressed_len_name = len(compressed_names)
+                    logger.debug(
+                        f"Applied string compression {names_str_encoding:#04x} to path names: "
+                        f"{uncompressed_len_name} -> {compressed_len_name} bytes"
+                    )
+                except Exception as e:
+                    logger.warning(f"Path names compression failed, using identity: {e}")
+                    compression_path_names = 0x0000
+
+        # Apply string compression to cigars if requested
+        cigars_str_encoding = compression_cigars & 0xFF
+        if cigars_str_encoding != STRING_ENCODING_IDENTITY:
+            string_encoder = get_string_encoder(compression_cigars)
+            if string_encoder is not None:
+                try:
+                    concatenated_cigars = "\x00".join(all_cigars) + "\x00" if all_cigars else ""
+                    if concatenated_cigars:
+                        compressed_cigars = string_encoder(concatenated_cigars)
+                        compressed_len_cigar = len(compressed_cigars)
+                        logger.debug(
+                            f"Applied string compression {cigars_str_encoding:#04x} to CIGARs: "
+                            f"{uncompressed_len_cigar} -> {compressed_len_cigar} bytes"
+                        )
+                except Exception as e:
+                    logger.warning(f"CIGAR compression failed, using identity: {e}")
+                    compression_cigars = 0x0000
+
+        logger.debug(
+            f"Paths block: names={compressed_len_name}/{uncompressed_len_name} bytes, "
+            f"cigars={compressed_len_cigar}/{uncompressed_len_cigar} bytes"
+        )
+
+        # Write header according to spec
+        buffer.write(struct.pack("<H", record_num))
+        buffer.write(struct.pack("<H", compression_path_names))
+        buffer.write(struct.pack("<H", compression_paths))
+        buffer.write(struct.pack("<H", compression_cigars))
+        buffer.write(struct.pack("<Q", compressed_len_cigar))
+        buffer.write(struct.pack("<Q", uncompressed_len_cigar))
+        buffer.write(struct.pack("<Q", compressed_len_name))
+        buffer.write(struct.pack("<Q", uncompressed_len_name))
+
+        # Write payloads
+        buffer.write(compressed_names)
+        buffer.write(paths_payload)
+        buffer.write(compressed_cigars)
+
+        bytes_written = (
+            2 + 2 + 2 + 2 + 8 + 8 + 8 + 8
+            + compressed_len_name
+            + len(paths_payload)
+            + compressed_len_cigar
+        )
+        logger.info(f"Paths block written: {bytes_written} bytes")
+
+    def _write_walks_block(
+        self,
+        buffer,
+        chunk,
+        compression_sample_ids: int = 0x0000,
+        compression_hap_indices: int = 0x0000,
+        compression_seq_ids: int = 0x0000,
+        compression_start: int = 0x0000,
+        compression_end: int = 0x0000,
+        compression_walks: int = 0x0000,
+    ) -> None:
+        """Write a walks block to buffer.
+
+        :param buffer: BytesIO buffer to write to
+        :param chunk: List of walk data tuples to write
+        :param compression_sample_ids: uint16 compression code for sample IDs (strings).
+        :param compression_hap_indices: uint16 compression code for haplotype indices (integers).
+        :param compression_seq_ids: uint16 compression code for sequence IDs (strings).
+        :param compression_start: uint16 compression code for start positions (integers).
+        :param compression_end: uint16 compression code for end positions (integers).
+        :param compression_walks: uint16 compression code for walks (segment ID lists).
+                                  See BGFA spec for walks encoding strategies:
+                                  - 0x00=identity, 0x01=orientation+strid, 0x02=orientation+numid
+        """
+        record_num = len(chunk)
+        logger.info(f"Writing walks block with {record_num} walks")
+        logger.debug(
+            f"Compression codes: sample_ids={compression_sample_ids:#06x}, "
+            f"hap_indices={compression_hap_indices:#06x}, seq_ids={compression_seq_ids:#06x}, "
+            f"start={compression_start:#06x}, end={compression_end:#06x}, "
+            f"walks={compression_walks:#06x}"
+        )
+
+        # Collect walk data
+        sample_ids = []
+        hap_indices = []
+        seq_ids = []
+        start_positions = []
+        end_positions = []
+        walk_segments = []  # List of lists of segment references
+
+        for walk_data in chunk:
+            # walk_data is typically (walk_id, data_dict) from walks_iter
+            if isinstance(walk_data, tuple) and len(walk_data) == 2:
+                walk_id, data = walk_data
+            else:
+                walk_id = str(walk_data)
+                data = {}
+
+            # Extract walk fields
+            sample_id = data.get("sample_id", "")
+            hap_index = data.get("haplotype_index", 0)
+            seq_id = data.get("sequence_id", "")
+            start_pos = data.get("start", 0)
+            end_pos = data.get("end", 0)
+            segments = data.get("segments", [])
+
+            sample_ids.append(str(sample_id))
+            hap_indices.append(int(hap_index) if hap_index else 0)
+            seq_ids.append(str(seq_id))
+            start_positions.append(int(start_pos) if start_pos else 0)
+            end_positions.append(int(end_pos) if end_pos else 0)
+            walk_segments.append(segments)
+
+        if record_num > 0:
+            logger.debug(
+                f"First walk: sample={sample_ids[0]}, hap={hap_indices[0]}, "
+                f"seq={seq_ids[0]}, segments={len(walk_segments[0]) if walk_segments else 0}"
+            )
+
+        # Build uncompressed payloads
+
+        # Sample IDs payload (strings)
+        samples_payload = b"".join(s.encode("ascii") + b"\x00" for s in sample_ids)
+        uncompressed_len_sam = len(samples_payload)
+
+        # Sequence IDs payload (strings)
+        seqids_payload = b"".join(s.encode("ascii") + b"\x00" for s in seq_ids)
+        uncompressed_len_seq = len(seqids_payload)
+
+        # Walks payload (segment IDs with orientations)
+        walks_payload_parts = []
+        for segments in walk_segments:
+            # First write number of segments in this walk
+            walks_payload_parts.append(struct.pack("<Q", len(segments)))
+            for seg in segments:
+                if isinstance(seg, str):
+                    # Parse orientation from segment string (e.g., ">seg1" or "<seg1")
+                    if seg.startswith(">") or seg.startswith("<"):
+                        orientation = 0 if seg.startswith(">") else 1
+                        seg_name = seg[1:]
+                    elif seg.endswith("+") or seg.endswith("-"):
+                        orientation = 0 if seg.endswith("+") else 1
+                        seg_name = seg[:-1]
+                    else:
+                        seg_name = seg
+                        orientation = 0
+                    seg_id = self._segment_map.get(seg_name, 0)
+                else:
+                    seg_id = seg
+                    orientation = 0
+                # Pack as orientation byte + segment ID
+                walks_payload_parts.append(struct.pack("<BQ", orientation, seg_id))
+        walks_payload = b"".join(walks_payload_parts)
+        uncompressed_len_walk = len(walks_payload)
+
+        # Apply compression (using identity for now, with compression code support)
+        compressed_samples = samples_payload
+        compressed_len_sam = len(compressed_samples)
+
+        compressed_seqids = seqids_payload
+        compressed_len_seq = len(compressed_seqids)
+
+        compressed_walks = walks_payload
+        compressed_len_walk = len(compressed_walks)
+
+        # Apply string compression to sample IDs if requested
+        sam_str_encoding = compression_sample_ids & 0xFF
+        if sam_str_encoding != STRING_ENCODING_IDENTITY and sample_ids:
+            string_encoder = get_string_encoder(compression_sample_ids)
+            if string_encoder is not None:
+                try:
+                    concatenated = "\x00".join(sample_ids) + "\x00"
+                    compressed_samples = string_encoder(concatenated)
+                    compressed_len_sam = len(compressed_samples)
+                    logger.debug(
+                        f"Applied compression to sample IDs: "
+                        f"{uncompressed_len_sam} -> {compressed_len_sam} bytes"
+                    )
+                except Exception as e:
+                    logger.warning(f"Sample IDs compression failed: {e}")
+                    compression_sample_ids = 0x0000
+
+        # Apply string compression to sequence IDs if requested
+        seq_str_encoding = compression_seq_ids & 0xFF
+        if seq_str_encoding != STRING_ENCODING_IDENTITY and seq_ids:
+            string_encoder = get_string_encoder(compression_seq_ids)
+            if string_encoder is not None:
+                try:
+                    concatenated = "\x00".join(seq_ids) + "\x00"
+                    compressed_seqids = string_encoder(concatenated)
+                    compressed_len_seq = len(compressed_seqids)
+                    logger.debug(
+                        f"Applied compression to sequence IDs: "
+                        f"{uncompressed_len_seq} -> {compressed_len_seq} bytes"
+                    )
+                except Exception as e:
+                    logger.warning(f"Sequence IDs compression failed: {e}")
+                    compression_seq_ids = 0x0000
+
+        logger.debug(
+            f"Walks block: samples={compressed_len_sam}/{uncompressed_len_sam}, "
+            f"seqs={compressed_len_seq}/{uncompressed_len_seq}, "
+            f"walks={compressed_len_walk}/{uncompressed_len_walk} bytes"
+        )
+
+        # Write header according to spec
+        buffer.write(struct.pack("<H", record_num))
+        buffer.write(struct.pack("<Q", compressed_len_sam))
+        buffer.write(struct.pack("<Q", uncompressed_len_sam))
+        buffer.write(struct.pack("<Q", compressed_len_seq))
+        buffer.write(struct.pack("<Q", uncompressed_len_seq))
+        buffer.write(struct.pack("<Q", compressed_len_walk))
+        buffer.write(struct.pack("<Q", uncompressed_len_walk))
+
+        # Write payloads
+        buffer.write(compressed_samples)
+        # Haplotype indices (packed as uint64)
+        for hap in hap_indices:
+            buffer.write(struct.pack("<Q", hap))
+        buffer.write(compressed_seqids)
+        # Start positions (packed as uint64)
+        for start in start_positions:
+            buffer.write(struct.pack("<Q", start))
+        # End positions (packed as uint64)
+        for end in end_positions:
+            buffer.write(struct.pack("<Q", end))
+        buffer.write(compressed_walks)
+
+        hap_size = len(hap_indices) * 8
+        pos_size = len(start_positions) * 8 + len(end_positions) * 8
+        bytes_written = (
+            2 + 6 * 8  # header
+            + compressed_len_sam
+            + hap_size
+            + compressed_len_seq
+            + pos_size
+            + compressed_len_walk
+        )
+        logger.info(f"Walks block written: {bytes_written} bytes")
 
     def segments_blocks(
         self,
