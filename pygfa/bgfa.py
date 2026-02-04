@@ -10,58 +10,45 @@ Functions:
 
 from __future__ import annotations
 
+import gzip
+import io
+import logging
+import lzma
+import math
+import os
+import struct
+import tempfile
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from pygfa.gfa import GFA
-    from pygfa.graph_element import node, edge as ge
-
-__all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "read_bgfa"]
-
-try:
-    import compression.zstd as z
-
-    _ZSTD_AVAILABLE = True
-except ImportError:
-    _ZSTD_AVAILABLE = False
-    z = None
-
-import gzip
-import lzma
+from pygfa.gfa import GFA
+from pygfa.graph_element import node, edge as ge
 
 from pygfa.encoding import (
-    compress_integer_list_varint,
-    compress_integer_list_fixed,
-    compress_integer_list_none,
     compress_integer_list_delta,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
+    compress_integer_list_fixed,
     compress_integer_list_golomb,
+    compress_integer_list_none,
     compress_integer_list_rice,
     compress_integer_list_streamvbyte,
+    compress_integer_list_varint,
     compress_integer_list_vbyte,
-    compress_string_list,
-    compress_string_zstd,
     compress_string_gzip,
+    compress_string_list,
+    compress_string_list_huffman,
     compress_string_lzma,
     compress_string_none,
-    compress_string_list_huffman,
+    compress_string_zstd,
 )
 
-import struct
-import logging
+import compression.zstd as z
 
-# GFA and graph_element imports are moved inside methods to avoid circular imports
-
-import tempfile
+__all__ = ["BGFAWriter", "ReaderBGFA", "to_bgfa", "read_bgfa"]
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-import io
-import math
 
 
 # =============================================================================
@@ -169,9 +156,6 @@ class ReaderBGFA:
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
         :return: GFA graph object
         """
-        from pygfa.gfa import GFA
-        from pygfa.graph_element import node, edge as ge
-
         # Determine log level based on verbosity
         if debug:
             log_level = logging.DEBUG
@@ -192,8 +176,6 @@ class ReaderBGFA:
                 print(f"Logging to temporary file: {logfile}")
         else:
             # If we're not logging, use a dummy logfile
-            import os
-
             if os.name == "nt":  # Windows
                 logfile = "NUL"
             else:  # Unix-like
@@ -210,7 +192,6 @@ class ReaderBGFA:
         handlers = []
 
         # Only add file handler if we're actually logging to a file
-        import os
 
         if logfile != "/dev/null" and logfile != "NUL":
             file_handler = logging.FileHandler(logfile)
@@ -632,10 +613,6 @@ class BGFAWriter:
         # Create a BytesIO buffer
         buffer = io.BytesIO()
 
-        # Configure logging
-        import logging
-        import tempfile
-
         # Determine log level based on verbosity
         if debug:
             log_level = logging.DEBUG
@@ -656,8 +633,6 @@ class BGFAWriter:
                 print(f"Logging to temporary file: {logfile}")
         else:
             # If we're not logging, use a dummy logfile
-            import os
-
             if os.name == "nt":  # Windows
                 logfile = "NUL"
             else:  # Unix-like
@@ -674,7 +649,6 @@ class BGFAWriter:
         handlers = []
 
         # Only add file handler if we're actually logging to a file
-        import os
 
         if logfile != "/dev/null" and logfile != "NUL":
             file_handler = logging.FileHandler(logfile)
@@ -1321,7 +1295,9 @@ class BGFAWriter:
                         f"{uncompressed_len_name} -> {compressed_len_name} bytes"
                     )
                 except Exception as e:
-                    logger.warning(f"Path names compression failed, using identity: {e}")
+                    logger.warning(
+                        f"Path names compression failed, using identity: {e}"
+                    )
                     compression_path_names = 0x0000
 
         # Apply string compression to cigars if requested
@@ -1330,7 +1306,9 @@ class BGFAWriter:
             string_encoder = get_string_encoder(compression_cigars)
             if string_encoder is not None:
                 try:
-                    concatenated_cigars = "\x00".join(all_cigars) + "\x00" if all_cigars else ""
+                    concatenated_cigars = (
+                        "\x00".join(all_cigars) + "\x00" if all_cigars else ""
+                    )
                     if concatenated_cigars:
                         compressed_cigars = string_encoder(concatenated_cigars)
                         compressed_len_cigar = len(compressed_cigars)
@@ -1363,7 +1341,14 @@ class BGFAWriter:
         buffer.write(compressed_cigars)
 
         bytes_written = (
-            2 + 2 + 2 + 2 + 8 + 8 + 8 + 8
+            2
+            + 2
+            + 2
+            + 2
+            + 8
+            + 8
+            + 8
+            + 8
             + compressed_len_name
             + len(paths_payload)
             + compressed_len_cigar
@@ -1552,7 +1537,8 @@ class BGFAWriter:
         hap_size = len(hap_indices) * 8
         pos_size = len(start_positions) * 8 + len(end_positions) * 8
         bytes_written = (
-            2 + 6 * 8  # header
+            2
+            + 6 * 8  # header
             + compressed_len_sam
             + hap_size
             + compressed_len_seq
