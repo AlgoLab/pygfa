@@ -136,6 +136,14 @@ class Node:
         # ...
 ```
 
+### Specification
+
+The complete description of the BGFA format is in the file `../bgfatools/spec/gfa_binary_format.md`
+
+### Environment
+
+This project will run only on Linux and MacOS systems. Drop any support for Windows
+
 ### Testing
 
 - Tests use `unittest.TestCase`
