@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Check also the AGENTS.md file for additional instructions
+
 ## Project Overview
 
 pygfa is a Python library for managing GFA (Graphical Fragment Assembly) files used in bioinformatics to represent pangenome graphs. It supports GFA1/GFA2 formats with binary BGFA serialization and compression.

@@ -31,7 +31,21 @@ import lzma
 
 from pygfa.encoding import (
     compress_integer_list_varint,
+    compress_integer_list_fixed,
+    compress_integer_list_none,
+    compress_integer_list_delta,
+    compress_integer_list_elias_gamma,
+    compress_integer_list_elias_omega,
+    compress_integer_list_golomb,
+    compress_integer_list_rice,
+    compress_integer_list_streamvbyte,
+    compress_integer_list_vbyte,
     compress_string_list,
+    compress_string_zstd,
+    compress_string_gzip,
+    compress_string_lzma,
+    compress_string_none,
+    compress_string_list_huffman,
 )
 
 import struct
@@ -48,6 +62,92 @@ logger = logging.getLogger(__name__)
 
 import io
 import math
+
+
+# =============================================================================
+# Encoding strategy tables (from BGFA spec)
+# =============================================================================
+# The compression code is a uint16 where:
+#   - High byte (bits 8-15): integer list encoding strategy
+#   - Low byte (bits 0-7): string encoding strategy
+#
+# Example: 0x0102 means varint (0x01) for integers, gzip (0x02) for strings
+
+# Integer list encoding strategies (high byte)
+INTEGER_ENCODING_IDENTITY = 0x00
+INTEGER_ENCODING_VARINT = 0x01
+INTEGER_ENCODING_FIXED16 = 0x02
+INTEGER_ENCODING_DELTA = 0x03
+INTEGER_ENCODING_ELIAS_GAMMA = 0x04
+INTEGER_ENCODING_ELIAS_OMEGA = 0x05
+INTEGER_ENCODING_GOLOMB = 0x06
+INTEGER_ENCODING_RICE = 0x07
+INTEGER_ENCODING_STREAMVBYTE = 0x08
+INTEGER_ENCODING_VBYTE = 0x09
+INTEGER_ENCODING_FIXED32 = 0x0A
+INTEGER_ENCODING_FIXED64 = 0x0B
+
+# String encoding strategies (low byte)
+STRING_ENCODING_IDENTITY = 0x00
+STRING_ENCODING_ZSTD = 0x01
+STRING_ENCODING_GZIP = 0x02
+STRING_ENCODING_LZMA = 0x03
+STRING_ENCODING_HUFFMAN = 0x04
+
+# Mapping from integer encoding codes to compression functions
+INTEGER_ENCODERS = {
+    INTEGER_ENCODING_IDENTITY: compress_integer_list_none,
+    INTEGER_ENCODING_VARINT: compress_integer_list_varint,
+    INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, size=16),
+    INTEGER_ENCODING_DELTA: compress_integer_list_delta,
+    INTEGER_ENCODING_ELIAS_GAMMA: compress_integer_list_elias_gamma,
+    INTEGER_ENCODING_ELIAS_OMEGA: compress_integer_list_elias_omega,
+    INTEGER_ENCODING_GOLOMB: compress_integer_list_golomb,
+    INTEGER_ENCODING_RICE: compress_integer_list_rice,
+    INTEGER_ENCODING_STREAMVBYTE: compress_integer_list_streamvbyte,
+    INTEGER_ENCODING_VBYTE: compress_integer_list_vbyte,
+    INTEGER_ENCODING_FIXED32: lambda x: compress_integer_list_fixed(x, size=32),
+    INTEGER_ENCODING_FIXED64: lambda x: compress_integer_list_fixed(x, size=64),
+}
+
+# Mapping from string encoding codes to compression functions
+STRING_ENCODERS = {
+    STRING_ENCODING_IDENTITY: compress_string_none,
+    STRING_ENCODING_ZSTD: compress_string_zstd,
+    STRING_ENCODING_GZIP: compress_string_gzip,
+    STRING_ENCODING_LZMA: compress_string_lzma,
+    STRING_ENCODING_HUFFMAN: None,  # Huffman requires special handling (list-based)
+}
+
+
+def get_integer_encoder(code: int):
+    """Get the integer encoding function for a compression code.
+
+    :param code: The uint16 compression code
+    :return: The compression function for integers
+    """
+    int_code = (code >> 8) & 0xFF
+    return INTEGER_ENCODERS.get(int_code, compress_integer_list_none)
+
+
+def get_string_encoder(code: int):
+    """Get the string encoding function for a compression code.
+
+    :param code: The uint16 compression code
+    :return: The compression function for strings
+    """
+    str_code = code & 0xFF
+    return STRING_ENCODERS.get(str_code, compress_string_none)
+
+
+def make_compression_code(int_encoding: int, str_encoding: int) -> int:
+    """Create a compression code from integer and string encoding strategies.
+
+    :param int_encoding: Integer encoding strategy (0x00-0x0B)
+    :param str_encoding: String encoding strategy (0x00-0x04)
+    :return: Combined uint16 compression code
+    """
+    return ((int_encoding & 0xFF) << 8) | (str_encoding & 0xFF)
 
 
 class ReaderBGFA:
@@ -662,18 +762,14 @@ class BGFAWriter:
                 logger.debug(
                     f"First segment in block {block_num}: name={name}, id={seg_id}"
                 )
+            # Get compression code from options (default: 0x0000 = identity)
+            segments_compression_code = self._compression_options.get(
+                "segments_compression_code", 0x0000
+            )
             self._write_segments_block(
                 buffer,
                 chunk,
-                header_compression=self._compression_options.get(
-                    "segments_header_compression_strategy"
-                ),
-                lengths_compression=self._compression_options.get(
-                    "segments_payload_lengths_compression_strategy"
-                ),
-                strings_compression=self._compression_options.get(
-                    "segments_payload_strings_compression_strategy"
-                ),
+                compression_code=segments_compression_code,
             )
             offset += len(chunk)
 
@@ -820,31 +916,37 @@ class BGFAWriter:
         self,
         buffer,
         chunk,
-        header_compression=None,
-        lengths_compression=None,
-        strings_compression=None,
+        compression_code: int = 0x0000,
     ) -> None:
         """Write a segments block to buffer.
 
         :param buffer: BytesIO buffer to write to
         :param chunk: List of (name, seg_id) tuples to write
-        :param header_compression: Compression strategy for block header
-        :param lengths_compression: Compression strategy for payload lengths
-        :param strings_compression: Compression strategy for payload strings
+        :param compression_code: uint16 compression code (high byte=integer encoding,
+                                 low byte=string encoding). Default 0x0000 (identity).
+                                 See BGFA spec for encoding strategies:
+                                 - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
+                                 - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
         """
         record_num = len(chunk)
         logger.info(f"Writing segments block with {record_num} segments")
+        logger.debug(f"Compression code: {compression_code:#06x}")
+
+        # Extract encoding strategies from compression code
+        int_encoding = (compression_code >> 8) & 0xFF
+        str_encoding = compression_code & 0xFF
         logger.debug(
-            f"Compression methods: header={header_compression}, "
-            f"lengths={lengths_compression}, strings={strings_compression}"
+            f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}"
         )
 
-        # Prepare payload
+        # Collect segment data
         payload_parts = []
+        sequences = []
         for i, (name, seg_id) in enumerate(chunk):
             node_data = dict(self._gfa.nodes(data=True))[name]
             sequence = node_data.get("sequence", "*")
             seq_len = len(sequence) if sequence != "*" else 0
+            sequences.append(sequence)
 
             if i < 3:
                 logger.debug(
@@ -857,27 +959,39 @@ class BGFAWriter:
             payload_parts.append(struct.pack("<Q", seg_id))
             payload_parts.append(struct.pack("<Q", seq_len))
             payload_parts.append(sequence.encode("ascii") + b"\x00")
-            logger.debug(
-                f"Segments block payload: seg_id={seg_id}, "
-                f"seq_len={seq_len}, string={sequence.encode('ascii')}"
-            )
 
-        payload = b"".join(payload_parts)
-        uncompressed_len = len(payload)
+        # Build uncompressed payload
+        uncompressed_payload = b"".join(payload_parts)
+        uncompressed_len = len(uncompressed_payload)
 
-        # TODO: Apply compression based on strings_compression parameter
-        compressed_payload = payload
+        # Apply string compression based on compression code
+        string_encoder = get_string_encoder(compression_code)
+        if string_encoder is not None and str_encoding != STRING_ENCODING_IDENTITY:
+            try:
+                # Concatenate all sequences for compression
+                concatenated = "".join(sequences)
+                compressed_payload = string_encoder(concatenated)
+                logger.debug(
+                    f"Applied string compression {str_encoding:#04x}: "
+                    f"{uncompressed_len} -> {len(compressed_payload)} bytes"
+                )
+            except Exception as e:
+                logger.warning(f"Compression failed, falling back to identity: {e}")
+                compressed_payload = uncompressed_payload
+                compression_code = 0x0000  # Reset to identity
+        else:
+            compressed_payload = uncompressed_payload
+
         compressed_len = len(compressed_payload)
-        compression_str = 0x0000  # identity (TODO: set based on actual compression used)
 
         logger.debug(
             f"Segments block payload: compressed_len={compressed_len}, "
-            f"uncompressed_len={uncompressed_len}, compression={compression_str:#06x}"
+            f"uncompressed_len={uncompressed_len}, compression={compression_code:#06x}"
         )
 
         # Write header
         buffer.write(struct.pack("<H", record_num))
-        buffer.write(struct.pack("<H", compression_str))
+        buffer.write(struct.pack("<H", compression_code))
         buffer.write(struct.pack("<Q", compressed_len))
         buffer.write(struct.pack("<Q", uncompressed_len))
 
