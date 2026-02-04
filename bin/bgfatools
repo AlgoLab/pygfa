@@ -269,6 +269,10 @@ def parse_cli_options():
     parser.add_argument(
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
+    # Add all options to the help output
+    parser.add_argument(
+        "--help-all", action="store_true", help="Show all options in help output"
+    )
 
     # Parse arguments
     try:
@@ -392,17 +396,17 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Determine log level
-    if options.get('debug'):
+    if options.get("debug"):
         log_level = logging.DEBUG
-    elif options.get('verbose'):
+    elif options.get("verbose"):
         log_level = logging.INFO
     else:
         log_level = logging.WARNING
 
     # If logfile is not provided, create a temporary one
-    logfile = options.get('logfile')
+    logfile = options.get("logfile")
     if logfile is None:
-        temp_log = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.log')
+        temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
         logfile = temp_log.name
         temp_log.close()
         print(f"Logging to temporary file: {logfile}")
@@ -411,7 +415,9 @@ if __name__ == "__main__":
     logging.getLogger().handlers.clear()
 
     # Create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     # Create file handler
     file_handler = logging.FileHandler(logfile)
@@ -424,13 +430,10 @@ if __name__ == "__main__":
     stream_handler.setFormatter(formatter)
 
     # Configure root logger
-    logging.basicConfig(
-        level=log_level,
-        handlers=[file_handler, stream_handler]
-    )
+    logging.basicConfig(level=log_level, handlers=[file_handler, stream_handler])
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting bgfatools command: %s", options.get('command'))
+    logger.info("Starting bgfatools command: %s", options.get("command"))
 
     if options.get("command") == "bgfa":
         try:
