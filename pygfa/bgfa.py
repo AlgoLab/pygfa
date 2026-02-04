@@ -93,7 +93,8 @@ class ReaderBGFA:
         else:
             # If we're not logging, use a dummy logfile
             import os
-            if os.name == 'nt':  # Windows
+
+            if os.name == "nt":  # Windows
                 logfile = "NUL"
             else:  # Unix-like
                 logfile = "/dev/null"
@@ -110,6 +111,7 @@ class ReaderBGFA:
 
         # Only add file handler if we're actually logging to a file
         import os
+
         if logfile != "/dev/null" and logfile != "NUL":
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
@@ -555,7 +557,8 @@ class BGFAWriter:
         else:
             # If we're not logging, use a dummy logfile
             import os
-            if os.name == 'nt':  # Windows
+
+            if os.name == "nt":  # Windows
                 logfile = "NUL"
             else:  # Unix-like
                 logfile = "/dev/null"
@@ -572,6 +575,7 @@ class BGFAWriter:
 
         # Only add file handler if we're actually logging to a file
         import os
+
         if logfile != "/dev/null" and logfile != "NUL":
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
@@ -658,7 +662,19 @@ class BGFAWriter:
                 logger.debug(
                     f"First segment in block {block_num}: name={name}, id={seg_id}"
                 )
-            self._write_segments_block(buffer, chunk)
+            self._write_segments_block(
+                buffer,
+                chunk,
+                header_compression=self._compression_options.get(
+                    "segments_header_compression_strategy"
+                ),
+                lengths_compression=self._compression_options.get(
+                    "segments_payload_lengths_compression_strategy"
+                ),
+                strings_compression=self._compression_options.get(
+                    "segments_payload_strings_compression_strategy"
+                ),
+            )
             offset += len(chunk)
 
         # Write links blocks
@@ -800,10 +816,28 @@ class BGFAWriter:
 
         return 2 + 2 + 8 + 8 + len(payload)
 
-    def _write_segments_block(self, buffer, chunk) -> None:
-        """Write a segments block to buffer."""
+    def _write_segments_block(
+        self,
+        buffer,
+        chunk,
+        header_compression=None,
+        lengths_compression=None,
+        strings_compression=None,
+    ) -> None:
+        """Write a segments block to buffer.
+
+        :param buffer: BytesIO buffer to write to
+        :param chunk: List of (name, seg_id) tuples to write
+        :param header_compression: Compression strategy for block header
+        :param lengths_compression: Compression strategy for payload lengths
+        :param strings_compression: Compression strategy for payload strings
+        """
         record_num = len(chunk)
         logger.info(f"Writing segments block with {record_num} segments")
+        logger.debug(
+            f"Compression methods: header={header_compression}, "
+            f"lengths={lengths_compression}, strings={strings_compression}"
+        )
 
         # Prepare payload
         payload_parts = []
@@ -813,7 +847,9 @@ class BGFAWriter:
             seq_len = len(sequence) if sequence != "*" else 0
 
             if i < 3:
-                logger.debug(f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}")
+                logger.debug(
+                    f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}"
+                )
             elif i == 3:
                 logger.debug("... (remaining segments omitted)")
 
@@ -821,15 +857,22 @@ class BGFAWriter:
             payload_parts.append(struct.pack("<Q", seg_id))
             payload_parts.append(struct.pack("<Q", seq_len))
             payload_parts.append(sequence.encode("ascii") + b"\x00")
+            logger.debug(
+                f"Segments block payload: seg_id={seg_id}, "
+                f"seq_len={seq_len}, string={sequence.encode('ascii')}"
+            )
 
         payload = b"".join(payload_parts)
-        compressed_len = len(payload)
-        uncompressed_len = compressed_len
-        compression_str = 0x0000  # identity
+        uncompressed_len = len(payload)
+
+        # TODO: Apply compression based on strings_compression parameter
+        compressed_payload = payload
+        compressed_len = len(compressed_payload)
+        compression_str = 0x0000  # identity (TODO: set based on actual compression used)
 
         logger.debug(
             f"Segments block payload: compressed_len={compressed_len}, "
-            f"uncompressed_len={uncompressed_len}, compression=identity"
+            f"uncompressed_len={uncompressed_len}, compression={compression_str:#06x}"
         )
 
         # Write header
@@ -837,7 +880,8 @@ class BGFAWriter:
         buffer.write(struct.pack("<H", compression_str))
         buffer.write(struct.pack("<Q", compressed_len))
         buffer.write(struct.pack("<Q", uncompressed_len))
-        buffer.write(payload)
+
+        buffer.write(compressed_payload)
 
         logger.info(f"Segments block written: {20 + compressed_len} bytes")
 
