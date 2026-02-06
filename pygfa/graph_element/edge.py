@@ -3,6 +3,7 @@ Edge module for GFA graph elements.
 """
 
 import copy
+from typing import Any, Dict, Optional, Tuple
 
 from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element.parser.edge import Edge as EdgeLine
@@ -13,7 +14,7 @@ class InvalidEdgeError(Exception):
     pass
 
 
-def is_edge(obj):
+def is_edge(obj: Any) -> bool:
     """Return True if the given object can be treated as an Edge.
 
     Supports duck typing - checks for required attributes with non-None values.
@@ -40,19 +41,19 @@ class Edge:
 
     def __init__(
         self,
-        eid,
-        from_node,
-        from_orn,
-        to_node,
-        to_orn,
-        from_positions,
-        to_positions,
-        alignment,
-        distance,
-        variance,
-        opt_fields=None,
-        is_dovetail=False,
-    ):
+        eid: Optional[str],
+        from_node: Optional[str],
+        from_orn: Optional[str],
+        to_node: Optional[str],
+        to_orn: Optional[str],
+        from_positions: Tuple[Optional[int], Optional[int]],
+        to_positions: Tuple[Optional[int], Optional[int]],
+        alignment: Optional[str],
+        distance: Optional[int],
+        variance: Optional[str],
+        opt_fields: Optional[Dict[str, line.Field]] = None,
+        is_dovetail: bool = False,
+    ) -> None:
         """Initialize an Edge object.
 
         :param eid: Edge identifier (can be None for virtual edges)
@@ -109,11 +110,11 @@ class Edge:
             raise InvalidEdgeError(f"Invalid to_positions tuple: given: {str(to_positions)}")
 
     @property
-    def opt_fields(self):
+    def opt_fields(self) -> Dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, edge_line):
+    def from_line(cls, edge_line: line.Line) -> Optional["Edge"]:
         """Create an Edge from an EdgeLine, Link, Containment, Fragment, or Gap line.
 
         :param edge_line: A line object to convert to an Edge
@@ -412,7 +413,7 @@ class Edge:
             is_dovetail,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """Check if two edges are equal (ignoring IDs).
 
         Supports duck typing - compares with any object that has
@@ -433,5 +434,5 @@ class Edge:
         except Exception:
             return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Edge({self.from_node}{self.from_orn}->{self.to_node}{self.to_orn})"

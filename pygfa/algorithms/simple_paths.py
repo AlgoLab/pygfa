@@ -1,16 +1,17 @@
 """A module rewritten using the simple_paths networkx module
-to provide a convenient and reusable way to specificy
-a custom iterator to use in the algorithm (using only
+To provide a convenient and reusable way to specificy
+A custom iterator to use in the algorithm (using only
 algorithms for multigraphs)
 
 The same documentation for networkx is valid using this algorithms."""
 
 import networkx as nx
+from typing import Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
 __all__ = ["all_simple_paths"]
 
 
-def all_simple_paths(gfa_, source, target, selector, edges=False, keys=True, cutoff=None):
+def all_simple_paths(gfa_, source: str, target: str, selector: Callable[..., Iterable[Tuple[str, str]]], edges: bool = False, keys: bool = True, cutoff: Optional[int] = None) -> Union[Iterator[List[str]], Iterator[List[Tuple[str, Optional[str]]]]]:
     """Compute the all_simple_path algorithm as described in
     networkx, but return the edges keys if asked and use the
     given selector to obtain the nodes to consider.
@@ -39,7 +40,7 @@ def all_simple_paths(gfa_, source, target, selector, edges=False, keys=True, cut
         )
 
 
-def _all_simple_paths_multigraph(_gfa, source, target, selector, cutoff=None):
+def _all_simple_paths_multigraph(_gfa, source: str, target: str, selector: Callable[..., Iterable[Tuple[str, str]]], cutoff: Optional[int] = None) -> Iterator[List[str]]:
     if cutoff < 1:
         return
     visited = [source]
@@ -64,7 +65,7 @@ def _all_simple_paths_multigraph(_gfa, source, target, selector, cutoff=None):
             visited.pop()
 
 
-def _all_simple_paths_edges_multigraph(_gfa, source, target, selector, keys=False, cutoff=None):
+def _all_simple_paths_edges_multigraph(_gfa, source: str, target: str, selector: Callable[..., Iterable[Union[Tuple[str, str], Tuple[str, str, str]]]], keys: bool = False, cutoff: Optional[int] = None) -> Iterator[List[Tuple[str, Optional[str]]]]:
     """Return all simple paths from source to target with
     all the edges id that connect each pair of nodes.
     """
@@ -85,6 +86,27 @@ def _all_simple_paths_edges_multigraph(_gfa, source, target, selector, keys=Fals
             stack.pop()
             visited.pop()
 
+            if path:
+                path.pop()
+        elif len(visited) < cutoff:
+            if child[1] == target:
+                yield [*path, child]
+            elif child[1] not in visited:
+                visited.append(child[1])
+                path.append(child)
+                add_to_stack = (
+                    ((u, v, k) for u, v, k in selector(child[1], keys=True))
+                    if keys
+                    else ((u, v) for u, v in selector(child[1], keys=True))
+                )
+                stack.append(add_to_stack)
+        else:
+            count = ([child[1]] + [child_[1] for child_ in children]).count(target)
+            for _i in range(count):
+                yield [*path, child]
+            stack.pop()
+            visited.pop()
+            path.pop()
             if path:
                 path.pop()
         elif len(visited) < cutoff:

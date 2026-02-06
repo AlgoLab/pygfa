@@ -1,4 +1,16 @@
-def dfs_edges(gfa_, selector, source=None, keys=False, **args):
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Callable, Iterable, Iterator, Optional, Tuple, Union
+
+
+def dfs_edges(
+    gfa_,
+    selector: Callable[..., Iterable[Tuple[str, str]]],
+    source: Optional[str] = None,
+    keys: bool = False,
+    **args,
+) -> Iterator[Tuple[str, str]]:
     """Custom dfs_edges to select custom edges
     while traversing.
 

@@ -1,4 +1,5 @@
 import copy
+from typing import Any, Dict, Optional
 
 from pygfa.graph_element.parser import segment
 from pygfa.graph_element.parser import line, field_validator as fv
@@ -8,7 +9,7 @@ class InvalidNodeError(Exception):
     pass
 
 
-def is_node(obj):
+def is_node(obj: Any) -> bool:
     """Check wheter the given object is a Node object.
 
     :param obj: Any Python object.
@@ -37,7 +38,13 @@ class Node:
     sequence, since GFA2 sequence is more tolerant than GFA1 sequence.
     """
 
-    def __init__(self, node_id, sequence, length, opt_fields=None):
+    def __init__(
+        self,
+        node_id: str,
+        sequence: str,
+        length: Optional[int],
+        opt_fields: Optional[Dict[str, line.Field]] = None,
+    ) -> None:
         """Construct a Node given an id, a sequence and a length.
 
         :param node_id: A node id given in the form of a string.
@@ -79,23 +86,23 @@ class Node:
                 self._opt_fields[key] = copy.deepcopy(field)
 
     @property
-    def nid(self):
+    def nid(self) -> str:
         return self._nid
 
     @property
-    def sequence(self):
+    def sequence(self) -> str:
         return self._sequence
 
     @property
-    def slen(self):
+    def slen(self) -> Optional[int]:
         return self._slen
 
     @property
-    def opt_fields(self):
+    def opt_fields(self) -> Dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, segment_line):
+    def from_line(cls, segment_line: line.Line) -> "Node":
         """Given a Segment Line construct a Node from it.
 
         If segment_line is a GFA1 Segment segment_line then the sequence length
@@ -138,36 +145,27 @@ class Node:
         except (KeyError, AttributeError):
             raise line.InvalidLineError("The given line cannot be " + "a Node.")
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         try:
-            if (
-                self.nid != other.nid
-                or self.sequence != other.sequence
-                or self.slen != other.slen
-            ):
+            if self.nid != other.nid or self.sequence != other.sequence or self.slen != other.slen:
                 return False
 
             for key, item in self.opt_fields.items():
-                if (
-                    not key in other.opt_fields
-                    or not self.opt_fields[key] == other.opt_fields[key]
-                ):
+                if not key in other.opt_fields or not self.opt_fields[key] == other.opt_fields[key]:
                     return False
 
         except Exception:
             return False
         return True
 
-    def __neq__(self, other):
+    def __neq__(self, other: Any) -> bool:
         return not self == other
 
-    def __str__(self):  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
         fields = ("nid", "sequence", "slen", "opt_fields")
         opt_fields = []
         if len(self.opt_fields) > 0:
-            opt_fields = str.join(
-                ",\t", [str(field) for key, field in self.opt_fields.items()]
-            )
+            opt_fields = str.join(",\t", [str(field) for key, field in self.opt_fields.items()])
         values = (
             str(self.nid),
             str(self.sequence),
