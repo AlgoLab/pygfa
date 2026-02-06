@@ -1,53 +1,11 @@
 import copy
+import os
 import sys
 import unittest
 
 sys.path.insert(0, "../")
 
 import pygfa
-
-gfa_file = (
-    "H\tac:Z:test2\n"
-    + "H\tVN:Z:1.0\n"
-    + "H\taa:i:12\tab:Z:test1\n"
-    + "H\taa:i:15\n"
-    + "S\t1\t*\n"
-    + "S\t2\tAAAAAGGCG\n"
-    + "S\t3\tAAAAATCT\n"
-    + "S\t4\tGGGTTTTTAGA\n"
-    + "S\t5\t*\n"
-    + "S\t6\tGGCGAAAAA\n"
-    + "S\t8\t*\n"
-    + "S\t23\tTTTTTGGG\n"
-    + "S\t10\t*\n"
-    + "S\t11\tGTCGAAAAA\n"
-    + "S\t14\t*\n"
-    + "S\t15\t*\n"
-    + "S\t9\t*\n"
-    + "S\t18\t*\n"
-    + "S\t0\tGGCCGAAAAACCTCGC\n"
-    + "S\t7\t*\n"
-    + "S\t12\tCGGCCAAAAA\n"
-    + "S\t13\t*\tLN:i:100\n"
-    + "L\t1\t+\t2\t+\t12M\tID:Z:1_to_2\n"
-    + "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\n"
-    + "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\n"
-    + "C\t2\t+\t6\t+\t10\t4M\tID:Z:2_to_6\n"
-    + "L\t3\t+\t4\t-\t3M\tID:Z:3_to_4\n"
-    + "L\t4\t-\t23\t-\t3M\tID:Z:4_to_23\n"
-    + "L\t5\t-\t8\t+\t122M\tID:Z:5_to_8\n"
-    + "L\t10\t-\t11\t+\t4M\tID:Z:10_to_11\n"
-    + "L\t11\t+\t14\t+\t122M\tID:Z:11_to_14\n"
-    + "L\t11\t+\t15\t+\t120M\tID:Z:11_to_15\n"
-    + "L\t9\t+\t18\t-\t25M\tID:Z:9_to_18\n"
-    + "L\t18\t-\t9\t-\t10M\tID:Z:18_to_9\n"
-    + "L\t0\t-\t12\t+\t5M\tID:Z:0_to_12\n"
-    + "L\t0\t+\t13\t+\t6M\tID:Z:0_to_13\n"
-    + "L\t7\t+\t12\t-\t3M\tID:Z:7_to_12\n"
-    + "L\t13\t+\t7\t-\t11M\tID:Z:13_to_7\n"
-    + "P\t14\t11+,12+\t122M\n"
-    + "P\t15\t11+,13+\t120M\n"
-)
 
 # Before Compression
 #                                                             ___________
@@ -83,7 +41,7 @@ gfa_file = (
 
 class TestLine(unittest.TestCase):
     graph = pygfa.gfa.GFA()
-    graph.from_string(gfa_file)
+    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_compression.gfa"))
 
     def test_compression(self):
         before_node = [

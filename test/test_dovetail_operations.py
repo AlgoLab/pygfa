@@ -1,30 +1,11 @@
 import copy
+import os
 import sys
 import unittest
 
 sys.path.insert(0, "../")
 
 import pygfa
-
-gfa_file = str.join(
-    "",
-    [
-        "S\ts1\t25\t*\n",
-        "S\ts2\t21\t*\n",
-        "S\ts3\t10\t*\n",
-        "S\ts4\t12\t*\n",
-        "S\ts5\t21\t*\n",
-        "E\tl12\ts1+\ts2+\t20\t24$\t0\t4\t*\n",
-        "E\tl23\ts2+\ts3+\t18\t20$\t0\t2\t*\n",
-        "E\tlgeneric34\ts3+\ts4+\t5\t8\t0\t3\t*\n",
-        "E\tl45\ts4+\ts5+\t9\t11$\t0\t2\t*\n",
-        "F\tfragment5\ts5+\t10\t14\t100\t104\t*\n",
-        "S\ts6\t12\t*\n",
-        "S\ts7\t24\t*\n",
-        "S\ts8\t9\t*\n",
-        "E\tl67\ts6+\ts7+\t9\t11$\t0\t2\t*\n",
-    ],
-)
 
 #
 # --- = dovetail overlap
@@ -41,7 +22,7 @@ gfa_file = str.join(
 
 class TestLine(unittest.TestCase):
     graph = pygfa.gfa.GFA()
-    graph.from_string(gfa_file)
+    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_dovetail_operations.gfa"))
 
     def test_dovetails_remove_small_components(self):
         copy_ = copy.deepcopy(self.graph)

@@ -1,3 +1,4 @@
+import os
 import sys
 from networkx.exception import NetworkXError
 import unittest
@@ -5,39 +6,6 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
-
-gfa_file = str.join(
-    "",
-    [
-        "S\ts1\t9\t*\n"
-        + "S\ts2\t11\t*\n"
-        + "S\ts3\t23\t*\n"
-        + "S\ts4\t3\t*\n"
-        + "S\ts5\t50\t*\n"
-        + "E\tl12\ts1+\ts2+\t3\t8$\t0\t4\t*\n"
-        + "E\tl23\ts2-\ts3+\t0\t2\t7\t10$\t*\n"
-        + "E\tc14\ts1+\ts4+\t5\t7\t0\t2$\t*\n"
-        + "E\tl15\ts1-\ts5+\t0\t5\t0\t5\t*\n"
-    ],
-)
-
-linear_path = str.join(
-    "",
-    [
-        "S\ts1\t9\t*\n"
-        + "S\ts2\t11\t*\n"
-        + "S\ts3\t23\t*\n"
-        + "S\ts4\t3\t*\n"
-        + "S\ts5\t50\t*\n"
-        + "S\ts6\t20\t*\n"
-        + "L\ts1\t+\ts2\t+\t*\n"
-        + "L\ts2\t+\ts3\t+\t*\n"
-        + "L\ts3\t+\ts6\t+\t*\n"
-        + "L\ts6\t+\ts4\t+\t*\n"
-        + "L\ts1\t+\ts4\t+\t*\n"
-        + "L\ts4\t+\ts5\t+\t*\n"
-    ],
-)
 
 #    s2 --- s3 --- s6
 #   /                \
@@ -48,7 +16,7 @@ linear_path = str.join(
 
 class TestLine(unittest.TestCase):
     graph = pygfa.gfa.GFA()
-    graph.from_string(gfa_file)
+    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_dovetails_iterator.gfa"))
 
     def test_is_dovetail(self):
         """Test wheter the edges represent a dovetail overlaps."""
@@ -111,7 +79,7 @@ class TestLine(unittest.TestCase):
 
     def test_dovetails_linear_path_iter(self):
         graph = pygfa.gfa.GFA()
-        graph.from_string(linear_path)
+        graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_linear_path.gfa"))
 
         self.assertTrue(
             set(graph.dovetails_linear_path_traverse_nodes_iter("s3")) == {"s2", "s3", "s6"}
