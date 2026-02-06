@@ -11,7 +11,15 @@ from typing import Callable, Iterable, Iterator, List, Optional, Tuple, Union
 __all__ = ["all_simple_paths"]
 
 
-def all_simple_paths(gfa_, source: str, target: str, selector: Callable[..., Iterable[Tuple[str, str]]], edges: bool = False, keys: bool = True, cutoff: Optional[int] = None) -> Union[Iterator[List[str]], Iterator[List[Tuple[str, Optional[str]]]]]:
+def all_simple_paths(
+    gfa_,
+    source: str,
+    target: str,
+    selector: Callable[..., Iterable[Tuple[str, str]]],
+    edges: bool = False,
+    keys: bool = True,
+    cutoff: Optional[int] = None,
+) -> Union[Iterator[List[str]], Iterator[List[Tuple[str, Optional[str]]]]]:
     """Compute the all_simple_path algorithm as described in
     networkx, but return the edges keys if asked and use the
     given selector to obtain the nodes to consider.
@@ -40,7 +48,13 @@ def all_simple_paths(gfa_, source: str, target: str, selector: Callable[..., Ite
         )
 
 
-def _all_simple_paths_multigraph(_gfa, source: str, target: str, selector: Callable[..., Iterable[Tuple[str, str]]], cutoff: Optional[int] = None) -> Iterator[List[str]]:
+def _all_simple_paths_multigraph(
+    _gfa,
+    source: str,
+    target: str,
+    selector: Callable[..., Iterable[Tuple[str, str]]],
+    cutoff: Optional[int] = None,
+) -> Iterator[List[str]]:
     if cutoff < 1:
         return
     visited = [source]
@@ -65,7 +79,14 @@ def _all_simple_paths_multigraph(_gfa, source: str, target: str, selector: Calla
             visited.pop()
 
 
-def _all_simple_paths_edges_multigraph(_gfa, source: str, target: str, selector: Callable[..., Iterable[Union[Tuple[str, str], Tuple[str, str, str]]]], keys: bool = False, cutoff: Optional[int] = None) -> Iterator[List[Tuple[str, Optional[str]]]]:
+def _all_simple_paths_edges_multigraph(
+    _gfa,
+    source: str,
+    target: str,
+    selector: Callable[..., Iterable[Union[Tuple[str, str], Tuple[str, str, str]]]],
+    keys: bool = False,
+    cutoff: Optional[int] = None,
+) -> Iterator[List[Tuple[str, Optional[str]]]]:
     """Return all simple paths from source to target with
     all the edges id that connect each pair of nodes.
     """
@@ -109,24 +130,7 @@ def _all_simple_paths_edges_multigraph(_gfa, source: str, target: str, selector:
             path.pop()
             if path:
                 path.pop()
-        elif len(visited) < cutoff:
-            if child[1] == target:
-                yield [*path, child]
-            elif child[1] not in visited:
-                visited.append(child[1])
-                path.append(child)
-                add_to_stack = (
-                    ((u, v, k) for u, v, k in selector(child[1], keys=True))
-                    if keys
-                    else ((u, v) for u, v in selector(child[1], keys=True))
-                )
-                stack.append(add_to_stack)
-        else:
-            count = ([child[1]] + [child_[1] for child_ in children]).count(target)
-            for _i in range(count):
-                yield [*path, child]
-            stack.pop()
-            visited.pop()
-            path.pop()
-            if path:
-                path.pop()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    pass
