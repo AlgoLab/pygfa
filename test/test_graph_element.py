@@ -1,7 +1,7 @@
-import sys
-import unittest
 import copy
 import re
+import sys
+import unittest
 
 sys.path.insert(0, "../")
 

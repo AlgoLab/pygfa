@@ -1,8 +1,8 @@
 import copy
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pygfa.graph_element.parser import segment
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line, segment
 
 
 class InvalidNodeError(Exception):
@@ -42,8 +42,8 @@ class Node:
         self,
         node_id: str,
         sequence: str,
-        length: Optional[int],
-        opt_fields: Optional[Dict[str, line.Field]] = None,
+        length: int | None,
+        opt_fields: dict[str, line.Field] | None = None,
     ) -> None:
         """Construct a Node given an id, a sequence and a length.
 
@@ -60,7 +60,7 @@ class Node:
         if not isinstance(node_id, str) or node_id == "*":
             raise InvalidNodeError(
                 "A Node has always a defined id of type string, "
-                + "given {0} of type {1}".format(node_id, type(node_id))
+                 f"given {node_id} of type {type(node_id)}"
             )
 
         # checks sequence validation against GFA2 sequence specification
@@ -68,14 +68,14 @@ class Node:
         if not (isinstance(sequence, str) and fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
             raise InvalidNodeError(
                 "A sequence must be of type string and must be a "
-                + "valid GFA2 sequence,"
-                + "given '{0}' of type {1}".format(sequence, type(sequence))
+                 "valid GFA2 sequence,"
+                 f"given '{sequence}' of type {type(sequence)}"
             )
 
         if not ((isinstance(length, int) and int(length) >= 0) or length is None):
             raise InvalidNodeError(
                 "Sequence length must be a number >= 0, "
-                + "given {0} of type {1}".format(length, type(length))
+                 f"given {length} of type {type(length)}"
             )
         self._nid = node_id
         self._sequence = sequence
@@ -94,15 +94,15 @@ class Node:
         return self._sequence
 
     @property
-    def slen(self) -> Optional[int]:
+    def slen(self) -> int | None:
         return self._slen
 
     @property
-    def opt_fields(self) -> Dict[str, line.Field]:
+    def opt_fields(self) -> dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, segment_line: line.Line) -> "Node":
+    def from_line(cls, segment_line: line.Line) -> Node:
         """Given a Segment Line construct a Node from it.
 
         If segment_line is a GFA1 Segment segment_line then the sequence length
@@ -151,7 +151,7 @@ class Node:
                 return False
 
             for key, item in self.opt_fields.items():
-                if not key in other.opt_fields or not self.opt_fields[key] == other.opt_fields[key]:
+                if key not in other.opt_fields or not self.opt_fields[key] == other.opt_fields[key]:
                     return False
 
         except Exception:

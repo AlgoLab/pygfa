@@ -10,6 +10,7 @@ Functions:
 
 from __future__ import annotations
 
+import compression.zstd as z
 import gzip
 import io
 import logging
@@ -18,10 +19,6 @@ import math
 import os
 import struct
 import tempfile
-from typing import TYPE_CHECKING
-
-from pygfa.gfa import GFA
-from pygfa.graph_element import node, edge as ge
 
 from pygfa.encoding import (
     compress_integer_list_delta,
@@ -36,41 +33,41 @@ from pygfa.encoding import (
     compress_integer_list_vbyte,
     compress_string_gzip,
     compress_string_list,
-    compress_string_list_huffman,
     compress_string_lzma,
     compress_string_none,
     compress_string_zstd,
 )
-from pygfa.encoding.string_encoding import _build_huffman_tree, _build_codes
-
-import compression.zstd as z
+from pygfa.encoding.string_encoding import _build_codes, _build_huffman_tree
+from pygfa.gfa import GFA
+from pygfa.graph_element import edge as ge
+from pygfa.graph_element import node
 
 __all__ = [
-    "BGFAWriter",
-    "ReaderBGFA",
-    "to_bgfa",
-    "read_bgfa",
-    "make_compression_code",
-    "INTEGER_ENCODING_IDENTITY",
-    "INTEGER_ENCODING_VARINT",
-    "INTEGER_ENCODING_FIXED16",
     "INTEGER_ENCODING_DELTA",
     "INTEGER_ENCODING_ELIAS_GAMMA",
     "INTEGER_ENCODING_ELIAS_OMEGA",
-    "INTEGER_ENCODING_GOLOMB",
-    "INTEGER_ENCODING_RICE",
-    "INTEGER_ENCODING_STREAMVBYTE",
-    "INTEGER_ENCODING_VBYTE",
+    "INTEGER_ENCODING_FIXED16",
     "INTEGER_ENCODING_FIXED32",
     "INTEGER_ENCODING_FIXED64",
-    "STRING_ENCODING_IDENTITY",
-    "STRING_ENCODING_ZSTD",
+    "INTEGER_ENCODING_GOLOMB",
+    "INTEGER_ENCODING_IDENTITY",
+    "INTEGER_ENCODING_RICE",
+    "INTEGER_ENCODING_STREAMVBYTE",
+    "INTEGER_ENCODING_VARINT",
+    "INTEGER_ENCODING_VBYTE",
     "STRING_ENCODING_GZIP",
-    "STRING_ENCODING_LZMA",
     "STRING_ENCODING_HUFFMAN",
+    "STRING_ENCODING_IDENTITY",
+    "STRING_ENCODING_LZMA",
+    "STRING_ENCODING_ZSTD",
     "WALK_DECOMP_IDENTITY",
-    "WALK_DECOMP_ORIENTATION_STRID",
     "WALK_DECOMP_ORIENTATION_NUMID",
+    "WALK_DECOMP_ORIENTATION_STRID",
+    "BGFAWriter",
+    "ReaderBGFA",
+    "make_compression_code",
+    "read_bgfa",
+    "to_bgfa",
 ]
 
 
@@ -530,11 +527,10 @@ def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int],
                     data[data_idx] | (data[data_idx + 1] << 8) | (data[data_idx + 2] << 16)
                 )
                 data_idx += 3
-        else:
-            # 4 bytes
-            if data_idx + 4 <= len(data):
-                result.append(struct.unpack_from("<I", data, data_idx)[0])
-                data_idx += 4
+        # 4 bytes
+        elif data_idx + 4 <= len(data):
+            result.append(struct.unpack_from("<I", data, data_idx)[0])
+            data_idx += 4
 
         if (i & 3) == 3:
             ctrl_idx += 4
@@ -957,7 +953,7 @@ class ReaderBGFA:
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
-    ) -> "GFA":
+    ) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
@@ -984,12 +980,11 @@ class ReaderBGFA:
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
-        else:
-            # If we're not logging, use a dummy logfile
-            if os.name == "nt":  # Windows
-                logfile = "NUL"
-            else:  # Unix-like
-                logfile = "/dev/null"
+        # If we're not logging, use a dummy logfile
+        elif os.name == "nt":  # Windows
+            logfile = "NUL"
+        else:  # Unix-like
+            logfile = "/dev/null"
 
         # Clear any existing handlers
         logging.getLogger().handlers.clear()
@@ -1625,12 +1620,11 @@ class BGFAWriter:
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
-        else:
-            # If we're not logging, use a dummy logfile
-            if os.name == "nt":  # Windows
-                logfile = "NUL"
-            else:  # Unix-like
-                logfile = "/dev/null"
+        # If we're not logging, use a dummy logfile
+        elif os.name == "nt":  # Windows
+            logfile = "NUL"
+        else:  # Unix-like
+            logfile = "/dev/null"
 
         # Clear any existing handlers
         logging.getLogger().handlers.clear()
@@ -1721,7 +1715,7 @@ class BGFAWriter:
             offset += len(chunk)
 
         # Write segments blocks
-        logger.debug(f"Writing segment blocks")
+        logger.debug("Writing segment blocks")
         offset = 0
         # Use segment_map created above (contains all nodes)
         sorted_items = sorted(segment_map.items(), key=lambda x: x[1])
@@ -2610,7 +2604,7 @@ class BGFAWriter:
 
 
 def to_bgfa(
-    gfa_graph: "GFA",
+    gfa_graph: GFA,
     file=None,
     block_size: int = 1024,
     segment_names_int_encoding: int = INTEGER_ENCODING_IDENTITY,
@@ -2716,7 +2710,7 @@ def to_bgfa(
 
 def read_bgfa(
     file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
-) -> "GFA":
+) -> GFA:
     """Read a BGFA file and create the corresponding GFA graph.
 
     :param file_path: Path to the BGFA file

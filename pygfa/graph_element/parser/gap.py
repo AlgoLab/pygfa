@@ -2,16 +2,17 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Gap(line.Line):
     def __init__(self):
         super().__init__("G")
 
-    REQUIRED_FIELDS: Dict[str, str] = {
+    REQUIRED_FIELDS: dict[str, str] = {
         "gid": fv.GFA2_OPTIONAL_ID,
         "sid1": fv.GFA2_REFERENCE,
         "sid2": fv.GFA2_REFERENCE,
@@ -20,7 +21,7 @@ class Gap(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "Gap":
+    def from_string(cls, string: str) -> Gap:
         """Extract the Gap fields from the string.
 
         The string can contains the G character at the begin or can
@@ -29,7 +30,7 @@ class Gap(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        gfields: List[Union[line.Field, line.OptField]] = []
+        gfields: list[line.Field | line.OptField] = []
         if fields[0] == "G":
             fields = fields[1:]
 

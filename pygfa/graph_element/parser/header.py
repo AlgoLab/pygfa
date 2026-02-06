@@ -2,19 +2,20 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Header(line.Line):
-    PREDEFINED_OPTFIELDS: Dict[str, str] = {"VN": fv.TYPE_Z, "TS": fv.TYPE_i}
+    PREDEFINED_OPTFIELDS: dict[str, str] = {"VN": fv.TYPE_Z, "TS": fv.TYPE_i}
 
     def __init__(self):
         super().__init__("H")
 
     @classmethod
-    def from_string(cls, string: str) -> "Header":
+    def from_string(cls, string: str) -> Header:
         """Extract the header fields from the string.
 
         The string can contains the H character at the begin or can
@@ -23,7 +24,7 @@ class Header(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        hfields: List[Union[line.Field, line.OptField]] = []
+        hfields: list[line.Field | line.OptField] = []
         if fields[0] == "H":
             fields = fields[1:]
 

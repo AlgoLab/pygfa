@@ -2,6 +2,7 @@ import re
 
 from pygfa.graph_element.parser import field_validator as fv
 
+
 class InvalidLineError(Exception):
     """Exception raised when making a Line object from a string.
     The number of fields gained by splittin the string
@@ -74,7 +75,7 @@ class Line:
             if line_.type != cls().type:
                 return False
             for required_field in instance.REQUIRED_FIELDS:
-                if not required_field in line_.fields:
+                if required_field not in line_.fields:
                     return False
             return True
         except (AttributeError, KeyError):
@@ -127,7 +128,7 @@ class Line:
 
         if field.name in self.fields:
             raise ValueError(\
-                    "This field is already been added, field name: '{0}'.".format(field.name))
+                    f"This field is already been added, field name: '{field.name}'.")
 
         if field.name in self.REQUIRED_FIELDS:
             self._fields[field.name] = field
@@ -169,7 +170,7 @@ class Line:
 
 
     def __str__(self): # pragma: no cover
-        tmp_str = "line_type: {0}, fields: [".format(str(self.type))
+        tmp_str = f"line_type: {self.type!s}, fields: ["
         field_strings = []
 
         for field in self.fields:
@@ -222,7 +223,7 @@ class OptField(Field):
     """
     def __init__(self, name, value, field_type):
         if not re.fullmatch('[A-Za-z0-9]' * 2, name):
-            raise ValueError("Invalid optfield name, given '{0}'".format(name))
+            raise ValueError(f"Invalid optfield name, given '{name}'")
 
         if not re.fullmatch("^[ABHJZif]$", field_type):
             raise ValueError("Invalid type for an optional field.")
@@ -245,7 +246,7 @@ class OptField(Field):
         if len(groups) != 3:
             raise ValueError(\
                     "OptField must have a name, a type and a value," \
-                    + " given{0}".format(string))
+                     f" given{string}")
 
         optfield = OptField(groups[0], groups[2], groups[1])
         return optfield

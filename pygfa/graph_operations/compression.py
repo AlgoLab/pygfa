@@ -3,12 +3,11 @@ Python scripts that, if they are compatible, eliminate and compact nodes and edg
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 
-def tuple_to_string(node: Tuple[str, str]) -> str:
+def tuple_to_string(node: tuple[str, str]) -> str:
     """Given a tuple of a node id and orientation
     :return tuple element concatenete by |:
     """
@@ -26,7 +25,7 @@ def reverse_and_complement(string: str) -> str:
     return complement_string[::-1]
 
 
-def reverse_strand(strand: Optional[str]) -> Optional[str]:
+def reverse_strand(strand: str | None) -> str | None:
     """Given a strand
     :return the opposite strand: if is specify
     :return None: if strand is not defined

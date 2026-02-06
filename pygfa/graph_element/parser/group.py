@@ -2,19 +2,20 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class OGroup(line.Line):
     def __init__(self):
         super().__init__("O")
 
-    REQUIRED_FIELDS: Dict[str, str] = {"oid": fv.GFA2_OPTIONAL_ID, "references": fv.GFA2_REFERENCES}
+    REQUIRED_FIELDS: dict[str, str] = {"oid": fv.GFA2_OPTIONAL_ID, "references": fv.GFA2_REFERENCES}
 
     @classmethod
-    def from_string(cls, string: str) -> "OGroup":
+    def from_string(cls, string: str) -> OGroup:
         """Extract the OGroup fields from the string.
 
         The string can contains the O character at the begin or can
@@ -24,7 +25,7 @@ class OGroup(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        ogfields: List[Union[line.Field, line.OptField]] = []
+        ogfields: list[line.Field | line.OptField] = []
         if fields[0] == "O":
             fields = fields[1:]
 
@@ -51,10 +52,10 @@ class UGroup(line.Line):
     def __init__(self):
         super().__init__("U")
 
-    REQUIRED_FIELDS: Dict[str, str] = {"uid": fv.GFA2_OPTIONAL_ID, "ids": fv.GFA2_IDS}
+    REQUIRED_FIELDS: dict[str, str] = {"uid": fv.GFA2_OPTIONAL_ID, "ids": fv.GFA2_IDS}
 
     @classmethod
-    def from_string(cls, string: str) -> "UGroup":
+    def from_string(cls, string: str) -> UGroup:
         """Extract the UGroup fields from the string.
 
         The string can contains the U character at the begin or can
@@ -63,7 +64,7 @@ class UGroup(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        ugfields: List[Union[line.Field, line.OptField]] = []
+        ugfields: list[line.Field | line.OptField] = []
         if fields[0] == "U":
             fields = fields[1:]
 

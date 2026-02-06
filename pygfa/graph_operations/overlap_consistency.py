@@ -5,7 +5,7 @@ and the overlap of the nodes's sequences involved in the edge
 
 import difflib
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from Bio import SeqIO
 
@@ -22,7 +22,7 @@ def reverse_and_complement(string: str) -> str:
     return complement_string[::-1]
 
 
-def fasta_reader(path: str, fasta_file: str) -> Optional[Dict[str, Any]]:
+def fasta_reader(path: str, fasta_file: str) -> dict[str, Any] | None:
     """Given the path and external fasta file
     read the fasta and create a dictionary used to
     map id(key) and sequence(value) from the file.

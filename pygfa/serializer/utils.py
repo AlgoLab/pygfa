@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Union
+from typing import Any
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 SERIALIZATION_ERROR_MESSAGGE = "Couldn't serialize object identified by: "
 
@@ -9,7 +10,7 @@ def _format_exception(identifier: str, exception: Exception) -> str:
     return SERIALIZATION_ERROR_MESSAGGE + identifier + "\n\t" + repr(exception)
 
 
-def _remove_common_edge_fields(edge_dict: Dict[str, Any]) -> None:
+def _remove_common_edge_fields(edge_dict: dict[str, Any]) -> None:
     edge_dict.pop("eid")
     edge_dict.pop("from_node")
     edge_dict.pop("from_orn")
@@ -22,7 +23,7 @@ def _remove_common_edge_fields(edge_dict: Dict[str, Any]) -> None:
     edge_dict.pop("variance")
 
 
-def _serialize_opt_fields(opt_fields: Dict[str, line.OptField]) -> List[str]:
+def _serialize_opt_fields(opt_fields: dict[str, line.OptField]) -> list[str]:
     fields = []
     for key, opt_field in opt_fields.items():
         if line.is_optfield(opt_field):
@@ -40,7 +41,7 @@ def _are_fields_defined(fields: Any) -> bool:
     return True
 
 
-def _check_fields(fields: Any, required_fields: List[str]) -> bool:
+def _check_fields(fields: Any, required_fields: list[str]) -> bool:
     """Check if each field has the correct format as
     stated from the specification.
 
@@ -57,7 +58,7 @@ def _check_fields(fields: Any, required_fields: List[str]) -> bool:
         return False
 
 
-def _check_identifier(identifier: Union[str, Any]) -> str:
+def _check_identifier(identifier: str | Any) -> str:
     if not isinstance(identifier, str):
-        identifier = "'{0}' - id of type {1}.".format(str(identifier), type(identifier))
+        identifier = f"'{identifier!s}' - id of type {type(identifier)}."
     return identifier

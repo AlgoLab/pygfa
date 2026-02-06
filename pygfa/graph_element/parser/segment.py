@@ -2,12 +2,13 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
-def is_segmentv1(line_repr: Union[str, line.Line]) -> bool:
+def is_segmentv1(line_repr: str | line.Line) -> bool:
     """Check wether a given gfa line string probably belongs to a
     Segment of the first GFA version.
 
@@ -30,7 +31,7 @@ def is_segmentv1(line_repr: Union[str, line.Line]) -> bool:
     return False
 
 
-def is_segmentv2(line_repr: Union[str, line.Line]) -> bool:
+def is_segmentv2(line_repr: str | line.Line) -> bool:
     """Check wether a given string or line belongs to a Segment of
     the second GFA version.
 
@@ -70,7 +71,7 @@ class SegmentV1(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "SegmentV1":
+    def from_string(cls, string: str) -> SegmentV1:
         """Extract the segment fields from the string.
 
         The string can contains the S character at the begin
@@ -79,7 +80,7 @@ class SegmentV1(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        sfields: List[Union[line.Field, line.OptField]] = []
+        sfields: list[line.Field | line.OptField] = []
         if fields[0] == "S":
             fields = fields[1:]
 
@@ -114,7 +115,7 @@ class SegmentV2(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "SegmentV2":
+    def from_string(cls, string: str) -> SegmentV2:
         """Extract the segment fields from the string.
 
         The string can contains the S character at the begin or can
@@ -122,7 +123,7 @@ class SegmentV2(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        sfields: List[Union[line.Field, line.OptField]] = []
+        sfields: list[line.Field | line.OptField] = []
         if fields[0] == "S":
             fields = fields[1:]
 

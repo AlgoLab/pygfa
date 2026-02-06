@@ -7,7 +7,7 @@ before or from a dictionary with equivalent key.
 
 import copy
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import networkx as nx
 
@@ -41,7 +41,7 @@ PATH_FIELDS = [fv.GFA1_NAME, fv.GFA1_NAMES, fv.GFA1_CIGARS]
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
-def serialize_node(node_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_IDENTIFIER) -> str:
+def serialize_node(node_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTIFIER) -> str:
     """Serialize to the GFA1 specification a Graph Element Node or a
     dictionary that has the same informations.
 
@@ -104,17 +104,16 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
                 return _serialize_to_link(edge_, identifier)
             else:
                 raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
+        elif edge_.eid is None:  # edge_ is a fragment
+            raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
+        elif edge_.distance != None or edge_.variance != None:  # edge_ is a gap
+            raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
+        elif "pos" in edge_.opt_fields:  # edge_ is a containment
+            return _serialize_to_containment(edge_)
+        elif edge_.is_dovetail is True:
+            return _serialize_to_link(edge_)
         else:
-            if edge_.eid is None:  # edge_ is a fragment
-                raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
-            elif edge_.distance != None or edge_.variance != None:  # edge_ is a gap
-                raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
-            elif "pos" in edge_.opt_fields:  # edge_ is a containment
-                return _serialize_to_containment(edge_)
-            elif edge_.is_dovetail is True:
-                return _serialize_to_link(edge_)
-            else:
-                raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
+            raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
     except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
@@ -147,7 +146,7 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
             else:
                 fields.append("*")
 
-            if not containment_["eid"] in (None, "*"):
+            if containment_["eid"] not in (None, "*"):
                 fields.append("ID:Z:" + str(containment_["eid"]))
 
             fields.extend(utils._serialize_opt_fields(containment_dict))
@@ -173,7 +172,7 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
                 fields.append(str(containment_.alignment))
             else:
                 fields.append("*")
-            if not containment_.eid in (None, "*"):
+            if containment_.eid not in (None, "*"):
                 fields.append("ID:Z:" + str(containment_.eid))
             fields.extend(utils._serialize_opt_fields(opt_fields))
 
@@ -212,7 +211,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
                 fields.append(str(link_["alignment"]))
             else:
                 fields.append("*")
-            if not link_["eid"] in (None, "*"):
+            if link_["eid"] not in (None, "*"):
                 fields.append("ID:Z:" + str(link_["eid"]))
             fields.extend(utils._serialize_opt_fields(link_dict))
         else:
@@ -234,7 +233,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
             else:
                 fields.append("*")
 
-            if not link_.eid in (None, "*"):
+            if link_.eid not in (None, "*"):
                 fields.append("ID:Z:" + str(link_.eid))
             fields.extend(utils._serialize_opt_fields(link_.opt_fields))
 
@@ -280,9 +279,8 @@ def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
         if gfa_ is None:
             if orientation != None:
                 elements.append(str(id_) + str(orientation))
-        else:
-            if orientation != None and point_to_node(gfa_, id_):
-                elements.append(str(id_) + str(orientation))
+        elif orientation != None and point_to_node(gfa_, id_):
+            elements.append(str(id_) + str(orientation))
     return str.join(",", elements)
 
 

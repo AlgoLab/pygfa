@@ -3,11 +3,10 @@ Edge module for GFA graph elements.
 """
 
 import copy
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import containment, fragment, gap, line, link
 from pygfa.graph_element.parser.edge import Edge as EdgeLine
-from pygfa.graph_element.parser import link, containment, fragment, gap
 
 
 class InvalidEdgeError(Exception):
@@ -41,17 +40,17 @@ class Edge:
 
     def __init__(
         self,
-        eid: Optional[str],
-        from_node: Optional[str],
-        from_orn: Optional[str],
-        to_node: Optional[str],
-        to_orn: Optional[str],
-        from_positions: Tuple[Optional[int], Optional[int]],
-        to_positions: Tuple[Optional[int], Optional[int]],
-        alignment: Optional[str],
-        distance: Optional[int],
-        variance: Optional[str],
-        opt_fields: Optional[Dict[str, line.Field]] = None,
+        eid: str | None,
+        from_node: str | None,
+        from_orn: str | None,
+        to_node: str | None,
+        to_orn: str | None,
+        from_positions: tuple[int | None, int | None],
+        to_positions: tuple[int | None, int | None],
+        alignment: str | None,
+        distance: int | None,
+        variance: str | None,
+        opt_fields: dict[str, line.Field] | None = None,
         is_dovetail: bool = False,
     ) -> None:
         """Initialize an Edge object.
@@ -105,16 +104,16 @@ class Edge:
 
         # Validate positions
         if not isinstance(from_positions, tuple) or len(from_positions) != 2:
-            raise InvalidEdgeError(f"Invalid from_positions tuple: given: {str(from_positions)}")
+            raise InvalidEdgeError(f"Invalid from_positions tuple: given: {from_positions!s}")
         if not isinstance(to_positions, tuple) or len(to_positions) != 2:
-            raise InvalidEdgeError(f"Invalid to_positions tuple: given: {str(to_positions)}")
+            raise InvalidEdgeError(f"Invalid to_positions tuple: given: {to_positions!s}")
 
     @property
-    def opt_fields(self) -> Dict[str, line.Field]:
+    def opt_fields(self) -> dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, edge_line: line.Line) -> Optional["Edge"]:
+    def from_line(cls, edge_line: line.Line) -> Edge | None:
         """Create an Edge from an EdgeLine, Link, Containment, Fragment, or Gap line.
 
         :param edge_line: A line object to convert to an Edge

@@ -1,6 +1,7 @@
 import re
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Walk(line.Line):
@@ -21,7 +22,7 @@ class Walk(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "Walk":
+    def from_string(cls, string: str) -> Walk:
         """Extract the walk fields from the string.
 
         The string can contains the W character at the begin or can

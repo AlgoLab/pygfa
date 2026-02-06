@@ -1,9 +1,10 @@
-from typing import TYPE_CHECKING, Set, Iterator
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
+from networkx.algorithms.components.connected import connected_components as nx_connected_components
 from networkx.algorithms.components.connected import (
     node_connected_component as nx_node_connected_component,
 )
-from networkx.algorithms.components.connected import connected_components as nx_connected_components
 
 import pygfa.gfa  # required for GFAError (gives error otherwise)
 
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
     from pygfa.gfa import GFA
 
 
-def nodes_connected_component(gfa_: "GFA", nid: str) -> Set[str]:
+def nodes_connected_component(gfa_: GFA, nid: str) -> set[str]:
     """Return the connected component
     belonging to the given node.
 
@@ -24,7 +25,7 @@ def nodes_connected_component(gfa_: "GFA", nid: str) -> Set[str]:
     return nx_node_connected_component(gfa_._graph, nid)
 
 
-def nodes_connected_components(gfa_: "GFA") -> Iterator[Set[str]]:
+def nodes_connected_components(gfa_: GFA) -> Iterator[set[str]]:
     """Return a generator of sets with nodes of each weakly
     connected component in the graph.
 

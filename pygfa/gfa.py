@@ -2,11 +2,11 @@
 GFA representation through a networkx MulitGraph.
 """
 
-import logging
 import copy
-import re
+import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+import re
+from typing import Any
 
 try:
     import compression.zstd as z
@@ -16,33 +16,27 @@ except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
 
-import networkx as nx
-from networkx.classes.function import all_neighbors as nx_all_neighbors
 from itertools import islice
 
-from pygfa.graph_element.parser import segment, link, containment, path
-from pygfa.graph_element.parser import edge, gap, fragment, group
-from pygfa.graph_element import node, edge as ge, subgraph as sg
+# BGFAWriter is imported locally in the to_bgfa method to avoid circular imports
+import lark
+import networkx as nx
+from networkx.classes.function import all_neighbors as nx_all_neighbors
 
-from pygfa.graph_operations.compression import (
-    compression_graph_by_nodes,
-    compression_graph_by_edges,
-)
-from pygfa.graph_operations.overlap_consistency import check_overlap
 from benchmark.extract_subgraph import extract_subgraph
-
 from pygfa.encoding import (
     compress_integer_list_varint,
-    compress_string_zstd,
-    compress_string_gzip,
-    compress_string_lzma,
-    compress_string_none,
     compress_string_list,
 )
-
-# BGFAWriter is imported locally in the to_bgfa method to avoid circular imports
-
-import lark
+from pygfa.graph_element import edge as ge
+from pygfa.graph_element import node
+from pygfa.graph_element import subgraph as sg
+from pygfa.graph_element.parser import containment, edge, fragment, gap, group, link, path, segment
+from pygfa.graph_operations.compression import (
+    compression_graph_by_edges,
+    compression_graph_by_nodes,
+)
+from pygfa.graph_operations.overlap_consistency import check_overlap
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +61,7 @@ class Element:
     SUBGRAPH = 2
 
 
-def _index(obj: Any, other: List[Any]) -> Tuple[bool, int]:
+def _index(obj: Any, other: list[Any]) -> tuple[bool, int]:
     """Given an object O and a list
     of objects L check that exist an object O'
     in the list such that O == O'.
@@ -241,9 +235,8 @@ class GFA:
         """
         if identifier is None:
             return self._subgraphs
-        else:
-            if identifier in self._subgraphs:
-                return self._subgraphs[identifier]
+        elif identifier in self._subgraphs:
+            return self._subgraphs[identifier]
 
     def paths(self, identifier=None):
         """An interface to access to the paths inside
@@ -254,9 +247,8 @@ class GFA:
         """
         if identifier is None:
             return self._paths
-        else:
-            if identifier in self._paths:
-                return self._paths[identifier]
+        elif identifier in self._paths:
+            return self._paths[identifier]
 
     def walks(self, identifier=None):
         """An interface to access to the walks inside
@@ -267,9 +259,8 @@ class GFA:
         """
         if identifier is None:
             return self._walks
-        else:
-            if identifier in self._walks:
-                return self._walks[identifier]
+        elif identifier in self._walks:
+            return self._walks[identifier]
 
     def _search_edge_by_key(self, edge_key):
         from_node, to_node = self._get_edge_end_nodes(edge_key)
@@ -322,7 +313,7 @@ class GFA:
         if key in self._walks:
             return self._walks[key]
         edge_ = self._search_edge_by_key(key)
-        if not edge_ is None:
+        if edge_ is not None:
             return edge_
 
     def as_graph_element(self, key):
@@ -422,11 +413,11 @@ class GFA:
         )
 
         if isinstance(new_node, str) and new_node[0] == "S":
-            logger.debug(f"add_node(): Parsing node from string")
+            logger.debug("add_node(): Parsing node from string")
             new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
 
         if not node.is_node(new_node):
-            logger.debug(f"add_node(): Invalid node object")
+            logger.debug("add_node(): Invalid node object")
             raise node.InvalidNodeError("The object given is not a node.")
 
         if safe and new_node.nid in self:
@@ -501,7 +492,7 @@ class GFA:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"add_edge(): Adding edge")
+        logger.debug("add_edge(): Adding edge")
 
         if isinstance(new_edge, str):
             logger.debug(f"add_edge(): Parsing edge from string: {new_edge[:50]}...")
@@ -516,7 +507,7 @@ class GFA:
             elif new_edge[0] == "F":
                 new_edge = ge.Edge.from_line(fragment.Fragment.from_string(new_edge.strip()))
             else:
-                logger.debug(f"add_edge(): Invalid edge string")
+                logger.debug("add_edge(): Invalid edge string")
                 raise ge.InvalidEdgeError(
                     f"The string given doesn't represent a GFA line that could"
                     f" be represented as an edge,\n"
@@ -524,7 +515,7 @@ class GFA:
                 )
 
         if not ge.is_edge(new_edge):
-            logger.debug(f"add_edge(): Invalid edge object")
+            logger.debug("add_edge(): Invalid edge object")
             raise ge.InvalidEdgeError("The object is not a valid edge.")
 
         key = new_edge.eid
@@ -533,7 +524,7 @@ class GFA:
             logger.debug(f"add_edge(): Assigned virtual ID: {key}")
 
         if safe:
-            logger.debug(f"add_edge(): Safe mode - checking existence")
+            logger.debug("add_edge(): Safe mode - checking existence")
             edge_exists = key in self
             node1_exists = new_edge.from_node in self
             node2_exists = new_edge.to_node in self
@@ -671,10 +662,10 @@ class GFA:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"add_path(): Adding path")
+        logger.debug("add_path(): Adding path")
 
         if isinstance(path_data, str):
-            logger.debug(f"add_path(): Parsing path from string")
+            logger.debug("add_path(): Parsing path from string")
             if path_data[0] == "P":
                 # Parse the path line
                 path_obj = path.Path.from_string(path_data.strip())
@@ -692,7 +683,7 @@ class GFA:
                         path_data[field_name] = field.value
 
         if not isinstance(path_data, dict) or "path_name" not in path_data:
-            logger.debug(f"add_path(): Invalid path data format")
+            logger.debug("add_path(): Invalid path data format")
             raise GFAError("Invalid path data format.")
 
         key = path_data["path_name"]
@@ -743,10 +734,10 @@ class GFA:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"add_walk(): Adding walk")
+        logger.debug("add_walk(): Adding walk")
 
         if isinstance(walk_data, str):
-            logger.debug(f"add_walk(): Parsing walk from string")
+            logger.debug("add_walk(): Parsing walk from string")
             if walk_data[0] == "W":
                 # Parse the walk line
                 fields = walk_data.strip().split("\t")
@@ -765,7 +756,7 @@ class GFA:
                         walk_data[tag] = value
 
         if not isinstance(walk_data, dict) or "sample_id" not in walk_data:
-            logger.debug(f"add_walk(): Invalid walk data format")
+            logger.debug("add_walk(): Invalid walk data format")
             raise GFAError("Invalid walk data format.")
 
         # Create a unique key for the walk
@@ -806,7 +797,7 @@ class GFA:
         :param sub_key: The id of a subgraph present in the GFA graph.
         :returns None: If the subgraph id doesn't exist.
         """
-        if not sub_key in self._subgraphs:
+        if sub_key not in self._subgraphs:
             raise sg.InvalidSubgraphError("There is no subgraph pointed by this key.")
         subgraph = self._subgraphs[sub_key]
         sub_gfa = GFA()
@@ -907,7 +898,7 @@ class GFA:
         grammar_file = os.path.join(
             os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
         )
-        with open(grammar_file, "r") as f:
+        with open(grammar_file) as f:
             grammar = f.read()
 
         # Create the parser
@@ -1222,8 +1213,8 @@ class GFA:
         return bytes(
             b"".join(
                 [
-                    int(len(list(names))).to_bytes(2, byteorder="big", signed=False),  ## block size
-                    int(len(compressed_names)).to_bytes(
+                    len(list(names)).to_bytes(2, byteorder="big", signed=False),  ## block size
+                    len(compressed_names).to_bytes(
                         8, byteorder="big", signed=False
                     ),  ## size compressed names
                     int(sum([len(name) + 1 for name in names])).to_bytes(
@@ -1312,7 +1303,7 @@ class GFA:
         return bytes(b"".join(blocks))
 
     def links_block(self, names, compression_level=19):
-        return bytes(b"")
+        return b""
 
     def links_blocks(self, block_size=1024):
         """
@@ -1332,7 +1323,7 @@ class GFA:
         )
 
     def paths_block(self, names, compression_level=19):
-        return bytes(b"")
+        return b""
 
     def paths_blocks(self, block_size=1024):
         """
@@ -1352,7 +1343,7 @@ class GFA:
         )
 
     def walks_block(self, names, compression_level=19):
-        return bytes(b"")
+        return b""
 
     def walks_blocks(self, block_size=1024):
         """
@@ -1387,13 +1378,13 @@ class GFA:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"to_gfa(): Starting GFA serialization")
+        logger.debug("to_gfa(): Starting GFA serialization")
 
         lines = []
 
         # 1. Header
         lines.append("H\tVN:Z:1.0")
-        logger.debug(f"to_gfa(): Added header")
+        logger.debug("to_gfa(): Added header")
 
         # 2. Segments (sorted by name)
         segments = []
@@ -1549,7 +1540,7 @@ class GFA:
             os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
         )
         logger.debug(f"Loading grammar from: {grammar_file}")
-        with open(grammar_file, "r") as f:
+        with open(grammar_file) as f:
             grammar = f.read()
         logger.debug(f"Grammar loaded, size: {len(grammar)} characters")
 
@@ -1564,7 +1555,7 @@ class GFA:
         path_count = 0
         walk_count = 0
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             for line in f:
                 line = line.strip()
                 line_count += 1
@@ -1955,7 +1946,7 @@ class GFA:
                     return False
                 other_walks.pop(index)
 
-        except (AttributeError, KeyError) as e:
+        except (AttributeError, KeyError):
             return False
         return True
 
@@ -2002,7 +1993,7 @@ class GFA:
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
-    ) -> "GFA":
+    ) -> GFA:
         """Read a BGFA file and return the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
@@ -2055,24 +2046,26 @@ class GFA:
             logger.info(f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}")
 
         from pygfa.bgfa import (
-            to_bgfa as bgfa_to_bgfa,
-            INTEGER_ENCODING_IDENTITY,
-            INTEGER_ENCODING_VARINT,
-            INTEGER_ENCODING_FIXED16,
             INTEGER_ENCODING_DELTA,
             INTEGER_ENCODING_ELIAS_GAMMA,
             INTEGER_ENCODING_ELIAS_OMEGA,
-            INTEGER_ENCODING_GOLOMB,
-            INTEGER_ENCODING_RICE,
-            INTEGER_ENCODING_STREAMVBYTE,
-            INTEGER_ENCODING_VBYTE,
+            INTEGER_ENCODING_FIXED16,
             INTEGER_ENCODING_FIXED32,
             INTEGER_ENCODING_FIXED64,
-            STRING_ENCODING_IDENTITY,
-            STRING_ENCODING_ZSTD,
+            INTEGER_ENCODING_GOLOMB,
+            INTEGER_ENCODING_IDENTITY,
+            INTEGER_ENCODING_RICE,
+            INTEGER_ENCODING_STREAMVBYTE,
+            INTEGER_ENCODING_VARINT,
+            INTEGER_ENCODING_VBYTE,
             STRING_ENCODING_GZIP,
-            STRING_ENCODING_LZMA,
             STRING_ENCODING_HUFFMAN,
+            STRING_ENCODING_IDENTITY,
+            STRING_ENCODING_LZMA,
+            STRING_ENCODING_ZSTD,
+        )
+        from pygfa.bgfa import (
+            to_bgfa as bgfa_to_bgfa,
         )
 
         if compression_options is None:
