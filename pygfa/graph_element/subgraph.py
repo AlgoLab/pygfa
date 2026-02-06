@@ -1,5 +1,6 @@
 import copy
 import collections
+from typing import Any, Dict, Optional, OrderedDict as OrderedDictType
 
 from pygfa.graph_element.parser import line
 
@@ -8,17 +9,20 @@ class InvalidSubgraphError(Exception):
     pass
 
 
-def is_subgraph(obj):
+def is_subgraph(obj: Any) -> bool:
     try:
-        return (
-            obj.sub_id != None and obj.elements != None and hasattr(obj, "opt_fields")
-        )
+        return obj.sub_id != None and obj.elements != None and hasattr(obj, "opt_fields")
     except Exception:
         return False
 
 
 class Subgraph:
-    def __init__(self, graph_id, elements, opt_fields=None):
+    def __init__(
+        self,
+        graph_id: str,
+        elements: Dict[str, Any],
+        opt_fields: Optional[Dict[str, line.Field]] = None,
+    ) -> None:
         """Create a Subgraph object.
 
         Subgraphs can be created from the following lines:
@@ -48,9 +52,7 @@ class Subgraph:
                 + "given {0} of type {1}".format(graph_id, type(graph_id))
             )
         if not isinstance(elements, dict):
-            raise InvalidSubgraphError(
-                "A dictionary of elements id:orientation is required."
-            )
+            raise InvalidSubgraphError("A dictionary of elements id:orientation is required.")
         self._sub_id = graph_id
         self._elements = copy.deepcopy(elements)
         self._opt_fields = {}
@@ -58,26 +60,26 @@ class Subgraph:
             if line.is_field(field):
                 self._opt_fields[key] = copy.deepcopy(field)
 
-    def is_path(self):
+    def is_path(self) -> bool:
         for element, orn in self.elements.items():
             if orn is None:
                 return False
         return True
 
     @property
-    def sub_id(self):
+    def sub_id(self) -> str:
         return self._sub_id
 
     @property
-    def elements(self):
+    def elements(self) -> Dict[str, Any]:
         return self._elements
 
     @property
-    def opt_fields(self):
+    def opt_fields(self) -> Dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, line_):
+    def from_line(cls, line_: line.Line) -> "Subgraph":
         try:
             fields = copy.deepcopy(line_.fields)
             if line_.type == "P":
@@ -97,17 +99,20 @@ class Subgraph:
             if line_.type == "U":
                 fields.pop("uid")
                 fields.pop("ids")
-                ids = collections.OrderedDict(
-                    (id, None) for id in line_.fields["ids"].value
-                )
+                ids = collections.OrderedDict((id, None) for id in line_.fields["ids"].value)
                 return Subgraph(line_.fields["uid"].value, ids, fields)
-        except (KeyError, AttributeError):
-            raise line.InvalidLineError("The given line cannot be " + "a Subgraph.")
+            raise line.InvalidLineError(
+                "The given line type '{}' cannot be a Subgraph.".format(line_.type)
+            )
+        except (KeyError, AttributeError) as e:
+            raise line.InvalidLineError("The given line cannot be a Subgraph: {}".format(e))
 
-    def as_dict(self):
-        """Turn the Subgraph into a dictionary,
+    def as_dict(self) -> Dict[str, Any]:
+        """Turn the Subgraph into a dictionary.
 
         Put all fields and the optional fields into a dictionary.
+
+        :return: A dictionary representation of the subgraph.
         """
         retval = {}
         retval["sub_id"] = self.sub_id
@@ -116,7 +121,7 @@ class Subgraph:
             retval[key] = value
         return retval
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         try:
             if self.sub_id != other.sub_id or self.elements != other.elements:
                 return False
@@ -127,16 +132,14 @@ class Subgraph:
         except Exception:
             return False
 
-    def __neq__(self, other):
+    def __neq__(self, other: Any) -> bool:
         return not self == other
 
-    def __str__(self):  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
         fields = ("sub_id", "elements", "opt_fields")
         opt_fields_ = []
         if len(self.opt_fields) > 0:
-            opt_fields_ = str.join(
-                ",\t", [str(field) for key, field in self.opt_fields.items()]
-            )
+            opt_fields_ = str.join(",\t", [str(field) for key, field in self.opt_fields.items()])
         elements_ = str.join(
             "\t",
             [id + (orn if orn != None else "") for id, orn in self.elements.items()],

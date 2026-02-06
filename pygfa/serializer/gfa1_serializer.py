@@ -4,44 +4,44 @@ GFA1 Serializer for nodes, edge, Subgraphs and networkx graphs.
 Can serialize either one of the object from the group mentioned
 before or from a dictionary with equivalent key.
 """
+
 import copy
 import logging
+from typing import Any, Dict, Optional, Union
 
 import networkx as nx
 
 from pygfa.graph_element.parser import field_validator as fv
 from pygfa.serializer import utils
 
-class GFA1SerializationError(Exception): pass
+
+class GFA1SerializationError(Exception):
+    pass
+
 
 serializer_logger = logging.getLogger(__name__)
 
 DEFAULT_IDENTIFIER = "no identifier given."
 
 SEGMENT_FIELDS = [fv.GFA1_NAME, fv.GFA1_SEQUENCE]
-LINK_FIELDS = [\
-    fv.GFA1_NAME, \
-    fv.GFA1_ORIENTATION, \
-    fv.GFA1_NAME, \
-    fv.GFA1_ORIENTATION, \
-    fv.GFA1_CIGAR]
+LINK_FIELDS = [fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_NAME, fv.GFA1_ORIENTATION, fv.GFA1_CIGAR]
 
-CONTAINMENT_FIELDS = [\
-    fv.GFA1_NAME, \
-    fv.GFA1_ORIENTATION, \
-    fv.GFA1_NAME, \
-    fv.GFA1_ORIENTATION, \
-    fv.GFA1_INT, \
-    fv.GFA1_CIGAR]
+CONTAINMENT_FIELDS = [
+    fv.GFA1_NAME,
+    fv.GFA1_ORIENTATION,
+    fv.GFA1_NAME,
+    fv.GFA1_ORIENTATION,
+    fv.GFA1_INT,
+    fv.GFA1_CIGAR,
+]
 
-PATH_FIELDS = [\
-    fv.GFA1_NAME, \
-    fv.GFA1_NAMES, \
-    fv.GFA1_CIGARS]
+PATH_FIELDS = [fv.GFA1_NAME, fv.GFA1_NAMES, fv.GFA1_CIGARS]
+
+
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
-def serialize_node(node_, identifier=DEFAULT_IDENTIFIER):
+def serialize_node(node_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_IDENTIFIER) -> str:
     """Serialize to the GFA1 specification a Graph Element Node or a
     dictionary that has the same informations.
 
@@ -52,25 +52,18 @@ def serialize_node(node_, identifier=DEFAULT_IDENTIFIER):
     identifier = utils._check_identifier(identifier)
     try:
         if isinstance(node_, dict):
-
             node_dict = copy.deepcopy(node_)
-            defined_fields = [ \
-                                node_dict.pop('nid'), \
-                                node_dict.pop('sequence') \
-                             ]
-            node_dict.pop('slen')
+            defined_fields = [node_dict.pop("nid"), node_dict.pop("sequence")]
+            node_dict.pop("slen")
             fields = ["S"]
-            fields.append(str(node_['nid']))
-            fields.append(str(node_['sequence']))
-            if node_['slen'] != None:
-                fields.append("LN:i:" + str(node_['slen']))
+            fields.append(str(node_["nid"]))
+            fields.append(str(node_["sequence"]))
+            if node_["slen"] != None:
+                fields.append("LN:i:" + str(node_["slen"]))
 
             fields.extend(utils._serialize_opt_fields(node_dict))
         else:
-            defined_fields = [ \
-                                node_.nid, \
-                                node_.sequence
-                             ]
+            defined_fields = [node_.nid, node_.sequence]
             fields = ["S"]
             fields.append(str(node_.nid))
             fields.append(str(node_.sequence))
@@ -78,15 +71,16 @@ def serialize_node(node_, identifier=DEFAULT_IDENTIFIER):
                 fields.append("LN:i:" + str(node_.slen))
             fields.extend(utils._serialize_opt_fields(node_.opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or \
-           not utils._check_fields(fields[1:], SEGMENT_FIELDS):
-            raise GFA1SerializationError("Required node elements " \
-                                        + "missing or invalid.")
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
+            fields[1:], SEGMENT_FIELDS
+        ):
+            raise GFA1SerializationError("Required node elements " + "missing or invalid.")
 
         return str.join("\t", fields)
     except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
+
 
 ################################################################################
 # EDGE SERIALIZER
@@ -100,35 +94,27 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
     identifier = utils._check_identifier(identifier)
     try:
         if isinstance(edge_, dict):
-            if edge_['eid'] is None: # edge_ is a fragment
-                raise GFA1SerializationError("Cannot serialize Fragment " \
-                                        + "to GFA1.")
-            elif edge_['distance'] != None or \
-              edge_['variance'] != None: # edge_ is a gap
-                raise GFA1SerializationError("Cannot serialize GAP " \
-                                        + "to GFA1.")
-            elif 'pos' in edge_: # edge_ is a containment
+            if edge_["eid"] is None:  # edge_ is a fragment
+                raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
+            elif edge_["distance"] != None or edge_["variance"] != None:  # edge_ is a gap
+                raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
+            elif "pos" in edge_:  # edge_ is a containment
                 return _serialize_to_containment(edge_, identifier)
-            elif edge_['is_dovetail'] is True:
+            elif edge_["is_dovetail"] is True:
                 return _serialize_to_link(edge_, identifier)
             else:
-                raise GFA1SerializationError("Cannot convert an " \
-                                            + "internal edge to a Link")
+                raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
         else:
-            if edge_.eid is None: # edge_ is a fragment
-                raise GFA1SerializationError("Cannot serialize Fragment " \
-                                        + "to GFA1.")
-            elif edge_.distance != None or \
-              edge_.variance != None: # edge_ is a gap
-                raise GFA1SerializationError("Cannot serialize GAP " \
-                                        + "to GFA1.")
-            elif 'pos' in edge_.opt_fields: # edge_ is a containment
+            if edge_.eid is None:  # edge_ is a fragment
+                raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
+            elif edge_.distance != None or edge_.variance != None:  # edge_ is a gap
+                raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
+            elif "pos" in edge_.opt_fields:  # edge_ is a containment
                 return _serialize_to_containment(edge_)
             elif edge_.is_dovetail is True:
                 return _serialize_to_link(edge_)
             else:
-                raise GFA1SerializationError("Cannot convert an " \
-                                            + "internal edge to a Link")
+                raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
     except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
@@ -140,64 +126,65 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
         if isinstance(containment_, dict):
             containment_dict = copy.deepcopy(containment_)
             utils._remove_common_edge_fields(containment_dict)
-            containment_dict.pop('pos')
-            defined_fields = [ \
-                                containment_['from_node'], \
-                                containment_['from_orn'], \
-                                containment_['to_node'], \
-                                containment_['to_orn'], \
-                                containment_['alignment'], \
-                                containment_['pos'].value
-                             ]
+            containment_dict.pop("pos")
+            defined_fields = [
+                containment_["from_node"],
+                containment_["from_orn"],
+                containment_["to_node"],
+                containment_["to_orn"],
+                containment_["alignment"],
+                containment_["pos"].value,
+            ]
             fields = ["C"]
-            fields.append(str(containment_['from_node']))
-            fields.append(str(containment_['from_orn']))
-            fields.append(str(containment_['to_node']))
-            fields.append(str(containment_['to_orn']))
-            fields.append(str(containment_['pos'].value))
+            fields.append(str(containment_["from_node"]))
+            fields.append(str(containment_["from_orn"]))
+            fields.append(str(containment_["to_node"]))
+            fields.append(str(containment_["to_orn"]))
+            fields.append(str(containment_["pos"].value))
 
-            if fv.is_gfa1_cigar(containment_['alignment']):
-                fields.append(str(containment_['alignment']))
+            if fv.is_gfa1_cigar(containment_["alignment"]):
+                fields.append(str(containment_["alignment"]))
             else:
                 fields.append("*")
 
-            if not containment_['eid'] in(None, '*'):
-                fields.append("ID:Z:" + str(containment_['eid']))
+            if not containment_["eid"] in (None, "*"):
+                fields.append("ID:Z:" + str(containment_["eid"]))
 
             fields.extend(utils._serialize_opt_fields(containment_dict))
         else:
-            defined_fields = [ \
-                                containment_.from_node, \
-                                containment_.from_orn, \
-                                containment_.to_node, \
-                                containment_.to_orn, \
-                                containment_.alignment, \
-                                containment_.opt_fields['pos'].value \
-                             ]
+            defined_fields = [
+                containment_.from_node,
+                containment_.from_orn,
+                containment_.to_node,
+                containment_.to_orn,
+                containment_.alignment,
+                containment_.opt_fields["pos"].value,
+            ]
             fields = ["C"]
             opt_fields = copy.deepcopy(containment_.opt_fields)
-            opt_fields.pop('pos')
+            opt_fields.pop("pos")
             fields.append(str(containment_.from_node))
             fields.append(str(containment_.from_orn))
             fields.append(str(containment_.to_node))
             fields.append(str(containment_.to_orn))
-            fields.append(str(containment_.opt_fields['pos'].value))
+            fields.append(str(containment_.opt_fields["pos"].value))
 
             if fv.is_gfa1_cigar(containment_.alignment):
                 fields.append(str(containment_.alignment))
             else:
                 fields.append("*")
-            if not containment_.eid in(None, '*'):
+            if not containment_.eid in (None, "*"):
                 fields.append("ID:Z:" + str(containment_.eid))
             fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or \
-           not utils._check_fields(fields[1:], CONTAINMENT_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
+            fields[1:], CONTAINMENT_FIELDS
+        ):
             raise GFA1SerializationError()
 
         return str.join("\t", fields)
 
-    except(KeyError, AttributeError, GFA1SerializationError) as e:
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
 
@@ -208,34 +195,34 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
         if isinstance(link_, dict):
             link_dict = copy.deepcopy(link_)
             utils._remove_common_edge_fields(link_dict)
-            defined_fields = [ \
-                                link_['from_node'], \
-                                link_['from_orn'], \
-                                link_['to_node'], \
-                                link_['to_orn'], \
-                                link_['alignment'] \
-                             ]
+            defined_fields = [
+                link_["from_node"],
+                link_["from_orn"],
+                link_["to_node"],
+                link_["to_orn"],
+                link_["alignment"],
+            ]
             fields = ["L"]
-            fields.append(str(link_['from_node']))
-            fields.append(str(link_['from_orn']))
-            fields.append(str(link_['to_node']))
-            fields.append(str(link_['to_orn']))
+            fields.append(str(link_["from_node"]))
+            fields.append(str(link_["from_orn"]))
+            fields.append(str(link_["to_node"]))
+            fields.append(str(link_["to_orn"]))
 
-            if fv.is_gfa1_cigar(link_['alignment']):
-                fields.append(str(link_['alignment']))
+            if fv.is_gfa1_cigar(link_["alignment"]):
+                fields.append(str(link_["alignment"]))
             else:
                 fields.append("*")
-            if not link_['eid'] in(None, '*'):
-                fields.append("ID:Z:" + str(link_['eid']))
+            if not link_["eid"] in (None, "*"):
+                fields.append("ID:Z:" + str(link_["eid"]))
             fields.extend(utils._serialize_opt_fields(link_dict))
         else:
-            defined_fields = [ \
-                                link_.from_node, \
-                                link_.from_orn, \
-                                link_.to_node, \
-                                link_.to_orn, \
-                                link_.alignment \
-                             ]
+            defined_fields = [
+                link_.from_node,
+                link_.from_orn,
+                link_.to_node,
+                link_.to_orn,
+                link_.alignment,
+            ]
             fields = ["L"]
             fields.append(str(link_.from_node))
             fields.append(str(link_.from_orn))
@@ -247,17 +234,18 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
             else:
                 fields.append("*")
 
-            if not link_.eid in(None, '*'):
+            if not link_.eid in (None, "*"):
                 fields.append("ID:Z:" + str(link_.eid))
             fields.extend(utils._serialize_opt_fields(link_.opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or \
-           not utils._check_fields(fields[1:], LINK_FIELDS):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
+            fields[1:], LINK_FIELDS
+        ):
             raise GFA1SerializationError()
 
         return str.join("\t", fields)
 
-    except(KeyError, AttributeError, GFA1SerializationError) as e:
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
 
@@ -266,9 +254,8 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
 # SUBGRAPH SERIALIZER
 ################################################################################
 def point_to_node(gfa_, node_id):
-    """Check if the given node_id point to a node in the gfa graph.
-    """
-    return gfa_.nodes(identifier = node_id) != None
+    """Check if the given node_id point to a node in the gfa graph."""
+    return gfa_.nodes(identifier=node_id) != None
 
 
 def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
@@ -294,57 +281,49 @@ def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
             if orientation != None:
                 elements.append(str(id_) + str(orientation))
         else:
-            if orientation != None \
-              and point_to_node(gfa_, id_):
+            if orientation != None and point_to_node(gfa_, id_):
                 elements.append(str(id_) + str(orientation))
     return str.join(",", elements)
 
 
 def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa_=None):
-    """Serialize a Subgraph object or an equivalent dictionary.
-    """
+    """Serialize a Subgraph object or an equivalent dictionary."""
     identifier = utils._check_identifier(identifier)
     try:
         if isinstance(subgraph_, dict):
             subgraph_dict = copy.deepcopy(subgraph_)
-            defined_fields = [\
-                                subgraph_dict.pop('sub_id'), \
-                                subgraph_dict.pop('elements') \
-                             ]
+            defined_fields = [subgraph_dict.pop("sub_id"), subgraph_dict.pop("elements")]
             fields = ["P"]
-            fields.append(subgraph_['sub_id'])
-            fields.append(_serialize_subgraph_elements(subgraph_['elements'], gfa_))
+            fields.append(subgraph_["sub_id"])
+            fields.append(_serialize_subgraph_elements(subgraph_["elements"], gfa_))
 
-            if 'overlaps' in subgraph_:
-                subgraph_dict.pop('overlaps')
-                fields.append(str.join(",", subgraph_['overlaps'].value))
+            if "overlaps" in subgraph_:
+                subgraph_dict.pop("overlaps")
+                fields.append(str.join(",", subgraph_["overlaps"].value))
             else:
                 fields.append("*")
             fields.extend(utils._serialize_opt_fields(subgraph_dict))
         else:
-            defined_fields = [\
-                                subgraph_.sub_id, \
-                                subgraph_.elements \
-                             ]
+            defined_fields = [subgraph_.sub_id, subgraph_.elements]
             opt_fields = copy.deepcopy(subgraph_.opt_fields)
 
             fields = ["P"]
             fields.append(subgraph_.sub_id)
             fields.append(_serialize_subgraph_elements(subgraph_.elements, gfa_))
-            if 'overlaps' in subgraph_.opt_fields:
-                opt_fields.pop('overlaps')
-                fields.append(str.join(",", subgraph_.opt_fields['overlaps'].value))
+            if "overlaps" in subgraph_.opt_fields:
+                opt_fields.pop("overlaps")
+                fields.append(str.join(",", subgraph_.opt_fields["overlaps"].value))
             else:
                 fields.append("*")
             fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or \
-           not utils._check_fields(fields[1:], PATH_FIELDS):
-            raise GFA1SerializationError("Required fields missing or" \
-                                        + " not valid.")
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
+            fields[1:], PATH_FIELDS
+        ):
+            raise GFA1SerializationError("Required fields missing or" + " not valid.")
         return str.join("\t", fields)
 
-    except(KeyError, AttributeError, GFA1SerializationError) as e:
+    except (KeyError, AttributeError, GFA1SerializationError) as e:
         serializer_logger.debug(utils._format_exception(identifier, e))
         return ""
 
@@ -359,8 +338,9 @@ def serialize_graph(graph, write_header=True):
     :write_header: If set to True put a GFA1 header as first line.
     """
     if not isinstance(graph, nx.MultiGraph):
-        raise ValueError("The object to serialize must be an instance " \
-                        + "of a networkx.MultiGraph.")
+        raise ValueError(
+            "The object to serialize must be an instance " + "of a networkx.MultiGraph."
+        )
 
     if write_header:
         string_serialize = "H\tVN:Z:1.0\n"
@@ -378,8 +358,7 @@ def serialize_graph(graph, write_header=True):
 
 
 def serialize_gfa(gfa_):
-    """Serialize a GFA object into a GFA1 file.
-    """
+    """Serialize a GFA object into a GFA1 file."""
     gfa_serialize = serialize_graph(gfa_._graph, write_header=True)
     for sub_id, subgraph_ in gfa_.subgraphs().items():
         subgraph_serialize = serialize_subgraph(subgraph_, sub_id, gfa_)
@@ -388,5 +367,5 @@ def serialize_gfa(gfa_):
     return gfa_serialize
 
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     pass
