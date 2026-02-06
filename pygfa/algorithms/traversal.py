@@ -1,16 +1,16 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable, Iterable, Iterator, Optional, Tuple, Union
+    from collections.abc import Callable, Iterable, Iterator
 
 
 def dfs_edges(
     gfa_,
-    selector: Callable[..., Iterable[Tuple[str, str]]],
-    source: Optional[str] = None,
+    selector: Callable[..., Iterable[tuple[str, str]]],
+    source: str | None = None,
     keys: bool = False,
     **args,
-) -> Iterator[Tuple[str, str]]:
+) -> Iterator[tuple[str, str]]:
     """Custom dfs_edges to select custom edges
     while traversing.
 

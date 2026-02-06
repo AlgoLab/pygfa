@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable
+from collections.abc import Iterable
 
 
 def compress_integer_list_varint(int_list: Iterable[int], size: int = 0) -> bytes:

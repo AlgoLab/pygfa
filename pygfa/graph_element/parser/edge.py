@@ -1,7 +1,7 @@
 import re
 
-from pygfa.graph_element.parser import line
 from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Edge(line.Line):
@@ -20,7 +20,7 @@ class Edge(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "Edge":
+    def from_string(cls, string: str) -> Edge:
         """Extract the Edge fields from the string.
 
         The string can contains the E character at the begin or can

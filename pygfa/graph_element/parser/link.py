@@ -2,16 +2,17 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Link(line.Line):
     def __init__(self):
         super().__init__("L")
 
-    REQUIRED_FIELDS: Dict[str, str] = {
+    REQUIRED_FIELDS: dict[str, str] = {
         "from": fv.GFA1_NAME,
         "from_orn": fv.GFA1_ORIENTATION,
         "to": fv.GFA1_NAME,
@@ -19,7 +20,7 @@ class Link(line.Line):
         "overlap": fv.GFA1_CIGAR,
     }
 
-    PREDEFINED_OPTFIELDS: Dict[str, str] = {
+    PREDEFINED_OPTFIELDS: dict[str, str] = {
         "MQ": fv.TYPE_i,
         "NM": fv.TYPE_i,
         "RC": fv.TYPE_i,
@@ -29,7 +30,7 @@ class Link(line.Line):
     }
 
     @classmethod
-    def from_string(cls, string: str) -> "Link":
+    def from_string(cls, string: str) -> Link:
         """Extract the link fields from the string.
 
         The string can contains the L character at the begin or can
@@ -38,7 +39,7 @@ class Link(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        lfields: List[Union[line.Field, line.OptField]] = []
+        lfields: list[line.Field | line.OptField] = []
         if fields[0] == "L":
             fields = fields[1:]
 

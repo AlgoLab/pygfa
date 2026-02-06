@@ -1,6 +1,6 @@
-import copy
 import collections
-from typing import Any, Dict, Optional, OrderedDict as OrderedDictType
+import copy
+from typing import Any
 
 from pygfa.graph_element.parser import line
 
@@ -20,8 +20,8 @@ class Subgraph:
     def __init__(
         self,
         graph_id: str,
-        elements: Dict[str, Any],
-        opt_fields: Optional[Dict[str, line.Field]] = None,
+        elements: dict[str, Any],
+        opt_fields: dict[str, line.Field] | None = None,
     ) -> None:
         """Create a Subgraph object.
 
@@ -48,8 +48,8 @@ class Subgraph:
         if not isinstance(graph_id, str):
             raise InvalidSubgraphError(
                 "A subgraph has always an id "
-                + "of type string, "
-                + "given {0} of type {1}".format(graph_id, type(graph_id))
+                 "of type string, "
+                 f"given {graph_id} of type {type(graph_id)}"
             )
         if not isinstance(elements, dict):
             raise InvalidSubgraphError("A dictionary of elements id:orientation is required.")
@@ -71,15 +71,15 @@ class Subgraph:
         return self._sub_id
 
     @property
-    def elements(self) -> Dict[str, Any]:
+    def elements(self) -> dict[str, Any]:
         return self._elements
 
     @property
-    def opt_fields(self) -> Dict[str, line.Field]:
+    def opt_fields(self) -> dict[str, line.Field]:
         return self._opt_fields
 
     @classmethod
-    def from_line(cls, line_: line.Line) -> "Subgraph":
+    def from_line(cls, line_: line.Line) -> Subgraph:
         try:
             fields = copy.deepcopy(line_.fields)
             if line_.type == "P":
@@ -102,12 +102,12 @@ class Subgraph:
                 ids = collections.OrderedDict((id, None) for id in line_.fields["ids"].value)
                 return Subgraph(line_.fields["uid"].value, ids, fields)
             raise line.InvalidLineError(
-                "The given line type '{}' cannot be a Subgraph.".format(line_.type)
+                f"The given line type '{line_.type}' cannot be a Subgraph."
             )
         except (KeyError, AttributeError) as e:
-            raise line.InvalidLineError("The given line cannot be a Subgraph: {}".format(e))
+            raise line.InvalidLineError(f"The given line cannot be a Subgraph: {e}")
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Turn the Subgraph into a dictionary.
 
         Put all fields and the optional fields into a dictionary.
@@ -126,7 +126,7 @@ class Subgraph:
             if self.sub_id != other.sub_id or self.elements != other.elements:
                 return False
             for key, field in self.opt_fields.items():
-                if not key in other.opt_fields or field != other.opt_fields[key]:
+                if key not in other.opt_fields or field != other.opt_fields[key]:
                     return False
             return True
         except Exception:

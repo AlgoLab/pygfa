@@ -5,21 +5,22 @@ algorithms for multigraphs)
 
 The same documentation for networkx is valid using this algorithms."""
 
+from collections.abc import Callable, Iterable, Iterator
+
 import networkx as nx
-from typing import Callable, Iterable, Iterator, List, Optional, Tuple, Union
 
 __all__ = ["all_simple_paths"]
 
 
-def all_simple_paths(
+def all_simple_paths(  # noqa: PLR0913
     gfa_,
     source: str,
     target: str,
-    selector: Callable[..., Iterable[Tuple[str, str]]],
+    selector: Callable[..., Iterable[tuple[str, str]]],
     edges: bool = False,
     keys: bool = True,
-    cutoff: Optional[int] = None,
-) -> Union[Iterator[List[str]], Iterator[List[Tuple[str, Optional[str]]]]]:
+    cutoff: int | None = None,
+) -> Iterator[list[str]] | Iterator[list[tuple[str, str | None]]]:
     """Compute the all_simple_path algorithm as described in
     networkx, but return the edges keys if asked and use the
     given selector to obtain the nodes to consider.
@@ -52,9 +53,9 @@ def _all_simple_paths_multigraph(
     _gfa,
     source: str,
     target: str,
-    selector: Callable[..., Iterable[Tuple[str, str]]],
-    cutoff: Optional[int] = None,
-) -> Iterator[List[str]]:
+    selector: Callable[..., Iterable[tuple[str, str]]],
+    cutoff: int | None = None,
+) -> Iterator[list[str]]:
     if cutoff < 1:
         return
     visited = [source]
@@ -72,7 +73,7 @@ def _all_simple_paths_multigraph(
                 visited.append(child)
                 stack.append((v for u, v in selector(child)))
         else:
-            count = ([child] + list(children)).count(target)
+            count = ([child, *list(children)]).count(target)
             for _i in range(count):
                 yield [*visited, target]
             stack.pop()
@@ -83,10 +84,10 @@ def _all_simple_paths_edges_multigraph(
     _gfa,
     source: str,
     target: str,
-    selector: Callable[..., Iterable[Union[Tuple[str, str], Tuple[str, str, str]]]],
+    selector: Callable[..., Iterable[tuple[str, str] | tuple[str, str, str]]],
     keys: bool = False,
-    cutoff: Optional[int] = None,
-) -> Iterator[List[Tuple[str, Optional[str]]]]:
+    cutoff: int | None = None,
+) -> Iterator[list[tuple[str, str | None]]]:
     """Return all simple paths from source to target with
     all the edges id that connect each pair of nodes.
     """

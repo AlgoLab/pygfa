@@ -7,7 +7,7 @@ before or from a dictionary with equivalent key.
 
 import copy
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import networkx as nx
 
@@ -61,7 +61,7 @@ OGROUP_FIELDS = [fv.GFA2_OPTIONAL_ID, fv.GFA2_REFERENCES]
 ################################################################################
 # NODE SERIALIZER
 ################################################################################
-def serialize_node(node_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_IDENTIFIER) -> str:
+def serialize_node(node_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTIFIER) -> str:
     """Serialize to the GFA2 specification a graph_element Node or a
     dictionary that has the same informations.
 
@@ -117,7 +117,7 @@ def serialize_node(node_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_
 ################################################################################
 # EDGE SERIALIZER
 ################################################################################
-def serialize_edge(edge_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_IDENTIFIER) -> str:
+def serialize_edge(edge_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTIFIER) -> str:
     """Converts to a GFA2 line the given edge."""
     identifier = utils._check_identifier(identifier)
     try:
@@ -140,7 +140,7 @@ def serialize_edge(edge_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_
 
 
 def _serialize_to_fragment(
-    fragment_: Union[Dict[str, Any], Any], identifier: str = DEFAULT_IDENTIFIER
+    fragment_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTIFIER
 ) -> str:
     identifier = utils._check_identifier(identifier)
     try:

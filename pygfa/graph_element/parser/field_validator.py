@@ -4,6 +4,7 @@ and GFA2 specification.
 """
 import re
 
+
 class InvalidFieldError(Exception):
     """Exception raised when an invalid field is provided."""
 
@@ -62,7 +63,7 @@ DATASTRING_VALIDATION_REGEXP = \
   TYPE_i : "^[-+]?[0-9]+$", \
   # Signed integer
   #
-  TYPE_f : "^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$", \
+  TYPE_f : r"^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$", \
   # Single-precision floating number
   #
   TYPE_Z : "^[ !-~]+$", \
@@ -74,13 +75,13 @@ DATASTRING_VALIDATION_REGEXP = \
   HEX_BYTE_ARRAY : "^[0-9A-F]+$", \
   # Byte array in the Hex format
   #
-  DEC_ARRAY : "^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)+$", \
+  DEC_ARRAY : r"^[cCsSiIf](,[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)+$", \
   # Integer or numeric array
   #
   GFA1_NAME : "^[!-)+-<>-~][!-~]*$", \
   # segment/path label(segment name)
   #
-  GFA1_ORIENTATION : "^\+|-$", \
+  GFA1_ORIENTATION : r"^\+|-$", \
   #segment orientation
   #
   ###
@@ -94,14 +95,14 @@ DATASTRING_VALIDATION_REGEXP = \
   # with the new lbs regexp beyond.
   #
   GFA1_NAMES : "^[!-)+-<>-~][!-~]*[+-]$", \
-  GFA1_SEQUENCE : "^\*$|^[A-Za-z=.]+$", \
+  GFA1_SEQUENCE : r"^\*$|^[A-Za-z=.]+$", \
   # nucleotide sequence(segment sequence)
   #
   GFA1_INT : "^[0-9]*$", \
   # positive integer(CLAIM ISSUE HERE, MOVE TO -> int)
   #
-  GFA1_CIGAR : "^(\*|(([0-9]+[MIDNSHPX=])+))$", # CIGAR string \
-  GFA1_CIGARS : "^(\*|(([0-9]+[MIDNSHPX=])+))(,(\*|(([0-9]+[MIDNSHPX=])+)))*$", \
+  GFA1_CIGAR : r"^(\*|(([0-9]+[MIDNSHPX=])+))$", # CIGAR string \
+  GFA1_CIGARS : r"^(\*|(([0-9]+[MIDNSHPX=])+))(,(\*|(([0-9]+[MIDNSHPX=])+)))*$", \
   # multiple CIGARs, comma-sep \
   #
   'cmt' : ".*", \
@@ -122,21 +123,21 @@ DATASTRING_VALIDATION_REGEXP = \
   # but pos accept the empty string, while 'int' doesn't
   #
   GFA2_TRACE : "^[0-9]+(,[0-9]+)*$", \
-  GFA2_ALIGNMENT : "^\*$|^[0-9]+(,[0-9]+)*$|^([0-9]+[MDIP])+$", \
-  GFA2_POSITION : "^[0-9]+\$?$", \
+  GFA2_ALIGNMENT : r"^\*$|^[0-9]+(,[0-9]+)*$|^([0-9]+[MDIP])+$", \
+  GFA2_POSITION : r"^[0-9]+\$?$", \
   # pos2 represent a position in GFA2, it's similar in NO WAY
   # to pos which represent a positive integer in GFA1
   #
   GFA2_CIGAR : "^([0-9]+[MDIP])+$", \
   # CIGAR string for GFA2
   #
-  GFA2_SEQUENCE : "^\*$|^[!-~]+$", # seq2 is a GFA2 sequence,
+  GFA2_SEQUENCE : r"^\*$|^[!-~]+$", # seq2 is a GFA2 sequence,
   # it's more flexible than GFA1 seq
   #
-  GFA2_OPTIONAL_ID : "^\*$|^[!-~]+$", \
+  GFA2_OPTIONAL_ID : r"^\*$|^[!-~]+$", \
   # optional id  for GFA2
   #
-  GFA2_OPTIONAL_INT : "^\*$|^[0-9]+$" \
+  GFA2_OPTIONAL_INT : r"^\*$|^[0-9]+$" \
   # optional int
   #
   }
@@ -156,11 +157,11 @@ def is_valid(string, datatype):
     """
     if not isinstance(string, str):
         raise FormatError("A string must be given to validate it, " \
-                         + "given:{0}".format(string))
-    if not datatype in DATASTRING_VALIDATION_REGEXP:
+                          f"given:{string}")
+    if datatype not in DATASTRING_VALIDATION_REGEXP:
         raise UnknownDataTypeError(\
-                                    "Invalid field datatype," + \
-                                    "given: {0}".format(datatype) \
+                                    "Invalid field datatype," \
+                                    f"given: {datatype}" \
                                   )
     regexp = DATASTRING_VALIDATION_REGEXP[datatype]
     if not re.fullmatch(regexp, string):
@@ -191,10 +192,9 @@ def validate(string, datatype):
     """
     if not is_valid(string, datatype):
         raise InvalidFieldError("The string cannot be validated within " \
-                               + "its datatype,\n" \
-                               + "given string : " \
-                               + "{0}\ndatatype: {1}.".format(string, \
-                                                              datatype))
+                                "its datatype,\n" \
+                                "given string : " \
+                                f"{string}\ndatatype: {datatype}.")
     if datatype in (TYPE_i,):
         return int(string)
     elif datatype in(GFA1_INT, GFA2_INT):

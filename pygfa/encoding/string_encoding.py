@@ -3,7 +3,7 @@ from __future__ import annotations
 import gzip
 import lzma
 import struct
-from typing import Callable, Optional
+from collections.abc import Callable
 
 try:
     import compression.zstd as z
@@ -38,7 +38,7 @@ def compress_string_none(string: str) -> bytes:
 
 def compress_string_list(
     string_list: list[str],
-    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
     compression_method: str = "zstd",
     compression_level: int = 19,
 ) -> bytes:
@@ -73,7 +73,7 @@ def compress_string_list(
 
 def compress_string_list_frontcoding(
     string_list: list[str],
-    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
 ) -> bytes:
     if not string_list:
         return b""
@@ -105,7 +105,7 @@ def compress_string_list_frontcoding(
 
 def compress_string_list_delta(
     string_list: list[str],
-    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
     compression_method: str = "none",
     compression_level: int = 19,
 ) -> bytes:
@@ -147,7 +147,7 @@ def compress_string_list_delta(
 
 def compress_string_list_dictionary(
     string_list: list[str],
-    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
     max_dict_size: int = 65536,
 ) -> bytes:
     if not string_list:
@@ -182,13 +182,13 @@ def compress_string_list_dictionary(
 class _HuffmanNode:
     __slots__ = ("char", "freq", "left", "right")
 
-    def __init__(self, char: Optional[int], freq: int):
+    def __init__(self, char: int | None, freq: int):
         self.char = char
         self.freq = freq
-        self.left: Optional[_HuffmanNode] = None
-        self.right: Optional[_HuffmanNode] = None
+        self.left: _HuffmanNode | None = None
+        self.right: _HuffmanNode | None = None
 
-    def __lt__(self, other: "_HuffmanNode") -> bool:
+    def __lt__(self, other: _HuffmanNode) -> bool:
         return self.freq < other.freq
 
 
@@ -210,7 +210,7 @@ def _build_huffman_tree(freq: dict[int, int]) -> _HuffmanNode:
 
 
 def _build_codes(
-    node: Optional[_HuffmanNode],
+    node: _HuffmanNode | None,
     current: int = 0,
     bits: list[int] | None = None,
     codes: dict[int, list[int]] | None = None,
@@ -238,7 +238,7 @@ def _build_codes(
 
 def compress_string_list_huffman(
     string_list: list[str],
-    compress_integer_list: Optional[Callable[[list[int]], bytes]] = None,
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
 ) -> bytes:
     if not string_list:
         return b""

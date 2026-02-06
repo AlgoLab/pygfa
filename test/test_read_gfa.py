@@ -1,20 +1,18 @@
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
+import unittest
 
 sys.path.insert(0, "../")
 
-import unittest
-import os
-import tempfile
-import subprocess
-import shutil
 import pygfa
 from pygfa import gfa
 
 
 class TestPPrint(unittest.TestCase):
-    def _test_pprint_output_matches_expected_file(
-        self, gfa_filename, expected_filename
-    ):
+    def _test_pprint_output_matches_expected_file(self, gfa_filename, expected_filename):
         """Test that pprint output matches expected file content.
 
         Args:
@@ -25,9 +23,7 @@ class TestPPrint(unittest.TestCase):
         graph = gfa.GFA.from_gfa(gfa_filename)
 
         # Write to a temporary file instead of using StringIO
-        with tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".txt"
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as temp_file:
             temp_filename = temp_file.name
             original_stdout = sys.stdout
             sys.stdout = temp_file

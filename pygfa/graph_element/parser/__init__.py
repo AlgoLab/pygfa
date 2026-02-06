@@ -1,9 +1,23 @@
-from pygfa.graph_element.parser import header
-from pygfa.graph_element.parser import segment
-from pygfa.graph_element.parser import link
-from pygfa.graph_element.parser import containment
-from pygfa.graph_element.parser import path
-from pygfa.graph_element.parser import edge
-from pygfa.graph_element.parser import fragment
-from pygfa.graph_element.parser import gap
-from pygfa.graph_element.parser import group
+from pygfa.graph_element.parser import (
+    containment,
+    edge,
+    fragment,
+    gap,
+    group,
+    header,
+    link,
+    path,
+    segment,
+)
+
+__all__ = [
+    "containment",
+    "edge",
+    "fragment",
+    "gap",
+    "group",
+    "header",
+    "link",
+    "path",
+    "segment",
+]

@@ -5,16 +5,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pygfa.gfa import GFA
 
-from pygfa import bgfa
-from pygfa import gfa
+from pygfa import bgfa, gfa
 from pygfa.bgfa import to_bgfa
-from pygfa.dovetail_operations.operations import *  # common operations
-from pygfa.operations import *  # common operations
+from pygfa.dovetail_operations.operations import *  # noqa: F403
+from pygfa.operations import *  # noqa: F403
 
 __version__ = "0.1.0"
 __all__ = [
     "GFA",
     "bgfa",
     "gfa",
+    "nodes_connected_component",  # noqa: F405
+    "nodes_connected_components",  # noqa: F405
     "to_bgfa",
 ]

@@ -2,9 +2,10 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Union
+    pass
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Path(line.Line):
@@ -20,7 +21,7 @@ class Path(line.Line):
     PREDEFINED_OPTFIELDS: Dict[str, str] = {}
 
     @classmethod
-    def from_string(cls, string: str) -> "Path":
+    def from_string(cls, string: str) -> Path:
         """Extract the path fields from the string.
 
         The string can contains the P character at the begin or can
@@ -29,7 +30,7 @@ class Path(line.Line):
         if len(string.split()) == 0:
             raise line.InvalidLineError("Cannot parse the empty string.")
         fields = re.split("\t", string)
-        pfields: List[Union[line.Field, line.OptField]] = []
+        pfields: list[line.Field | line.OptField] = []
         if fields[0] == "P":
             fields = fields[1:]
 

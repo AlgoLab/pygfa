@@ -1,6 +1,7 @@
 import re
 
-from pygfa.graph_element.parser import line, field_validator as fv
+from pygfa.graph_element.parser import field_validator as fv
+from pygfa.graph_element.parser import line
 
 
 class Containment(line.Line):
@@ -19,7 +20,7 @@ class Containment(line.Line):
     PREDEFINED_OPTFIELDS = {"NM": fv.TYPE_i, "RC": fv.TYPE_i, "ID": fv.TYPE_Z}
 
     @classmethod
-    def from_string(cls, string: str) -> "Containment":
+    def from_string(cls, string: str) -> Containment:
         """Extract the containment fields from the string.
 
         The string can contains the C character at the begin or can
