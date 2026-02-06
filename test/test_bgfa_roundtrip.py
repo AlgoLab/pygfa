@@ -175,26 +175,89 @@ class TestStrictRoundtrip:
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
+    def test_minus_orientations(self):
+        """Test that '-' orientations are preserved through BGFA round-trip."""
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACGT\n"
+            "S\t2\tTTTT\n"
+            "S\t3\tGGGG\n"
+            "L\t1\t+\t2\t-\t2M\n"
+            "L\t2\t-\t3\t+\t3M\n"
+        )
+        g, h = _roundtrip(gfa_text)
+        assert g.to_gfa() == h.to_gfa()
+
+    def test_all_minus_orientations(self):
+        """Test links where all orientations are '-'."""
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACGT\n"
+            "S\t2\tTTTT\n"
+            "S\t3\tGGGG\n"
+            "L\t1\t-\t2\t-\t4M\n"
+            "L\t2\t-\t3\t-\t3M\n"
+        )
+        g, h = _roundtrip(gfa_text)
+        assert g.to_gfa() == h.to_gfa()
+
+    def test_mixed_orientations(self):
+        """Test a graph with mixed '+' and '-' orientations on many links."""
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACGT\n"
+            "S\t2\tTTTT\n"
+            "S\t3\tGGGG\n"
+            "S\t4\tCCCC\n"
+            "S\t5\tAAAA\n"
+            "L\t1\t+\t2\t+\t2M\n"
+            "L\t1\t-\t3\t+\t2M\n"
+            "L\t2\t+\t4\t-\t3M\n"
+            "L\t3\t-\t4\t-\t3M\n"
+            "L\t4\t+\t5\t+\t2M\n"
+            "L\t4\t-\t5\t-\t2M\n"
+        )
+        g, h = _roundtrip(gfa_text)
+        assert g.to_gfa() == h.to_gfa()
+
 
 # ---------------------------------------------------------------------------
-# Structural round-trip: compare individual components for data files
+# Strict round-trip for existing data files (segments + links, no paths)
 # ---------------------------------------------------------------------------
 
-DATA_FILES = [
+DATA_FILES_NO_PATHS = [
     "data/example_1.gfa",
     "data/example_2.gfa",
+]
+
+
+@pytest.mark.parametrize("gfa_path", DATA_FILES_NO_PATHS)
+class TestDataFileStrictRoundtrip:
+    """Full to_gfa() equality for data files that have only segments and links."""
+
+    def test_full_roundtrip(self, gfa_path):
+        if not os.path.exists(gfa_path):
+            pytest.skip(f"Test file not found: {gfa_path}")
+        g, h = _roundtrip_file(gfa_path)
+        assert g.to_gfa() == h.to_gfa(), (
+            f"Round-trip mismatch for {gfa_path}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Structural round-trip for files with paths (path reader is a stub)
+# ---------------------------------------------------------------------------
+
+DATA_FILES_WITH_PATHS = [
     "data/example_3.gfa",
 ]
 
 
-@pytest.mark.parametrize("gfa_path", DATA_FILES)
+@pytest.mark.parametrize("gfa_path", DATA_FILES_WITH_PATHS)
 class TestStructuralRoundtrip:
-    """Compare graph components individually, accounting for known BGFA limitations.
+    """Compare graph components individually for files with paths.
 
-    Known limitations:
-    - Link orientations are not preserved (reader always returns '+')
-    - Paths are not read back from BGFA (reader stub)
-    - Optional fields on segments (LN:i, RC:i, etc.) are not preserved
+    Known limitation: paths are not read back from BGFA (reader stub).
     """
 
     def test_segment_names_match(self, gfa_path):
@@ -207,22 +270,16 @@ class TestStructuralRoundtrip:
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path)
+        g_data = dict(g.nodes_iter(data=True))
+        h_data = dict(h.nodes_iter(data=True))
         for node_id in g.nodes():
-            g_data = dict(g.nodes_iter(data=True))
-            h_data = dict(h.nodes_iter(data=True))
             assert node_id in h_data, f"Node {node_id} missing after round-trip"
             g_seq = g_data[node_id].get("sequence", "*")
             h_seq = h_data[node_id].get("sequence", "*")
             assert g_seq == h_seq, f"Sequence mismatch for node {node_id}: {g_seq!r} vs {h_seq!r}"
 
-    def test_edge_count_matches(self, gfa_path):
-        if not os.path.exists(gfa_path):
-            pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path)
-        assert len(g.edges()) == len(h.edges())
-
-    def test_link_endpoints_match(self, gfa_path):
-        """Check that link endpoints (ignoring orientation) are preserved."""
+    def test_links_match(self, gfa_path):
+        """Check that links (including orientations) are preserved."""
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path)
@@ -231,15 +288,17 @@ class TestStructuralRoundtrip:
             links = set()
             for u, v, key, data in gfa_obj.edges_iter(data=True, keys=True):
                 from_node = data.get("from_node", u)
+                from_orn = data.get("from_orn", "+")
                 to_node = data.get("to_node", v)
+                to_orn = data.get("to_orn", "+")
                 alignment = data.get("alignment", "*")
-                links.add((from_node, to_node, alignment))
+                links.add((from_node, from_orn, to_node, to_orn, alignment))
             return links
 
         g_links = _link_set(g)
         h_links = _link_set(h)
         assert g_links == h_links, (
-            f"Link endpoint mismatch.\n"
+            f"Link mismatch.\n"
             f"  Missing: {g_links - h_links}\n"
             f"  Extra: {h_links - g_links}"
         )
@@ -261,6 +320,20 @@ class TestBlockSizes:
     @pytest.mark.parametrize("block_size", [1, 2, 4, 8, 16, 32, 1024])
     def test_block_size(self, block_size):
         g, h = _roundtrip(self.GFA_TEXT, block_size=block_size)
+        assert g.to_gfa() == h.to_gfa()
+
+    GFA_TEXT_MIXED_ORN = (
+        "H\tVN:Z:1.0\n"
+        + "".join(f"S\ts{i}\tACGT\n" for i in range(20))
+        + "".join(
+            f"L\ts{i}\t{'+' if i % 2 == 0 else '-'}\ts{i+1}\t{'-' if i % 3 == 0 else '+'}\t2M\n"
+            for i in range(19)
+        )
+    )
+
+    @pytest.mark.parametrize("block_size", [1, 3, 7, 16, 1024])
+    def test_block_size_mixed_orientations(self, block_size):
+        g, h = _roundtrip(self.GFA_TEXT_MIXED_ORN, block_size=block_size)
         assert g.to_gfa() == h.to_gfa()
 
 
