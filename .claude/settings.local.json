@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(tree:*)",
-      "Bash(pixi run python:*)"
+      "Bash(pixi run python:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

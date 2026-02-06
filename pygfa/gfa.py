@@ -2158,7 +2158,12 @@ class GFA:
 
         :param file: Output file path or file object (optional)
         :param block_size: Block size for BGFA format
-        :param compression_options: Dictionary of compression options
+        :param compression_options: Dictionary of compression options. Accepts either:
+            - New-style keys matching bgfa.to_bgfa parameters (e.g.
+              ``segment_names_int_encoding``, ``segment_names_str_encoding``)
+            - Legacy keys from bgfatools CLI (e.g. ``segment_names_payload_lengths``,
+              ``segment_names_payload_names``) with string method names
+            Values that are None or empty default to identity (0x00).
         :param verbose: If True, log detailed information
         :param debug: If True, log debug information
         :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
@@ -2174,89 +2179,146 @@ class GFA:
                 f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}"
             )
 
-        from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+        from pygfa.bgfa import (
+            to_bgfa as bgfa_to_bgfa,
+            INTEGER_ENCODING_IDENTITY,
+            INTEGER_ENCODING_VARINT,
+            INTEGER_ENCODING_FIXED16,
+            INTEGER_ENCODING_DELTA,
+            INTEGER_ENCODING_ELIAS_GAMMA,
+            INTEGER_ENCODING_ELIAS_OMEGA,
+            INTEGER_ENCODING_GOLOMB,
+            INTEGER_ENCODING_RICE,
+            INTEGER_ENCODING_STREAMVBYTE,
+            INTEGER_ENCODING_VBYTE,
+            INTEGER_ENCODING_FIXED32,
+            INTEGER_ENCODING_FIXED64,
+            STRING_ENCODING_IDENTITY,
+            STRING_ENCODING_ZSTD,
+            STRING_ENCODING_GZIP,
+            STRING_ENCODING_LZMA,
+            STRING_ENCODING_HUFFMAN,
+        )
 
         if compression_options is None:
             compression_options = {}
 
-        # Extract all the compression strategy parameters from the dictionary
-        # with default values
-        segment_names_header = compression_options.get("segment_names_header", None)
-        segment_names_payload_lengths = compression_options.get(
-            "segment_names_payload_lengths", None
+        # Mapping from string method names to integer encoding codes
+        _INT_NAME_TO_CODE = {
+            "": INTEGER_ENCODING_IDENTITY,
+            "varint": INTEGER_ENCODING_VARINT,
+            "fixed16": INTEGER_ENCODING_FIXED16,
+            "fixed32": INTEGER_ENCODING_FIXED32,
+            "fixed64": INTEGER_ENCODING_FIXED64,
+            "delta": INTEGER_ENCODING_DELTA,
+            "gamma": INTEGER_ENCODING_ELIAS_GAMMA,
+            "omega": INTEGER_ENCODING_ELIAS_OMEGA,
+            "golomb": INTEGER_ENCODING_GOLOMB,
+            "rice": INTEGER_ENCODING_RICE,
+            "streamvbyte": INTEGER_ENCODING_STREAMVBYTE,
+            "vbyte": INTEGER_ENCODING_VBYTE,
+        }
+        _STR_NAME_TO_CODE = {
+            "": STRING_ENCODING_IDENTITY,
+            "zstd": STRING_ENCODING_ZSTD,
+            "gzip": STRING_ENCODING_GZIP,
+            "lzma": STRING_ENCODING_LZMA,
+            "huffman": STRING_ENCODING_HUFFMAN,
+        }
+
+        def _resolve_int(name):
+            if name is None or name == "":
+                return INTEGER_ENCODING_IDENTITY
+            if isinstance(name, int):
+                return name
+            return _INT_NAME_TO_CODE.get(str(name), INTEGER_ENCODING_IDENTITY)
+
+        def _resolve_str(name):
+            if name is None or name == "":
+                return STRING_ENCODING_IDENTITY
+            if isinstance(name, int):
+                return name
+            return _STR_NAME_TO_CODE.get(str(name), STRING_ENCODING_IDENTITY)
+
+        # Check if options use new-style keys (contain "_int_encoding" or "_str_encoding")
+        has_new_keys = any(
+            k.endswith("_int_encoding") or k.endswith("_str_encoding")
+            for k in compression_options
         )
-        segment_names_payload_names = compression_options.get(
-            "segment_names_payload_names", None
-        )
-        segments_header = compression_options.get("segments_header", None)
-        segments_payload_lengths = compression_options.get(
-            "segments_payload_lengths", None
-        )
-        segments_payload_strings = compression_options.get(
-            "segments_payload_strings", None
-        )
-        links_header = compression_options.get("links_header", None)
-        links_payload_from = compression_options.get("links_payload_from", None)
-        links_payload_to = compression_options.get("links_payload_to", None)
-        links_payload_cigar_lengths = compression_options.get(
-            "links_payload_cigar_lengths", None
-        )
-        links_payload_cigar = compression_options.get("links_payload_cigar", None)
-        paths_header = compression_options.get("paths_header", None)
-        paths_payload_names = compression_options.get("paths_payload_names", None)
-        paths_payload_segment_lengths = compression_options.get(
-            "paths_payload_segment_lengths", None
-        )
-        paths_payload_path_ids = compression_options.get("paths_payload_path_ids", None)
-        paths_payload_cigar_lengths = compression_options.get(
-            "paths_payload_cigar_lengths", None
-        )
-        paths_payload_cigar = compression_options.get("paths_payload_cigar", None)
-        walks_header = compression_options.get("walks_header", None)
-        walks_payload_sample_ids = compression_options.get(
-            "walks_payload_sample_ids", None
-        )
-        walks_payload_hep_indices = compression_options.get(
-            "walks_payload_hep_indices", None
-        )
-        walks_payload_sequence_ids = compression_options.get(
-            "walks_payload_sequence_ids", None
-        )
-        walks_payload_start = compression_options.get("walks_payload_start", None)
-        walks_payload_end = compression_options.get("walks_payload_end", None)
-        walks_payload_walks = compression_options.get("walks_payload_walks", None)
+
+        if has_new_keys:
+            # New-style: pass directly, filtering None values
+            kwargs = {}
+            for key, value in compression_options.items():
+                if value is not None:
+                    kwargs[key] = value
+        else:
+            # Legacy-style: map old keys to new parameters
+            kwargs = {
+                "segment_names_int_encoding": _resolve_int(
+                    compression_options.get("segment_names_payload_lengths")
+                ),
+                "segment_names_str_encoding": _resolve_str(
+                    compression_options.get("segment_names_payload_names")
+                ),
+                "segments_int_encoding": _resolve_int(
+                    compression_options.get("segments_payload_lengths")
+                ),
+                "segments_str_encoding": _resolve_str(
+                    compression_options.get("segments_payload_strings")
+                ),
+                "links_fromto_int_encoding": _resolve_int(
+                    compression_options.get("links_payload_from")
+                ),
+                "links_cigars_int_encoding": _resolve_int(
+                    compression_options.get("links_payload_cigar_lengths")
+                ),
+                "links_cigars_str_encoding": _resolve_str(
+                    compression_options.get("links_payload_cigar")
+                ),
+                "paths_names_int_encoding": _resolve_int(
+                    compression_options.get("paths_payload_names")
+                ),
+                "paths_names_str_encoding": _resolve_str(
+                    compression_options.get("paths_payload_names")
+                ),
+                "paths_cigars_int_encoding": _resolve_int(
+                    compression_options.get("paths_payload_cigar_lengths")
+                ),
+                "paths_cigars_str_encoding": _resolve_str(
+                    compression_options.get("paths_payload_cigar")
+                ),
+                "walks_sample_ids_int_encoding": _resolve_int(
+                    compression_options.get("walks_payload_sample_ids")
+                ),
+                "walks_sample_ids_str_encoding": _resolve_str(
+                    compression_options.get("walks_payload_sample_ids")
+                ),
+                "walks_hap_indices_int_encoding": _resolve_int(
+                    compression_options.get("walks_payload_hep_indices")
+                ),
+                "walks_seq_ids_int_encoding": _resolve_int(
+                    compression_options.get("walks_payload_sequence_ids")
+                ),
+                "walks_seq_ids_str_encoding": _resolve_str(
+                    compression_options.get("walks_payload_sequence_ids")
+                ),
+                "walks_start_int_encoding": _resolve_int(
+                    compression_options.get("walks_payload_start")
+                ),
+                "walks_end_int_encoding": _resolve_int(
+                    compression_options.get("walks_payload_end")
+                ),
+            }
 
         return bgfa_to_bgfa(
             self,
             file=file,
             block_size=block_size,
-            segment_names_header_compression_strategy=segment_names_header,
-            segment_names_payload_lengths_compression_strategy=segment_names_payload_lengths,
-            segment_names_payload_names_compression_strategy=segment_names_payload_names,
-            segments_header_compression_strategy=segments_header,
-            segments_payload_lengths_compression_strategy=segments_payload_lengths,
-            segments_payload_strings_compression_strategy=segments_payload_strings,
-            links_header_compression_strategy=links_header,
-            links_payload_from_compression_strategy=links_payload_from,
-            links_payload_to_compression_strategy=links_payload_to,
-            links_payload_cigar_lengths_compression_strategy=links_payload_cigar_lengths,
-            links_payload_cigar_compression_strategy=links_payload_cigar,
-            paths_header_compression_strategy=paths_header,
-            paths_payload_names_compression_strategy=paths_payload_names,
-            paths_payload_segment_lengths_compression_strategy=paths_payload_segment_lengths,
-            paths_payload_path_ids_compression_strategy=paths_payload_path_ids,
-            paths_payload_cigar_lengths_compression_strategy=paths_payload_cigar_lengths,
-            paths_payload_cigar_compression_strategy=paths_payload_cigar,
-            walks_header_compression_strategy=walks_header,
-            walks_payload_sample_ids_compression_strategy=walks_payload_sample_ids,
-            walks_payload_hep_indices_compression_strategy=walks_payload_hep_indices,
-            walks_payload_sequence_ids_compression_strategy=walks_payload_sequence_ids,
-            walks_payload_start_compression_strategy=walks_payload_start,
-            walks_payload_end_compression_strategy=walks_payload_end,
-            walks_payload_walks_compression_strategy=walks_payload_walks,
             verbose=verbose,
             debug=debug,
             logfile=logfile,
+            **kwargs,
         )
 
 
