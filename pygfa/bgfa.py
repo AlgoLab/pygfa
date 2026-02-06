@@ -846,6 +846,52 @@ def _pack_orientation_bits(orientations: list[int]) -> bytes:
     return bytes(result)
 
 
+def _pack_orientation_bits_uint64(orientations: list[int]) -> bytes:
+    """Pack 0/1 orientation values into little-endian uint64 values (LSB-first).
+
+    Per the BGFA spec, a ``bits`` field is a list of uint64.
+    Bit 0 (LSB) of the first uint64 holds the first orientation, bit 1 the
+    second, etc.  For *N* orientations we emit ``ceil(N / 64)`` uint64 values.
+
+    :param orientations: List of orientation values (0 = "+", 1 = "-")
+    :return: Packed bytes (multiple of 8)
+    """
+    import math
+
+    n = len(orientations)
+    num_uint64 = max(1, math.ceil(n / 64)) if n > 0 else 0
+    result = bytearray()
+    for word_idx in range(num_uint64):
+        val = 0
+        for bit_idx in range(64):
+            orn_idx = word_idx * 64 + bit_idx
+            if orn_idx < n and orientations[orn_idx]:
+                val |= 1 << bit_idx
+        result.extend(struct.pack("<Q", val))
+    return bytes(result)
+
+
+def _unpack_orientation_bits_uint64(data: bytes, count: int) -> tuple[list[int], int]:
+    """Unpack *count* orientation bits from little-endian uint64 values.
+
+    :param data: Raw bytes containing the packed uint64 values
+    :param count: Number of orientation bits to extract
+    :return: (list of 0/1 values, number of bytes consumed)
+    """
+    import math
+
+    num_uint64 = max(1, math.ceil(count / 64)) if count > 0 else 0
+    consumed = num_uint64 * 8
+    orientations: list[int] = []
+    for word_idx in range(num_uint64):
+        val = struct.unpack_from("<Q", data, word_idx * 8)[0]
+        for bit_idx in range(64):
+            if len(orientations) >= count:
+                break
+            orientations.append((val >> bit_idx) & 1)
+    return orientations, consumed
+
+
 def _encode_walks_payload(
     walk_segments_list: list[list],
     segment_map: dict,
@@ -1417,55 +1463,69 @@ class ReaderBGFA:
             f"compressed_len={compressed_len}, uncompressed_len={uncompressed_len}"
         )
 
-        # Handle legacy identity encoding (both 0x0000): fixed format
+        # Identity encoding (both 0x0000): column-wise layout
         if compression_fromto == 0x0000 and compression_cigars == 0x0000:
             pos = 0
+            # Read all from IDs
+            from_ids = []
             for _ in range(record_num):
-                # Read from node (uint64)
-                from_node_id = struct.unpack_from("<Q", link_data, pos)[0]
+                from_ids.append(struct.unpack_from("<Q", link_data, pos)[0])
                 pos += 8
-                # Read to node (uint64)
-                to_node_id = struct.unpack_from("<Q", link_data, pos)[0]
+            # Read all to IDs
+            to_ids = []
+            for _ in range(record_num):
+                to_ids.append(struct.unpack_from("<Q", link_data, pos)[0])
                 pos += 8
-                # Read cigar string (null-terminated string)
+            # Read orientation bits (uint64 list)
+            from_orns, consumed = _unpack_orientation_bits_uint64(
+                link_data[pos:], record_num
+            )
+            pos += consumed
+            to_orns, consumed = _unpack_orientation_bits_uint64(
+                link_data[pos:], record_num
+            )
+            pos += consumed
+            # Read null-terminated cigar strings
+            cigar_list = []
+            for _ in range(record_num):
                 cigar_bytes = bytearray()
                 while pos < len(link_data) and link_data[pos] != 0:
                     cigar_bytes.append(link_data[pos])
                     pos += 1
                 pos += 1  # Skip null terminator
-                cigar = cigar_bytes.decode("ascii")
+                cigar_list.append(cigar_bytes.decode("ascii"))
 
-                # Convert node IDs to names using segment_names list
+            for i in range(record_num):
                 from_name = (
-                    segment_names[from_node_id - 1]
-                    if 0 < from_node_id <= len(segment_names)
-                    else f"node_{from_node_id}"
+                    segment_names[from_ids[i] - 1]
+                    if 0 < from_ids[i] <= len(segment_names)
+                    else f"node_{from_ids[i]}"
                 )
                 to_name = (
-                    segment_names[to_node_id - 1]
-                    if 0 < to_node_id <= len(segment_names)
-                    else f"node_{to_node_id}"
+                    segment_names[to_ids[i] - 1]
+                    if 0 < to_ids[i] <= len(segment_names)
+                    else f"node_{to_ids[i]}"
                 )
-
                 links.append(
                     {
                         "from_node": from_name,
-                        "from_orn": "+",
+                        "from_orn": "-" if from_orns[i] else "+",
                         "to_node": to_name,
-                        "to_orn": "+",
-                        "alignment": cigar,
+                        "to_orn": "-" if to_orns[i] else "+",
+                        "alignment": cigar_list[i],
                     }
                 )
 
             return links, offset - initial_offset
 
-        # For all other encodings, the payload format is:
-        # 1. Encoded from IDs (using integer encoding from compression_fromto)
-        # 2. Encoded to IDs (using integer encoding from compression_fromto)
-        # 3. Encoded CIGAR lengths (using integer encoding from compression_cigars high byte)
-        # 4. Compressed concatenated CIGARs (using string encoding from compression_cigars low byte)
+        # Non-identity: payload layout is:
+        # 1. Encoded from IDs
+        # 2. Encoded to IDs
+        # 3. from_orientation bits (uint64 list)
+        # 4. to_orientation bits (uint64 list)
+        # 5. Encoded CIGAR lengths
+        # 6. Compressed concatenated CIGARs
 
-        # Get the appropriate decoders
         fromto_int_decoder = get_integer_decoder(compression_fromto)
         cigars_int_decoder = get_integer_decoder(compression_cigars)
         cigars_str_decoder = get_string_decoder(compression_cigars)
@@ -1485,8 +1545,18 @@ class ReaderBGFA:
                 f"To ID count mismatch: expected {record_num}, got {len(to_ids)}"
             )
 
-        # Decode CIGAR lengths
+        # Decode orientation bits
         remaining_data = remaining_data[to_consumed:]
+        from_orns, from_orn_consumed = _unpack_orientation_bits_uint64(
+            remaining_data, record_num
+        )
+        remaining_data = remaining_data[from_orn_consumed:]
+        to_orns, to_orn_consumed = _unpack_orientation_bits_uint64(
+            remaining_data, record_num
+        )
+        remaining_data = remaining_data[to_orn_consumed:]
+
+        # Decode CIGAR lengths
         cigar_lengths, lengths_consumed = cigars_int_decoder(remaining_data, record_num)
         if len(cigar_lengths) != record_num:
             raise ValueError(
@@ -1496,7 +1566,7 @@ class ReaderBGFA:
         # Get the compressed CIGAR data
         compressed_cigars = remaining_data[lengths_consumed:]
 
-        # Decompress and extract CIGARs using unified interface
+        # Decompress and extract CIGARs
         cigar_bytes_list = cigars_str_decoder(compressed_cigars, cigar_lengths)
 
         # Build links list
@@ -1505,7 +1575,6 @@ class ReaderBGFA:
             to_node_id = to_ids[i]
             cigar = cigar_bytes_list[i].decode("ascii")
 
-            # Convert node IDs to names using segment_names list
             from_name = (
                 segment_names[from_node_id - 1]
                 if 0 < from_node_id <= len(segment_names)
@@ -1520,9 +1589,9 @@ class ReaderBGFA:
             links.append(
                 {
                     "from_node": from_name,
-                    "from_orn": "+",
+                    "from_orn": "-" if from_orns[i] else "+",
                     "to_node": to_name,
-                    "to_orn": "+",
+                    "to_orn": "-" if to_orns[i] else "+",
                     "alignment": cigar,
                 }
             )
@@ -2082,45 +2151,58 @@ class BGFAWriter:
         # Collect link data
         from_ids = []
         to_ids = []
+        from_orns = []  # 0 = "+", 1 = "-"
+        to_orns = []
         cigars = []
 
         for u, v, key, data in chunk:
-            # Get from and to IDs from segment_names
             from_name = data.get("from_node", u)
             to_name = data.get("to_node", v)
             alignment = data.get("alignment", "*")
 
-            # Find segment IDs using the segment_map created in to_bgfa
-            # Use 1-based indices to match what the reader expects
+            # 1-based segment IDs
             from_id = self._segment_map.get(from_name, -1) + 1
             to_id = self._segment_map.get(to_name, -1) + 1
 
             from_ids.append(from_id)
             to_ids.append(to_id)
+            from_orns.append(0 if data.get("from_orn", "+") == "+" else 1)
+            to_orns.append(0 if data.get("to_orn", "+") == "+" else 1)
             cigars.append(alignment)
 
         if record_num > 0:
             logger.debug(
                 f"First link: from_id={from_ids[0]}, to_id={to_ids[0]}, "
-                f"cigar={cigars[0]}"
+                f"from_orn={from_orns[0]}, to_orn={to_orns[0]}, cigar={cigars[0]}"
             )
 
+        # Pack orientation bits as uint64 list (per spec: `bits` = list of uint64)
+        from_orn_bytes = _pack_orientation_bits_uint64(from_orns)
+        to_orn_bytes = _pack_orientation_bits_uint64(to_orns)
+
         if compression_fromto == 0x0000 and compression_cigars == 0x0000:
-            # Identity encoding: from_id (uint64) + to_id (uint64) + null-terminated cigar
+            # Identity encoding — column-wise layout per spec:
+            # all from_ids | all to_ids | from_orientation bits | to_orientation bits | cigars
             payload_parts = []
-            for from_id, to_id, cigar in zip(from_ids, to_ids, cigars):
-                payload_parts.append(struct.pack("<Q", from_id))
-                payload_parts.append(struct.pack("<Q", to_id))
+            for fid in from_ids:
+                payload_parts.append(struct.pack("<Q", fid))
+            for tid in to_ids:
+                payload_parts.append(struct.pack("<Q", tid))
+            payload_parts.append(from_orn_bytes)
+            payload_parts.append(to_orn_bytes)
+            for cigar in cigars:
                 payload_parts.append(cigar.encode("ascii") + b"\x00")
             payload = b"".join(payload_parts)
             uncompressed_len = len(payload)
             compressed_len = len(payload)
         else:
             # Non-identity: format matching reader's _parse_links_block
-            # 1. Encoded from IDs (using fromto integer encoding)
-            # 2. Encoded to IDs (using fromto integer encoding)
-            # 3. Encoded CIGAR lengths (using cigars integer encoding)
-            # 4. Compressed concatenated CIGARs (using cigars string encoding)
+            # 1. Encoded from IDs
+            # 2. Encoded to IDs
+            # 3. from_orientation bits (uint64 list)
+            # 4. to_orientation bits (uint64 list)
+            # 5. Encoded CIGAR lengths
+            # 6. Compressed concatenated CIGARs
             fromto_int_encoder = get_integer_encoder(compression_fromto)
             cigars_int_encoder = get_integer_encoder(compression_cigars)
             cigars_str_encoding = compression_cigars & 0xFF
@@ -2134,7 +2216,12 @@ class BGFAWriter:
             )
 
             payload = (
-                encoded_from + encoded_to + encoded_cigar_lengths + compressed_cigars_data
+                encoded_from
+                + encoded_to
+                + from_orn_bytes
+                + to_orn_bytes
+                + encoded_cigar_lengths
+                + compressed_cigars_data
             )
             uncompressed_len = sum(cigar_lengths)
             compressed_len = len(payload)
