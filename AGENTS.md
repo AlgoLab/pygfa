@@ -66,6 +66,42 @@ python demo.py
 python compress.py -f <gfa_file>
 ```
 
+## Benchmark System
+
+The benchmark system allows filtering GFA files based on `# benchmark: NAME` comments and running automated benchmarks.
+
+### Benchmark Comments
+
+Add benchmark comments to GFA files:
+```gfa
+# benchmark: bgfa_compression
+# benchmark: bgfa_roundtrip
+H	VN:Z:1.0
+S	1	AT
+```
+
+- `# benchmark: NAME`: File used only for benchmark `NAME`
+- `# benchmark:` (no name): File used for ALL benchmarks
+- Comments must be at file beginning (only other comments can precede)
+- Files can have multiple benchmark comments
+
+### Usage
+
+```bash
+# List all benchmark files
+pixi run python tools/benchmark_filter.py --list
+
+# Filter by benchmark name
+pixi run python tools/benchmark_filter.py --list --benchmark-name bgfa_compression
+
+# Generate Snakemake configuration
+pixi run python tools/generate_benchmark_config.py --benchmark-name bgfa_compression
+
+# Run benchmark workflow
+pixi run snakemake -s workflow/Snakefile --configfile workflow/config.json -j 8
+```
+
+
 ## Code Style Guidelines
 
 ### Imports

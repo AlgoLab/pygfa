@@ -28,7 +28,8 @@ from pygfa.encoding import (
     compress_integer_list_varint,
     compress_string_list,
 )
-from pygfa.dovetail_operations.iterator import DovetailIterator
+
+# from pygfa.dovetail_operations.iterator import DovetailIterator
 from pygfa.graph_element.parser import containment, link, path, segment
 from pygfa.graph_element import edge as ge
 from pygfa.graph_element import node
@@ -81,7 +82,7 @@ def _index(obj: Any, other: list[Any]) -> tuple[bool, int]:
     return found, index
 
 
-class GFA(DovetailIterator):
+class GFA:
     """GFA will use a networkx MultiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the

@@ -9,22 +9,36 @@ sys.path.insert(0, "../")
 
 
 from pygfa import gfa
+from test_utils import should_run_test_for_gfa
 from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
 # Load sample_gfa2 from external file
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-with open(os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa2.gfa"), "r") as f:
+GFA_FILE_2 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
+with open(GFA_FILE_2, "r") as f:
     sample_gfa2 = f.read()
 
 
 # Load sample_gfa1 from external file
-with open(os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa"), "r") as f:
+GFA_FILE_1 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
+with open(GFA_FILE_1, "r") as f:
     sample_gfa1 = f.read()
 
 
 class TestLine(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run for both GFA files."""
+        # Check if test should run for sample_gfa2
+        if not should_run_test_for_gfa("gfa_graph", GFA_FILE_2):
+            raise unittest.SkipTest(f"No '# test: gfa_graph' comment found in {GFA_FILE_2}")
+
+        # Check if test should run for sample_gfa1
+        if not should_run_test_for_gfa("gfa_graph", GFA_FILE_1):
+            raise unittest.SkipTest(f"No '# test: gfa_graph' comment found in {GFA_FILE_1}")
+
     graph = gfa.GFA()
 
     def test_GFA_graph(self):

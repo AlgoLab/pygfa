@@ -1,3 +1,4 @@
+# test: serialization
 S	11	*	xx:i:11
 S	13	*
 L	11	+	13	+	120M
