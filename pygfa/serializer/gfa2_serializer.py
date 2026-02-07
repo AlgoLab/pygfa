@@ -124,13 +124,13 @@ def serialize_edge(edge_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTI
         if isinstance(edge_, dict):
             if edge_["eid"] is None:  # edge_ is a fragment
                 return _serialize_to_fragment(edge_, identifier)
-            if edge_["distance"] != None or edge_["variance"] != None:  # edge_ is a gap
+            if edge_["distance"] is not None or edge_["variance"] is not None:  # edge_ is a gap
                 return _serialize_to_gap(edge_, identifier)
             return _serialize_to_edge(edge_, identifier)
         else:
             if edge_.eid is None:  # edge_ is a fragment
                 return _serialize_to_fragment(edge_, identifier)
-            if edge_.distance != None or edge_.variance != None:  # edge_ is a gap
+            if edge_.distance is not None or edge_.variance is not None:  # edge_ is a gap
                 return _serialize_to_gap(edge_, identifier)
             return _serialize_to_edge(edge_)
 
@@ -343,7 +343,7 @@ def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
     return str.join(
         " ",
         [
-            str(id) + ((str(orientation)) if orientation != None else "")
+            str(id) + ((str(orientation)) if orientation is not None else "")
             for id, orientation in subgraph_elements.items()
         ],
     )

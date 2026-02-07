@@ -2,7 +2,6 @@
 
 import itertools
 import os
-import subprocess
 import sys
 import tempfile
 import shutil

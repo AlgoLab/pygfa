@@ -17,8 +17,8 @@ def is_node(obj: Any) -> bool:
     """
     try:
         return (
-            obj.nid != None
-            and obj.sequence != None
+            obj.nid is not None
+            and obj.sequence is not None
             and hasattr(obj, "slen")
             and hasattr(obj, "opt_fields")
         )
@@ -141,8 +141,8 @@ class Node:
                     segment_line.fields["slen"].value,
                     fields,
                 )
-        except (KeyError, AttributeError):
-            raise line.InvalidLineError("The given line cannot be " + "a Node.")
+        except (KeyError, AttributeError) as err:
+            raise line.InvalidLineError("The given line cannot be " + "a Node.") from err
 
     def __eq__(self, other: Any) -> bool:
         try:
@@ -171,7 +171,7 @@ class Node:
             str(self.slen),
             "{" + str(opt_fields) + "}",
         )
-        assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
+        assoc = [str.join(" : ", pair) for pair in zip(fields, values, strict=False)]
         return str.join(",\t", assoc)
 
 

@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import sys
@@ -71,7 +70,7 @@ class TestLine(unittest.TestCase):
 
     def test_wrong_fasta_file(self):
         file_error = self.graph.overlap_consistency("data/check_overlap_test.fasta")
-        self.assertTrue(file_error == None)
+        self.assertTrue(file_error is None)
 
 
 if __name__ == "__main__":

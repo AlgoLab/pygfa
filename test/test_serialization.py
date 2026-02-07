@@ -3,13 +3,11 @@ import logging
 import sys
 import unittest
 
-import networkx as nx
 
 sys.path.insert(0, "../")
 
-from pygfa.graph_element.parser import header, segment, link, path, containment
+from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
-from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1, gfa2_serializer as gs2
 from pygfa import gfa
