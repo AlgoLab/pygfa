@@ -7,7 +7,6 @@ import unittest
 
 sys.path.insert(0, "../")
 
-import pygfa
 from pygfa import gfa
 
 

@@ -446,8 +446,8 @@ class GFA:
         """
         try:
             self._graph.remove_node(nid)
-        except Exception:
-            raise node.InvalidNodeError(f"{nid} doesn't point to any node in the graph.")
+        except Exception as err:
+            raise node.InvalidNodeError(f"{nid} doesn't point to any node in the graph.") from err
 
     def nodes_iter(self, data=False, with_sequence=False):
         """Return an iterator over nodes in the graph.
@@ -586,7 +586,7 @@ class GFA:
                 from_node, to_node = self._get_edge_end_nodes(identifier)
                 self._graph.remove_edge(from_node, to_node, identifier)
         except nx.NetworkXError as nxe:
-            raise ge.InvalidEdgeError(nxe)
+            raise ge.InvalidEdgeError(nxe) from nxe
 
     def remove_edges(self, from_node, to_node):
         """Remove all the direct edges between the two nodes given.
@@ -635,8 +635,10 @@ class GFA:
         """Remove the Subgraph object identified by the given id."""
         try:
             del self._subgraphs[subgraph_id]
-        except Exception:
-            raise sg.InvalidSubgraphError("The given id doesn't " + " identify any subgraph.")
+        except Exception as err:
+            raise sg.InvalidSubgraphError(
+                "The given id doesn't " + " identify any subgraph."
+            ) from err
 
     def subgraphs_iter(self, data=False):
         """Return an iterator over subgraphs elements
@@ -706,8 +708,8 @@ class GFA:
         """Remove the path identified by the given id."""
         try:
             del self._paths[path_id]
-        except Exception:
-            raise GFAError("The given id doesn't identify any path.")
+        except Exception as err:
+            raise GFAError("The given id doesn't identify any path.") from err
 
     def paths_iter(self, data=False):
         """Return an iterator over paths in the GFA graph."""
@@ -775,8 +777,8 @@ class GFA:
         """Remove the walk identified by the given id."""
         try:
             del self._walks[walk_id]
-        except Exception:
-            raise GFAError("The given id doesn't identify any walk.")
+        except Exception as err:
+            raise GFAError("The given id doesn't identify any walk.") from err
 
     def walks_iter(self, data=False):
         """Return an iterator over walks in the GFA graph."""
@@ -1227,7 +1229,7 @@ class GFA:
 
     def names_blocks(self, block_size=1024):
         n = len(self.nodes())
-        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
         # it = self.nodes_iter(data=True, with_sequence=True)
         it = self.nodes_iter()
         return bytes(
@@ -1287,7 +1289,7 @@ class GFA:
 
     def segments_blocks(self, block_size=1024, compression_method="zstd", compression_level=19):
         n = len(self.nodes())
-        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
 
         # Get all nodes as a list for proper slicing
         all_nodes = list(self.nodes_iter(data=True))
@@ -1311,7 +1313,7 @@ class GFA:
         Each block contains a fixed number of links, specified by `block_size`.
         """
         n = len(self.edges())
-        self.set_segment_map(dict(zip([v for v in self.edges()], range(1, n + 1))))
+        self.set_segment_map(dict(zip([v for v in self.edges()], range(1, n + 1), strict=False)))
         it = self.edges_iter()
         return bytes(
             b"".join(
@@ -1331,7 +1333,7 @@ class GFA:
         Each block contains a fixed number of paths, specified by `block_size`.
         """
         n = len(self.nodes())
-        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
         it = self.nodes_iter()
         return bytes(
             b"".join(
@@ -1351,7 +1353,7 @@ class GFA:
         Each block contains a fixed number of walks, specified by `block_size`.
         """
         n = len(self.nodes())
-        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1))))
+        self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
         it = self.nodes_iter()
         return bytes(
             b"".join(

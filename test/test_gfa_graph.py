@@ -6,12 +6,10 @@ import networkx as nx
 
 sys.path.insert(0, "../")
 
-import pygfa
 
 from pygfa import gfa
-from pygfa.graph_element.parser import header, segment, link, path, containment
+from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
-from pygfa.graph_element.parser import line, field_validator as fv
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
 sample_gfa2 = str.join(
@@ -128,13 +126,13 @@ class TestLine(unittest.TestCase):
         self.assertTrue(tmp.nodes(identifier="2")["nid"] == "2")
         self.assertTrue(tmp.nodes(identifier="2")["sequence"] == "acgt")
         self.assertTrue(tmp.nodes(identifier="4")["nid"] == "4")
-        self.assertTrue(tmp.nodes(identifier="not_exists") == None)
+        self.assertTrue(tmp.nodes(identifier="not_exists") is None)
 
         # exists an edge between two and 4
         self.assertTrue(len(tmp.edges(identifier=("4", "2"))) == 1)
         self.assertTrue(tmp.edges(identifier=("4", "2", "virtual_42"))["eid"] == "*")
-        self.assertTrue(tmp.edges(identifier="None_Key") == None)
-        self.assertTrue(tmp.edges(identifier=("4", "None_Node")) == None)
+        self.assertTrue(tmp.edges(identifier="None_Key") is None)
+        self.assertTrue(tmp.edges(identifier=("4", "None_Node")) is None)
 
         # with self.assertRaises(gfa.InvalidSearchParameters):
         #     tmp.edge(("4"))
@@ -174,7 +172,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(self.graph.nodes(identifier="3")["ui"].type == "Z")
 
         self.graph.remove_node("3")
-        self.assertTrue(self.graph.nodes(identifier="3") == None)
+        self.assertTrue(self.graph.nodes(identifier="3") is None)
         self.assertTrue(len(self.graph.edges()) == 0)
         # the edge between 3 and 4 has been automatically deleted
 
@@ -230,7 +228,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(len(self.graph.edges(identifier=("3", "4"))) == 2)
 
         self.graph.remove_edge("virtual_0")
-        self.assertTrue(self.graph.edges(identifier="virtual_0") == None)
+        self.assertTrue(self.graph.edges(identifier="virtual_0") is None)
         with self.assertRaises(ge.InvalidEdgeError):
             self.graph.remove_edge("virtual_0")
 

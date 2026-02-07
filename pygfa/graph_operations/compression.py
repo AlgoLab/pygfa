@@ -62,7 +62,7 @@ def update_graph(gfa_, keep_id: str, remove_id: str, new_seq: str, overlap: int,
 
     # fix gfa_.node()[keep_id]['option']
 
-    remove_edge_dict = dict()
+    remove_edge_dict = {}
     data_update_edges = gfa_.edges(adj_dict=True)[remove_id]
     for node in data_update_edges:
         for edge_id in data_update_edges[node]:
@@ -94,14 +94,14 @@ def update_graph(gfa_, keep_id: str, remove_id: str, new_seq: str, overlap: int,
                             str(keep_slen - remove_slen + int(parse_from_positions[1])),
                         )
                 else:
-                    if orn == "-+" or orn == "+-":
+                    if orn in {"-+", "+-"}:
                         parse_from_orn = reverse_strand(parse_from_orn)
                     parse_to_node = data_update_edges[node][edge_id]["to_node"]
                     parse_to_orn = data_update_edges[node][edge_id]["to_orn"]
             else:
                 parse_to_node = keep_id
                 parse_to_orn = data_update_edges[node][edge_id]["to_orn"]
-                if orn == "-+" or orn == "+-":
+                if orn in {"-+", "+-"}:
                     parse_to_orn = reverse_strand(parse_to_orn)
                 parse_from_node = data_update_edges[node][edge_id]["from_node"]
                 parse_from_orn = data_update_edges[node][edge_id]["from_orn"]
@@ -208,7 +208,7 @@ def update_dictionaries_by_nodes(nodes, count_dictionaries, orn):
             if from_dict.get(remove_id).get(orientation):
                 links = from_dict.get(remove_id).get(orientation)
                 from_dict[remove_id][orientation] = []
-                if orn == "+-" or orn == "-+":
+                if orn in {"+-", "-+", "--", "++"}:
                     orientation = reverse_strand(orientation)
                 if not from_dict.get(keep_id):
                     from_dict[keep_id] = {}
@@ -223,7 +223,7 @@ def update_dictionaries_by_nodes(nodes, count_dictionaries, orn):
             if to_dict.get(remove_id).get(orientation):
                 links = to_dict.get(remove_id).get(orientation)
                 to_dict[remove_id][orientation] = []
-                if orn == "+-" or orn == "-+":
+                if orn in {"+-", "-+", "--", "++"}:
                     orientation = reverse_strand(orientation)
                 if not to_dict.get(keep_id):
                     to_dict[keep_id] = {}
@@ -240,9 +240,9 @@ def compression_graph_by_nodes(gfa_):
     of segment(node) with only 1 edge IN or OUT are compatible with compression.
     Passing data to the other functions update the graph and the dictionaries.
     """
-    eid_dict = dict()
-    from_dict = dict()
-    to_dict = dict()
+    eid_dict = {}
+    from_dict = {}
+    to_dict = {}
 
     data_edges = gfa_.edges(adj_dict=True)
     for node1 in data_edges:
@@ -327,7 +327,7 @@ def update_dictionaries_by_edges(eid_dict, count_dictionaries, eid, orn):
             if eid_dict[edge]["from_id"] == remove_id:
                 from_dict[tuple_to_string(from_node)] -= 1
                 eid_dict[edge]["from_id"] = keep_id
-                if orn == "-+" or orn == "+-":
+                if orn in {"-+", "+-", "--", "++"}:
                     eid_dict[edge]["from_orn"] = reverse_strand(eid_dict[edge]["from_orn"])
                     if not eid_dict[edge]["from_orn"]:
                         to_dict[tuple_to_string(to_node)] -= 1
@@ -346,7 +346,7 @@ def update_dictionaries_by_edges(eid_dict, count_dictionaries, eid, orn):
             if eid_dict[edge]["to_id"] == remove_id:
                 to_dict[tuple_to_string(to_node)] -= 1
                 eid_dict[edge]["to_id"] = keep_id
-                if orn == "-+" or orn == "+-":
+                if orn in {"-+", "+-", "--", "++"}:
                     eid_dict[edge]["to_orn"] = reverse_strand(eid_dict[edge]["to_orn"])
                 to_node = (eid_dict[edge]["to_id"], eid_dict[edge]["to_orn"])
                 if to_dict.get(tuple_to_string(to_node)):
@@ -361,9 +361,9 @@ def compression_graph_by_edges(gfa_):
     of segment(node) with only 1 edge IN or OUT are compatible with compression.
     Passing data to the other functions update the graph and the dictionaries.
     """
-    eid_dict = dict()
-    from_dict = dict()
-    to_dict = dict()
+    eid_dict = {}
+    from_dict = {}
+    to_dict = {}
 
     data_edges = gfa_.edges(adj_dict=True)
     for node1 in data_edges:

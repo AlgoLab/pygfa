@@ -36,7 +36,7 @@ def _are_fields_defined(fields: Any) -> bool:
         for field in fields:
             if field is None:
                 return False
-    except:
+    except Exception:
         return False
     return True
 
@@ -54,7 +54,7 @@ def _check_fields(fields: Any, required_fields: list[str]) -> bool:
             if not fv.is_valid(fields[field], required_fields[field]):
                 return False
         return True
-    except:
+    except Exception:
         return False
 
 

@@ -24,9 +24,9 @@ def is_segmentv1(line_repr: str | line.Line) -> bool:
             ):
                 return True
         else:
-            return line_repr.type == "S" and line_repr.fields["name"] != None
+            return line_repr.type == "S" and line_repr.fields["name"] is not None
 
-    except:
+    except Exception:
         pass
     return False
 
@@ -47,8 +47,8 @@ def is_segmentv2(line_repr: str | line.Line) -> bool:
             ):
                 return True
         else:
-            return line_repr.type == "S" and line_repr.fields["sid"] != None
-    except:
+            return line_repr.type == "S" and line_repr.fields["sid"] is not None
+    except Exception:
         pass
     return False
 

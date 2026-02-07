@@ -29,7 +29,7 @@ def fasta_reader(path: str, fasta_file: str) -> dict[str, Any] | None:
     :return dictionary with mapping: if esternal file is valid
     :return None: otherwise
     """
-    fasta_dict = dict()
+    fasta_dict = {}
     try:
         for seq_record in SeqIO.parse(path + fasta_file, "fasta"):
             id_fasta = seq_record.id
@@ -105,8 +105,8 @@ def check_overlap(gfa_, path, external_file):
         if not fasta_dict:
             return None
 
-    eid_dict = dict()
-    node_dict = dict()
+    eid_dict = {}
+    node_dict = {}
 
     count_consistency = 0
     count_no_defined = 0

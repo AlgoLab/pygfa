@@ -58,7 +58,7 @@ def serialize_node(node_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTI
             fields = ["S"]
             fields.append(str(node_["nid"]))
             fields.append(str(node_["sequence"]))
-            if node_["slen"] != None:
+            if node_["slen"] is not None:
                 fields.append("LN:i:" + str(node_["slen"]))
 
             fields.extend(utils._serialize_opt_fields(node_dict))
@@ -67,7 +67,7 @@ def serialize_node(node_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTI
             fields = ["S"]
             fields.append(str(node_.nid))
             fields.append(str(node_.sequence))
-            if node_.slen != None:
+            if node_.slen is not None:
                 fields.append("LN:i:" + str(node_.slen))
             fields.extend(utils._serialize_opt_fields(node_.opt_fields))
 
@@ -96,7 +96,7 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
         if isinstance(edge_, dict):
             if edge_["eid"] is None:  # edge_ is a fragment
                 raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
-            elif edge_["distance"] != None or edge_["variance"] != None:  # edge_ is a gap
+            elif edge_["distance"] is not None or edge_["variance"] is not None:  # edge_ is a gap
                 raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
             elif "pos" in edge_:  # edge_ is a containment
                 return _serialize_to_containment(edge_, identifier)
@@ -106,7 +106,7 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
                 raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
         elif edge_.eid is None:  # edge_ is a fragment
             raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
-        elif edge_.distance != None or edge_.variance != None:  # edge_ is a gap
+        elif edge_.distance is not None or edge_.variance is not None:  # edge_ is a gap
             raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
         elif "pos" in edge_.opt_fields:  # edge_ is a containment
             return _serialize_to_containment(edge_)
@@ -254,7 +254,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
 ################################################################################
 def point_to_node(gfa_, node_id):
     """Check if the given node_id point to a node in the gfa graph."""
-    return gfa_.nodes(identifier=node_id) != None
+    return gfa_.nodes(identifier=node_id) is not None
 
 
 def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
@@ -277,9 +277,9 @@ def _serialize_subgraph_elements(subgraph_elements, gfa_=None):
     elements = []
     for id_, orientation in subgraph_elements.items():
         if gfa_ is None:
-            if orientation != None:
+            if orientation is not None:
                 elements.append(str(id_) + str(orientation))
-        elif orientation != None and point_to_node(gfa_, id_):
+        elif orientation is not None and point_to_node(gfa_, id_):
             elements.append(str(id_) + str(orientation))
     return str.join(",", elements)
 

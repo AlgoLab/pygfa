@@ -11,7 +11,7 @@ class InvalidSubgraphError(Exception):
 
 def is_subgraph(obj: Any) -> bool:
     try:
-        return obj.sub_id != None and obj.elements != None and hasattr(obj, "opt_fields")
+        return obj.sub_id is not None and obj.elements is not None and hasattr(obj, "opt_fields")
     except Exception:
         return False
 
@@ -102,8 +102,8 @@ class Subgraph:
                 ids = collections.OrderedDict((id, None) for id in line_.fields["ids"].value)
                 return Subgraph(line_.fields["uid"].value, ids, fields)
             raise line.InvalidLineError(f"The given line type '{line_.type}' cannot be a Subgraph.")
-        except (KeyError, AttributeError) as e:
-            raise line.InvalidLineError(f"The given line cannot be a Subgraph: {e}")
+        except (KeyError, AttributeError) as err:
+            raise line.InvalidLineError(f"The given line cannot be a Subgraph: {err}") from err
 
     def as_dict(self) -> dict[str, Any]:
         """Turn the Subgraph into a dictionary.
@@ -140,11 +140,11 @@ class Subgraph:
             opt_fields_ = str.join(",\t", [str(field) for key, field in self.opt_fields.items()])
         elements_ = str.join(
             "\t",
-            [id + (orn if orn != None else "") for id, orn in self.elements.items()],
+            [id + (orn if orn is not None else "") for id, orn in self.elements.items()],
         )
 
         values = [self.sub_id, elements_, "{" + str(opt_fields_) + "}"]
-        assoc = [str.join(" : ", pair) for pair in zip(fields, values)]
+        assoc = [str.join(" : ", pair) for pair in zip(fields, values, strict=False)]
         return str.join(",\t", assoc)
 
 

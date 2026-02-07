@@ -2043,7 +2043,7 @@ class BGFAWriter:
         if compression_code == 0x0000:
             # Identity encoding: segment_id (uint64) + seq_len (uint64) + null-terminated sequence
             payload_parts = []
-            for seg_id, seq_len, sequence in zip(segment_ids, sequence_lengths, sequences):
+            for seg_id, seq_len, sequence in zip(segment_ids, sequence_lengths, sequences, strict=False):
                 payload_parts.append(struct.pack("<Q", seg_id))
                 payload_parts.append(struct.pack("<Q", seq_len))
                 payload_parts.append(sequence.encode("ascii") + b"\x00")

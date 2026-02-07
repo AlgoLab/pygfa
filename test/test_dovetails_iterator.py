@@ -1,6 +1,5 @@
 import os
 import sys
-from networkx.exception import NetworkXError
 import unittest
 
 sys.path.insert(0, "../")

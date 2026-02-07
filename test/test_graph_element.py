@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0, "../")
 
 from pygfa.graph_element import node, edge as graph_edge, subgraph
-from pygfa.graph_element.parser import header, segment, link, path, containment
+from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element.parser import line
 
@@ -230,7 +230,7 @@ class TestGraphElement(unittest.TestCase):
 
         # if line cannot be converted to an Edge object just return None
         custom_line = CustomLine.from_string("R\ta\tcustom\tline")
-        self.assertTrue(graph_edge.Edge.from_line(custom_line) == None)
+        self.assertTrue(graph_edge.Edge.from_line(custom_line) is None)
 
         # check raising exceptions if line hasn't the correct fields.
         custom_line._type = "E"
@@ -274,7 +274,7 @@ class TestGraphElement(unittest.TestCase):
 
         # check unexpected line type in from_line
         custom_line = CustomLine.from_string("R\ta\tcustom\tline")
-        self.assertTrue(subgraph.Subgraph.from_line(custom_line) == None)
+        self.assertTrue(subgraph.Subgraph.from_line(custom_line) is None)
 
         # check exception in from_line
         custom_line._type = "P"
@@ -355,9 +355,9 @@ class TestGraphElement(unittest.TestCase):
         )
         ed = graph_edge.Edge.from_line(line)
 
-        self.assertTrue(ed.eid == None)
+        self.assertTrue(ed.eid is None)
         self.assertTrue(ed.from_node == line.fields["sid"].value)
-        self.assertTrue(ed.from_orn == None)
+        self.assertTrue(ed.from_orn is None)
         self.assertTrue(ed.to_node == line.fields["external"].value[0:-1])
         self.assertTrue(ed.to_orn == line.fields["external"].value[-1:])
         self.assertTrue(ed.from_positions == (line.fields["sbeg"].value, line.fields["send"].value))
@@ -426,7 +426,7 @@ class TestGraphElement(unittest.TestCase):
 
         self.assertTrue(sb.sub_id == line.fields["uid"].value)
         self.assertTrue(
-            [u + ("" if v == None else v) for u, v in sb.elements.items()]
+            [u + ("" if v is None else v) for u, v in sb.elements.items()]
             == line.fields["ids"].value
         )
         self.assertTrue(sb.opt_fields["xx"].value == line.fields["xx"].value)
