@@ -60,7 +60,7 @@ class Node:
         if not isinstance(node_id, str) or node_id == "*":
             raise InvalidNodeError(
                 "A Node has always a defined id of type string, "
-                 f"given {node_id} of type {type(node_id)}"
+                f"given {node_id} of type {type(node_id)}"
             )
 
         # checks sequence validation against GFA2 sequence specification
@@ -68,14 +68,13 @@ class Node:
         if not (isinstance(sequence, str) and fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
             raise InvalidNodeError(
                 "A sequence must be of type string and must be a "
-                 "valid GFA2 sequence,"
-                 f"given '{sequence}' of type {type(sequence)}"
+                "valid GFA2 sequence,"
+                f"given '{sequence}' of type {type(sequence)}"
             )
 
         if not ((isinstance(length, int) and int(length) >= 0) or length is None):
             raise InvalidNodeError(
-                "Sequence length must be a number >= 0, "
-                 f"given {length} of type {type(length)}"
+                f"Sequence length must be a number >= 0, given {length} of type {type(length)}"
             )
         self._nid = node_id
         self._sequence = sequence
@@ -150,7 +149,7 @@ class Node:
             if self.nid != other.nid or self.sequence != other.sequence or self.slen != other.slen:
                 return False
 
-            for key, item in self.opt_fields.items():
+            for key, _item in self.opt_fields.items():
                 if key not in other.opt_fields or not self.opt_fields[key] == other.opt_fields[key]:
                     return False
 

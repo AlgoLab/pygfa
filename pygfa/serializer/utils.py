@@ -25,7 +25,7 @@ def _remove_common_edge_fields(edge_dict: dict[str, Any]) -> None:
 
 def _serialize_opt_fields(opt_fields: dict[str, line.OptField]) -> list[str]:
     fields = []
-    for key, opt_field in opt_fields.items():
+    for _key, opt_field in opt_fields.items():
         if line.is_optfield(opt_field):
             fields.append(str(opt_field))
     return fields

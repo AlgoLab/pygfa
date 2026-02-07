@@ -1896,7 +1896,7 @@ class BGFAWriter:
     def _compute_links_size(self):
         """Estimate links data size."""
         total = 0
-        for u, v, key, data in self._gfa.edges(data=True, keys=True):
+        for _u, _v, _key, data in self._gfa.edges(data=True, keys=True):
             if data.get("is_dovetail", False):
                 alignment = data.get("alignment", "*")
                 total += 8 + 8 + len(alignment) + 1  # from_id + to_id + cigar + null
@@ -2108,7 +2108,7 @@ class BGFAWriter:
         to_orns = []
         cigars = []
 
-        for u, v, key, data in chunk:
+        for u, v, _key, data in chunk:
             from_name = data.get("from_node", u)
             to_name = data.get("to_node", v)
             alignment = data.get("alignment", "*")

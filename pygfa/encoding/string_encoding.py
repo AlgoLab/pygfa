@@ -283,7 +283,7 @@ def compress_string_list_huffman(
 
     codebook: list[tuple[int, list[int]]] = sorted(codes.items(), key=lambda x: x[0])
     codebook_entries: list[int] = []
-    for char, code in codebook:
+    for _char, code in codebook:
         code_len = len(code)
         codebook_entries.append(code_len)
         codebook_entries.extend(code)

@@ -321,7 +321,7 @@ def are_elements_oriented(subgraph_elements):
     """Check wheter all the elements of a subgraph have
     an orientation value `[+/-]`.
     """
-    for id_, orientation in subgraph_elements.items():
+    for _, orientation in subgraph_elements.items():
         if orientation is None:
             return False
     return True
