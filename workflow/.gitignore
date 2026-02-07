@@ -1,0 +1,8 @@
+# Snakemake generated files
+.snakemake/
+__pycache__/
+*.pyc
+
+# Benchmark output (unless you want to commit it)
+# Uncomment the next line to ignore benchmark results:
+# ../benchmark/
