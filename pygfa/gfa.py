@@ -171,7 +171,7 @@ class GFA:
         regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
-        for from_node, to_node, key in self.edges_iter(keys=True):
+        for _from_node, _to_node, key in self.edges_iter(keys=True):
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -597,7 +597,7 @@ class GFA:
         removing all the edges indeed.
         """
         num_edges = len(self.edges(identifier=(from_node, to_node)))
-        for edge_ in range(0, num_edges):
+        for _ in range(0, num_edges):
             self._graph.remove_edge(from_node, to_node)
 
     def edges_iter(self, nbunch=None, data=False, keys=False, default=None):
@@ -1406,7 +1406,7 @@ class GFA:
         # 3. Links (sorted by From, then To)
         links = []
         logger.debug(f"to_gfa(): Processing {len(list(self.edges_iter()))} edges")
-        for u, v, key, data in self.edges_iter(data=True, keys=True):
+        for u, v, _key, data in self.edges_iter(data=True, keys=True):
             if data.get("is_dovetail", False):
                 from_node = data.get("from_node", u)
                 from_orn = data.get("from_orn", "+")
@@ -1476,7 +1476,7 @@ class GFA:
         # 5. Walks (sorted by SampleID, then SeqId)
         walks = []
         logger.debug(f"to_gfa(): Processing {len(self._walks)} walks")
-        for walk_id, walk_data in self.walks_iter(data=True):
+        for _walk_id, walk_data in self.walks_iter(data=True):
             line_parts = ["W"]
 
             # Add required fields

@@ -48,8 +48,8 @@ class Subgraph:
         if not isinstance(graph_id, str):
             raise InvalidSubgraphError(
                 "A subgraph has always an id "
-                 "of type string, "
-                 f"given {graph_id} of type {type(graph_id)}"
+                "of type string, "
+                f"given {graph_id} of type {type(graph_id)}"
             )
         if not isinstance(elements, dict):
             raise InvalidSubgraphError("A dictionary of elements id:orientation is required.")
@@ -61,7 +61,7 @@ class Subgraph:
                 self._opt_fields[key] = copy.deepcopy(field)
 
     def is_path(self) -> bool:
-        for element, orn in self.elements.items():
+        for _element, orn in self.elements.items():
             if orn is None:
                 return False
         return True
@@ -101,9 +101,7 @@ class Subgraph:
                 fields.pop("ids")
                 ids = collections.OrderedDict((id, None) for id in line_.fields["ids"].value)
                 return Subgraph(line_.fields["uid"].value, ids, fields)
-            raise line.InvalidLineError(
-                f"The given line type '{line_.type}' cannot be a Subgraph."
-            )
+            raise line.InvalidLineError(f"The given line type '{line_.type}' cannot be a Subgraph.")
         except (KeyError, AttributeError) as e:
             raise line.InvalidLineError(f"The given line cannot be a Subgraph: {e}")
 
