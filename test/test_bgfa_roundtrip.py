@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Round-trip tests: GFA -> BGFA -> GFA equality checks.
+"""Round-trip tests: GFA -> BGFA -> GFA equality checks.
 
 Tests that converting a GFA file to BGFA and back produces an identical GFA.
 """
@@ -9,18 +8,43 @@ import os
 import sys
 import tempfile
 
-import pytest
-
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pygfa.gfa import GFA
+from test_utils import should_run_test_for_gfa
+
+# Import pytest with fallback for when it's not available
+try:
+    import pytest
+
+    HAS_PYTEST = True
+except ImportError:
+    HAS_PYTEST = False
+
+    # Create a dummy pytest module with the decorators we need
+    class DummyPytest:
+        @staticmethod
+        def mark(*args, **kwargs):
+            class DummyMark:
+                @staticmethod
+                def parametrize(*args, **kwargs):
+                    return lambda f: f
+
+            return DummyMark()
+
+        @staticmethod
+        def skip(reason):
+            raise Exception(f"Skipped: {reason}")
+
+    pytest = DummyPytest()
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict = None):
     """Write gfa_text to a file, load it, convert to BGFA and back, return (original, roundtrip) GFA objects."""
@@ -67,49 +91,27 @@ def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: 
 # Strict round-trip: to_gfa() text must be identical
 # ---------------------------------------------------------------------------
 
+
 class TestStrictRoundtrip:
     """Tests where the full to_gfa() text must be identical after GFA->BGFA->GFA."""
 
     def test_simple_segments_and_links(self):
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\t1\tACGT\n"
-            "S\t2\tTTTT\n"
-            "S\t3\tGGGG\n"
-            "L\t1\t+\t2\t+\t2M\n"
-            "L\t2\t+\t3\t+\t3M\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\t1\tACGT\nS\t2\tTTTT\nS\t3\tGGGG\nL\t1\t+\t2\t+\t2M\nL\t2\t+\t3\t+\t3M\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
     def test_star_sequences(self):
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\t1\t*\n"
-            "S\t2\tACGT\n"
-            "S\t3\t*\n"
-            "L\t1\t+\t2\t+\t*\n"
-            "L\t2\t+\t3\t+\t5M\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\t1\t*\nS\t2\tACGT\nS\t3\t*\nL\t1\t+\t2\t+\t*\nL\t2\t+\t3\t+\t5M\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
     def test_segments_only(self):
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\ta\tAAAA\n"
-            "S\tb\tCCCC\n"
-            "S\tc\tGGGG\n"
-            "S\td\tTTTT\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\ta\tAAAA\nS\tb\tCCCC\nS\tc\tGGGG\nS\td\tTTTT\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
     def test_single_segment(self):
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\ts1\tACGTACGT\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\ts1\tACGTACGT\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
@@ -119,7 +121,7 @@ class TestStrictRoundtrip:
         for i in range(10):
             lines.append(f"S\tseg{i}\tACGT")
         for i in range(9):
-            lines.append(f"L\tseg{i}\t+\tseg{i+1}\t+\t2M")
+            lines.append(f"L\tseg{i}\t+\tseg{i + 1}\t+\t2M")
         gfa_text = "\n".join(lines) + "\n"
 
         g, h = _roundtrip(gfa_text, block_size=4)
@@ -128,12 +130,7 @@ class TestStrictRoundtrip:
     def test_long_sequences(self):
         seq1 = "ACGT" * 250
         seq2 = "TTTT" * 300
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            f"S\t1\t{seq1}\n"
-            f"S\t2\t{seq2}\n"
-            "L\t1\t+\t2\t+\t10M\n"
-        )
+        gfa_text = f"H\tVN:Z:1.0\nS\t1\t{seq1}\nS\t2\t{seq2}\nL\t1\t+\t2\t+\t10M\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
@@ -152,12 +149,7 @@ class TestStrictRoundtrip:
     def test_numeric_segment_names(self):
         """Test that numeric segment names are preserved correctly."""
         gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\t100\tAAAA\n"
-            "S\t200\tCCCC\n"
-            "S\t300\tGGGG\n"
-            "L\t100\t+\t200\t+\t2M\n"
-            "L\t200\t+\t300\t+\t2M\n"
+            "H\tVN:Z:1.0\nS\t100\tAAAA\nS\t200\tCCCC\nS\t300\tGGGG\nL\t100\t+\t200\t+\t2M\nL\t200\t+\t300\t+\t2M\n"
         )
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
@@ -177,27 +169,13 @@ class TestStrictRoundtrip:
 
     def test_minus_orientations(self):
         """Test that '-' orientations are preserved through BGFA round-trip."""
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\t1\tACGT\n"
-            "S\t2\tTTTT\n"
-            "S\t3\tGGGG\n"
-            "L\t1\t+\t2\t-\t2M\n"
-            "L\t2\t-\t3\t+\t3M\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\t1\tACGT\nS\t2\tTTTT\nS\t3\tGGGG\nL\t1\t+\t2\t-\t2M\nL\t2\t-\t3\t+\t3M\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
     def test_all_minus_orientations(self):
         """Test links where all orientations are '-'."""
-        gfa_text = (
-            "H\tVN:Z:1.0\n"
-            "S\t1\tACGT\n"
-            "S\t2\tTTTT\n"
-            "S\t3\tGGGG\n"
-            "L\t1\t-\t2\t-\t4M\n"
-            "L\t2\t-\t3\t-\t3M\n"
-        )
+        gfa_text = "H\tVN:Z:1.0\nS\t1\tACGT\nS\t2\tTTTT\nS\t3\tGGGG\nL\t1\t-\t2\t-\t4M\nL\t2\t-\t3\t-\t3M\n"
         g, h = _roundtrip(gfa_text)
         assert g.to_gfa() == h.to_gfa()
 
@@ -222,13 +200,22 @@ class TestStrictRoundtrip:
 
 
 # ---------------------------------------------------------------------------
-# Strict round-trip for existing data files (segments + links, no paths)
+# Data file tests with comment-based filtering
 # ---------------------------------------------------------------------------
 
-DATA_FILES_NO_PATHS = [
-    "data/example_1.gfa",
-    "data/example_2.gfa",
-]
+
+def _filter_data_files_by_comment(gfa_files):
+    """Filter GFA files to only include those with bgfa_roundtrip test comment."""
+    return [f for f in gfa_files if should_run_test_for_gfa("bgfa_roundtrip", f)]
+
+
+# Files without paths (segments + links, no paths)
+DATA_FILES_NO_PATHS = _filter_data_files_by_comment(
+    [
+        "data/example_1.gfa",
+        "data/example_2.gfa",
+    ]
+)
 
 
 @pytest.mark.parametrize("gfa_path", DATA_FILES_NO_PATHS)
@@ -239,18 +226,15 @@ class TestDataFileStrictRoundtrip:
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path)
-        assert g.to_gfa() == h.to_gfa(), (
-            f"Round-trip mismatch for {gfa_path}"
-        )
+        assert g.to_gfa() == h.to_gfa(), f"Round-trip mismatch for {gfa_path}"
 
 
-# ---------------------------------------------------------------------------
-# Structural round-trip for files with paths (path reader is a stub)
-# ---------------------------------------------------------------------------
-
-DATA_FILES_WITH_PATHS = [
-    "data/example_3.gfa",
-]
+# Files with paths (path reader is a stub)
+DATA_FILES_WITH_PATHS = _filter_data_files_by_comment(
+    [
+        "data/example_3.gfa",
+    ]
+)
 
 
 @pytest.mark.parametrize("gfa_path", DATA_FILES_WITH_PATHS)
@@ -297,16 +281,13 @@ class TestStructuralRoundtrip:
 
         g_links = _link_set(g)
         h_links = _link_set(h)
-        assert g_links == h_links, (
-            f"Link mismatch.\n"
-            f"  Missing: {g_links - h_links}\n"
-            f"  Extra: {h_links - g_links}"
-        )
+        assert g_links == h_links, f"Link mismatch.\n  Missing: {g_links - h_links}\n  Extra: {h_links - g_links}"
 
 
 # ---------------------------------------------------------------------------
 # Block size variation tests
 # ---------------------------------------------------------------------------
+
 
 class TestBlockSizes:
     """Test that different block sizes produce identical round-trip results."""
@@ -314,7 +295,7 @@ class TestBlockSizes:
     GFA_TEXT = (
         "H\tVN:Z:1.0\n"
         + "".join(f"S\ts{i}\tACGT\n" for i in range(20))
-        + "".join(f"L\ts{i}\t+\ts{i+1}\t+\t2M\n" for i in range(19))
+        + "".join(f"L\ts{i}\t+\ts{i + 1}\t+\t2M\n" for i in range(19))
     )
 
     @pytest.mark.parametrize("block_size", [1, 2, 4, 8, 16, 32, 1024])
@@ -326,8 +307,7 @@ class TestBlockSizes:
         "H\tVN:Z:1.0\n"
         + "".join(f"S\ts{i}\tACGT\n" for i in range(20))
         + "".join(
-            f"L\ts{i}\t{'+' if i % 2 == 0 else '-'}\ts{i+1}\t{'-' if i % 3 == 0 else '+'}\t2M\n"
-            for i in range(19)
+            f"L\ts{i}\t{'+' if i % 2 == 0 else '-'}\ts{i + 1}\t{'-' if i % 3 == 0 else '+'}\t2M\n" for i in range(19)
         )
     )
 
@@ -338,4 +318,7 @@ class TestBlockSizes:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    if HAS_PYTEST:
+        pytest.main([__file__, "-v"])
+    else:
+        print("pytest not available. Run with pytest to execute tests.")

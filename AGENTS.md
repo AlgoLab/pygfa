@@ -47,6 +47,15 @@ pixi run coverage combine
 pixi run coverage html --omit=/usr/*
 ```
 
+The input files for each test are in the `/data` directory.
+
+Each `*.gfa*` file has one or more comments of the form `# test: TESTNAME` where `TESTNAME` is the filename of the
+`/test` directory containing some tests. The comment `# test: TESTNAME` means that the gfa file must be used as a test
+case of the `/test/test_TESTNAME.py` or the `/test/TESTNAME.py` script.
+Those comments must be at the beginning of the file.
+There can be multiple such comments in each gfa file.
+
+
 ### Development Tools
 
 ```bash

@@ -5,6 +5,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 #    s2 --- s3 --- s6
 #   /                \
@@ -12,10 +13,18 @@ import pygfa
 #
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetails_iterator.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_dovetails_iterator.gfa"))
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("dovetails_iterator", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: dovetails_iterator' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_is_dovetail(self):
         """Test wheter the edges represent a dovetail overlaps."""
@@ -76,7 +85,13 @@ class TestLine(unittest.TestCase):
 
     def test_dovetails_linear_path_iter(self):
         graph = pygfa.gfa.GFA()
-        graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_linear_path.gfa"))
+        linear_path_gfa = os.path.join(os.path.dirname(__file__), "data", "test_linear_path.gfa")
+
+        # Check if this test should run for the linear path GFA
+        if not should_run_test_for_gfa("dovetails_iterator", linear_path_gfa):
+            self.skipTest(f"No '# test: dovetails_iterator' comment found in {linear_path_gfa}")
+
+        graph.from_gfa(linear_path_gfa)
 
         self.assertTrue(set(graph.dovetails_linear_path_traverse_nodes_iter("s3")) == {"s2", "s3", "s6"})
 

@@ -5,6 +5,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 # Before Compression
 #                                                             ___________
@@ -37,10 +38,18 @@ import pygfa
 #                            |___________|
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "compression_test.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_compression.gfa"))
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("compression", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: compression' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_compression(self):
         before_node = [

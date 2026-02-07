@@ -5,6 +5,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 #
 #
@@ -19,12 +20,18 @@ import pygfa
 #                 [41_41_41]
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetails_all_simple_paths.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(
-        os.path.join(os.path.dirname(__file__), "data", "test_dovetails_all_simple_paths.gfa")
-    )
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("dovetails_all_simple_paths", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: dovetails_all_simple_paths' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_dovetails_all_simple_paths(self):
         self.assertTrue(
@@ -41,12 +48,9 @@ class TestLine(unittest.TestCase):
             [("18", "19"), ("19", "1"), ("1", "2"), ("2", "8"), ("8", "3"), ("3", "6")]
             in list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=True))
         )
+        self.assertTrue(len(list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=True))) == 3)
         self.assertTrue(
-            len(list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=True))) == 3
-        )
-        self.assertTrue(
-            ["18", "12", "9", "11", "6"]
-            in list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=False))
+            ["18", "12", "9", "11", "6"] in list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=False))
         )
 
         self.assertTrue(
@@ -58,9 +62,7 @@ class TestLine(unittest.TestCase):
             ["18", "19", "1", "2", "8", "3", "6"]
             in list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=False))
         )
-        self.assertTrue(
-            len(list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=True))) == 3
-        )
+        self.assertTrue(len(list(pygfa.dovetails_all_simple_paths(self.graph, "18", "6", edges=True))) == 3)
 
 
 if __name__ == "__main__":

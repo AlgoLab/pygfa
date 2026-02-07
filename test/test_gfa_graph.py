@@ -1,4 +1,5 @@
 import copy
+import os
 import sys
 import unittest
 
@@ -12,71 +13,15 @@ from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
-sample_gfa2 = str.join(
-    "",
-    [
-        "# File used for the collections test\n#",
-        " similar but NOT equivalent to the gfa1 file!\nS\t1\t122\t*\n",
-        "S\t3\t29\tTGCTAGCTGACTGTCGATGCTGTGTG\n",
-        "E\t1_to_2\t1+\t2+\t110\t122$\t0\t12\t12M\n",
-        "S\t5\t130\t*\n",
-        "S\t13\t150\t*\n",
-        "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t122M\n",
-        "O\t14\t11+ 12+\n",
-        "S\t11\t140\t*\txx:i:11\n",
-        "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\n",
-        "F\t2\tread2+\t45\t62\t0\t18\t*\tid:Z:read2_in_2\n",
-        "U\t16\t1 3 15 2_to_6 16sub\n",
-        "H\tac:Z:test2\n",
-        "# another comment\n",
-        "S\t12\t150\t*\n",
-        "S\t4\t120\t*\n",
-        "H\tVN:Z:2.0\n",
-        "E\t1_to_3\t1+\t3+\t112\t122$\t0\t12\t10M\n",
-        "G\t1_to_11\t1+\t11-\t120\t*\n",
-        "E\t11_to_12\t11+\t12+\t18\t140$\t0\t122\t122M\n",
-        "S\t6\t150\t*\n",
-        "X\tcustom_record\txx:Z:testtag\n",
-        "X\tcustom_record\tX2\n",
-        "E\t11_to_13\t11+\t13+\t20\t140$\t0\t120\t120M\n",
-        "G\t2_to_12\t2-\t12+\t500\t50\n",
-        "O\t15\t11+ 11_to_13+ 13+\txx:i:-1\n",
-        "Y\tanother_custom_record\n",
-        "U\t16sub\t2 3\n",
-        "S\t2\t120\t*\txx:Z:sometag\n",
-        "H\taa:i:12\tab:Z:test1\n",
-        "H\taa:i:15\n",
-        "E\t1_to_5\t1+\t5+\t0\t122$\t2\t124\t*\tzz:Z:tag\n",
-    ],
-)
+# Load sample_gfa2 from external file
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+with open(os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa2.gfa"), "r") as f:
+    sample_gfa2 = f.read()
 
 
-sample_gfa1 = str.join(
-    "",
-    [
-        "S\t1\t*\n",
-        "S\t3\tCGATGCTAGCTGACTGTCGATGCTGTGTG\n",
-        "L\t1\t+\t2\t+\t12M\tID:Z:1_to_2\n",
-        "S\t5\t*\n",
-        "S\t13\t*\n",
-        "C\t2\t+\t6\t+\t10\t122M\tID:Z:2_to_6\n",
-        "P\t14\t11+,12+\t122M\n",
-        "S\t11\t*\n",
-        "H\tac:Z:test2\n",
-        "S\t12\t*\n",
-        "S\t4\t*\n",
-        "H\tVN:Z:1.0\n",
-        "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\n",
-        "L\t11\t+\t12\t+\t122M\tID:Z:11_to_12\n",
-        "S\t6\t*\n",
-        "L\t11\t+\t13\t+\t120M\tID:Z:11_to_13\n",
-        "P\t15\t11+,13+\t120M\n",
-        "S\t2\t*\txx:Z:sometag\n",
-        "H\taa:i:12\tab:Z:test1\n",
-        "H\taa:i:15\n",
-        "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\n",
-    ],
-)
+# Load sample_gfa1 from external file
+with open(os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa"), "r") as f:
+    sample_gfa1 = f.read()
 
 
 class TestLine(unittest.TestCase):
