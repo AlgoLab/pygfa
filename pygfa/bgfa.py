@@ -87,9 +87,7 @@ def decompress_string_identity(data: bytes, lengths: list[int]) -> list[bytes]:
     pos = 0
     for length in lengths:
         if pos + length > len(data):
-            raise ValueError(
-                f"Data too short: need {pos + length} bytes, have {len(data)}"
-            )
+            raise ValueError(f"Data too short: need {pos + length} bytes, have {len(data)}")
         result.append(data[pos : pos + length])
         pos += length
     return result
@@ -998,7 +996,7 @@ class ReaderBGFA:
         file_path: str,
         verbose: bool = False,
         debug: bool = False,
-        logfile: str = None,
+        logfile: str | None = None,
     ) -> GFA:
         """Read a BGFA file and create the corresponding GFA graph.
 
@@ -1020,9 +1018,7 @@ class ReaderBGFA:
         if log_level <= logging.INFO:
             if logfile is None:
                 # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(
-                    mode="w", delete=False, suffix=".log"
-                )
+                temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
@@ -1036,15 +1032,13 @@ class ReaderBGFA:
         logging.getLogger().handlers.clear()
 
         # Create formatter
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         handlers = []
 
         # Only add file handler if we're actually logging to a file
 
-        if logfile != "/dev/null" and logfile != "NUL":
+        if logfile not in {"/dev/null", "NUL"}:
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
@@ -1088,14 +1082,10 @@ class ReaderBGFA:
         num_blocks = math.ceil(header["s_len"] / header["block_size"])
         logger.info(f"Parsing {num_blocks} segment name blocks")
         for i in range(num_blocks):
-            segment_names_block, read_bytes = self._parse_segment_names_block(
-                bgfa_data, offset
-            )
+            segment_names_block, read_bytes = self._parse_segment_names_block(bgfa_data, offset)
             offset += read_bytes
             segment_names.extend(segment_names_block)
-            logger.info(
-                f"Parsed segment names block {i+1}: {len(segment_names_block)} names"
-            )
+            logger.info(f"Parsed segment names block {i + 1}: {len(segment_names_block)} names")
         logger.info(f"Total segment names: {len(segment_names)}")
         logger.debug(f"First 5 segment names: {segment_names[:5]}")
 
@@ -1105,7 +1095,7 @@ class ReaderBGFA:
         for i in range(num_blocks):
             segment_block, read_bytes = self._parse_segments_block(bgfa_data, offset)
             offset += read_bytes
-            logger.info(f"Parsed segments block {i+1}: {len(segment_block)} segments")
+            logger.info(f"Parsed segments block {i + 1}: {len(segment_block)} segments")
             # Add nodes to GFA graph with segment IDs
             for segment_id, segment_data in segment_block.items():
                 # Get node name from segment_names list (0-based index)
@@ -1134,11 +1124,9 @@ class ReaderBGFA:
         num_blocks = math.ceil(header["l_len"] / header["block_size"])
         logger.info(f"Parsing {num_blocks} link blocks")
         for i in range(num_blocks):
-            links, read_bytes = self._parse_links_block(
-                bgfa_data, segment_names, offset
-            )
+            links, read_bytes = self._parse_links_block(bgfa_data, segment_names, offset)
             offset += read_bytes
-            logger.info(f"Parsed links block {i+1}: {len(links)} links")
+            logger.info(f"Parsed links block {i + 1}: {len(links)} links")
 
             # Add edges to GFA graph
             for link in links:
@@ -1159,16 +1147,16 @@ class ReaderBGFA:
                     )
                 )
             if verbose:
-                logger.info(f"Added {len(links)} links from block {i+1}")
+                logger.info(f"Added {len(links)} links from block {i + 1}")
                 if i == 0 and links:
                     logger.debug(f"First link: {links[0]}")
 
         # TODO: Parse paths
         # TODO: Parse walks
 
-        logger.info(
-            f"BGFA reading complete. Graph has {len(gfa.nodes())} nodes and {len(gfa.edges())} edges"
-        )
+        node_count = len(gfa.nodes()) if gfa.nodes() is not None else 0
+        edge_count = len(gfa.edges()) if gfa.edges() is not None else 0
+        logger.info(f"BGFA reading complete. Graph has {node_count} nodes and {edge_count} edges")
         return gfa
 
     def _parse_header(self, bgfa_data: bytes) -> dict:
@@ -1214,9 +1202,7 @@ class ReaderBGFA:
             "header_size": offset,
         }
 
-    def _parse_segment_names_block(
-        self, bgfa_data: bytes, offset: int
-    ) -> tuple[list[str], int]:
+    def _parse_segment_names_block(self, bgfa_data: bytes, offset: int) -> tuple[list[str], int]:
         """Parse segment names from BGFA data.
 
         Supports all compression methods defined in the BGFA spec:
@@ -1250,8 +1236,9 @@ class ReaderBGFA:
 
         logger.debug(
             f"Parsing segment names block: record_num={record_num}, "
-            f"compression={compression_names:#06x} (int={int_encoding:#04x}, str={str_encoding:#04x}), "
-            f"compressed_len={compressed_len}, uncompressed_len={uncompressed_len}"
+            f"compression={compression_names:#06x} (int={int_encoding:#04x}, "
+            f"str={str_encoding:#04x}), compressed_len={compressed_len}, "
+            f"uncompressed_len={uncompressed_len}"
         )
 
         # Handle legacy identity encoding (0x0000): null-terminated strings
@@ -1287,9 +1274,7 @@ class ReaderBGFA:
         lengths, lengths_consumed = int_decoder(payload, record_num)
 
         if len(lengths) != record_num:
-            raise ValueError(
-                f"Length count mismatch: expected {record_num}, got {len(lengths)}"
-            )
+            raise ValueError(f"Length count mismatch: expected {record_num}, got {len(lengths)}")
 
         # Get the compressed string data (rest of payload after lengths)
         compressed_strings = payload[lengths_consumed:]
@@ -1302,9 +1287,7 @@ class ReaderBGFA:
 
         return segment_names, offset - initial_offset
 
-    def _parse_segments_block(
-        self, bgfa_data: bytes, start_offset: int
-    ) -> tuple[dict, int]:
+    def _parse_segments_block(self, bgfa_data: bytes, start_offset: int) -> tuple[dict, int]:
         """Parse segments from BGFA data.
 
         Supports all compression methods defined in the BGFA spec:
@@ -1340,8 +1323,9 @@ class ReaderBGFA:
 
         logger.debug(
             f"Parsing segments block: record_num={record_num}, "
-            f"compression={compression_str:#06x} (int={int_encoding:#04x}, str={str_encoding:#04x}), "
-            f"compressed_len={compressed_len}, uncompressed_len={uncompressed_len}"
+            f"compression={compression_str:#06x} (int={int_encoding:#04x}, "
+            f"str={str_encoding:#04x}), compressed_len={compressed_len}, "
+            f"uncompressed_len={uncompressed_len}"
         )
 
         # Handle legacy identity encoding (0x0000): fixed format with null-terminated strings
@@ -1391,8 +1375,9 @@ class ReaderBGFA:
         sequence_lengths, lengths_consumed = int_decoder(remaining_data, record_num)
 
         if len(sequence_lengths) != record_num:
+            seq_len_count = len(sequence_lengths)
             raise ValueError(
-                f"Sequence length count mismatch: expected {record_num}, got {len(sequence_lengths)}"
+                f"Sequence length count mismatch: expected {record_num}, got {seq_len_count}"
             )
 
         # Get the compressed sequence data (rest of payload after lengths)
@@ -1451,10 +1436,10 @@ class ReaderBGFA:
         link_data = bgfa_data[offset : offset + compressed_len]
         offset += compressed_len
 
-        # Extract encoding strategies
-        fromto_int_encoding = (compression_fromto >> 8) & 0xFF
-        cigars_int_encoding = (compression_cigars >> 8) & 0xFF
-        cigars_str_encoding = compression_cigars & 0xFF
+        # Extract encoding strategies (currently unused but reserved for future use)
+        _ = (compression_fromto >> 8) & 0xFF  # fromto_int_encoding
+        _ = (compression_cigars >> 8) & 0xFF  # cigars_int_encoding
+        _ = compression_cigars & 0xFF  # cigars_str_encoding
 
         logger.debug(
             f"Parsing links block: record_num={record_num}, "
@@ -1477,13 +1462,9 @@ class ReaderBGFA:
                 to_ids.append(struct.unpack_from("<Q", link_data, pos)[0])
                 pos += 8
             # Read orientation bits (uint64 list)
-            from_orns, consumed = _unpack_orientation_bits_uint64(
-                link_data[pos:], record_num
-            )
+            from_orns, consumed = _unpack_orientation_bits_uint64(link_data[pos:], record_num)
             pos += consumed
-            to_orns, consumed = _unpack_orientation_bits_uint64(
-                link_data[pos:], record_num
-            )
+            to_orns, consumed = _unpack_orientation_bits_uint64(link_data[pos:], record_num)
             pos += consumed
             # Read null-terminated cigar strings
             cigar_list = []
@@ -1533,27 +1514,19 @@ class ReaderBGFA:
         # Decode from IDs
         from_ids, from_consumed = fromto_int_decoder(link_data, record_num)
         if len(from_ids) != record_num:
-            raise ValueError(
-                f"From ID count mismatch: expected {record_num}, got {len(from_ids)}"
-            )
+            raise ValueError(f"From ID count mismatch: expected {record_num}, got {len(from_ids)}")
 
         # Decode to IDs
         remaining_data = link_data[from_consumed:]
         to_ids, to_consumed = fromto_int_decoder(remaining_data, record_num)
         if len(to_ids) != record_num:
-            raise ValueError(
-                f"To ID count mismatch: expected {record_num}, got {len(to_ids)}"
-            )
+            raise ValueError(f"To ID count mismatch: expected {record_num}, got {len(to_ids)}")
 
         # Decode orientation bits
         remaining_data = remaining_data[to_consumed:]
-        from_orns, from_orn_consumed = _unpack_orientation_bits_uint64(
-            remaining_data, record_num
-        )
+        from_orns, from_orn_consumed = _unpack_orientation_bits_uint64(remaining_data, record_num)
         remaining_data = remaining_data[from_orn_consumed:]
-        to_orns, to_orn_consumed = _unpack_orientation_bits_uint64(
-            remaining_data, record_num
-        )
+        to_orns, to_orn_consumed = _unpack_orientation_bits_uint64(remaining_data, record_num)
         remaining_data = remaining_data[to_orn_consumed:]
 
         # Decode CIGAR lengths
@@ -1601,47 +1574,48 @@ class ReaderBGFA:
         return links, offset - initial_offset
 
     def _parse_paths_blocks(
-        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+        self, bgfa_data: bytes, _header: dict, _segment_names: list, start_offset: int
     ) -> tuple[list, int]:
         """Parse a paths block from BGFA data.
 
         :param bgfa_data: Binary BGFA data
-        :param header: Parsed header information
+        :param _header: Parsed header information (unused)
+        :param _segment_names: List of segment names (unused)
         :param start_offset: Offset where the paths block start
         :return: (List of paths dictionaries, number of bytes read)
         """
         offset = start_offset
 
-        # Read block header
-        record_num = int.from_bytes(
+        # Read block header (unused fields prefixed with underscore)
+        _ = int.from_bytes(
             bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
+        )  # record_num
         offset += 2
         compressed_len_cigar = int.from_bytes(
             bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
-        uncompressed_len_cigar = int.from_bytes(
+        _ = int.from_bytes(
             bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        )  # uncompressed_len_cigar
         offset += 8
         compressed_len_name = int.from_bytes(
             bgfa_data[offset : offset + 8], byteorder="little", signed=False
         )
         offset += 8
-        uncompressed_len_name = int.from_bytes(
+        _ = int.from_bytes(
             bgfa_data[offset : offset + 8], byteorder="little", signed=False
-        )
+        )  # uncompressed_len_name
         offset += 8
-        compression_path_names = int.from_bytes(
+        _ = int.from_bytes(
             bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
+        )  # compression_path_names
         offset += 2
-        compression_paths = int.from_bytes(
+        _ = int.from_bytes(
             bgfa_data[offset : offset + 2], byteorder="little", signed=False
-        )
+        )  # compression_paths
         offset += 2
-        compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
+        _ = struct.unpack_from("<H", bgfa_data, offset)[0]  # compression_cigars
         offset += 2
 
         # Skip the payload for now
@@ -1655,7 +1629,7 @@ class ReaderBGFA:
 
 class BGFAWriter:
     def __init__(
-        self, gfa_graph: GFA, block_size: int = 1024, compression_options: dict = None
+        self, gfa_graph: GFA, block_size: int = 1024, compression_options: dict | None = None
     ):
         self._gfa = gfa_graph
         self._compression_options = compression_options
@@ -1665,7 +1639,7 @@ class BGFAWriter:
         self,
         verbose: bool = False,
         debug: bool = False,
-        logfile: str = None,
+        logfile: str | None = None,
     ) -> bytes:
         block_size = self._block_size
         # Create a BytesIO buffer
@@ -1683,9 +1657,7 @@ class BGFAWriter:
         if log_level <= logging.INFO:
             if logfile is None:
                 # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(
-                    mode="w", delete=False, suffix=".log"
-                )
+                temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
                 logfile = temp_log.name
                 temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
@@ -1699,15 +1671,13 @@ class BGFAWriter:
         logging.getLogger().handlers.clear()
 
         # Create formatter
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         handlers = []
 
         # Only add file handler if we're actually logging to a file
 
-        if logfile != "/dev/null" and logfile != "NUL":
+        if logfile not in {"/dev/null", "NUL"}:
             file_handler = logging.FileHandler(logfile)
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
@@ -1740,9 +1710,7 @@ class BGFAWriter:
         w_len = len(self._gfa.walks())
 
         # Write the header
-        logger.info(
-            f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}"
-        )
+        logger.info(f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}")
         self._write_header(
             buffer,
             s_len,
@@ -1761,9 +1729,7 @@ class BGFAWriter:
         # Write segment names in blocks
         offset = 0
         total_names = len(segment_names)
-        logger.info(
-            f"Writing {total_names} segment names in blocks of size {block_size}"
-        )
+        logger.info(f"Writing {total_names} segment names in blocks of size {block_size}")
         logger.debug(
             f"Segment names: {segment_names[:5] if len(segment_names) > 5 else segment_names}"
         )
@@ -1771,9 +1737,7 @@ class BGFAWriter:
             chunk = segment_names[offset : min(offset + block_size, total_names)]
             block_num = offset // block_size + 1
             logger.info(f"Writing segment names block {block_num}: {len(chunk)} names")
-            logger.debug(
-                f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}"
-            )
+            logger.debug(f"Block {block_num} contains: {chunk[:3] if len(chunk) > 3 else chunk}")
             # Get compression code from options (default: 0x0000 = identity)
             segment_names_compression_code = self._compression_options.get(
                 "segment_names_compression_code", 0x0000
@@ -1796,9 +1760,7 @@ class BGFAWriter:
             logger.info(f"Writing segments block {block_num}: {len(chunk)} segments")
             if len(chunk) > 0:
                 name, seg_id = chunk[0]
-                logger.debug(
-                    f"First segment in block {block_num}: name={name}, id={seg_id}"
-                )
+                logger.debug(f"First segment in block {block_num}: name={name}, id={seg_id}")
             # Get compression code from options (default: 0x0000 = identity)
             segments_compression_code = self._compression_options.get(
                 "segments_compression_code", 0x0000
@@ -1824,9 +1786,7 @@ class BGFAWriter:
                 u, v, key, data = chunk[0]
                 from_node = data.get("from_node", u)
                 to_node = data.get("to_node", v)
-                logger.debug(
-                    f"First link in block {block_num}: from={from_node}, to={to_node}"
-                )
+                logger.debug(f"First link in block {block_num}: from={from_node}, to={to_node}")
             # Get compression codes from options (default: 0x0000 = identity)
             links_fromto_compression = self._compression_options.get(
                 "links_fromto_compression_code", 0x0000
@@ -1983,11 +1943,13 @@ class BGFAWriter:
 
         :param buffer: BytesIO buffer to write to
         :param to_write: List of segment names to write
-        :param compression_code: uint16 compression code (high byte=integer encoding for lengths,
-                                 low byte=string encoding for names). Default 0x0000 (identity).
-                                 See BGFA spec for encoding strategies:
-                                 - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
-                                 - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
+        :param compression_code: uint16 compression code
+            (high byte=integer encoding for lengths,
+            low byte=string encoding for names). Default 0x0000 (identity).
+            See BGFA spec for encoding strategies:
+            - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
+            - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma,
+            0x04=huffman
         :return: Number of bytes written
         """
         record_num = len(to_write)
@@ -1997,9 +1959,7 @@ class BGFAWriter:
         # Extract encoding strategies from compression code
         int_encoding = (compression_code >> 8) & 0xFF
         str_encoding = compression_code & 0xFF
-        logger.debug(
-            f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}"
-        )
+        logger.debug(f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}")
 
         if compression_code == 0x0000:
             # Identity encoding: null-terminated strings
@@ -2047,11 +2007,11 @@ class BGFAWriter:
 
         :param buffer: BytesIO buffer to write to
         :param chunk: List of (name, seg_id) tuples to write
-        :param compression_code: uint16 compression code (high byte=integer encoding,
-                                 low byte=string encoding). Default 0x0000 (identity).
-                                 See BGFA spec for encoding strategies:
-                                 - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
-                                 - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
+        :param compression_code: uint16 compression code
+            (high byte=integer encoding, low byte=string encoding).
+            Default 0x0000 (identity). See BGFA spec for encoding:
+            - Integer: 0x00=identity, 0x01=varint, 0x02=fixed16, etc.
+            - String: 0x00=identity, 0x01=zstd, 0x02=gzip, 0x03=lzma, 0x04=huffman
         """
         record_num = len(chunk)
         logger.info(f"Writing segments block with {record_num} segments")
@@ -2060,9 +2020,7 @@ class BGFAWriter:
         # Extract encoding strategies from compression code
         int_encoding = (compression_code >> 8) & 0xFF
         str_encoding = compression_code & 0xFF
-        logger.debug(
-            f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}"
-        )
+        logger.debug(f"Integer encoding: {int_encoding:#04x}, String encoding: {str_encoding:#04x}")
 
         # Collect segment data
         segment_ids = []
@@ -2078,9 +2036,7 @@ class BGFAWriter:
             sequences.append(sequence)
 
             if i < 3:
-                logger.debug(
-                    f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}"
-                )
+                logger.debug(f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}")
             elif i == 3:
                 logger.debug("... (remaining segments omitted)")
 
@@ -2102,9 +2058,7 @@ class BGFAWriter:
             int_encoder = get_integer_encoder(compression_code)
             encoded_ids = int_encoder(segment_ids)
             encoded_lengths = int_encoder(sequence_lengths)
-            compressed_sequences = _compress_string_for_bgfa(
-                "".join(sequences), str_encoding
-            )
+            compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
             payload = encoded_ids + encoded_lengths + compressed_sequences
             uncompressed_len = sum(sequence_lengths)
             compressed_len = len(payload)
@@ -2144,8 +2098,7 @@ class BGFAWriter:
         record_num = len(chunk)
         logger.info(f"Writing links block with {record_num} links")
         logger.debug(
-            f"Compression codes: fromto={compression_fromto:#06x}, "
-            f"cigars={compression_cigars:#06x}"
+            f"Compression codes: fromto={compression_fromto:#06x}, cigars={compression_cigars:#06x}"
         )
 
         # Collect link data
@@ -2211,9 +2164,7 @@ class BGFAWriter:
             encoded_to = fromto_int_encoder(to_ids)
             cigar_lengths = [len(c.encode("ascii")) for c in cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
-            compressed_cigars_data = _compress_string_for_bgfa(
-                "".join(cigars), cigars_str_encoding
-            )
+            compressed_cigars_data = _compress_string_for_bgfa("".join(cigars), cigars_str_encoding)
 
             payload = (
                 encoded_from
@@ -2301,9 +2252,7 @@ class BGFAWriter:
         names_str_encoding = compression_path_names & 0xFF
         if compression_path_names == 0x0000:
             # Identity: null-terminated strings
-            compressed_names = b"".join(
-                name.encode("ascii") + b"\x00" for name in path_names
-            )
+            compressed_names = b"".join(name.encode("ascii") + b"\x00" for name in path_names)
             uncompressed_len_name = len(compressed_names)
         else:
             # Non-identity: encode name lengths with integer encoder + compress names
@@ -2318,9 +2267,7 @@ class BGFAWriter:
         compressed_len_name = len(compressed_names)
 
         # Paths payload (segment IDs with orientations) using walks/paths decomposition
-        paths_payload = _encode_walks_payload(
-            path_segments, self._segment_map, compression_paths
-        )
+        paths_payload = _encode_walks_payload(path_segments, self._segment_map, compression_paths)
 
         # Build CIGAR payload
         all_cigars = []
@@ -2330,9 +2277,7 @@ class BGFAWriter:
         cigars_str_encoding = compression_cigars & 0xFF
         if compression_cigars == 0x0000:
             # Identity: null-terminated strings
-            compressed_cigars = b"".join(
-                c.encode("ascii") + b"\x00" for c in all_cigars
-            )
+            compressed_cigars = b"".join(c.encode("ascii") + b"\x00" for c in all_cigars)
             uncompressed_len_cigar = len(compressed_cigars)
         else:
             # Non-identity: encode cigar lengths with integer encoder + compress cigars
@@ -2454,26 +2399,20 @@ class BGFAWriter:
         # Build sample IDs payload
         sam_str_encoding = compression_sample_ids & 0xFF
         if compression_sample_ids == 0x0000:
-            compressed_samples = b"".join(
-                s.encode("ascii") + b"\x00" for s in sample_ids
-            )
+            compressed_samples = b"".join(s.encode("ascii") + b"\x00" for s in sample_ids)
             uncompressed_len_sam = len(compressed_samples)
         else:
             sam_int_encoder = get_integer_encoder(compression_sample_ids)
             sam_lengths = [len(s.encode("ascii")) for s in sample_ids]
             encoded_sam_lengths = sam_int_encoder(sam_lengths)
-            compressed_sam_data = _compress_string_for_bgfa(
-                "".join(sample_ids), sam_str_encoding
-            )
+            compressed_sam_data = _compress_string_for_bgfa("".join(sample_ids), sam_str_encoding)
             compressed_samples = encoded_sam_lengths + compressed_sam_data
             uncompressed_len_sam = sum(sam_lengths)
         compressed_len_sam = len(compressed_samples)
 
         # Build haplotype indices payload
         if compression_hap_indices == 0x0000:
-            compressed_haps = b"".join(
-                struct.pack("<Q", hap) for hap in hap_indices
-            )
+            compressed_haps = b"".join(struct.pack("<Q", hap) for hap in hap_indices)
         else:
             hap_int_encoder = get_integer_encoder(compression_hap_indices)
             compressed_haps = hap_int_encoder(hap_indices)
@@ -2481,35 +2420,27 @@ class BGFAWriter:
         # Build sequence IDs payload
         seq_str_encoding = compression_seq_ids & 0xFF
         if compression_seq_ids == 0x0000:
-            compressed_seqids = b"".join(
-                s.encode("ascii") + b"\x00" for s in seq_ids
-            )
+            compressed_seqids = b"".join(s.encode("ascii") + b"\x00" for s in seq_ids)
             uncompressed_len_seq = len(compressed_seqids)
         else:
             seq_int_encoder = get_integer_encoder(compression_seq_ids)
             seq_lengths = [len(s.encode("ascii")) for s in seq_ids]
             encoded_seq_lengths = seq_int_encoder(seq_lengths)
-            compressed_seq_data = _compress_string_for_bgfa(
-                "".join(seq_ids), seq_str_encoding
-            )
+            compressed_seq_data = _compress_string_for_bgfa("".join(seq_ids), seq_str_encoding)
             compressed_seqids = encoded_seq_lengths + compressed_seq_data
             uncompressed_len_seq = sum(seq_lengths)
         compressed_len_seq = len(compressed_seqids)
 
         # Build start positions payload
         if compression_start == 0x0000:
-            compressed_starts = b"".join(
-                struct.pack("<Q", s) for s in start_positions
-            )
+            compressed_starts = b"".join(struct.pack("<Q", s) for s in start_positions)
         else:
             start_int_encoder = get_integer_encoder(compression_start)
             compressed_starts = start_int_encoder(start_positions)
 
         # Build end positions payload
         if compression_end == 0x0000:
-            compressed_ends = b"".join(
-                struct.pack("<Q", e) for e in end_positions
-            )
+            compressed_ends = b"".join(struct.pack("<Q", e) for e in end_positions)
         else:
             end_int_encoder = get_integer_encoder(compression_end)
             compressed_ends = end_int_encoder(end_positions)
@@ -2716,7 +2647,7 @@ def to_bgfa(
     walks_walks_compression: int = 0x0000,
     verbose: bool = False,
     debug: bool = False,
-    logfile: str = None,
+    logfile: str | None = None,
 ) -> bytes:
     """Computes a BGFA representing the GFA graph. If a file is given, then write the BGFA to the file.
 
@@ -2796,7 +2727,7 @@ def to_bgfa(
 
 
 def read_bgfa(
-    file_path: str, verbose: bool = False, debug: bool = False, logfile: str = None
+    file_path: str, verbose: bool = False, debug: bool = False, logfile: str | None = None
 ) -> GFA:
     """Read a BGFA file and create the corresponding GFA graph.
 
