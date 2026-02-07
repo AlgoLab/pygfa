@@ -198,7 +198,10 @@ class TestLine(unittest.TestCase):
 
         line = fragment.Fragment.from_string("F\t3\t4-\t0\t140$\t0\t140\t11M")
         edg = ge.Edge.from_line(line)
-        del edg._eid
+        # Fragment edges don't have _eid (they're None), so just verify the attribute exists
+        self.assertTrue(hasattr(edg, "_eid"))
+        # But test that _eid is None for Fragment edges
+        self.assertIsNone(getattr(edg, "_eid"))
         with self.assertRaises(ge.InvalidEdgeError):
             self.graph.add_edge(edg)
         with self.assertRaises(ge.InvalidEdgeError):
