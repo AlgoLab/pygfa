@@ -1,0 +1,99 @@
+# Snakemake workflow for BGFA benchmarking
+# Migrated from bin/benchmark_bgfa.sh
+#
+# Usage:
+#   snakemake -s workflow/Snakefile -j 8
+#   snakemake -s workflow/Snakefile -n  # dry run
+#
+# This workflow can be included in a global Snakemake workflow via:
+#   module pygfa_benchmark:
+#       snakefile: "pygfa/workflow/Snakefile"
+
+import os
+
+# Configuration - defaults can be overridden via --configfile workflow/config.yaml
+# Use config values if available, otherwise use defaults
+DATASETS = config.get("datasets", {
+    "atcc_staggered.assembly_graph_with_scaffolds": "data/atcc_staggered.assembly_graph_with_scaffolds.gfa",
+    "medium_example": "data/medium_example.gfa"
+})
+
+INT_ENCODINGS = config.get("int_encodings", [
+    "none", "varint", "fixed32", "fixed64", "delta",
+    "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte"
+])
+
+STR_ENCODINGS = config.get("str_encodings", [
+    "none", "zstd", "gzip", "lzma", "huffman"
+])
+
+OUTPUT_DIR = config.get("output_dir", "benchmark")
+
+# Helper to map "none" to empty string for bgfatools CLI
+def enc_to_flag(enc):
+    return "" if enc == "none" else enc
+
+# Generate all combinations
+def get_all_stats_files():
+    files = []
+    for dataset in DATASETS.keys():
+        for int_enc in INT_ENCODINGS:
+            for str_enc in STR_ENCODINGS:
+                files.append(f"{OUTPUT_DIR}/{dataset}/{int_enc}_{str_enc}.stats.tsv")
+    return files
+
+# Default rule - aggregate all results
+rule all:
+    input:
+        f"{OUTPUT_DIR}/summary.tsv"
+
+# Rule: Encode GFA to BGFA with timing
+rule encode_gfa:
+    input:
+        gfa=lambda wildcards: DATASETS[wildcards.dataset]
+    output:
+        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa",
+        time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.encode_time.txt"
+    params:
+        int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
+        str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
+    script:
+        "scripts/benchmark_encode.py"
+
+# Rule: Decode BGFA with timing
+rule decode_bgfa:
+    input:
+        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa"
+    output:
+        time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
+    script:
+        "scripts/benchmark_decode.py"
+
+# Rule: Compute statistics for a single combination
+rule compute_stats:
+    input:
+        gfa=lambda wildcards: DATASETS[wildcards.dataset],
+        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa",
+        encode_time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.encode_time.txt",
+        decode_time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
+    output:
+        stats=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.stats.tsv"
+    script:
+        "scripts/compute_stats.py"
+
+# Rule: Aggregate all statistics into summary file
+rule aggregate_results:
+    input:
+        get_all_stats_files()
+    output:
+        OUTPUT_DIR + "/summary.tsv"
+    shell:
+        """
+        # Write header
+        echo -e "dataset\\tint_encoding\\tstr_encoding\\tgfa_bytes\\tbgfa_bytes\\tcompression_ratio\\tencode_seconds\\tdecode_seconds" > {output}
+
+        # Concatenate all stats files (sorted for reproducibility)
+        for f in {input}; do
+            cat "$f"
+        done | sort >> {output}
+        """
