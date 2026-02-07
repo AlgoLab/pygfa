@@ -64,9 +64,28 @@ coverage html
 
 ### Workflow
 
-1. Add benchmark comments to GFA files
-2. Generate configuration: `tools/generate_benchmark_config.py`
-3. Run benchmarks: `snakemake -s workflow/Snakefile`
+The Snakemake workflow now **automatically discovers** all GFA files with benchmark comments in the `/data` directory:
+
+```bash
+# 1. Add benchmark comments to your GFA files (e.g., at the top):
+# # benchmark: bgfa_compression
+# # benchmark: bgfa_roundtrip
+
+# 2. Run benchmarks with automatic discovery:
+snakemake -s workflow/Snakefile -j 8
+
+# 3. Dry run to see discovered datasets:
+snakemake -s workflow/Snakefile -n
+```
+
+**Features**:
+- 🔍 **Dynamic discovery**: Finds all GFA files with `# benchmark:` comments automatically
+- 🏷️ **Combined naming**: Files with multiple benchmark comments get combined names (e.g., `file_bgfa_compression_bgfa_roundtrip`)
+- 📁 **Benchmark-type directories**: Output organized by benchmark type (`benchmark/bgfa_compression/dataset/`, `benchmark/bgfa_roundtrip/dataset/`)
+- ✅ **Early validation**: Comprehensive error checking before execution
+- 🌐 **Universal benchmarks**: Files with `# benchmark:` appear in ALL benchmark types
+
+**No more manual configuration files needed** - the workflow automatically discovers and structures benchmark runs based on file comments!
 
 See `docs/benchmark_system.md` for detailed documentation.
 
