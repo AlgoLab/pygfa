@@ -113,13 +113,13 @@ class TestLine(unittest.TestCase):
         for node in after_node:
             self.assertTrue(node in list(self.graph.nodes()))
         for node in removed_node:
-            self.assertTrue(not (node in list(self.graph.nodes())))
+            self.assertTrue(node not in list(self.graph.nodes()))
         i = 0
         for edge in after_edge:
             self.assertTrue(len(self.graph._search_edge_by_nodes(edge)) == after_len[i])
             i += 1
         for edge in removed_edge:
-            self.assertTrue(not self.graph._search_edge_by_nodes(edge))
+            self.assertTrue(self.graph._search_edge_by_nodes(edge) is None)
 
 
 if __name__ == "__main__":

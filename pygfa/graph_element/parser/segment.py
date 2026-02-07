@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     pass
@@ -18,10 +18,7 @@ def is_segmentv1(line_repr: str | line.Line) -> bool:
     try:
         if isinstance(line_repr, str):
             fields = re.split("\t", line_repr)
-            if (
-                re.fullmatch(fv.DATASTRING_VALIDATION_REGEXP[fv.GFA1_SEQUENCE], fields[2])
-                and fields[0] == "S"
-            ):
+            if re.fullmatch(fv.DATASTRING_VALIDATION_REGEXP[fv.GFA1_SEQUENCE], fields[2]) and fields[0] == "S":
                 return True
         else:
             return line_repr.type == "S" and line_repr.fields["name"] is not None
@@ -41,10 +38,7 @@ def is_segmentv2(line_repr: str | line.Line) -> bool:
     try:
         if isinstance(line_repr, str):
             fields = re.split("\t", line_repr)
-            if (
-                re.fullmatch(fv.DATASTRING_VALIDATION_REGEXP[fv.GFA2_POSITION], fields[2])
-                and fields[0] == "S"
-            ):
+            if re.fullmatch(fv.DATASTRING_VALIDATION_REGEXP[fv.GFA2_POSITION], fields[2]) and fields[0] == "S":
                 return True
         else:
             return line_repr.type == "S" and line_repr.fields["sid"] is not None
@@ -85,9 +79,7 @@ class SegmentV1(line.Line):
             fields = fields[1:]
 
         if len(fields) < len(cls.REQUIRED_FIELDS):
-            raise line.InvalidLineError(
-                "The minimum number of field for " + "SegmentV1 line is not reached."
-            )
+            raise line.InvalidLineError("The minimum number of field for " + "SegmentV1 line is not reached.")
         segment = SegmentV1()
         name_f = fv.validate(fields[0], cls.REQUIRED_FIELDS["name"])
         sfields.append(line.Field("name", name_f))
@@ -128,9 +120,7 @@ class SegmentV2(line.Line):
             fields = fields[1:]
 
         if len(fields) < len(cls.REQUIRED_FIELDS):
-            raise line.InvalidLineError(
-                "The minimum number of field for " + "SegmentV2 line is not reached."
-            )
+            raise line.InvalidLineError("The minimum number of field for " + "SegmentV2 line is not reached.")
         segment = SegmentV2()
         sid_f = fv.validate(fields[0], cls.REQUIRED_FIELDS["sid"])
         sfields.append(line.Field("sid", sid_f))

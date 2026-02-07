@@ -43,12 +43,8 @@ ruff = ">=0.15.0,<0.16"
 mypy = ">=1.19.1,<2"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py314"
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4", "ISC", "ARG", "PL", "PERF", "RUF"]
-ignore = ["B008", "C901"]
 
 [tool.mypy]
 python_version = "3.14"

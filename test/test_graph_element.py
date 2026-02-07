@@ -80,9 +80,9 @@ class CustomLine(line.Line):
 
 class TestGraphElement(unittest.TestCase):
     def test_node(self):
-        nod = node.Node("15", "acgt", 4)
+        _ = node.Node("15", "acgt", 4)
         with self.assertRaises(node.InvalidNodeError):
-            nod = node.Node("*", "3", "aCGT")
+            _ = node.Node("*", "3", "aCGT")
 
         correct_segment = segment.SegmentV1()
         correct_segment.add_field(line.Field("name", "3"))
@@ -318,16 +318,12 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(ed.opt_fields["ui"].value == "test")
         self.assertTrue(ed.opt_fields["ab"].value == "another_test")
 
-        line = link.Link.from_string(
-            "L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test\tID:Z:3_to_65"
-        )
+        line = link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test\tID:Z:3_to_65")
         ed = graph_edge.Edge.from_line(line)
         self.assertTrue(ed.eid == "3_to_65")
 
     def test_edge_from_containment(self):
-        line = containment.Containment.from_string(
-            "C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test"
-        )
+        line = containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
         self.assertTrue(ed.eid == "*")
         self.assertTrue(ed.from_node == line.fields["from"].value)
@@ -343,16 +339,12 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(ed.opt_fields["ui"].value == "test")
         self.assertTrue(ed.opt_fields["ab"].value == "another_test")
 
-        line = containment.Containment.from_string(
-            "C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test\tID:Z:a_to_b"
-        )
+        line = containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test\tID:Z:a_to_b")
         ed = graph_edge.Edge.from_line(line)
         self.assertTrue(ed.eid == "a_to_b")
 
     def test_edge_from_fragment(self):
-        line = fragment.Fragment.from_string(
-            "F\t12\t2-\t0\t140$\t0\t140\t11M\tui:Z:test\tab:Z:another_test"
-        )
+        line = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
 
         self.assertTrue(ed.eid is None)
@@ -369,9 +361,7 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(ed.opt_fields["ab"].value == "another_test")
 
     def test_edge_from_edge(self):
-        line = edge.Edge.from_string(
-            "E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test"
-        )
+        line = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
 
         self.assertTrue(ed.eid == line.fields["eid"].value)
@@ -425,10 +415,7 @@ class TestGraphElement(unittest.TestCase):
         sb = subgraph.Subgraph.from_line(line)
 
         self.assertTrue(sb.sub_id == line.fields["uid"].value)
-        self.assertTrue(
-            [u + ("" if v is None else v) for u, v in sb.elements.items()]
-            == line.fields["ids"].value
-        )
+        self.assertTrue([u + ("" if v is None else v) for u, v in sb.elements.items()] == line.fields["ids"].value)
         self.assertTrue(sb.opt_fields["xx"].value == line.fields["xx"].value)
 
 
