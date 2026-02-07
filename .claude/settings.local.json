@@ -3,7 +3,13 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(pixi run python:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(ls:*)",
+      "Bash(pixi run snakemake:*)",
+      "Bash(BGFATOOLS=\"pixi run python bin/bgfatools\")",
+      "Bash($BGFATOOLS bgfa data/example_1.gfa /tmp/bench_test/example_1/none_none.bgfa)",
+      "Bash(echo:*)",
+      "Bash(bash:*)"
     ]
   }
 }
