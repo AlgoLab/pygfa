@@ -17,9 +17,9 @@ from test_utils import should_run_test_for_gfa
 #   s1  /                 /              /
 #    s1                   \             /
 #                          [s4_s4_s4]--
-#
+#                          [s3_s3_s3]
 
-GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_biconnected.gfa")
+GFA_FILE = get_test_data_path("test_biconnected.gfa", "HLA-zoo")
 
 
 class TestLine(unittest.TestCase):

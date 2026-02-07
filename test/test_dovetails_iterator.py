@@ -11,9 +11,8 @@ from test_utils import should_run_test_for_gfa
 #   /                \
 # s1 ---------------- s4 --- s5
 #
-#
 
-GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetails_iterator.gfa")
+GFA_FILE = get_test_data_path("test_dovetails_iterator.gfa", "HLA-zoo")
 
 
 class TestLine(unittest.TestCase):
