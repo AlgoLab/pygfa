@@ -5,14 +5,23 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
-from test_utils import should_run_test_for_gfa
 
-#    s2 --- s3 --- s6
-#   /                \
-# s1 ---------------- s4 --- s5
-#
+try:
+    from test_utils import get_test_data_path, should_run_test_for_gfa
 
-GFA_FILE = get_test_data_path("test_dovetails_iterator.gfa", "HLA-zoo")
+    GFA_FILE = get_test_data_path("test_dovetails_iterator.gfa", "HLA-zoo")
+except ImportError:
+    # Fallback to legacy path if import fails
+    GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetails_iterator.gfa")
+
+    # Fallback test function
+    def should_run_test_for_gfa(test_name, gfa_file):
+        """Check if test should run by looking for test comment."""
+        if not os.path.exists(gfa_file):
+            return False
+        with open(gfa_file, "r") as f:
+            first_line = f.readline().strip()
+            return f"# test: {test_name}" in first_line
 
 
 class TestLine(unittest.TestCase):
