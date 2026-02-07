@@ -10,13 +10,140 @@
 #       snakefile: "pygfa/workflow/Snakefile"
 
 import os
+import sys
 
-# Configuration - defaults can be overridden via --configfile workflow/config.yaml
-# Use config values if available, otherwise use defaults
-DATASETS = config.get("datasets", {
-    "atcc_staggered.assembly_graph_with_scaffolds": "data/atcc_staggered.assembly_graph_with_scaffolds.gfa",
-    "medium_example": "data/medium_example.gfa"
-})
+# Add tools to path for benchmark discovery
+sys.path.insert(0, "tools")
+from benchmark_filter import filter_gfa_files, extract_header_comments
+
+def discover_all_benchmark_datasets():
+    """Discover all GFA files with ANY benchmark comment"""
+    return filter_gfa_files("data", None)  # None = all benchmark types
+
+def extract_benchmark_names(file_path):
+    """Extract benchmark names from GFA file comments"""
+    comments = extract_header_comments(file_path)
+    benchmark_comments = [c for c in comments if c.startswith("# benchmark:")]
+    
+    names = []
+    for comment in benchmark_comments:
+        comment_content = comment[len("# benchmark:"):].strip()
+        if comment_content:  # Named benchmark
+            names.append(comment_content)
+        else:  # Universal benchmark
+            names.append("universal")
+    
+    return names if names else ["universal"]
+
+def generate_datasets_with_benchmark_types():
+    """Generate datasets grouped by benchmark types with combined names"""
+    all_files = discover_all_benchmark_datasets()
+    if not all_files:
+        print("Error: No GFA files with benchmark comments found in data directory")
+        sys.exit(1)
+    
+    # Group by benchmark types for output structure
+    benchmark_groups = {}
+    
+    for file_path in all_files:
+        benchmark_names = extract_benchmark_names(file_path)
+        filename = os.path.basename(file_path)
+        base_name = filename[:-4] if filename.endswith('.gfa') else filename[:-7]
+        
+        if len(benchmark_names) > 1:
+            # Combined name for multiple benchmarks
+            combined_name = f"{base_name}_" + "_".join(sorted(benchmark_names))
+            dataset_name = combined_name
+        else:
+            dataset_name = base_name
+        
+        # Add file to each relevant benchmark group
+        for bench_name in benchmark_names:
+            if bench_name == "universal":
+                # Universal benchmark appears in ALL benchmark types
+                add_to_all_benchmarks(benchmark_groups, dataset_name, file_path)
+            else:
+                if bench_name not in benchmark_groups:
+                    benchmark_groups[bench_name] = {}
+                benchmark_groups[bench_name][dataset_name] = file_path
+    
+    # Validate duplicates before returning
+    validate_benchmark_groups(benchmark_groups)
+    return benchmark_groups
+
+def add_to_all_benchmarks(benchmark_groups, dataset_name, file_path):
+    """Add dataset to all benchmark types"""
+    # First collect all non-universal benchmark types
+    all_files = discover_all_benchmark_datasets()
+    benchmark_types = set()
+    
+    for fp in all_files:
+        bn = extract_benchmark_names(fp)
+        for name in bn:
+            if name != "universal":
+                benchmark_types.add(name)
+    
+    # If no specific types found, use "default"
+    benchmark_type_list = list(benchmark_types) if benchmark_types else ["default"]
+    
+    for bench_type in benchmark_type_list:
+        if bench_type not in benchmark_groups:
+            benchmark_groups[bench_type] = {}
+        benchmark_groups[bench_type][dataset_name] = file_path
+
+def validate_benchmark_groups(benchmark_groups):
+    """Validate all aspects of discovered datasets"""
+    
+    # Check for empty discovery
+    if not benchmark_groups:
+        print("Error: No GFA files with benchmark comments found")
+        sys.exit(1)
+    
+    # Check for duplicates within benchmark types
+    for bench_type, datasets in benchmark_groups.items():
+        validate_no_duplicates(datasets, bench_type)
+    
+    # Check all files exist and are readable
+    validate_file_accessibility(benchmark_groups)
+    
+    print(f"Validation passed. Found {len(benchmark_groups)} benchmark types.")
+
+def validate_no_duplicates(datasets, benchmark_type):
+    """Check for duplicate dataset names within a benchmark type"""
+    file_paths = list(datasets.values())
+    unique_paths = set(file_paths)
+    
+    if len(file_paths) != len(unique_paths):
+        print(f"Error: Duplicate file paths found in benchmark '{benchmark_type}':")
+        for path in file_paths:
+            print(f"    {path}")
+        sys.exit(1)
+
+def validate_file_accessibility(benchmark_groups):
+    """Check all discovered files are accessible"""
+    for bench_type, datasets in benchmark_groups.items():
+        for dataset_name, file_path in datasets.items():
+            if not os.path.exists(file_path):
+                print(f"Error: File not found: {file_path}")
+                sys.exit(1)
+            if not os.access(file_path, os.R_OK):
+                print(f"Error: File not readable: {file_path}")
+                sys.exit(1)
+
+# Configuration - Discover datasets grouped by benchmark types
+BENCHMARK_GROUPS = generate_datasets_with_benchmark_types()
+
+# Flatten for backward compatibility with existing rules
+DATASETS = {}
+for bench_datasets in BENCHMARK_GROUPS.values():
+    DATASETS.update(bench_datasets)
+
+# For rule expansion - get unique benchmark types
+BENCHMARK_TYPES = list(BENCHMARK_GROUPS.keys())
+
+print(f"Discovered {len(BENCHMARK_TYPES)} benchmark types:")
+for bench_type, datasets in BENCHMARK_GROUPS.items():
+    print(f"  {bench_type}: {len(datasets)} datasets")
 
 INT_ENCODINGS = config.get("int_encodings", [
     "none", "varint", "fixed32", "fixed64", "delta",
@@ -33,13 +160,14 @@ OUTPUT_DIR = config.get("output_dir", "benchmark")
 def enc_to_flag(enc):
     return "" if enc == "none" else enc
 
-# Generate all combinations
+# Generate all combinations with benchmark types
 def get_all_stats_files():
     files = []
-    for dataset in DATASETS.keys():
-        for int_enc in INT_ENCODINGS:
-            for str_enc in STR_ENCODINGS:
-                files.append(f"{OUTPUT_DIR}/{dataset}/{int_enc}_{str_enc}.stats.tsv")
+    for benchmark_type in BENCHMARK_TYPES:
+        for dataset in BENCHMARK_GROUPS[benchmark_type].keys():
+            for int_enc in INT_ENCODINGS:
+                for str_enc in STR_ENCODINGS:
+                    files.append(f"{OUTPUT_DIR}/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.stats.tsv")
     return files
 
 # Default rule - aggregate all results
@@ -52,8 +180,8 @@ rule encode_gfa:
     input:
         gfa=lambda wildcards: DATASETS[wildcards.dataset]
     output:
-        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa",
-        time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.encode_time.txt"
+        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
+        time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.encode_time.txt"
     params:
         int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
@@ -63,9 +191,9 @@ rule encode_gfa:
 # Rule: Decode BGFA with timing
 rule decode_bgfa:
     input:
-        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa"
+        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa"
     output:
-        time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
+        time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
     script:
         "scripts/benchmark_decode.py"
 
@@ -73,11 +201,11 @@ rule decode_bgfa:
 rule compute_stats:
     input:
         gfa=lambda wildcards: DATASETS[wildcards.dataset],
-        bgfa=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.bgfa",
-        encode_time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.encode_time.txt",
-        decode_time=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
+        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
+        encode_time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.encode_time.txt",
+        decode_time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
     output:
-        stats=OUTPUT_DIR + "/{dataset}/{int_enc}_{str_enc}.stats.tsv"
+        stats=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.stats.tsv"
     script:
         "scripts/compute_stats.py"
 
