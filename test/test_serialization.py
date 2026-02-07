@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 import sys
 import unittest
 
@@ -198,15 +199,9 @@ class TestLine(unittest.TestCase):
     def test_serialize_gfa1_graph(self):
         self.graph.clear()
 
-        mini_graph = str.join(
-            "",
-            [
-                "S\t11\t*\txx:i:11\n",
-                "S\t13\t*\n",
-                "L\t11\t+\t13\t+\t120M\n",
-                "P\t15\t11+,13+\t120M\n",
-            ],
-        )
+        _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+        with open(os.path.join(_DATA_DIR, "test_serialization_mini_graph_gfa1.gfa"), "r") as f:
+            mini_graph = f.read()
         self.graph.from_string(mini_graph)
         same_graph_repr = gs1.serialize_gfa(self.graph)
         same_graph = gfa.GFA()
@@ -388,15 +383,9 @@ class TestLine(unittest.TestCase):
 
     def test_serialize_gfa2_graph(self):
         self.graph.clear()
-        mini_graph = str.join(
-            "",
-            [
-                "S\t11\t42\t*\txx:i:11\n",
-                "S\t21\t13\t*\n",
-                "E\t15\t11+\t13+\t21\t42\t42\t21\t120M\n",
-                "O\t33\t11+ 13+\n",
-            ],
-        )
+        _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+        with open(os.path.join(_DATA_DIR, "test_serialization_mini_graph_gfa2.gfa"), "r") as f:
+            mini_graph = f.read()
         self.graph.from_string(mini_graph)
         same_graph_repr = gs2.serialize_gfa(self.graph)
         same_graph = gfa.GFA()

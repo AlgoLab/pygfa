@@ -23,15 +23,16 @@ import lark
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
 
-from benchmark.extract_subgraph import extract_subgraph
+# from benchmark.extract_subgraph import extract_subgraph  # TODO: Fix this import
 from pygfa.encoding import (
     compress_integer_list_varint,
     compress_string_list,
 )
+from pygfa.dovetail_operations.iterator import DovetailIterator
+from pygfa.graph_element.parser import containment, edge, fragment, gap, group, link, path, segment
 from pygfa.graph_element import edge as ge
 from pygfa.graph_element import node
 from pygfa.graph_element import subgraph as sg
-from pygfa.graph_element.parser import containment, edge, fragment, gap, group, link, path, segment
 from pygfa.graph_operations.compression import (
     compression_graph_by_edges,
     compression_graph_by_nodes,
@@ -80,7 +81,7 @@ def _index(obj: Any, other: list[Any]) -> tuple[bool, int]:
     return found, index
 
 
-class GFA:
+class GFA(DovetailIterator):
     """GFA will use a networkx MultiGraph as structure to contain
     the elements of the specification.
     GFA graphs directly accept only instances coming from the
@@ -180,6 +181,11 @@ class GFA:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._paths.keys():
+            match = regexp.fullmatch(key)
+            if match:
+                virtual_keys.append(int(match.group(1)))
+
+        for key in self._walks.keys():
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
@@ -618,6 +624,32 @@ class GFA:
         if safe and key in self:
             raise GFAError("An element with the same id already exists.")
         self._subgraphs[key] = copy.deepcopy(subgraph)
+
+    def dovetails_subgraph(self, nbunch=None, copy=True):
+        """Given a collection of nodes return a subgraph with the nodes
+        given and all the edges between each pair of nodes.
+        Only dovetails overlaps are considered.
+        """
+        bunch = list(self.nbunch_iter(nbunch))
+        # create new graph and copy subgraph into it
+        H = self._graph.__class__()
+        # add node and attribute dictionaries
+        H.add_nodes_from((n, self._graph.nodes[n]) for n in bunch)
+
+        # add edge and attribute dictionaries
+        for n, nbrs in self._graph.adj.items():
+            if n in bunch:
+                for nbr, keydict in nbrs.items():
+                    if nbr in bunch:
+                        for key, d in keydict.items():
+                            if d.get("is_dovetail", False):
+                                H.add_edges_from([(n, nbr, key, d)])
+
+        if copy:
+            return H
+        else:
+            # return subgraph view into original graph (not a copy)
+            return nx.subgraph_view(self._graph, bunch)
 
     def remove_subgraph(self, subgraph_id):
         """Remove the Subgraph object identified by the given id."""
@@ -1908,7 +1940,31 @@ class GFA:
         return check_overlap(self, FOLDER.rstrip("pygfa"), external_file)
 
     def subgraphs_extractor(self, n_source, distance):
-        extract_subgraph(self, n_source, distance)
+        # TODO: Fix this method - extract_subgraph needs to be implemented
+        raise NotImplementedError("subgraphs_extractor is not yet implemented")
+
+    @staticmethod
+    def strip_comments(gfa_text: str) -> str:
+        """
+        Remove comment lines from GFA text.
+
+        This is a convenience wrapper around gfa_utils.strip_gfa_comments().
+        Useful for comparing GFA file content with to_gfa() output, which
+        doesn't include comments.
+
+        :param gfa_text: GFA text content (may include comments)
+        :return: GFA text with all comment lines removed
+
+        Example:
+            >>> from pygfa.gfa import GFA
+            >>> original = "# Comment\\nH\\tVN:Z:1.0\\nS\\t1\\tACGT"
+            >>> print(GFA.strip_comments(original))
+            H\tVN:Z:1.0
+            S\t1\tACGT
+        """
+        from pygfa.gfa_utils import strip_gfa_comments
+
+        return strip_gfa_comments(gfa_text)
 
     @classmethod
     def from_bgfa(

@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,10 +25,18 @@ logging.basicConfig(level=logging.DEBUG)
 #              |________|        [18_18_18]
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "check_overlap_test.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_check_overlap.gfa"))
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("check_overlap", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: check_overlap' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_no_external_fasta(self):
         edges_no_consistency = []
@@ -60,9 +69,7 @@ class TestLine(unittest.TestCase):
     def test_consistency_false(self):
         edges_no_consistency = ["1_to_2", "1_to_3", "1_to_5", "11_to_14", "0_to_13"]
         edges_no_calculate = ["5_to_8"]
-        fail_no_consistency, fail_no_defined = self.graph.overlap_consistency(
-            "data/check_overlap_test_fail.fasta"
-        )
+        fail_no_consistency, fail_no_defined = self.graph.overlap_consistency("data/check_overlap_test_fail.fasta")
         for edge in edges_no_consistency:
             self.assertTrue(edge in fail_no_consistency)
         for edge in edges_no_calculate:

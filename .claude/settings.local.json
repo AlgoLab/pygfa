@@ -12,7 +12,10 @@
       "Bash(bash:*)",
       "Bash(pixi search:*)",
       "Bash(pixi info:*)",
-      "Bash(snakemake:*)"
+      "Bash(snakemake:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(pixi run ruff check:*)"
     ]
   }
 }

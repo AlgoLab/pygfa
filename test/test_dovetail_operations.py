@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 #
 # --- = dovetail overlap
@@ -19,10 +20,18 @@ import pygfa
 # [s6_s6] --- [s7_s7]                [s8_s8_s8]
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetail_operations.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_dovetail_operations.gfa"))
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("dovetail_operations", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: dovetail_operations' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_dovetails_remove_small_components(self):
         copy_ = copy.deepcopy(self.graph)

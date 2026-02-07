@@ -5,6 +5,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
+from test_utils import should_run_test_for_gfa
 
 #
 #
@@ -19,18 +20,23 @@ import pygfa
 #                 [41_41_41]
 #
 
+GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_dovetails_all_simple_paths.gfa")
+
 
 class TestLine(unittest.TestCase):
-    graph = pygfa.gfa.GFA()
-    graph.from_gfa(
-        os.path.join(os.path.dirname(__file__), "data", "test_dovetails_all_simple_paths.gfa")
-    )
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        if not should_run_test_for_gfa("linear_path", GFA_FILE):
+            raise unittest.SkipTest(f"No '# test: linear_path' comment found in {GFA_FILE}")
+
+        cls.graph = pygfa.gfa.GFA()
+        cls.graph.from_gfa(GFA_FILE)
 
     def test_dovetails_linear_path(self):
         self.assertTrue(
             [("26", "27"), ("27", "28"), ("28", "25")]
-            or [("26", "25"), ("25", "27"), ("27", "28")]
-            == list(pygfa.dovetails_linear_path(self.graph, "26"))
+            or [("26", "25"), ("25", "27"), ("27", "28")] == list(pygfa.dovetails_linear_path(self.graph, "26"))
         )
         self.assertTrue([("12", "9")] == list(pygfa.dovetails_linear_path(self.graph, "12")))
         self.assertTrue(

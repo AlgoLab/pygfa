@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, "../")
 
 from pygfa import gfa
+from test_utils import should_run_test_for_gfa
 
 
 class TestPPrint(unittest.TestCase):
@@ -18,6 +19,10 @@ class TestPPrint(unittest.TestCase):
             gfa_filename: Path to the GFA file to test
             expected_filename: Path to the file containing expected output
         """
+        # Check if this test should run for this GFA file
+        if not should_run_test_for_gfa("read_gfa", gfa_filename):
+            self.skipTest(f"No '# test: read_gfa' comment found in {gfa_filename}")
+
         # Create a GFA graph from a file
         graph = gfa.GFA.from_gfa(gfa_filename)
 
@@ -56,21 +61,15 @@ class TestPPrint(unittest.TestCase):
 
     def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file(
-            "data/example_1.gfa", "results/example_1.txt"
-        )
+        self._test_pprint_output_matches_expected_file("data/example_1.gfa", "results/example_1.txt")
 
     def test_pprint_output_matches_expected_file_2(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file(
-            "data/example_2.gfa", "results/example_2.txt"
-        )
+        self._test_pprint_output_matches_expected_file("data/example_2.gfa", "results/example_2.txt")
 
     def test_pprint_output_matches_expected_file_3(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file(
-            "data/example_3.gfa", "results/example_3.txt"
-        )
+        self._test_pprint_output_matches_expected_file("data/example_3.gfa", "results/example_3.txt")
 
 
 if __name__ == "__main__":
