@@ -21,8 +21,8 @@ class TestLine(unittest.TestCase):
         """Test wheter the edges represent a dovetail overlaps."""
         self.assertTrue(self.graph.edges(identifier="l12")["is_dovetail"])
         self.assertTrue(self.graph.edges(identifier="l23")["is_dovetail"])
-        self.assertTrue(self.graph.edges(identifier="l15")["is_dovetail"] == False)
-        self.assertTrue(self.graph.edges(identifier="c14")["is_dovetail"] == False)
+        self.assertFalse(self.graph.edges(identifier="l15")["is_dovetail"])
+        self.assertFalse(self.graph.edges(identifier="c14")["is_dovetail"])
 
     def test_extreme(self):
         """Test behavior on sequence extremes, right and left iterator,
@@ -56,9 +56,7 @@ class TestLine(unittest.TestCase):
     def test_dovetails_iter(self):
         data_ = self.graph.edges(identifier="l12")
         self.assertTrue(("s1", "s2", "l12") in self.graph.dovetails_iter("s1", keys=True))
-        self.assertTrue(
-            ("s1", "s2", "l12", data_) in self.graph.dovetails_iter("s1", keys=True, data=True)
-        )
+        self.assertTrue(("s1", "s2", "l12", data_) in self.graph.dovetails_iter("s1", keys=True, data=True))
 
     def test_dovetails_nbunch_iter(self):
         """Check that this method only returs
@@ -80,20 +78,12 @@ class TestLine(unittest.TestCase):
         graph = pygfa.gfa.GFA()
         graph.from_gfa(os.path.join(os.path.dirname(__file__), "data", "test_linear_path.gfa"))
 
-        self.assertTrue(
-            set(graph.dovetails_linear_path_traverse_nodes_iter("s3")) == {"s2", "s3", "s6"}
-        )
+        self.assertTrue(set(graph.dovetails_linear_path_traverse_nodes_iter("s3")) == {"s2", "s3", "s6"})
 
-        self.assertTrue(
-            set(graph.dovetails_linear_path_traverse_edges_iter("s2"))
-            == {("s2", "s3"), ("s3", "s6")}
-        )
+        self.assertTrue(set(graph.dovetails_linear_path_traverse_edges_iter("s2")) == {("s2", "s3"), ("s3", "s6")})
 
         # from source use BFS
-        self.assertTrue(
-            set(graph.dovetails_linear_path_traverse_edges_iter("s3"))
-            == {("s3", "s2"), ("s3", "s6")}
-        )
+        self.assertTrue(set(graph.dovetails_linear_path_traverse_edges_iter("s3")) == {("s3", "s2"), ("s3", "s6")})
 
         self.assertTrue(set(graph.dovetails_linear_path_iter("s2")) == {("s2", "s3"), ("s3", "s6")})
 

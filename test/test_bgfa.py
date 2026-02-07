@@ -15,10 +15,6 @@ if project_root not in sys.path:
 
 from pygfa.gfa import GFA
 
-# Dynamically find all .gfa files in the test directory
-# This will match files like test/sample1.gfa, test/sample2.gfa, etc.
-TEST_FILES = glob.glob("test/*.gfa")
-
 # Import encoding constants from bgfa module
 from pygfa.bgfa import (
     INTEGER_ENCODING_IDENTITY,
@@ -40,6 +36,10 @@ from pygfa.bgfa import (
     STRING_ENCODING_HUFFMAN,
     make_compression_code,
 )
+
+# Dynamically find all .gfa files in the test directory
+# This will match files like test/sample1.gfa, test/sample2.gfa, etc.
+TEST_FILES = glob.glob("test/*.gfa")
 
 # Define all encoding strategies
 INTEGER_ENCODINGS = [
@@ -156,9 +156,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
             "walks": compression_code,
             "paths": compression_code,
         }
-        g.to_bgfa(
-            bgfa_path, block_size, compression_options, verbose=False, debug=False, logfile=None
-        )
+        g.to_bgfa(bgfa_path, block_size, compression_options, verbose=False, debug=False, logfile=None)
         # Check if file was created and is non-empty
         if not os.path.exists(bgfa_path):
             pytest.skip(f"BGFA file was not created: {bgfa_path}")

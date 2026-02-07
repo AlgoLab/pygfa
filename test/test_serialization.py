@@ -42,9 +42,7 @@ class TestLine(unittest.TestCase):
         node_ = node.Node.from_line(segment.SegmentV1.from_string("S\t1\tACGT\tLN:i:42\txx:Z:test"))
         self.graph.add_node(node_)
         self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT\tLN:i:42\txx:Z:test")
-        self.assertTrue(
-            gs1.serialize_node(self.graph.nodes(identifier="1")) == "S\t1\tACGT\tLN:i:42\txx:Z:test"
-        )
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier="1")) == "S\t1\tACGT\tLN:i:42\txx:Z:test")
 
         self.graph.clear()
         node_ = node.Node.from_line(segment.SegmentV1.from_string("S\t1\tACGT"))
@@ -53,9 +51,7 @@ class TestLine(unittest.TestCase):
         self.graph.add_node(node2)
 
         self.assertTrue(gs1.serialize_node(node_) == "S\t1\tACGT\tLN:i:4")
-        self.assertTrue(
-            gs1.serialize_node(self.graph.nodes(identifier="1")) == "S\t1\tACGT\tLN:i:4"
-        )
+        self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier="1")) == "S\t1\tACGT\tLN:i:4")
         self.assertTrue(gs1.serialize_node(self.graph.nodes(identifier="2")) == "S\t2\t*")
 
         del self.graph.nodes(identifier="1")["sequence"]
@@ -71,9 +67,7 @@ class TestLine(unittest.TestCase):
 
     def test_serialize_gfa1_edge(self):
         self.graph.clear()
-        link_ = ge.Edge.from_line(
-            link.Link.from_string("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
-        )
+        link_ = ge.Edge.from_line(link.Link.from_string("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test"))
 
         link_without_id = ge.Edge.from_line(link.Link.from_string("L\t1\t+\t3\t+\t12M\txx:Z:test"))
 
@@ -91,33 +85,20 @@ class TestLine(unittest.TestCase):
         )
 
         fragment_ = ge.Edge.from_line(
-            fragment.Fragment.from_string(
-                "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test"
-            )
+            fragment.Fragment.from_string("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2\txx:Z:test")
         )
-        edge_link = ge.Edge.from_line(
-            edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t0\t132\t42,42,42\txx:Z:test")
-        )
+        edge_link = ge.Edge.from_line(edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t0\t132\t42,42,42\txx:Z:test"))
         # TODO: RECOGNIZE THIS CONTAINMENT
-        edge_containment = ge.Edge.from_line(
-            edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
-        )
+        _ = ge.Edge.from_line(edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"))
         gap_ = ge.Edge.from_line(gap.Gap.from_string("G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test"))
 
         self.assertTrue(gs1.serialize_edge(link_) == "L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
         self.assertTrue(gs1.serialize_edge(link_without_id) == "L\t1\t+\t3\t+\t12M\txx:Z:test")
-        self.assertTrue(
-            gs1.serialize_edge(containment_) == "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test"
-        )
+        self.assertTrue(gs1.serialize_edge(containment_) == "C\t1\t+\t5\t+\t12\t120M\tID:Z:1_to_5\txx:Z:test")
 
-        self.assertTrue(
-            gs1.serialize_edge(containment_with_trace)
-            == "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test"
-        )
+        self.assertTrue(gs1.serialize_edge(containment_with_trace) == "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test")
 
-        self.assertTrue(
-            gs1.serialize_edge(containment_without_id) == "C\t1\t+\t5\t+\t12\t120M\txx:Z:test"
-        )
+        self.assertTrue(gs1.serialize_edge(containment_without_id) == "C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
 
         self.assertTrue(gs1.serialize_edge(fragment_) == "")
         # the edge alignment is a trace, which is not valid in GFA1,
@@ -153,9 +134,7 @@ class TestLine(unittest.TestCase):
             == "C\t1\t+\t5\t+\t12\t*\tID:Z:1_to_5\txx:Z:test"
         )
 
-        self.assertTrue(
-            gs1.serialize_edge(self.graph.edges(identifier="virtual_0"), "virtual_0") == ""
-        )
+        self.assertTrue(gs1.serialize_edge(self.graph.edges(identifier="virtual_0"), "virtual_0") == "")
         self.assertTrue(
             gs1.serialize_edge(self.graph.edges(identifier="2_to_6"), "2_to_6")
             == "L\t2\t+\t6\t+\t*\tID:Z:2_to_6\txx:Z:test"
@@ -166,8 +145,7 @@ class TestLine(unittest.TestCase):
             == "C\t1\t+\t5\t+\t12\t120M\txx:Z:test"
         )
         self.assertTrue(
-            gs1.serialize_edge(self.graph.edges(identifier="virtual_2"), "virtual_2")
-            == "L\t1\t+\t3\t+\t12M\txx:Z:test"
+            gs1.serialize_edge(self.graph.edges(identifier="virtual_2"), "virtual_2") == "L\t1\t+\t3\t+\t12M\txx:Z:test"
         )
 
     def test_serialize_gfa1_subgraph(self):
@@ -178,22 +156,16 @@ class TestLine(unittest.TestCase):
 
         path_ = sg.Subgraph.from_line(path.Path.from_string("P\t15\t11+,13+\t120M"))
 
-        ogroup = sg.Subgraph.from_line(
-            group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        )
+        ogroup = sg.Subgraph.from_line(group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1"))
 
         ugroup = sg.Subgraph.from_line(group.UGroup.from_string("U\t16\t11 13 11_to_13 16sub"))
 
         self.assertTrue(gs1.serialize_subgraph(path_, "path id:15") == "P\t15\t11+,13+\t120M")
         # overlaps are not defined, so a * is placed instead
-        self.assertTrue(
-            gs1.serialize_subgraph(ogroup, "ogroup: 15") == "P\t15\t11+,11_to_13+,13+\t*\txx:i:-1"
-        )
+        self.assertTrue(gs1.serialize_subgraph(ogroup, "ogroup: 15") == "P\t15\t11+,11_to_13+,13+\t*\txx:i:-1")
         # elements that don't point to node are removed if a gfa is
         # provided
-        self.assertTrue(
-            gs1.serialize_subgraph(ogroup, "ogroup: 15", self.graph) == "P\t15\t11+,13+\t*\txx:i:-1"
-        )
+        self.assertTrue(gs1.serialize_subgraph(ogroup, "ogroup: 15", self.graph) == "P\t15\t11+,13+\t*\txx:i:-1")
 
         self.assertTrue(gs1.serialize_subgraph(ugroup, "ugroup: 16", self.graph) == "")
 
@@ -214,18 +186,13 @@ class TestLine(unittest.TestCase):
 
         self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.assertTrue(
-            gs1.serialize_subgraph(
-                self.graph.subgraphs("15").as_dict(), "graph -> ogroup id:15", self.graph
-            )
+            gs1.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "graph -> ogroup id:15", self.graph)
             == "P\t15\t11+,13+\t*\txx:i:-1"
         )
         self.graph.remove_subgraph("15")
 
         self.graph.add_subgraph("U\t16\t11 13 11_to_13 16sub")
-        self.assertTrue(
-            gs1.serialize_subgraph(self.graph.subgraphs("16").as_dict(), "graph -> ugroup id:16")
-            == ""
-        )
+        self.assertTrue(gs1.serialize_subgraph(self.graph.subgraphs("16").as_dict(), "graph -> ugroup id:16") == "")
         self.graph.remove_subgraph("16")
 
     def test_serialize_gfa1_graph(self):
@@ -298,9 +265,7 @@ class TestLine(unittest.TestCase):
 
     def test_serialize_gfa2_edge(self):
         self.graph.clear()
-        link_ = ge.Edge.from_line(
-            link.Link.from_string("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
-        )
+        link_ = ge.Edge.from_line(link.Link.from_string("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test"))
 
         link_without_id = ge.Edge.from_line(link.Link.from_string("L\t1\t+\t3\t+\t12M\txx:Z:test"))
 
@@ -317,12 +282,8 @@ class TestLine(unittest.TestCase):
             containment.Containment.from_string("C\t1\t+\t5\t+\t12\t120M\txx:Z:test")
         )
 
-        fragment_ = ge.Edge.from_line(
-            fragment.Fragment.from_string("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2")
-        )
-        edge_ = ge.Edge.from_line(
-            edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test")
-        )
+        fragment_ = ge.Edge.from_line(fragment.Fragment.from_string("F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2"))
+        edge_ = ge.Edge.from_line(edge.Edge.from_string("E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"))
         gap_ = ge.Edge.from_line(gap.Gap.from_string("G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test"))
 
         self.assertTrue(gs2.serialize_edge(link_, "gfa2 link") == "")
@@ -332,20 +293,16 @@ class TestLine(unittest.TestCase):
         self.assertTrue(gs2.serialize_edge(containment_without_id, "gfa2 containment") == "")
 
         self.assertTrue(
-            gs2.serialize_edge(fragment_, "gfa2 fragment")
-            == "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2"
+            gs2.serialize_edge(fragment_, "gfa2 fragment") == "F\t2\tread1+\t0\t42\t12\t55\t*\tid:Z:read1_in_2"
         )
 
         # the edge alignment is a trace, which is not valid in GFA1,
         # so a * is placed.
         self.assertTrue(
-            gs2.serialize_edge(edge_, "gfa2 edge")
-            == "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"
+            gs2.serialize_edge(edge_, "gfa2 edge") == "E\t2_to_6\t2+\t6+\t0\t122$\t10\t132\t42,42,42\txx:Z:test"
         )
 
-        self.assertTrue(
-            gs2.serialize_edge(gap_, "gfa2 gap") == "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test"
-        )
+        self.assertTrue(gs2.serialize_edge(gap_, "gfa2 gap") == "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test")
 
         # test dictionaries
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\tID:Z:1_to_3\txx:Z:test")
@@ -359,19 +316,11 @@ class TestLine(unittest.TestCase):
         # virtual_2 here
         self.graph.add_edge("L\t1\t+\t3\t+\t12M\txx:Z:test")
 
-        self.assertTrue(
-            gs2.serialize_edge(self.graph.edges(identifier="1_to_3"), "gfa2 link 1_to_3") == ""
-        )
-        self.assertTrue(
-            gs2.serialize_edge(self.graph.edges(identifier="1_to_5"), "gfa2 containment 1_to_5")
-            == ""
-        )
+        self.assertTrue(gs2.serialize_edge(self.graph.edges(identifier="1_to_3"), "gfa2 link 1_to_3") == "")
+        self.assertTrue(gs2.serialize_edge(self.graph.edges(identifier="1_to_5"), "gfa2 containment 1_to_5") == "")
 
         self.graph.edges(identifier="1_to_5")["alignment"] = "42,42"
-        self.assertTrue(
-            gs2.serialize_edge(self.graph.edges(identifier="1_to_5"), "gfa2 containment: 1_to_5")
-            == ""
-        )
+        self.assertTrue(gs2.serialize_edge(self.graph.edges(identifier="1_to_5"), "gfa2 containment: 1_to_5") == "")
 
         self.assertTrue(
             gs2.serialize_edge(self.graph.edges(identifier="virtual_0"), "gfa2 fragment: virtual_0")
@@ -386,16 +335,10 @@ class TestLine(unittest.TestCase):
             == "G\t2_to_12\t2-\t12+\t500\t50\txx:Z:test"
         )
         self.assertTrue(
-            gs2.serialize_edge(
-                self.graph.edges(identifier="virtual_1"), "gfa2 containment without id: virtual_1"
-            )
-            == ""
+            gs2.serialize_edge(self.graph.edges(identifier="virtual_1"), "gfa2 containment without id: virtual_1") == ""
         )
         self.assertTrue(
-            gs2.serialize_edge(
-                self.graph.edges(identifier="virtual_2"), "gfa2 link without id: virtual_2"
-            )
-            == ""
+            gs2.serialize_edge(self.graph.edges(identifier="virtual_2"), "gfa2 link without id: virtual_2") == ""
         )
 
     def test_serialize_gfa2_subgraph(self):
@@ -405,29 +348,20 @@ class TestLine(unittest.TestCase):
         self.graph.add_edge("E\t11_to_13\t11+\t13+\t20\t140$\t0\t120\t120M")
 
         path_ = sg.Subgraph.from_line(path.Path.from_string("P\t15\t11+,13+\t120M"))
-        ogroup = sg.Subgraph.from_line(
-            group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        )
+        ogroup = sg.Subgraph.from_line(group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1"))
         ugroup = sg.Subgraph.from_line(group.UGroup.from_string("U\t16\t11 13 11_to_13 16sub"))
         self.assertTrue(gs2.serialize_subgraph(path_, "gfa2 path id:15") == "O\t15\t11+ 13+")
+        self.assertTrue(gs2.serialize_subgraph(ogroup, "gfa2 ogroup: 15") == "O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.assertTrue(
-            gs2.serialize_subgraph(ogroup, "gfa2 ogroup: 15") == "O\t15\t11+ 11_to_13+ 13+\txx:i:-1"
-        )
-        self.assertTrue(
-            gs2.serialize_subgraph(ogroup, "gfa2 ogroup: 15", self.graph)
-            == "O\t15\t11+ 11_to_13+ 13+\txx:i:-1"
+            gs2.serialize_subgraph(ogroup, "gfa2 ogroup: 15", self.graph) == "O\t15\t11+ 11_to_13+ 13+\txx:i:-1"
         )
 
-        self.assertTrue(
-            gs2.serialize_subgraph(ugroup, "ugroup: 16", self.graph)
-            == "U\t16\t11 13 11_to_13 16sub"
-        )
+        self.assertTrue(gs2.serialize_subgraph(ugroup, "ugroup: 16", self.graph) == "U\t16\t11 13 11_to_13 16sub")
 
         # test with dictionaries
         self.graph.add_subgraph("P\t15\t11+,13+\t120M")
         self.assertTrue(
-            gs2.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "gfa2 graph -> path id:15")
-            == "O\t15\t11+ 13+"
+            gs2.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "gfa2 graph -> path id:15") == "O\t15\t11+ 13+"
         )
         self.graph.remove_subgraph("15")
 
@@ -440,9 +374,7 @@ class TestLine(unittest.TestCase):
 
         self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         self.assertTrue(
-            gs2.serialize_subgraph(
-                self.graph.subgraphs("15").as_dict(), "graph -> ogroup id:15", self.graph
-            )
+            gs2.serialize_subgraph(self.graph.subgraphs("15").as_dict(), "graph -> ogroup id:15", self.graph)
             == "O\t15\t11+ 11_to_13+ 13+\txx:i:-1"
         )
         self.graph.remove_subgraph("15")

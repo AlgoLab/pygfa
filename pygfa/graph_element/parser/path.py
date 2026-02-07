@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     pass
@@ -35,14 +35,10 @@ class Path(line.Line):
             fields = fields[1:]
 
         if len(fields) < len(cls.REQUIRED_FIELDS):
-            raise line.InvalidLineError(
-                "The minimum number of field for " + "Path line is not reached."
-            )
+            raise line.InvalidLineError("The minimum number of field for " + "Path line is not reached.")
         path = Path()
         path_name = fv.validate(fields[0], cls.REQUIRED_FIELDS["path_name"])
-        sequences_names = [
-            fv.validate(label, cls.REQUIRED_FIELDS["seqs_names"]) for label in fields[1].split(",")
-        ]
+        sequences_names = [fv.validate(label, cls.REQUIRED_FIELDS["seqs_names"]) for label in fields[1].split(",")]
 
         overlaps = fv.validate(fields[2], cls.REQUIRED_FIELDS["overlaps"])
 

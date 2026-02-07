@@ -102,9 +102,7 @@ class GFA:
         :param base graph: An instance of a networkx.MultiGraph.
         """
         if base_graph is not None and not isinstance(base_graph, nx.MultiGraph):
-            raise GFAError(
-                f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead."
-            )
+            raise GFAError(f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead.")
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
         self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
@@ -408,9 +406,7 @@ class GFA:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(
-            f"add_node(): Adding node with ID: {new_node.nid if hasattr(new_node, 'nid') else 'unknown'}"
-        )
+        logger.debug(f"add_node(): Adding node with ID: {new_node.nid if hasattr(new_node, 'nid') else 'unknown'}")
 
         if isinstance(new_node, str) and new_node[0] == "S":
             logger.debug("add_node(): Parsing node from string")
@@ -457,15 +453,9 @@ class GFA:
         """
         if with_sequence is True:
             if data is True:
-                return iter(
-                    (nid, data_)
-                    for nid, data_ in self._graph.nodes(data=True)
-                    if "sequence" in data_
-                )
+                return iter((nid, data_) for nid, data_ in self._graph.nodes(data=True) if "sequence" in data_)
             else:
-                return iter(
-                    nid for nid, data_ in self._graph.nodes(data=True) if "sequence" in data_
-                )
+                return iter(nid for nid, data_ in self._graph.nodes(data=True) if "sequence" in data_)
         else:
             return iter(list(self._graph.nodes(data=data)))
 
@@ -535,9 +525,7 @@ class GFA:
                 logger.debug(f"add_edge(): Nodes not found: from={node1_exists}, to={node2_exists}")
                 raise GFAError("From/To node are not already in the graph.")
 
-        logger.debug(
-            f"add_edge(): Adding edge {key} from {new_edge.from_node} to {new_edge.to_node}"
-        )
+        logger.debug(f"add_edge(): Adding edge {key} from {new_edge.from_node} to {new_edge.to_node}")
         self._graph.add_edge(
             new_edge.from_node,
             new_edge.to_node,
@@ -636,9 +624,7 @@ class GFA:
         try:
             del self._subgraphs[subgraph_id]
         except Exception as err:
-            raise sg.InvalidSubgraphError(
-                "The given id doesn't " + " identify any subgraph."
-            ) from err
+            raise sg.InvalidSubgraphError("The given id doesn't " + " identify any subgraph.") from err
 
     def subgraphs_iter(self, data=False):
         """Return an iterator over subgraphs elements
@@ -675,9 +661,7 @@ class GFA:
                 path_data = {
                     "path_name": path_obj.fields["path_name"].value,
                     "segments": path_obj.fields["seqs_names"].value,
-                    "overlaps": (
-                        path_obj.fields["overlaps"].value if "overlaps" in path_obj.fields else []
-                    ),
+                    "overlaps": (path_obj.fields["overlaps"].value if "overlaps" in path_obj.fields else []),
                 }
                 # Add optional fields
                 for field_name, field in path_obj.fields.items():
@@ -698,9 +682,7 @@ class GFA:
             raise GFAError("A path with the same id already exists.")
 
         # Store the path data
-        logger.debug(
-            f"add_path(): Storing path {key} with {len(path_data.get('segments', []))} segments"
-        )
+        logger.debug(f"add_path(): Storing path {key} with {len(path_data.get('segments', []))} segments")
         self._paths[key] = copy.deepcopy(path_data)
         logger.debug(f"add_path(): Path {key} added successfully")
 
@@ -897,9 +879,7 @@ class GFA:
         lines = re.split("\n", string)
 
         # Load the grammar from the gfa.lark file
-        grammar_file = os.path.join(
-            os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
-        )
+        grammar_file = os.path.join(os.path.dirname(__file__), "graph_element", "parser", "gfa.lark")
         with open(grammar_file) as f:
             grammar = f.read()
 
@@ -941,7 +921,7 @@ class GFA:
                                 elif seg_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = seg_child.children[0].children[0].value
-                                    value_type = seg_child.children[1].children[0].value
+                                    _ = seg_child.children[1].children[0].value  # value_type
                                     value = seg_child.children[2].children[0].value
                                     segment_data[tag] = value
 
@@ -982,7 +962,7 @@ class GFA:
                                 elif link_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = link_child.children[0].children[0].value
-                                    value_type = link_child.children[1].children[0].value
+                                    _ = link_child.children[1].children[0].value  # value_type
                                     value = link_child.children[2].children[0].value
                                     link_data[tag] = value
                                     logger.debug(f"Optional field: {tag}={value}")
@@ -997,9 +977,7 @@ class GFA:
                                     "alignment",
                                 ]
                             ):
-                                logger.debug(
-                                    f"Adding edge: {link_data['from_node']} -> {link_data['to_node']}"
-                                )
+                                logger.debug(f"Adding edge: {link_data['from_node']} -> {link_data['to_node']}")
                                 self.add_edge(
                                     ge.Edge(
                                         None,  # eid
@@ -1059,7 +1037,7 @@ class GFA:
                                 elif path_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = path_child.children[0].children[0].value
-                                    value_type = path_child.children[1].children[0].value
+                                    _ = path_child.children[1].children[0].value  # value_type
                                     value = path_child.children[2].children[0].value
                                     path_data[tag] = value
 
@@ -1087,7 +1065,7 @@ class GFA:
                                 elif walk_child.data == "optional_field":
                                     # Handle optional fields
                                     tag = walk_child.children[0].children[0].value
-                                    value_type = walk_child.children[1].children[0].value
+                                    _ = walk_child.children[1].children[0].value  # value_type
                                     value = walk_child.children[2].children[0].value
                                     walk_data[tag] = value
 
@@ -1101,9 +1079,7 @@ class GFA:
 
             except lark.exceptions.LarkError as e:
                 # Skip lines that don't parse correctly
-                logger.warning(
-                    f"Failed to parse line {i + 1}: {line_[:50]}{'...' if len(line_) > 50 else ''} - {e}"
-                )
+                logger.warning(f"Failed to parse line {i + 1}: {line_[:50]}{'...' if len(line_) > 50 else ''} - {e}")
                 continue
 
         # Log graph dump - print actual content
@@ -1216,9 +1192,7 @@ class GFA:
             b"".join(
                 [
                     len(list(names)).to_bytes(2, byteorder="big", signed=False),  ## block size
-                    len(compressed_names).to_bytes(
-                        8, byteorder="big", signed=False
-                    ),  ## size compressed names
+                    len(compressed_names).to_bytes(8, byteorder="big", signed=False),  ## size compressed names
                     int(sum([len(name) + 1 for name in names])).to_bytes(
                         8, byteorder="big", signed=False
                     ),  # length uncompressed names
@@ -1233,12 +1207,7 @@ class GFA:
         # it = self.nodes_iter(data=True, with_sequence=True)
         it = self.nodes_iter()
         return bytes(
-            b"".join(
-                [
-                    self.names_block(islice(it, block_size))
-                    for _ in range((n + block_size - 1) // block_size)
-                ]
-            )
+            b"".join([self.names_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)])
         )
 
     def segments_block(self, first, last, compression_method="zstd", compression_level=19):
@@ -1291,9 +1260,6 @@ class GFA:
         n = len(self.nodes())
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
 
-        # Get all nodes as a list for proper slicing
-        all_nodes = list(self.nodes_iter(data=True))
-
         # Process nodes in blocks
         blocks = []
         for i in range(0, n, block_size):
@@ -1316,12 +1282,7 @@ class GFA:
         self.set_segment_map(dict(zip([v for v in self.edges()], range(1, n + 1), strict=False)))
         it = self.edges_iter()
         return bytes(
-            b"".join(
-                [
-                    self.links_block(islice(it, block_size))
-                    for _ in range((n + block_size - 1) // block_size)
-                ]
-            )
+            b"".join([self.links_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)])
         )
 
     def paths_block(self, names, compression_level=19):
@@ -1336,12 +1297,7 @@ class GFA:
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
         it = self.nodes_iter()
         return bytes(
-            b"".join(
-                [
-                    self.paths_block(islice(it, block_size))
-                    for _ in range((n + block_size - 1) // block_size)
-                ]
-            )
+            b"".join([self.paths_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)])
         )
 
     def walks_block(self, names, compression_level=19):
@@ -1356,12 +1312,7 @@ class GFA:
         self.set_segment_map(dict(zip([v for v in self.nodes()], range(1, n + 1), strict=False)))
         it = self.nodes_iter()
         return bytes(
-            b"".join(
-                [
-                    self.walks_block(islice(it, block_size))
-                    for _ in range((n + block_size - 1) // block_size)
-                ]
-            )
+            b"".join([self.walks_block(islice(it, block_size)) for _ in range((n + block_size - 1) // block_size)])
         )
 
     def to_gfa(self):
@@ -1538,9 +1489,7 @@ class GFA:
         g = cls()
 
         # Load the grammar from the gfa.lark file
-        grammar_file = os.path.join(
-            os.path.dirname(__file__), "graph_element", "parser", "gfa.lark"
-        )
+        grammar_file = os.path.join(os.path.dirname(__file__), "graph_element", "parser", "gfa.lark")
         logger.debug(f"Loading grammar from: {grammar_file}")
         with open(grammar_file) as f:
             grammar = f.read()
@@ -1583,18 +1532,14 @@ class GFA:
                                 for seg_child in child.children:
                                     if seg_child.data == "segment_name":
                                         segment_data["segment_name"] = seg_child.children[0].value
-                                        logger.debug(
-                                            f"  Segment name: {segment_data['segment_name']}"
-                                        )
+                                        logger.debug(f"  Segment name: {segment_data['segment_name']}")
                                     elif seg_child.data == "seq_string":
                                         segment_data["sequence"] = seg_child.children[0].value
-                                        logger.debug(
-                                            f"  Sequence length: {len(segment_data['sequence'])}"
-                                        )
+                                        logger.debug(f"  Sequence length: {len(segment_data['sequence'])}")
                                     elif seg_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = seg_child.children[0].children[0].value
-                                        value_type = seg_child.children[1].children[0].value
+                                        _ = seg_child.children[1].children[0].value  # value_type
                                         value = seg_child.children[2].children[0].value
                                         segment_data[tag] = value
                                         logger.debug(f"  Optional field: {tag}={value}")
@@ -1638,7 +1583,7 @@ class GFA:
                                     elif link_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = link_child.children[0].children[0].value
-                                        value_type = link_child.children[1].children[0].value
+                                        _ = link_child.children[1].children[0].value  # value_type
                                         value = link_child.children[2].children[0].value
                                         link_data[tag] = value
                                         logger.debug(f"  Optional field: {tag}={value}")
@@ -1653,9 +1598,7 @@ class GFA:
                                         "alignment",
                                     ]
                                 ):
-                                    logger.debug(
-                                        f"  Adding edge: {link_data['from_node']} -> {link_data['to_node']}"
-                                    )
+                                    logger.debug(f"  Adding edge: {link_data['from_node']} -> {link_data['to_node']}")
                                     g.add_edge(
                                         ge.Edge(
                                             None,  # eid
@@ -1720,7 +1663,7 @@ class GFA:
                                     elif path_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = path_child.children[0].children[0].value
-                                        value_type = path_child.children[1].children[0].value
+                                        _ = path_child.children[1].children[0].value  # value_type
                                         value = path_child.children[2].children[0].value
                                         path_data[tag] = value
                                         logger.debug(f"  Optional field: {tag}={value}")
@@ -1746,9 +1689,7 @@ class GFA:
                                         logger.debug(f"  Seq ID: {walk_data['seq_id']}")
                                     elif walk_child.data == "seq_start":
                                         value = walk_child.children[0].value
-                                        walk_data["seq_start"] = (
-                                            None if value == "*" else int(value)
-                                        )
+                                        walk_data["seq_start"] = None if value == "*" else int(value)
                                         logger.debug(f"  Seq start: {walk_data['seq_start']}")
                                     elif walk_child.data == "seq_end":
                                         value = walk_child.children[0].value
@@ -1760,15 +1701,13 @@ class GFA:
                                     elif walk_child.data == "optional_field":
                                         # Handle optional fields
                                         tag = walk_child.children[0].children[0].value
-                                        value_type = walk_child.children[1].children[0].value
+                                        _ = walk_child.children[1].children[0].value  # value_type
                                         value = walk_child.children[2].children[0].value
                                         walk_data[tag] = value
                                         logger.debug(f"  Optional field: {tag}={value}")
 
                                 if "sample_id" in walk_data and "walk" in walk_data:
-                                    logger.debug(
-                                        f"  Adding walk for sample: {walk_data['sample_id']}"
-                                    )
+                                    logger.debug(f"  Adding walk for sample: {walk_data['sample_id']}")
                                     g.add_walk(walk_data)
                                     walk_count += 1
 
@@ -1782,7 +1721,8 @@ class GFA:
                     continue
 
         logger.debug(
-            f"Finished parsing {filepath}: {line_count} lines, {segment_count} segments, {link_count} links, {path_count} paths, {walk_count} walks"
+            f"Finished parsing {filepath}: {line_count} lines, {segment_count} segments, "
+            f"{link_count} links, {path_count} paths, {walk_count} walks"
         )
         # Log graph dump - print actual content
         logger.debug("Graph content after from_gfa():")
@@ -1970,24 +1910,6 @@ class GFA:
     def subgraphs_extractor(self, n_source, distance):
         extract_subgraph(self, n_source, distance)
 
-    def to_bgfa(
-        self,
-        block_size: int = 1024,
-        compression_method: str = "zstd",
-        compression_level: int = 19,
-    ) -> bytes:
-        """Convert this GFA graph to BGFA binary format.
-
-        :param block_size: Block size for BGFA format (default: 1024)
-        :param compression_method: Compression method for string data (default: "zstd")
-        :param compression_level: Compression level (default: 19)
-        :return: BGFA binary data
-        """
-        from pygfa.bgfa import BGFAWriter
-
-        writer = BGFAWriter(self, block_size=block_size, compression_options={})
-        return writer.to_bgfa()
-
     @classmethod
     def from_bgfa(
         cls,
@@ -2111,9 +2033,7 @@ class GFA:
             return _STR_NAME_TO_CODE.get(str(name), STRING_ENCODING_IDENTITY)
 
         # Check if options use new-style keys (contain "_int_encoding" or "_str_encoding")
-        has_new_keys = any(
-            k.endswith("_int_encoding") or k.endswith("_str_encoding") for k in compression_options
-        )
+        has_new_keys = any(k.endswith("_int_encoding") or k.endswith("_str_encoding") for k in compression_options)
 
         if has_new_keys:
             # New-style: pass directly, filtering None values
@@ -2124,60 +2044,24 @@ class GFA:
         else:
             # Legacy-style: map old keys to new parameters
             kwargs = {
-                "segment_names_int_encoding": _resolve_int(
-                    compression_options.get("segment_names_payload_lengths")
-                ),
-                "segment_names_str_encoding": _resolve_str(
-                    compression_options.get("segment_names_payload_names")
-                ),
-                "segments_int_encoding": _resolve_int(
-                    compression_options.get("segments_payload_lengths")
-                ),
-                "segments_str_encoding": _resolve_str(
-                    compression_options.get("segments_payload_strings")
-                ),
-                "links_fromto_int_encoding": _resolve_int(
-                    compression_options.get("links_payload_from")
-                ),
-                "links_cigars_int_encoding": _resolve_int(
-                    compression_options.get("links_payload_cigar_lengths")
-                ),
-                "links_cigars_str_encoding": _resolve_str(
-                    compression_options.get("links_payload_cigar")
-                ),
-                "paths_names_int_encoding": _resolve_int(
-                    compression_options.get("paths_payload_names")
-                ),
-                "paths_names_str_encoding": _resolve_str(
-                    compression_options.get("paths_payload_names")
-                ),
-                "paths_cigars_int_encoding": _resolve_int(
-                    compression_options.get("paths_payload_cigar_lengths")
-                ),
-                "paths_cigars_str_encoding": _resolve_str(
-                    compression_options.get("paths_payload_cigar")
-                ),
-                "walks_sample_ids_int_encoding": _resolve_int(
-                    compression_options.get("walks_payload_sample_ids")
-                ),
-                "walks_sample_ids_str_encoding": _resolve_str(
-                    compression_options.get("walks_payload_sample_ids")
-                ),
-                "walks_hap_indices_int_encoding": _resolve_int(
-                    compression_options.get("walks_payload_hep_indices")
-                ),
-                "walks_seq_ids_int_encoding": _resolve_int(
-                    compression_options.get("walks_payload_sequence_ids")
-                ),
-                "walks_seq_ids_str_encoding": _resolve_str(
-                    compression_options.get("walks_payload_sequence_ids")
-                ),
-                "walks_start_int_encoding": _resolve_int(
-                    compression_options.get("walks_payload_start")
-                ),
-                "walks_end_int_encoding": _resolve_int(
-                    compression_options.get("walks_payload_end")
-                ),
+                "segment_names_int_encoding": _resolve_int(compression_options.get("segment_names_payload_lengths")),
+                "segment_names_str_encoding": _resolve_str(compression_options.get("segment_names_payload_names")),
+                "segments_int_encoding": _resolve_int(compression_options.get("segments_payload_lengths")),
+                "segments_str_encoding": _resolve_str(compression_options.get("segments_payload_strings")),
+                "links_fromto_int_encoding": _resolve_int(compression_options.get("links_payload_from")),
+                "links_cigars_int_encoding": _resolve_int(compression_options.get("links_payload_cigar_lengths")),
+                "links_cigars_str_encoding": _resolve_str(compression_options.get("links_payload_cigar")),
+                "paths_names_int_encoding": _resolve_int(compression_options.get("paths_payload_names")),
+                "paths_names_str_encoding": _resolve_str(compression_options.get("paths_payload_names")),
+                "paths_cigars_int_encoding": _resolve_int(compression_options.get("paths_payload_cigar_lengths")),
+                "paths_cigars_str_encoding": _resolve_str(compression_options.get("paths_payload_cigar")),
+                "walks_sample_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sample_ids")),
+                "walks_sample_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sample_ids")),
+                "walks_hap_indices_int_encoding": _resolve_int(compression_options.get("walks_payload_hep_indices")),
+                "walks_seq_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sequence_ids")),
+                "walks_seq_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sequence_ids")),
+                "walks_start_int_encoding": _resolve_int(compression_options.get("walks_payload_start")),
+                "walks_end_int_encoding": _resolve_int(compression_options.get("walks_payload_end")),
             }
 
         return bgfa_to_bgfa(

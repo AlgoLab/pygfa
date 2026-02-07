@@ -153,9 +153,7 @@ class TestLine(unittest.TestCase):
     def test_add_node(self):
         """Test add_node and remove_node methods."""
         self.graph.clear()
-        seg = segment.SegmentV1.from_string(
-            "S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test"
-        )
+        seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test")
         node_ = node.Node.from_line(seg)
         self.graph.add_node(node_)
         seg.fields["name"]._value = "node4"
@@ -192,9 +190,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(self.graph.nodes(identifier="3")["slen"] == 21)
 
         with self.assertRaises(gfa.GFAError):
-            self.graph.add_node(
-                "S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test", safe=True
-            )
+            self.graph.add_node("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test", safe=True)
 
         with self.assertRaises(TypeError):
             self.graph.add_node("21", nid="21", slen="4", sequence="acgt")
@@ -295,17 +291,13 @@ class TestLine(unittest.TestCase):
         self.graph.clear()
 
         node_ = node.Node.from_line(
-            segment.SegmentV1.from_string(
-                "S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test"
-            )
+            segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test")
         )
         self.graph.add_node(node_)
         self.assertTrue(self.graph.as_graph_element("3") == node_)
 
         node_ = node.Node.from_line(
-            segment.SegmentV1.from_string(
-                "S\t4\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test"
-            )
+            segment.SegmentV1.from_string("S\t4\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test")
         )
         self.graph.add_node(node_)
         self.assertTrue(self.graph.as_graph_element("4") == node_)
@@ -318,9 +310,7 @@ class TestLine(unittest.TestCase):
         self.graph.add_edge(edge_)
         self.assertTrue(self.graph.as_graph_element("virtual_0") == edge_)
 
-        edge_ = ge.Edge.from_line(
-            gap.Gap.from_string("G\tg\t3+\t4-\t1000\t*\tui:Z:test\tab:Z:another_test")
-        )
+        edge_ = ge.Edge.from_line(gap.Gap.from_string("G\tg\t3+\t4-\t1000\t*\tui:Z:test\tab:Z:another_test"))
         self.graph.add_edge(edge_)
         self.assertTrue(self.graph.as_graph_element("g") == edge_)
 
@@ -331,28 +321,20 @@ class TestLine(unittest.TestCase):
         self.assertTrue(self.graph.as_graph_element("virtual_1") == edge_)
 
         edge_ = ge.Edge.from_line(
-            containment.Containment.from_string(
-                "C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test"
-            )
+            containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
         )
         self.graph.add_edge(edge_)
         self.assertTrue(self.graph.as_graph_element("virtual_2") == edge_)
 
-        edge_ = ge.Edge.from_line(
-            link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test")
-        )
+        edge_ = ge.Edge.from_line(link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_edge(edge_)
         self.assertTrue(self.graph.as_graph_element("virtual_3") == edge_)
 
-        subgraph_ = sg.Subgraph.from_line(
-            path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")
-        )
+        subgraph_ = sg.Subgraph.from_line(path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_subgraph(subgraph_)
         self.assertTrue(self.graph.as_graph_element("14") == subgraph_)
 
-        subgraph_ = sg.Subgraph.from_line(
-            group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        )
+        subgraph_ = sg.Subgraph.from_line(group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1"))
         self.graph.add_subgraph(subgraph_)
         self.assertTrue(self.graph.as_graph_element("15") == subgraph_)
 
@@ -396,8 +378,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(len(subgraph_15.edges()) == 1)
         self.assertTrue(subgraph_15.edges(identifier="11_to_13")["alignment"] == "120M")
         self.assertTrue(
-            subgraph_15.edges("11_to_13")["alignment"]
-            == self.graph.edges(identifier="11_to_13")["alignment"]
+            subgraph_15.edges("11_to_13")["alignment"] == self.graph.edges(identifier="11_to_13")["alignment"]
         )
 
         subgraph_15.edges(identifier="11_to_13")["alignment"] = "42M"
@@ -428,9 +409,7 @@ class TestLine(unittest.TestCase):
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
         self.assertTrue(gfa_.edges(identifier="1_to_3") is not None)
-        self.assertTrue(
-            subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3")
-        )
+        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
         subgraph_.nodes["3"]["nid"] = 42
@@ -466,9 +445,7 @@ class TestLine(unittest.TestCase):
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
         self.assertTrue(gfa_.edges(identifier="1_to_3") is not None)
-        self.assertTrue(
-            subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3")
-        )
+        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
         subgraph_.nodes["3"]["nid"] = 42
@@ -490,9 +467,7 @@ class TestLine(unittest.TestCase):
         self.graph.clear()
         self.graph.from_string(sample_gfa2)
 
-        result = self.graph.search(
-            lambda element: element["from_node"] == "1", limit_type=gfa.Element.EDGE
-        )
+        result = self.graph.search(lambda element: element["from_node"] == "1", limit_type=gfa.Element.EDGE)
         self.assertTrue("1_to_3" in result)
         self.assertTrue("1_to_11" in result)
         self.assertTrue("1_to_5" in result)
@@ -511,7 +486,9 @@ class TestLine(unittest.TestCase):
         self.assertTrue("15" in result)
         self.assertTrue(len(result) == 1)
 
-        greater_than_comparator = lambda element: int(element["slen"]) >= 140
+        def greater_than_comparator(element):
+            return int(element["slen"]) >= 140
+
         result = self.graph.search(greater_than_comparator, limit_type=gfa.Element.NODE)
         self.assertTrue("13" in result)
         self.assertTrue("11" in result)
