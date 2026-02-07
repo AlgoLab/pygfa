@@ -16,26 +16,16 @@ def is_node(obj: Any) -> bool:
     :returns True: If obj can be treated as a Node object.
     """
     try:
-        return (
-            obj.nid is not None
-            and obj.sequence is not None
-            and hasattr(obj, "slen")
-            and hasattr(obj, "opt_fields")
-        )
+        return obj.nid is not None and obj.sequence is not None and hasattr(obj, "slen") and hasattr(obj, "opt_fields")
     except Exception:
         return False
 
 
 class Node:
-    """A Node object that abstract the GFA1 and GFA2 Sequence concepts.
+    """A Node object that abstracts the GFA1 Sequence concept.
 
     GFA graphs will operate on Nodes, by adding them directly to their
     structures.
-
-    Node accepts elements  (ids, sequences, lengths and so on) from
-    the more tolerant of the two specification.
-    So, a sequence will be accepted if and only if is a valid GFA2
-    sequence, since GFA2 sequence is more tolerant than GFA1 sequence.
     """
 
     def __init__(
@@ -48,7 +38,7 @@ class Node:
         """Construct a Node given an id, a sequence and a length.
 
         :param node_id: A node id given in the form of a string.
-        :param sequence: A GFA1 or a GFA2 sequence.
+        :param sequence: A GFA1 sequence.
         :param length: The length of the sequence. Can be `None`.
         :param opt_fields: A dictionary of Field or OptField objects.
 
@@ -59,23 +49,19 @@ class Node:
             opt_fields = {}
         if not isinstance(node_id, str) or node_id == "*":
             raise InvalidNodeError(
-                "A Node has always a defined id of type string, "
-                f"given {node_id} of type {type(node_id)}"
+                f"A Node has always a defined id of type string, given {node_id} of type {type(node_id)}"
             )
 
-        # checks sequence validation against GFA2 sequence specification
-        # that is more tolerant than the GFA1 one
-        if not (isinstance(sequence, str) and fv.is_valid(sequence, fv.GFA2_SEQUENCE)):
+        # checks sequence validation against GFA1 sequence specification
+        if not (isinstance(sequence, str) and fv.is_valid(sequence, fv.GFA1_SEQUENCE)):
             raise InvalidNodeError(
                 "A sequence must be of type string and must be a "
-                "valid GFA2 sequence,"
+                "valid GFA1 sequence,"
                 f"given '{sequence}' of type {type(sequence)}"
             )
 
         if not ((isinstance(length, int) and int(length) >= 0) or length is None):
-            raise InvalidNodeError(
-                f"Sequence length must be a number >= 0, given {length} of type {type(length)}"
-            )
+            raise InvalidNodeError(f"Sequence length must be a number >= 0, given {length} of type {type(length)}")
         self._nid = node_id
         self._sequence = sequence
         self._slen = length

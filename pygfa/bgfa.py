@@ -10,7 +10,6 @@ Functions:
 
 from __future__ import annotations
 
-import compression.zstd as z
 import gzip
 import io
 import logging
@@ -100,6 +99,8 @@ def decompress_string_zstd(data: bytes, lengths: list[int]) -> list[bytes]:
     :param lengths: List of string lengths
     :return: List of extracted byte strings
     """
+    import compression.zstd as z
+
     decompressed = z.decompress(data)
     return decompress_string_identity(decompressed, lengths)
 

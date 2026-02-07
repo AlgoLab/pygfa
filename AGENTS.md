@@ -129,14 +129,13 @@ Use Google-style docstrings for public classes and methods:
 
 ```python
 class Node:
-    """A Node object that abstracts the GFA1 and GFA2 Sequence concept.
+    """A Node object that abstracts the GFA1 Sequence concept.
 
     GFA graphs will operate on Nodes by adding them directly to their
-    structures. Node accepts elements from the more tolerant of the
-    two specifications.
+    structures.
 
     :param node_id: A node id given as a string.
-    :param sequence: A GFA1 or GFA2 sequence.
+    :param sequence: A GFA1 sequence.
     :param length: The length of the sequence. Can be `None`.
     :raises InvalidNodeError: If node_id or sequence are invalid.
     """

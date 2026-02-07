@@ -29,7 +29,7 @@ from pygfa.encoding import (
     compress_string_list,
 )
 from pygfa.dovetail_operations.iterator import DovetailIterator
-from pygfa.graph_element.parser import containment, edge, fragment, gap, group, link, path, segment
+from pygfa.graph_element.parser import containment, link, path, segment
 from pygfa.graph_element import edge as ge
 from pygfa.graph_element import node
 from pygfa.graph_element import subgraph as sg
@@ -496,12 +496,7 @@ class GFA(DovetailIterator):
                 new_edge = ge.Edge.from_line(link.Link.from_string(new_edge.strip()))
             elif new_edge[0] == "C":
                 new_edge = ge.Edge.from_line(containment.Containment.from_string(new_edge.strip()))
-            elif new_edge[0] == "E":
-                new_edge = ge.Edge.from_line(edge.Edge.from_string(new_edge.strip()))
-            elif new_edge[0] == "G":
-                new_edge = ge.Edge.from_line(gap.Gap.from_string(new_edge.strip()))
-            elif new_edge[0] == "F":
-                new_edge = ge.Edge.from_line(fragment.Fragment.from_string(new_edge.strip()))
+
             else:
                 logger.debug("add_edge(): Invalid edge string")
                 raise ge.InvalidEdgeError(
@@ -598,6 +593,10 @@ class GFA(DovetailIterator):
         """Interface to networx edges iterator."""
         return iter(self._graph.edges(nbunch=nbunch, data=data, keys=keys, default=default))
 
+    def nodes_iter(self, data=False, with_sequence=False):
+        """Interface to networx nodes iterator."""
+        return iter(self._graph.nodes(data=data))
+
     def add_subgraph(self, subgraph, safe=False):
         """Add a Subgraph object to the graph.
 
@@ -609,8 +608,7 @@ class GFA(DovetailIterator):
                 subgraph = sg.Subgraph.from_line(path.Path.from_string(subgraph))
             elif subgraph[0] == "O":
                 subgraph = sg.Subgraph.from_line(group.OGroup.from_string(subgraph))
-            elif subgraph[0] == "U":
-                subgraph = sg.Subgraph.from_line(group.UGroup.from_string(subgraph))
+
             else:
                 raise sg.InvalidSubgraphError(
                     f"The string given cannot be represented as a subgraph,\ngiven: {subgraph}"
