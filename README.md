@@ -4,9 +4,9 @@ A Python library for managing GFA (Graphical Fragment Assembly) files used in bi
 
 ## Features
 
-- **Full GFA Support**: Read, write, and manipulate GFA1 and GFA2 format files
+- **GFA1 Support**: Read, write, and manipulate GFA1 format files (including 1.1 and 1.2)
 - **Graph Operations**: Connected components, path finding, traversal algorithms
-- **Serialization**: Convert between GFA1, GFA2, and binary BGFA formats
+- **Serialization**: Convert to GFA1 format and binary BGFA format
 - **Compression**: Optional zstd, gzip, and lzma compression for large graphs
 - **Dovetail Operations**: Specialized operations for overlap-based connections
 
@@ -41,8 +41,8 @@ gfa.from_file("example.gfa")
 # Serialize to GFA1
 gfa1_output = gfa.to_gfa1()
 
-# Serialize to GFA2
-gfa2_output = gfa.to_gfa2()
+# Serialize to GFA1
+gfa1_output = gfa.to_gfa1()
 ```
 
 ## Documentation
