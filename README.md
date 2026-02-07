@@ -9,6 +9,7 @@ A Python library for managing GFA (Graphical Fragment Assembly) files used in bi
 - **Serialization**: Convert to GFA1 format and binary BGFA format
 - **Compression**: Optional zstd, gzip, and lzma compression for large graphs
 - **Dovetail Operations**: Specialized operations for overlap-based connections
+- **Benchmark System**: Filter and run benchmarks on GFA files with `# benchmark: NAME` comments
 
 ## Installation
 
@@ -59,6 +60,15 @@ python -m pytest test/
 coverage run -p test/run_tests.sh
 coverage html
 ```
+
+
+### Workflow
+
+1. Add benchmark comments to GFA files
+2. Generate configuration: `tools/generate_benchmark_config.py`
+3. Run benchmarks: `snakemake -s workflow/Snakefile`
+
+See `docs/benchmark_system.md` for detailed documentation.
 
 ## License
 

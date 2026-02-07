@@ -11,6 +11,7 @@ from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 from pygfa.serializer import gfa1_serializer as gs1
 from pygfa import gfa
+from test_utils import should_run_test_for_gfa
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -34,6 +35,16 @@ class TestLine(unittest.TestCase):
         coverage either from dictionary and from objects will be the
         main goal.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up test class by checking if test should run."""
+        # Define the GFA file path used in this test
+        _DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+        cls.gfa_file = os.path.join(_DATA_DIR, "test_serialization_mini_graph_gfa1.gfa")
+
+        if not should_run_test_for_gfa("serialization", cls.gfa_file):
+            raise unittest.SkipTest(f"No '# test: serialization' comment found in {cls.gfa_file}")
 
     graph = gfa.GFA()
 
