@@ -48,7 +48,6 @@ class Edge:
         distance: int | None,
         variance: str | None,
         opt_fields: dict[str, line.Field] | None = None,
-        is_dovetail: bool = False,
     ) -> None:
         """Create an Edge.
 
@@ -63,7 +62,6 @@ class Edge:
         :param distance: Distance for gap edges
         :param variance: Variance for gap edges
         :param opt_fields: Optional fields dictionary
-        :param is_dovetail: Whether this is a dovetail overlap edge
         """
         if opt_fields is None:
             opt_fields = {}
@@ -82,7 +80,6 @@ class Edge:
         for key, field in opt_fields.items():
             if line.is_field(field):
                 self._opt_fields[key] = copy.deepcopy(field)
-        self._is_dovetail = is_dovetail
 
     @classmethod
     def from_line(cls, edge_line: line.Line) -> Edge | None:
@@ -131,7 +128,6 @@ class Edge:
                 distance,
                 variance,
                 opt_fields,
-                is_dovetail=True,
             )
 
         # Handle Containment lines (type 'C')
@@ -179,7 +175,6 @@ class Edge:
                 distance,
                 variance,
                 opt_fields,
-                is_dovetail=False,
             )
 
         # Not a Link or Containment line, cannot convert
@@ -229,10 +224,6 @@ class Edge:
     def opt_fields(self) -> dict[str, line.Field]:
         return self._opt_fields
 
-    @property
-    def is_dovetail(self) -> bool:
-        return self._is_dovetail
-
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Edge):
             return False
@@ -248,7 +239,6 @@ class Edge:
             and self._distance == other._distance
             and self._variance == other._variance
             and self._opt_fields == other._opt_fields
-            and self._is_dovetail == other._is_dovetail
         )
 
     def __str__(self) -> str:

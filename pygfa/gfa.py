@@ -376,7 +376,6 @@ class GFA:
                     element["distance"],
                     element["variance"],
                     opt_fields=tmp_list,
-                    is_dovetail=element["is_dovetail"],
                 )
                 return edge_
         except KeyError:
@@ -542,7 +541,6 @@ class GFA:
             alignment=new_edge.alignment,
             distance=new_edge.distance,
             variance=new_edge.variance,
-            is_dovetail=new_edge.is_dovetail,
             from_segment_end=new_edge.from_segment_end,
             to_segment_end=new_edge.to_segment_end,
             **new_edge.opt_fields,
@@ -623,32 +621,6 @@ class GFA:
         if safe and key in self:
             raise GFAError("An element with the same id already exists.")
         self._subgraphs[key] = copy.deepcopy(subgraph)
-
-    def dovetails_subgraph(self, nbunch=None, copy=True):
-        """Given a collection of nodes return a subgraph with the nodes
-        given and all the edges between each pair of nodes.
-        Only dovetails overlaps are considered.
-        """
-        bunch = list(self.nbunch_iter(nbunch))
-        # create new graph and copy subgraph into it
-        H = self._graph.__class__()
-        # add node and attribute dictionaries
-        H.add_nodes_from((n, self._graph.nodes[n]) for n in bunch)
-
-        # add edge and attribute dictionaries
-        for n, nbrs in self._graph.adj.items():
-            if n in bunch:
-                for nbr, keydict in nbrs.items():
-                    if nbr in bunch:
-                        for key, d in keydict.items():
-                            if d.get("is_dovetail", False):
-                                H.add_edges_from([(n, nbr, key, d)])
-
-        if copy:
-            return H
-        else:
-            # return subgraph view into original graph (not a copy)
-            return nx.subgraph_view(self._graph, bunch)
 
     def remove_subgraph(self, subgraph_id):
         """Remove the Subgraph object identified by the given id."""
@@ -1033,7 +1005,6 @@ class GFA:
                                                 "alignment",
                                             ]
                                         },
-                                        is_dovetail=True,
                                     )
                                 )
 
