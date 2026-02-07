@@ -4,7 +4,7 @@ import math
 from collections.abc import Iterable
 
 
-def compress_integer_list_varint(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_varint(int_list: Iterable[int], _size: int = 0) -> bytes:
     encoded_bytes = b""
     for integer in int_list:
         length = integer
@@ -27,11 +27,11 @@ def compress_integer_list_fixed(int_list: Iterable[int], size: int = 32) -> byte
     return bytes_data
 
 
-def compress_integer_list_none(int_list: Iterable[int], size: int = 32) -> bytes:
+def compress_integer_list_none(int_list: Iterable[int], _size: int = 32) -> bytes:
     return b",".join(str(integer).encode("ascii") for integer in int_list)
 
 
-def compress_integer_list_delta(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_delta(int_list: Iterable[int], _size: int = 0) -> bytes:
     int_list = list(int_list)
     if not int_list:
         return b""
@@ -39,7 +39,7 @@ def compress_integer_list_delta(int_list: Iterable[int], size: int = 0) -> bytes
     return compress_integer_list_varint(deltas)
 
 
-def compress_integer_list_elias_gamma(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_elias_gamma(int_list: Iterable[int], _size: int = 0) -> bytes:
     out = []
     for n in int_list:
         n += 1
@@ -49,7 +49,7 @@ def compress_integer_list_elias_gamma(int_list: Iterable[int], size: int = 0) ->
     return b"".join(out)
 
 
-def compress_integer_list_elias_omega(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_elias_omega(int_list: Iterable[int], _size: int = 0) -> bytes:
     out = []
     for n in int_list:
         if n == 0:
@@ -69,7 +69,7 @@ def _golomb_encode(n: int, b: int) -> bytes:
     return b"\x80" * quotient + bytes([remainder | (1 if quotient else 0)])
 
 
-def compress_integer_list_golomb(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_golomb(int_list: Iterable[int], _size: int = 0) -> bytes:
     int_list = list(int_list)
     if not int_list:
         return b""
@@ -87,7 +87,7 @@ def compress_integer_list_rice(int_list: Iterable[int], size: int = 4) -> bytes:
     return b"".join(out)
 
 
-def compress_integer_list_streamvbyte(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_streamvbyte(int_list: Iterable[int], _size: int = 0) -> bytes:
     int_list = list(int_list)
     if not int_list:
         return b""
@@ -373,7 +373,7 @@ _VBYTE_CTRL = bytes(
 )
 
 
-def compress_integer_list_vbyte(int_list: Iterable[int], size: int = 0) -> bytes:
+def compress_integer_list_vbyte(int_list: Iterable[int], _size: int = 0) -> bytes:
     out = bytearray()
     for val in int_list:
         if val < 0x40:
