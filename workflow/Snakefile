@@ -12,8 +12,8 @@
 import os
 import sys
 
-# Add tools to path for benchmark discovery
-sys.path.insert(0, "tools")
+# Add test directory to path for isolated benchmark discovery
+sys.path.insert(0, "test")
 from benchmark_filter import filter_gfa_files, extract_header_comments
 
 def discover_all_benchmark_datasets():

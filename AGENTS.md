@@ -180,6 +180,10 @@ class Node:
         # ...
 ```
 
+### Lint
+
+Always run `ruff` and incorporate all its suggestions. The code must be lint clean.
+
 ### Specification
 
 The complete description of the BGFA format is in the file `../bgfatools/spec/gfa_binary_format.md`

@@ -2447,8 +2447,8 @@ class BGFAWriter:
 
             from_names.append(from_node)
             to_names.append(to_node)
-                cigar_lengths.append(len(alignment))
-                cigars.append(alignment)
+            cigar_lengths.append(len(alignment))
+            cigars.append(alignment)
 
         from_bytes = compress_string_list(
             from_names,
