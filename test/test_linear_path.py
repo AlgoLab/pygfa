@@ -33,21 +33,6 @@ class TestLine(unittest.TestCase):
         cls.graph = pygfa.gfa.GFA()
         cls.graph.from_gfa(GFA_FILE)
 
-    def test_dovetails_linear_path(self):
-        self.assertTrue(
-            [("26", "27"), ("27", "28"), ("28", "25")]
-            or [("26", "25"), ("25", "27"), ("27", "28")] == list(pygfa.dovetails_linear_path(self.graph, "26"))
-        )
-        self.assertTrue([("12", "9")] == list(pygfa.dovetails_linear_path(self.graph, "12")))
-        self.assertTrue(
-            [("23", "21"), ("21", "20"), ("20", "16"), ("16", "22")]
-            == list(pygfa.dovetails_linear_path(self.graph, "21"))
-        )
-        self.assertTrue([("19", "1")] == list(pygfa.dovetails_linear_path(self.graph, "19")))
-
-    def test_dovetails_linear_paths(self):
-        self.assertTrue(len(list(pygfa.dovetails_linear_paths(self.graph))) == 4)
-
 
 if __name__ == "__main__":
     unittest.main()

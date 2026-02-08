@@ -37,7 +37,6 @@ class BadEdge:
         distance,
         variance,
         opt_fields,
-        is_dovetail=False,
     ):
         self.eid = eid
         self.from_node = from_node
@@ -50,7 +49,6 @@ class BadEdge:
         self.distance = distance
         self.variance = variance
         self.opt_fields = copy.deepcopy(opt_fields)
-        self.is_dovetail = is_dovetail
 
 
 class BadSubgraph:
@@ -178,7 +176,6 @@ class TestGraphElement(unittest.TestCase):
             edge_.distance,
             edge_.variance,
             edge_.opt_fields,
-            edge_.is_dovetail,
         )
         self.assertTrue(bad_edge == edge_)
         self.assertTrue(graph_edge.is_edge(bad_edge))

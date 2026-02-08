@@ -1132,7 +1132,6 @@ class ReaderBGFA:
                         None,  # distance
                         None,  # variance
                         opt_fields={},
-                        is_dovetail=True,
                     )
                 )
             if verbose:
@@ -1818,9 +1817,8 @@ class BGFAWriter:
         """Estimate links data size."""
         total = 0
         for _u, _v, _key, data in self._gfa.edges(data=True, keys=True):
-            if data.get("is_dovetail", False):
-                alignment = data.get("alignment", "*")
-                total += 8 + 8 + len(alignment) + 1  # from_id + to_id + cigar + null
+            alignment = data.get("alignment", "*")
+            total += 8 + 8 + len(alignment) + 1  # from_id + to_id + cigar + null
         return total
 
     def _write_header(
@@ -2443,13 +2441,12 @@ class BGFAWriter:
         cigars = []
 
         for u, v, data in self._gfa.edges(data=True):
-            if data.get("is_dovetail", False):
-                from_node = data.get("from_node", u)
-                to_node = data.get("to_node", v)
-                alignment = data.get("alignment", "*")
+            from_node = data.get("from_node", u)
+            to_node = data.get("to_node", v)
+            alignment = data.get("alignment", "*")
 
-                from_names.append(from_node)
-                to_names.append(to_node)
+            from_names.append(from_node)
+            to_names.append(to_node)
                 cigar_lengths.append(len(alignment))
                 cigars.append(alignment)
 

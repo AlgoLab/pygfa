@@ -7,7 +7,6 @@ Subpackages
 .. toctree::
 
     pygfa.algorithms
-    pygfa.dovetail_operations
     pygfa.graph_element
     pygfa.serializer
 
