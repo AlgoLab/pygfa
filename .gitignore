@@ -110,3 +110,7 @@ ENV/
 !.pixi/config.toml
 .cecli*
 results/*
+
+# Pygfa
+.snakemake/
+benchmark/
