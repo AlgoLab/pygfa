@@ -88,6 +88,42 @@ snakemake -s workflow/Snakefile -n
 
 See `docs/benchmark_system.md` for detailed documentation.
 
+## Architecture
+
+The project follows a modular architecture organized around core graph concepts:
+
+```
+pygfa/
+├── gfa.py               # Main GFA class - core graph data structure (NetworkX MultiGraph)
+├── bgfa.py              # Binary GFA format support
+├── operations.py        # Graph operations (connected components)
+├── graph_element/       # Graph element representations
+│   ├── node.py          # Node (segment) representation
+│   ├── edge.py          # Edge (link/containment) representation
+│   ├── subgraph.py      # Subgraph/path representation
+│   └── parser/          # GFA line parsers using Lark grammar
+├── graph_operations/    # Graph algorithms (compression, overlap consistency)
+├── algorithms/          # Graph traversal algorithms
+├── serializer/          # Output format serializers (GFA1)
+└── encoding/            # Data encoding utilities
+```
+
+### Key Components
+
+- **GFA Class**: Central graph container using NetworkX MultiGraph as the underlying structure. Manages nodes, edges, paths, walks, and subgraphs.
+- **Graph Elements**: Node (segments), Edge (links/containments), and Subgraph (paths/groups) abstractions
+- **Parser**: Uses Lark grammar to parse GFA1 format files
+- **BGFA**: Binary GFA format for efficient storage with zstd compression
+- **Operations**: Graph analysis including connected components and path finding
+
+### Data Flow
+
+```
+GFA File → Lark Parser → Graph Elements → GFA Class (NetworkX) → Operations/Serialization
+                                    ↓
+                              BGFA Binary Format
+```
+
 ## License
 
 BSD-3-Clause
