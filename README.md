@@ -8,7 +8,6 @@ A Python library for managing GFA (Graphical Fragment Assembly) files used in bi
 - **Graph Operations**: Connected components, path finding, traversal algorithms
 - **Serialization**: Convert to GFA1 format and binary BGFA format
 - **Compression**: Optional zstd, gzip, and lzma compression for large graphs
-- **Dovetail Operations**: Specialized operations for overlap-based connections
 - **Benchmark System**: Filter and run benchmarks on GFA files with `# benchmark: NAME` comments
 
 ## Installation

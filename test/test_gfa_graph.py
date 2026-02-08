@@ -11,7 +11,6 @@ sys.path.insert(0, "../")
 from pygfa import gfa
 from test_utils import should_run_test_for_gfa
 from pygfa.graph_element.parser import segment, link, path, containment
-from pygfa.graph_element.parser import fragment, edge, gap, group
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
 # Load sample_gfa2 from external file
@@ -376,33 +375,6 @@ class TestLine(unittest.TestCase):
         subgraph_ = self.graph.subgraph(["1", "3", "11"], copy=False)
         subgraph_.nodes["3"]["nid"] = 42
         self.assertTrue(subgraph_.nodes["3"] == self.graph.nodes(identifier="3"))
-
-    def test_dovetails_subgraph(self):
-        """Use the dovetails_subgraph method on
-        a GFA1 file, and test wheter the subgraphs
-        contains edges that are not dovetails overlap
-        edges.
-        """
-        self.graph.clear()
-        self.graph.from_string(sample_gfa1)
-        subgraph_ = self.graph.dovetails_subgraph()
-        self.assertTrue(subgraph_ is not None)
-        self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
-        self.assertTrue(len(subgraph_.nodes()) == 9)
-        self.assertTrue(len(subgraph_.edges()) == 4)
-        self.assertTrue(subgraph_.get_edge_data("1", "2", "1_to_2") is not None)
-        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") is not None)
-        self.assertTrue(subgraph_.get_edge_data("11", "13", "11_to_13") is not None)
-        self.assertTrue(subgraph_.get_edge_data("11", "12", "11_to_12") is not None)
-
-        # with self.assertRaises(KeyError):
-        #    self.assertTrue(subgraph_.get_edge_data("2","6","2_to_6") is None)
-        # with self.assertRaises(KeyError):
-        #    self.assertTrue(subgraph_.get_edge_data("1","5","1_to_5") is None)
-
-        # test copy subgraph
-        subgraph_.nodes["1"]["nid"] = 42
-        self.assertTrue(subgraph_.nodes["1"] != self.graph.nodes(identifier="1"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)

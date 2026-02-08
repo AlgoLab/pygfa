@@ -71,9 +71,7 @@ def serialize_node(node_: dict[str, Any] | Any, identifier: str = DEFAULT_IDENTI
                 fields.append("LN:i:" + str(node_.slen))
             fields.extend(utils._serialize_opt_fields(node_.opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
-            fields[1:], SEGMENT_FIELDS
-        ):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(fields[1:], SEGMENT_FIELDS):
             raise GFA1SerializationError("Required node elements " + "missing or invalid.")
 
         return str.join("\t", fields)
@@ -100,18 +98,14 @@ def serialize_edge(edge_, identifier=DEFAULT_IDENTIFIER):
                 raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
             elif "pos" in edge_:  # edge_ is a containment
                 return _serialize_to_containment(edge_, identifier)
-            elif edge_["is_dovetail"] is True:
-                return _serialize_to_link(edge_, identifier)
             else:
-                raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
+                return _serialize_to_link(edge_, identifier)
         elif edge_.eid is None:  # edge_ is a fragment
             raise GFA1SerializationError("Cannot serialize Fragment " + "to GFA1.")
         elif edge_.distance is not None or edge_.variance is not None:  # edge_ is a gap
             raise GFA1SerializationError("Cannot serialize GAP " + "to GFA1.")
         elif "pos" in edge_.opt_fields:  # edge_ is a containment
             return _serialize_to_containment(edge_)
-        elif edge_.is_dovetail is True:
-            return _serialize_to_link(edge_)
         else:
             raise GFA1SerializationError("Cannot convert an " + "internal edge to a Link")
     except (KeyError, AttributeError, GFA1SerializationError) as e:
@@ -176,9 +170,7 @@ def _serialize_to_containment(containment_, identifier=DEFAULT_IDENTIFIER):
                 fields.append("ID:Z:" + str(containment_.eid))
             fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
-            fields[1:], CONTAINMENT_FIELDS
-        ):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(fields[1:], CONTAINMENT_FIELDS):
             raise GFA1SerializationError()
 
         return str.join("\t", fields)
@@ -237,9 +229,7 @@ def _serialize_to_link(link_, identifier=DEFAULT_IDENTIFIER):
                 fields.append("ID:Z:" + str(link_.eid))
             fields.extend(utils._serialize_opt_fields(link_.opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
-            fields[1:], LINK_FIELDS
-        ):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(fields[1:], LINK_FIELDS):
             raise GFA1SerializationError()
 
         return str.join("\t", fields)
@@ -315,9 +305,7 @@ def serialize_subgraph(subgraph_, identifier=DEFAULT_IDENTIFIER, gfa_=None):
                 fields.append("*")
             fields.extend(utils._serialize_opt_fields(opt_fields))
 
-        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(
-            fields[1:], PATH_FIELDS
-        ):
+        if not utils._are_fields_defined(defined_fields) or not utils._check_fields(fields[1:], PATH_FIELDS):
             raise GFA1SerializationError("Required fields missing or" + " not valid.")
         return str.join("\t", fields)
 
@@ -336,9 +324,7 @@ def serialize_graph(graph, write_header=True):
     :write_header: If set to True put a GFA1 header as first line.
     """
     if not isinstance(graph, nx.MultiGraph):
-        raise ValueError(
-            "The object to serialize must be an instance " + "of a networkx.MultiGraph."
-        )
+        raise ValueError("The object to serialize must be an instance " + "of a networkx.MultiGraph.")
 
     if write_header:
         string_serialize = "H\tVN:Z:1.0\n"

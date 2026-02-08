@@ -8,7 +8,6 @@ import pygfa
 from test_utils import should_run_test_for_gfa
 
 #
-# --- = dovetail overlap
 # ~~~ = other overlap
 #
 #     s1
@@ -27,7 +26,9 @@ class TestLine(unittest.TestCase):
     def setUpClass(cls):
         """Set up test class by checking if test should run."""
         if not should_run_test_for_gfa("biconnected", GFA_FILE):
-            raise unittest.SkipTest(f"No '# test: biconnected' comment found in {GFA_FILE}")
+            raise unittest.SkipTest(
+                f"No '# test: biconnected' comment found in {GFA_FILE}"
+            )
 
         cls.graph = pygfa.gfa.GFA()
         cls.graph.from_gfa(GFA_FILE)
@@ -36,8 +37,6 @@ class TestLine(unittest.TestCase):
         """Test that the correct articulation points are
         taken into account."""
         self.assertTrue(set(self.graph.neighbors("s7")) == {"s5", "s6"})
-        self.assertTrue(set(self.graph.dovetails_neighbors("s7")) == {"s6"})
-        self.assertTrue(set(pygfa.dovetails_articulation_points(self.graph)) == {"s2", "s3"})
 
 
 if __name__ == "__main__":

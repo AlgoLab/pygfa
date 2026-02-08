@@ -41,7 +41,7 @@ pixi run ruff format pygfa/
 - **`pygfa/serializer/`** - GFA1/GFA2 output formatting
 - **`pygfa/bgfa.py`** - Binary GFA serialization
 - **`pygfa/encoding/`** - Compression algorithms (varint, delta, zstd, gzip, lzma, Huffman)
-- **`pygfa/algorithms/`** and **`pygfa/dovetail_operations/`** - Graph traversal and path algorithms
+- **`pygfa/algorithms/`** - Graph traversal and path algorithms
 
 ### Key Design Patterns
 
