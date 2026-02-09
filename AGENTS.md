@@ -47,6 +47,8 @@ pixi run coverage combine
 pixi run coverage html --omit=/usr/*
 ```
 
+All tests must pass.
+
 The input files for each test are in the `/data` directory.
 
 Each `*.gfa*` file has one or more comments of the form `# test: TESTNAME` where `TESTNAME` is the filename of the
@@ -182,7 +184,8 @@ class Node:
 
 ### Lint
 
-Always run `ruff` and incorporate all its suggestions. The code must be lint clean.
+Always run `pixi run ruff check` and incorporate all its suggestions. The code must be lint clean.
+The exceptions are the suggestions involving snakemake, since we use the global snakemake, not one inside pixi.
 
 ### Specification
 
