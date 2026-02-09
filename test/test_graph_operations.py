@@ -9,7 +9,6 @@ from pygfa.graph_operations.compression import (
     tuple_to_string,
     reverse_and_complement,
     reverse_strand,
-    update_graph,
 )
 from pygfa.graph_operations.overlap_consistency import (
     reverse_and_complement as overlap_reverse_complement,
