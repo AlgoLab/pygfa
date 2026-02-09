@@ -189,7 +189,7 @@ The exceptions are the suggestions involving snakemake, since we use the global 
 
 ### Specification
 
-The complete description of the BGFA format is in the file `../bgfatools/spec/gfa_binary_format.md`
+The complete description of the BGFA format is in the file `spec/gfa_binary_format.md`
 
 ### Environment
 

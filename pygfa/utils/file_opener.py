@@ -1,10 +1,26 @@
 from __future__ import annotations
 
 import gzip
+import lzma
+from typing import IO, Any
+
+try:
+    import compression.zstd as z
+
+    _ZSTD_AVAILABLE = True
+except ImportError:
+    _ZSTD_AVAILABLE = False
+    z = None  # type: ignore
 
 
-def open_gfa_file(filepath: str, mode: str = "r"):
-    """Open GFA file with gzip support.
+def open_gfa_file(filepath: str, mode: str = "r") -> IO[Any]:
+    """Open GFA file with support for gzip, zstd, and xz compression.
+
+    Supports the following file formats:
+    - Plain text GFA files (*.gfa)
+    - Gzip-compressed files (*.gfa.gz)
+    - Zstd-compressed files (*.gfa.zst, *.gfa.zstd)
+    - XZ/LZMA-compressed files (*.gfa.xz)
 
     Args:
         filepath: Path to the file
@@ -14,22 +30,24 @@ def open_gfa_file(filepath: str, mode: str = "r"):
         File handle
 
     Raises:
-        ValueError: If .gz file is not properly gzipped
+        ImportError: If zstd compression is requested but compression package is not installed
     """
-    if filepath.endswith(".gz"):
-        # Check if file is actually gzipped by trying to read the header
-        try:
-            with open(filepath, "rb") as f:
-                magic = f.read(2)
-                if magic != b"\037\213":
-                    raise ValueError(f"File {filepath} has .gz extension but is not a valid gzip file")
-        except (OSError, IOError) as e:
-            raise ValueError(f"Could not read file {filepath}: {e}")
+    text_mode = "b" not in mode
 
-        # File is valid gzip, open it
-        if "b" in mode:
-            return gzip.open(filepath, mode)
-        else:
-            return gzip.open(filepath, mode + "t")  # text mode
+    if filepath.endswith(".zst") or filepath.endswith(".zstd"):
+        if not _ZSTD_AVAILABLE:
+            raise ImportError(
+                "The 'compression' package is required for zstd compression. "
+                "Install it with: pip install compression"
+            )
+        assert z is not None
+        return z.open(filepath, "rt" if text_mode else "rb")  # type: ignore
+
+    elif filepath.endswith(".xz"):
+        return lzma.open(filepath, "rt" if text_mode else "rb")
+
+    elif filepath.endswith(".gz"):
+        return gzip.open(filepath, "rt" if text_mode else "rb")  # type: ignore
+
     else:
         return open(filepath, mode)
