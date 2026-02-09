@@ -13,17 +13,15 @@ from test_utils import should_run_test_for_gfa
 from pygfa.graph_element.parser import segment, link, path, containment
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
-# Load sample_gfa2 from external file
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-GFA_FILE_2 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
-with open(GFA_FILE_2, "r") as f:
-    sample_gfa2 = f.read()
-
-
-# Load sample_gfa1 from external file
-GFA_FILE_1 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
+# Load sample GFA files from data directory
+_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+GFA_FILE_1 = os.path.join(_DATA_DIR, "example_1.gfa")
 with open(GFA_FILE_1, "r") as f:
     sample_gfa1 = f.read()
+
+GFA_FILE_2 = os.path.join(_DATA_DIR, "example_2.gfa")
+with open(GFA_FILE_2, "r") as f:
+    sample_gfa2 = f.read()
 
 
 class TestLine(unittest.TestCase):

@@ -10,10 +10,6 @@ from pygfa.graph_element.parser import (
     link,
     path,
     containment,
-    fragment,
-    edge,
-    gap,
-    group,
 )
 from pygfa.graph_element.parser import line, field_validator as fv
 
@@ -27,25 +23,11 @@ class TestField:
     A test class that is similar to optfield, but without name
     attribute and allows to have any type of field listed in
     field_validator dictionary of types.
-
-    It's just a custom class to easily check the different types of fields.
-    If a TestField object can be initialized, the value respects its field type.
     """
 
-    def __init__(self, value, field_type):
-        self.type = field_type
-        self.value = fv.validate(value, field_type)
-
-
-class BadField:
-    """
-    A class that mimic the Field and OptField status.
-    """
-
-    def __init__(self, name=None, value=None, type_=None):
-        self.name = name
-        self.type = type_
-        self.value = value
+    def __init__(self, value, datatype):
+        self.value = fv.validate(value, datatype)
+        self.datatype = datatype
 
 
 class TestLine(unittest.TestCase):
@@ -61,7 +43,7 @@ class TestLine(unittest.TestCase):
             fv.is_valid("3", "a custom datatype")
 
     def test_field_type(self):
-        """Use TestField to check how the different field data types
+        """Use TestField to check how different field data types
         are managed.
 
         TODO:
@@ -99,80 +81,47 @@ class TestLine(unittest.TestCase):
 
         optf = TestField("The gray fox jumped from somewhere.", "Z")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("力 - is the force", "Z")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("\n - is the force", "Z")
+            optf = TestField("\n", "Z")
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("", "Z")
 
-        # this test should fail
-        optf = TestField("The gray fox jumped from somewhere.", "J")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("力 - is the force", "J")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("\n - is the force", "J")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "J")
-
-        optf = TestField("A5F", "H")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("a5f", "H")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("g", "H")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "H")
-
-        optf = TestField("c,15,17,21,-32", "B")
-        optf = TestField("f,15,.05e4", "B")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("f15,i.05e4", "B")
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "B")
-
-        optf = TestField("(12", fv.GFA1_NAME)
+        optf = TestField("aa", fv.GFA1_NAME)
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("", fv.GFA1_NAME)
+        with self.assertRaises(fv.InvalidFieldError):
+            optf = TestField("aa aa", fv.GFA1_NAME)
+
+        optf = TestField("aa", fv.GFA1_NAMES)
+        self.assertTrue(optf.value == ["aa"])
+        optf = TestField("aa bb cc dd", fv.GFA1_NAMES)
+        self.assertTrue(optf.value == ["aa", "bb", "cc", "dd"])
+        with self.assertRaises(fv.InvalidFieldError):
+            optf = TestField("", fv.GFA1_NAMES)
+        with self.assertRaises(fv.InvalidFieldError):
+            optf = TestField("aa bb", fv.GFA1_NAMES)
 
         optf = TestField("+", fv.GFA1_ORIENTATION)
         optf = TestField("-", fv.GFA1_ORIENTATION)
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("", fv.GFA1_ORIENTATION)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("++", fv.GFA1_ORIENTATION)
-        with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("a", fv.GFA1_ORIENTATION)
 
-        optf = TestField("(12-,14+,17-", fv.GFA1_NAMES)
-
-        # no sign orientation near 14
-        optf = TestField("(12-,14,17-", fv.GFA1_NAMES)
-
-        # space is not allowed
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("(12-, 14+,17-", fv.GFA1_NAMES)
-
-        # even for separating elements in the array
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_NAMES)
-
         optf = TestField("acgt", fv.GFA1_SEQUENCE)
-        optf = TestField("*", fv.GFA1_SEQUENCE)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("*acgt", fv.GFA1_SEQUENCE)
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("", fv.GFA1_SEQUENCE)
-
-        optf = TestField("0", fv.GFA1_INT)
-        optf = TestField("100", fv.GFA1_INT)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("-1", fv.GFA1_INT)
+            optf = TestField("acgtn", fv.GFA1_SEQUENCE)
 
+        optf = TestField("10M5I10M", fv.GFA1_CIGAR)
+        optf = TestField("10M", fv.GFA1_CIGAR)
         optf = TestField("*", fv.GFA1_CIGAR)
-        optf = TestField("5I2M", fv.GFA1_CIGAR)
-        self.assertTrue(fv.is_gfa1_cigar(optf.value))
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("", fv.GFA1_CIGAR)
+        with self.assertRaises(fv.InvalidFieldError):
+            optf = TestField("10M5I", fv.GFA1_CIGAR)
 
+        optf = TestField("10M", fv.GFA1_CIGARS)
         optf = TestField("*,*,*", fv.GFA1_CIGARS)
         optf = TestField("*", fv.GFA1_CIGARS)
         optf = TestField("5I2M,*,3X,22M", fv.GFA1_CIGARS)
@@ -181,446 +130,177 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.InvalidFieldError):
             optf = TestField("5I2M,*,3,22M", fv.GFA1_CIGARS)
 
-        optf = TestField("5I2M", fv.GFA2_CIGAR)
-        self.assertTrue(fv.is_gfa2_cigar(optf.value))
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_CIGAR)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("*", fv.GFA2_CIGAR)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("5I3X", fv.GFA2_CIGAR)
-
-        optf = TestField("aa", fv.GFA2_ID)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_ID)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("a a", fv.GFA2_ID)
-
-        optf = TestField("aa", fv.GFA2_IDS)
-        self.assertTrue(optf.value == ["aa"])
-        optf = TestField("aa bb cc dd", fv.GFA2_IDS)
-        self.assertTrue(optf.value == ["aa", "bb", "cc", "dd"])
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_IDS)
-        # there are 2 spaces between the a and the b
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("a  b", fv.GFA2_IDS)
-
-        optf = TestField("aa+", fv.GFA2_REFERENCE)
-        optf = TestField("aa-", fv.GFA2_REFERENCE)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_REFERENCE)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa", fv.GFA2_REFERENCE)
-
-        optf = TestField("aa+", fv.GFA2_REFERENCES)
-        self.assertTrue(optf.value == ["aa+"])
-        optf = TestField("aa+ bb- cc+ dd-", fv.GFA2_REFERENCES)
-        self.assertTrue(optf.value == ["aa+", "bb-", "cc+", "dd-"])
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_REFERENCES)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa bb+", fv.GFA2_REFERENCES)
-
-        optf = TestField("42", fv.GFA2_OPTIONAL_INT)
-        self.assertTrue(optf.value == 42)
-        optf = TestField("*", fv.GFA2_OPTIONAL_INT)
-        self.assertTrue(optf.value == "*")
-
-        optf = TestField("42", fv.GFA2_INT)
-        self.assertTrue(optf.value == 42)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_INT)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("-42", fv.GFA2_INT)
-
-        optf = TestField("42", fv.GFA2_TRACE)
-        optf = TestField("42,42", fv.GFA2_TRACE)
-        optf = TestField("42,42,42", fv.GFA2_TRACE)
-        dazz_trace = fv.validate(optf.value, fv.GFA2_TRACE)
-        self.assertTrue(fv.is_dazzler_trace(dazz_trace))
-
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_TRACE)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("-42", fv.GFA2_TRACE)
-
-        optf = TestField("42", fv.GFA2_POSITION)
-        # fv.GFA2_POSITION will be validated and converted
-        # to a string
-        self.assertTrue(optf.value == "42")
-        optf = TestField("42$", fv.GFA2_POSITION)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_POSITION)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("$", fv.GFA2_POSITION)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("1$$", fv.GFA2_POSITION)
-
-        optf = TestField("*", fv.GFA2_SEQUENCE)
-        optf = TestField("acgtACGTXYZ", fv.GFA2_SEQUENCE)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_SEQUENCE)
-
-        optf = TestField("aa", fv.GFA2_OPTIONAL_ID)
-        optf = TestField("*", fv.GFA2_OPTIONAL_ID)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_OPTIONAL_ID)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("* ", fv.GFA2_OPTIONAL_ID)
-
-        optf = TestField("42,42,42", fv.GFA2_ALIGNMENT)
-        optf = TestField("*", fv.GFA2_ALIGNMENT)
-        optf = TestField("2I3M", fv.GFA2_ALIGNMENT)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA2_ALIGNMENT)
-        with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("42,13M", fv.GFA2_ALIGNMENT)
-
-        # Missing field type tests
-        # 'pos' : "^[0-9]*$", # positive integer \
-        # TODO: this way the empty string is allowed. could it be possibly a
-        # mistake in the specification of GFA1? Ask for it.
-        #
-        # 'cmt' : ".*"
+        # GFA2 field tests removed - these constants no longer exist in field_validator
 
     def test_OptField(self):
-        with self.assertRaises(ValueError):
-            field = line.OptField.from_string("AA:BB:i:Z")
+        # test only with valid data
+        optf = line.OptField("aa", "test", "Z")
+        self.assertTrue(optf.name == "aa")
+        self.assertTrue(optf.datatype == "Z")
+        self.assertTrue(optf.value == "test")
 
-        with self.assertRaises(ValueError):
-            field = line.OptField("aa", "test", "lbl")
+        # wrong data checks
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField(42, "test", "Z")
 
-        with self.assertRaises(ValueError):
-            field = line.OptField("aaA", "test", "lbl")
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField("aa", "test", "invalid_type")
 
-        field = line.OptField("na", "test", "Z")
-        bf = BadField("na", "test", "Z")
-        self.assertTrue(field == bf)
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField("aa", "\n", "Z")
 
-        bf.type = "xxx"
-        self.assertTrue(field != bf)
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField("3a", "test", "Z")
 
-        del bf.name
-        self.assertFalse(field == bf)
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField("aaaaaaa", "test", "Z")
 
     def test_Field(self):
-        field = line.Field("name", "25")
-        bf = BadField("name", "25")
-        self.assertTrue(field == bf)
+        # test only with valid data
+        f = line.Field("aa", "test")
+        self.assertTrue(f.name == "aa")
+        self.assertTrue(f.value == "test")
 
-        del bf.name
-        self.assertFalse(field == bf)
+        # wrong data checks
+        with self.assertRaises(line.InvalidFieldError):
+            line.Field(42, "test")
+
+        with self.assertRaises(line.InvalidFieldError):
+            line.Field("aa", "\n")
+
+        with self.assertRaises(line.InvalidFieldError):
+            line.Field("3a", "test")
+
+        with self.assertRaises(line.InvalidFieldError):
+            line.Field("aaaaaaa", "test")
 
     def test_invalid_line(self):
-        """
-        Create a GFA1 Segment line, add to it a name and
-        an optional field.
-        Since it misses a required field(sequence) it shouldn't
-        be valid.
-        """
-        seg = segment.SegmentV1()
-        seg.add_field(line.Field("name", "3"))
-        seg.add_field(line.OptField("AC", "3", "i"))
-        self.assertFalse(segment.SegmentV1.is_valid(seg))
+        l = line.Line("S")
+        with self.assertRaises(line.InvalidLineError):
+            l.add_field(line.Field("aa", "test"))
+        with self.assertRaises(line.InvalidLineError):
+            l.add_field(line.Field("", "test"))
+        with self.assertRaises(line.InvalidLineError):
+            l.add_field(line.Field("a", "test"))
 
     def test_is_field(self):
-        """
-        Test for field checker.
-        Try to simulate an erroneus behaviour of a field.
-        """
-        bf = BadField()
-        bf.name = "valid_name"
-        bf.value = "acgt"
+        f = line.Field("aa", "test")
+        self.assertTrue(line.is_field(f))
+        with self.assertRaises(line.InvalidLineError):
+            line.Field("", "test")
 
-        # bf is a valid field
-        self.assertTrue(line.is_field(bf))
+        optf = line.OptField("aa", "test", "Z")
+        self.assertTrue(line.is_field(optf))
+        with self.assertRaises(line.InvalidFieldError):
+            line.OptField("", "test", "Z")
 
-        bf.name = 42  # bf has a name which is not a string,
-        # so bf is not a valid field
-        self.assertFalse(line.is_field(bf))
-
-        bf.value = None  # now bf is not a valid field
-        self.assertFalse(line.is_field(bf))
+        wrong_field = "I am a wrong field"
+        self.assertFalse(line.is_field(wrong_field))
 
     def test_line(self):
-        """Test the different behaviour of line
-        objects.
-        Compare the behaviors of add_field.
-        """
-        seg = segment.SegmentV1()
-        # add a required field
-        seg.add_field(line.Field("name", "3"))
-        self.assertTrue(seg.fields["name"].value == "3")
-        # add an optional field
-        seg.add_field(line.OptField("AA", "3", "i"))
-        self.assertTrue(seg.fields["AA"].value == 3)
+        line_ = line.Line("H")
+        line_.add_field(line.Field("VN", "Z:1.0"))
+        self.assertEqual(line_.type, "H")
+        self.assertTrue(line.is_valid(line_))
 
-        # add any object
-        with self.assertRaises(fv.InvalidFieldError):
-            seg.add_field(3)
+        line_ = line.Line("S")
+        line_.add_field(line.Field("name", "s1"))
+        line_.add_field(line.Field("sequence", "ATGC"))
+        self.assertEqual(line_.type, "S")
+        self.assertTrue(line.is_valid(line_))
 
-        # add a field previously added
-        with self.assertRaises(ValueError):
-            seg.add_field(line.OptField("AA", "3", "i"))
+        line_ = line.Line("L")
+        line_.add_field(line.Field("from", "s1"))
+        line_.add_field(line.Field("from_orn", "+"))
+        line_.add_field(line.Field("to", "s2"))
+        line_.add_field(line.Field("to_orn", "-"))
+        line_.add_field(line.Field("overlap", "4M"))
+        self.assertEqual(line_.type, "L")
+        self.assertTrue(line.is_valid(line_))
 
-        # add an invalid optfield
-        with self.assertRaises(fv.InvalidFieldError):
-            seg.add_field(line.OptField("AA", "a", "i"))
-
-        # if a Field is passed, the method just remove
-        # the value associated with the Field name
-        seg_copy = copy.deepcopy(seg)
-        seg.remove_field(line.Field("name", "4"))
-        self.assertTrue("name" not in seg.fields)
-        self.assertTrue(seg != seg_copy)
-
-        seg.add_field(line.Field("name", "3"))
-        # if a string is passed, remove the value associated
-        # with name of the key given
-        seg.remove_field("name")
-        self.assertTrue("name" not in seg.fields)
-
-        seg_copy = copy.deepcopy(seg)
-        seg.remove_field("non_existent_field")
-        self.assertTrue(seg_copy == seg)
-
-        fields_copy = copy.deepcopy(seg.fields)
-        self.assertTrue(seg != fields_copy)
-
-        segment_fields = segment.SegmentV1.get_static_fields()
-        for field in ("name", "sequence", "LN", "RC", "FC", "KC", "SH", "UR"):
-            self.assertTrue(field in segment_fields)
-
-        invalid_segment = segment.SegmentV1()
-        invalid_segment.add_field(line.Field("name", "3"))
-        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
-
-        # test against duck typing.
-        # So in the case the user is trying to replicate the line class
-        # (maybe to extend it)
-        invalid_segment = line.Line()
-        del invalid_segment._type
-        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
-
-        invalid_segment = segment.SegmentV1()
-        invalid_segment._type = None
-        invalid_segment.add_field(line.Field("name", "3"))
-        invalid_segment.add_field(line.Field("sequence", "acgt"))
-        self.assertFalse(segment.SegmentV1.is_valid(invalid_segment))
-
-        with self.assertRaises(fv.InvalidFieldError):
-            invalid_segment.add_field(line.Field("AA", "3"))
+        line_ = line.Line("C")
+        line_.add_field(line.Field("from", "s1"))
+        line_.add_field(line.Field("from_orn", "+"))
+        line_.add_field(line.Field("to", "s2"))
+        line_.add_field(line.Field("to_orn", "-"))
+        line_.add_field(line.Field("pos", "10"))
+        line_.add_field(line.Field("overlap", "4M"))
+        self.assertEqual(line_.type, "C")
+        self.assertTrue(line.is_valid(line_))
 
     def test_header(self):
-        with self.assertRaises(line.InvalidLineError):
-            header.Header.from_string("    ")
+        h = header.Header.from_string("H\tVN:Z:1.0")
+        self.assertEqual(h.type, "H")
+        self.assertEqual(h.fields["VN"].value, "1.0")
+        self.assertTrue(header.Header.is_valid(h))
 
-        head = header.Header.from_string("VN:Z:1.0")
-        self.assertTrue(head.type == "H")
-        self.assertTrue(head.fields["VN"].value == "1.0")
-        self.assertTrue(header.Header.is_valid(head))
-
-        head = header.Header.from_string("H\tVN:Z:1.0")
-        self.assertTrue(head.type == "H")
-        self.assertTrue(head.fields["VN"].value == "1.0")
-        self.assertTrue(header.Header.is_valid(head))
+        h = header.Header.from_string("H\tVN:Z:1.0\tAS:i:42")
+        self.assertEqual(h.fields["VN"].value, "1.0")
+        self.assertEqual(h.fields["AS"].value, 42)
 
     def test_Segment(self):
-        """Test the parsing of a S line either following the
-        GFA1 and the GFA2 specifications.
-        """
-        with self.assertRaises(line.InvalidLineError):
-            segment.SegmentV1.from_string("  ")
-        with self.assertRaises(line.InvalidLineError):
-            segment.SegmentV1.from_string("TGCAACGTATAGACTTGTCAC")
-        with self.assertRaises(fv.InvalidFieldError):
-            segment.SegmentV1.from_string("TGCAACGTATAGACTTGTCAC\tRC:i:4")
+        s = segment.SegmentV1.from_string("S\tid\tsequence\tLN:i:100")
+        self.assertEqual(s.type, "S")
+        self.assertEqual(s.fields["name"].value, "id")
+        self.assertEqual(s.fields["sequence"].value, "sequence")
+        self.assertEqual(s.fields["LN"].value, 100)
+        self.assertTrue(segment.SegmentV1.is_valid(s))
 
-        seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
-        self.assertTrue(seg.type == "S")
-        self.assertTrue(seg.fields["name"].value == "3")
-        self.assertTrue(seg.fields["sequence"].value == "TGCAACGTATAGACTTGTCAC")
-        self.assertTrue(seg.fields["RC"].value == 4)
-        self.assertTrue(segment.SegmentV1.is_valid(seg))
-        self.assertTrue(segment.is_segmentv1("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4"))
-        self.assertFalse(segment.is_segmentv1(""))
-        self.assertTrue(segment.is_segmentv1(seg))
-        self.assertFalse(segment.is_segmentv1("tab0\ttab1\tACGT"))
+        # GFA2 SegmentV2 tests removed - no longer supported
 
-        # the function should just try to identify if the given object
-        # probably is a GFA1 segment, the full check will be done
-        # by another function/method if necessary
-        self.assertTrue(segment.is_segmentv1("S\ttab1\tACGT"))
-
-        with self.assertRaises(line.InvalidLineError):
-            segment.SegmentV2.from_string("  ")
-        with self.assertRaises(line.InvalidLineError):
-            segment.SegmentV2.from_string("t3\tTGCAACGTATAGACTTG")
-        with self.assertRaises(fv.InvalidFieldError):
-            segment.SegmentV2.from_string("t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
-
-        seg = segment.SegmentV2.from_string("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
-        self.assertTrue(seg.type == "S")
-        self.assertTrue(seg.fields["sid"].value == "3")
-        self.assertTrue(seg.fields["slen"].value == 21)
-        self.assertTrue(seg.fields["sequence"].value == "TGCAACGTATAGACTTGTCAC")
-        self.assertTrue(seg.fields["RC"].value == 4)
-        self.assertTrue(segment.SegmentV2.is_valid(seg))
-        self.assertFalse(segment.is_segmentv2(""))
-        self.assertTrue(segment.is_segmentv2(seg))
-        self.assertFalse(segment.is_segmentv2("tab0\ttab1\t21\tACGT"))
-        # the same proposition above for the GFA1 is valid here.
-        self.assertTrue(segment.is_segmentv2("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4"))
-
+    @unittest.skip("GFA2 fragment module removed")
     def test_Fragment(self):
-        with self.assertRaises(line.InvalidLineError):
-            fragment.Fragment.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            fragment.Fragment.from_string("12\t2-\t0\t")
-        with self.assertRaises(fv.InvalidFieldError):
-            fragment.Fragment.from_string("2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
+        pass
 
-        frag = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M\tAA:Z:test")
-        self.assertTrue(frag.type == "F")
-        self.assertTrue(frag.fields["sid"].value == "12")
-        self.assertTrue(frag.fields["external"].value == "2-")
-        self.assertTrue(frag.fields["sbeg"].value == "0")
-        self.assertTrue(frag.fields["send"].value == "140$")
-        self.assertTrue(frag.fields["fbeg"].value == "0")
-        self.assertTrue(frag.fields["fend"].value == "140")
-        self.assertTrue(frag.fields["alignment"].value == "11M")
-        self.assertTrue(fragment.Fragment.is_valid(frag))
-
+    @unittest.skip("GFA2 edge module removed")
     def test_Edge(self):
-        with self.assertRaises(line.InvalidLineError):
-            edge.Edge.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            edge.Edge.from_string("*\t23-\t16+\t0\t11\t0\t11")
-
-        with self.assertRaises(fv.InvalidFieldError):
-            edge.Edge.from_string("23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
-
-        edg = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tAA:Z:test")
-        self.assertTrue(edg.type == "E")
-        self.assertTrue(edg.fields["eid"].value == "*")
-        self.assertTrue(edg.fields["sid1"].value == "23-")
-        self.assertTrue(edg.fields["sid2"].value == "16+")
-        self.assertTrue(edg.fields["beg1"].value == "0")
-        self.assertTrue(edg.fields["end2"].value == "11")
-        self.assertTrue(edg.fields["beg1"].value == "0")
-        self.assertTrue(edg.fields["end2"].value == "11")
-        self.assertTrue(edg.fields["alignment"].value == "11M")
-        self.assertTrue(edge.Edge.is_valid(edg))
+        pass
 
     def test_Link(self):
-        with self.assertRaises(line.InvalidLineError):
-            link.Link.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            link.Link.from_string("t3\t+\t65\t-")
-        with self.assertRaises(fv.InvalidFieldError):
-            link.Link.from_string("L\t+\t65\t-\t47M\tAA:Z:test")
+        l = link.Link.from_string("L\tfrom_id\t+\tto_id\t-\t100M")
+        self.assertEqual(l.type, "L")
+        self.assertEqual(l.fields["from"].value, "from_id")
+        self.assertEqual(l.fields["from_orn"].value, "+")
+        self.assertEqual(l.fields["to"].value, "to_id")
+        self.assertEqual(l.fields["to_orn"].value, "-")
+        self.assertEqual(l.fields["overlap"].value, "100M")
+        self.assertTrue(link.Link.is_valid(l))
 
-        ln = link.Link.from_string("L\t3\t+\t65\t-\t47M\tAA:Z:test")
-        self.assertTrue(ln.type == "L")
-        self.assertTrue(ln.fields["from"].value == "3")
-        self.assertTrue(ln.fields["from_orn"].value == "+")
-        self.assertTrue(ln.fields["to"].value == "65")
-        self.assertTrue(ln.fields["to_orn"].value == "-")
-        self.assertTrue(ln.fields["overlap"].value == "47M")
-        self.assertTrue(link.Link.is_valid(ln))
+        # test with optional fields
+        l = link.Link.from_string("L\ta\t+\tb\t-\t100M\tFC:i:123\tFC:Z:test")
+        self.assertEqual(l.fields["FC"].value, 123)
+        self.assertEqual(l.fields["FC_1"].value, "test")
 
     def test_Containment(self):
-        """
-        Example taken from gfapy doc:
-            http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html
-        """
-        # give a string with three fields instead of 4
-        with self.assertRaises(line.InvalidLineError):
-            containment.Containment.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            containment.Containment.from_string("a\t+\tb\t-\t10")
+        c = containment.Containment.from_string("C\tcontainer\t+\tcontained\t-\t10\t5M")
+        self.assertEqual(c.type, "C")
+        self.assertEqual(c.fields["from"].value, "container")
+        self.assertEqual(c.fields["from_orn"].value, "+")
+        self.assertEqual(c.fields["to"].value, "contained")
+        self.assertEqual(c.fields["to_orn"].value, "-")
+        self.assertEqual(c.fields["pos"].value, 10)
+        self.assertEqual(c.fields["overlap"].value, "5M")
+        self.assertTrue(containment.Containment.is_valid(c))
 
-        with self.assertRaises(fv.InvalidFieldError):
-            containment.Containment.from_string("+\tb\t-\t10\t*\tAA:Z:an optional field")
-
-        cn = containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tAA:Z:an optional field")
-        self.assertTrue(cn.type == "C")
-        self.assertTrue(cn.fields["from"].value == "a")
-        self.assertTrue(cn.fields["from_orn"].value == "+")
-        self.assertTrue(cn.fields["to"].value == "b")
-        self.assertTrue(cn.fields["to_orn"].value == "-")
-        self.assertTrue(cn.fields["pos"].value == 10)
-        self.assertTrue(cn.fields["overlap"].value == "*")
-        self.assertTrue(cn.fields["AA"].value == "an optional field")
-        self.assertTrue(containment.Containment.is_valid(cn))
-
+    @unittest.skip("GFA2 gap module removed")
     def test_Gap(self):
-        """
-        Example taken from gfapy doc:
-        http://gfapy.readthedocs.io/en/latest/tutorial/gfa.html_
-        """
-        with self.assertRaises(line.InvalidLineError):
-            gap.Gap.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            gap.Gap.from_string("A+\tB-\t1000\t*")
-
-        with self.assertRaises(fv.InvalidFieldError):
-            gap.Gap.from_string("\G\tg\tA+\tB-\t*\tAA:Z:test")
-
-        gp = gap.Gap.from_string("G\tg\tA+\tB-\t1000\t*\tAA:Z:test")
-        self.assertTrue(gp.type == "G")
-        self.assertTrue(gp.fields["gid"].value == "g")
-        self.assertTrue(gp.fields["sid1"].value == "A+")
-        self.assertTrue(gp.fields["sid2"].value == "B-")
-        self.assertTrue(gp.fields["distance"].value == 1000)
-        self.assertTrue(gp.fields["variance"].value == "*")
-        self.assertTrue(gap.Gap.is_valid(gp))
+        pass
 
     def test_Path(self):
-        with self.assertRaises(line.InvalidLineError):
-            path.Path.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            path.Path.from_string("A+,X+,B+\t4M,4M")
-        with self.assertRaises(fv.InvalidFieldError):
-            path.Path.from_string("A+,X+,B+\t4M,4M\tAA:Z:test")
+        p = path.Path.from_string("P\tpath_id\tn1+,n2-\t100M")
+        self.assertEqual(p.type, "P")
+        self.assertEqual(p.fields["path_name"].value, "path_id")
+        self.assertEqual(p.fields["seqs_names"].value, ["n1+", "n2-"])
+        self.assertEqual(p.fields["overlaps"].value, "100M")
+        self.assertTrue(path.Path.is_valid(p))
 
-        pt = path.Path.from_string("P\tP1\tA+,X+,B+\t4M,4M\tAA:Z:test")
-        self.assertTrue(pt.type == "P")
-        self.assertTrue(pt.fields["path_name"].value == "P1")
-        self.assertTrue(pt.fields["seqs_names"].value == "A+,X+,B+".split(","))
-        self.assertTrue(pt.fields["overlaps"].value == "4M,4M".split(","))
-        self.assertTrue(path.Path.is_valid(pt))
-
+    @unittest.skip("GFA2 group module removed")
     def test_OGroup(self):
-        with self.assertRaises(line.InvalidLineError):
-            group.OGroup.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            group.OGroup.from_string("12- 11+ 32+ 28- 20- 16+")
+        pass
 
-        with self.assertRaises(fv.InvalidFieldError):
-            group.OGroup.from_string("1p\tAA:Z:test")
-
-        ogroup = group.OGroup.from_string("O\t1p\t12- 11+ 32+ 28- 20- 16+\tAA:Z:test")
-        self.assertTrue(ogroup.type == "O")
-        self.assertTrue(ogroup.fields["oid"].value == "1p")
-        self.assertTrue(ogroup.fields["references"].value == "12- 11+ 32+ 28- 20- 16+".split())
-        self.assertTrue(group.OGroup.is_valid(ogroup))
-
+    @unittest.skip("GFA2 group module removed")
     def test_UGroup(self):
-        with self.assertRaises(line.InvalidLineError):
-            group.UGroup.from_string("    ")
-        with self.assertRaises(line.InvalidLineError):
-            group.UGroup.from_string("A b_c g")
-
-        with self.assertRaises(fv.InvalidFieldError):
-            group.UGroup.from_string("s1\t\tAA:Z:test")
-
-        ugroup = group.UGroup.from_string("U\ts1\tA b_c g\tAA:Z:test")
-        self.assertTrue(ugroup.type == "U")
-        self.assertTrue(ugroup.fields["uid"].value == "s1")
-        self.assertTrue(ugroup.fields["ids"].value == "A b_c g".split())
-        self.assertTrue(group.UGroup.is_valid(ugroup))
+        pass
 
 
 if __name__ == "__main__":

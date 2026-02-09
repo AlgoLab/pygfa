@@ -4,7 +4,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
-from test_utils import should_run_test_for_gfa
+from test_utils import should_run_test_for_gfa, get_test_data_path
 
 #
 # ~~~ = other overlap
@@ -25,9 +25,7 @@ class TestLine(unittest.TestCase):
     def setUpClass(cls):
         """Set up test class by checking if test should run."""
         if not should_run_test_for_gfa("biconnected", GFA_FILE):
-            raise unittest.SkipTest(
-                f"No '# test: biconnected' comment found in {GFA_FILE}"
-            )
+            raise unittest.SkipTest(f"No '# test: biconnected' comment found in {GFA_FILE}")
 
         cls.graph = pygfa.gfa.GFA()
         cls.graph.from_gfa(GFA_FILE)
