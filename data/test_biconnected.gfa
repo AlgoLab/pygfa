@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 # test: biconnected
 S	s1	25	*
 S	s2	21	*

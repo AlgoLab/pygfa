@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 # benchmark: bgfa_compression
 # benchmark: bgfa_roundtrip
 S	1	*

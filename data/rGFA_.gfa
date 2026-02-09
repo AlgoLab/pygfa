@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 S	s1	CTGAA	SN:Z:chr1	SO:i:0	SR:i:2
 S	s2	ACG	SN:Z:chr1	SO:i:5	SR:i:3
 S	s3	TGGC	SN:Z:chr1	SO:i:8	SR:i:0
