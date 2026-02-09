@@ -106,8 +106,8 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field            | Description                                       | Type            |
 |------------------|---------------------------------------------------|-----------------|
-| from             | Tail segment of the links                         | `uint64`        |
-| to               | Head segment of the  link                         | `uint64`        |
+| from             | Tail segment of the links                         | `uints`        |
+| to               | Head segment of the  link                         | `uints`        |
 | from_orientation | orientations of all from segments. 0 is +, 1 is - | `bits`          |
 | to_orientation   | orientations of all from segments. 0 is +, 1 is - | `bits`          |
 | cigar_strings    | CIGAR strings                                     | `cigar strings` |
@@ -166,10 +166,10 @@ Only the last block can have fewer than `block_size` objects.
 | Field           | Description                                            | Type      |
 |-----------------|--------------------------------------------------------|-----------|
 | samples         | sample IDs                                             | `strings` |
-| hep_indices     | Haplotype indices                                      | uint      |
+| hep_indices     | Haplotype indices                                      | `uints`   |
 | sequence_id     | sequence IDs                                           | `strings` |
-| start_positions | optional start positions                               | uint      |
-| end_positions   | optional end positions                                 | uint      |
+| start_positions | optional start positions                               | `uints`   |
+| end_positions   | optional end positions                                 | `uints`   |
 | walks           | Walks, each walk is a sequence of oriented segment IDs | `walks`   |
 
 ## Encoding strategies
@@ -183,19 +183,19 @@ We use question marks `??` to represent that all values of the byte can be used.
 
 | Code   | Strategy       | Type             |
 |--------|----------------|------------------|
-| 0x00?? | Identity       | list of integers |
+| 0x00?? | Identity       | `uints` |
 | 0x??00 | Identity       | string           |
-| 0x01?? | varint         | list of integers |
-| 0x02?? | fixed16        | list of integers |
-| 0x03?? | delta          | list of integers |
-| 0x04?? | elias gamma    | list of integers |
-| 0x05?? | elias omega    | list of integers |
-| 0x06?? | golomb         | list of integers |
-| 0x07?? | rice           | list of integers |
-| 0x08?? | streamvbyte    | list of integers |
-| 0x09?? | vbyte          | list of integers |
-| 0x0A?? | fixed32        | list of integers |
-| 0x0B?? | fixed64        | list of integers |
+| 0x01?? | varint         | `uints` |
+| 0x02?? | fixed16        | `uints` |
+| 0x03?? | delta          | `uints` |
+| 0x04?? | elias gamma    | `uints` |
+| 0x05?? | elias omega    | `uints` |
+| 0x06?? | golomb         | `uints` |
+| 0x07?? | rice           | `uints` |
+| 0x08?? | streamvbyte    | `uints` |
+| 0x09?? | vbyte          | `uints` |
+| 0x0A?? | fixed32        | `uints` |
+| 0x0B?? | fixed64        | `uints` |
 | 0x??01 | zstd           | string           |
 | 0x??02 | gzip           | string           |
 | 0x??03 | lzma           | string           |
@@ -207,7 +207,7 @@ We use question marks `??` to represent that all values of the byte can be used.
 | 0x??09 | CIGAR-specific | string           |
 | 0x??0A | Dictionary     | string           |
   
-### Encoding a list of strings
+### Encoding strings
 
 The first byte determines how we encode the list of lengths of the strings, the
 second byte how we encode the concatenation of the strings.
@@ -292,44 +292,6 @@ Run-Length Encoding efficiently compresses sequences with repeated characters (h
 - Can be combined with 2-bit DNA encoding for additional compression
 - General string data with repeated characters
 
-#### CIGAR-Specific Encoding (0x??09)
-
-CIGAR (Compact Idiosyncratic Gapped Alignment Report) strings represent sequence alignments with alternating numbers and operation letters. This encoding exploits the structure of CIGAR strings to achieve better compression than general-purpose methods.
-
-**CIGAR Operations:**
-```
-M = 0x0 (match/mismatch)
-I = 0x1 (insertion)
-D = 0x2 (deletion)
-N = 0x3 (skipped region)
-S = 0x4 (soft clipping)
-H = 0x5 (hard clipping)
-P = 0x6 (padding)
-= = 0x7 (sequence match)
-X = 0x8 (sequence mismatch)
-```
-
-**Format:**
-- varint: number of operations
-- packed operations: 2 operations per byte (4 bits each)
-  - High nibble: operation n
-  - Low nibble: operation n+1
-  - If odd number of operations, low nibble of last byte = 0xF (padding marker)
-- varint list: operation lengths
-
-**Example:**
-CIGAR string "10M2I5D" is encoded as:
-- num_ops: 3
-- packed_ops: 0x01, 0x2F (operations M, I, D with padding)
-- lengths: 10, 2, 5
-
-**Expected Compression:** 40-60% reduction compared to ASCII CIGAR strings.
-
-**Primary Use Cases:**
-- Link overlaps (L lines in GFA)
-- Path CIGAR strings (P lines in GFA)
-- Any alignment representation using CIGAR format
-
 #### Dictionary Encoding (0x??0A)
 
 Dictionary encoding is optimized for repetitive string data by replacing repeated strings with short references to a dictionary. In the BGFA framework, the single-string encoder uses identity mode for compatibility, while the list-based encoder provides full dictionary compression.
@@ -376,6 +338,45 @@ Encodings can be stacked for additional compression. For example:
 - Segment sequences: 2-bit DNA + RLE (encode as 2-bit first, then apply RLE to packed data)
 - Mixed approach: Different blocks can use different encodings based on data characteristics
 
+
+### CIGAR-Specific Encoding (0x??09)
+
+CIGAR (Compact Idiosyncratic Gapped Alignment Report) strings represent sequence alignments with alternating numbers and operation letters. This encoding exploits the structure of CIGAR strings to achieve better compression than general-purpose methods.
+
+**CIGAR Operations:**
+```
+M = 0x0 (match/mismatch)
+I = 0x1 (insertion)
+D = 0x2 (deletion)
+N = 0x3 (skipped region)
+S = 0x4 (soft clipping)
+H = 0x5 (hard clipping)
+P = 0x6 (padding)
+= = 0x7 (sequence match)
+X = 0x8 (sequence mismatch)
+```
+
+**Format:**
+- varint: number of operations
+- packed operations: 2 operations per byte (4 bits each)
+  - High nibble: operation n
+  - Low nibble: operation n+1
+  - If odd number of operations, low nibble of last byte = 0xF (padding marker)
+- varint list: operation lengths
+
+**Example:**
+CIGAR string "10M2I5D" is encoded as:
+- num_ops: 3
+- packed_ops: 0x01, 0x2F (operations M, I, D with padding)
+- lengths: 10, 2, 5
+
+**Expected Compression:** 40-60% reduction compared to ASCII CIGAR strings.
+
+**Primary Use Cases:**
+- Link overlaps (L lines in GFA)
+- Path CIGAR strings (P lines in GFA)
+- Any alignment representation using CIGAR format
+
 ### Encoding CIGAR strings
 
 In this case we use 4 bytes to encode the strategy used. The first byte
@@ -396,8 +397,8 @@ a `bits` field is considered a list of `uint64`.
 #### numOperations+lengths+operations
 We encode three components:
 
-1.  the list of the number of operations in the CIGAR strings (a list of integers)
-2.  the list of lengths of the operations (a list of integers)
+1.  the list of the number of operations in the CIGAR strings (`uints`)
+2.  the list of lengths of the operations (`uints`)
 3.  The operations (a string)
 
 Therefore `0x01020304` implies that we use the varint method to encode the list
@@ -429,101 +430,3 @@ We encode two components:
 1.  the list of orientations in binary form (0 corresponds to > or +, while 1
     corresponds to < or -) 
 2.  the list of segment IDs seen as strings
-
-## Implementation Notes
-
-### New Encoding Methods (Added in v2.0)
-
-Four new encoding methods have been implemented to optimize BGFA file sizes for pangenome data:
-
-**1. 2-bit DNA Encoding (0x??05)**
-- Implementation: `pygfa/encoding/dna_encoding.py`
-- Primary target: Segment sequences
-- Compression ratio: 75% reduction on pure DNA
-- Status: Production-ready, fully tested
-
-**2. Run-Length Encoding (0x??08)**
-- Implementation: `pygfa/encoding/rle_encoding.py`
-- Primary target: Homopolymer runs in sequences
-- Compression ratio: 30-50% reduction on repetitive data
-- Status: Production-ready, fully tested
-- Can be combined with 2-bit DNA for additional compression
-
-**3. CIGAR-Specific Encoding (0x??09)**
-- Implementation: `pygfa/encoding/cigar_encoding.py`
-- Primary target: CIGAR alignment strings in links and paths
-- Compression ratio: 40-60% reduction
-- Status: Production-ready, fully tested
-
-**4. Dictionary Encoding (0x??0A)**
-- Implementation: `pygfa/encoding/dictionary_encoding.py`
-- Primary target: Repetitive identifiers (sample IDs, segment names)
-- Compression ratio: 60-90% reduction on highly repetitive data
-- Status: Production-ready (identity mode for BGFA blocks, full dictionary for lists)
-
-### Testing
-
-All new encoding methods include comprehensive unit tests in `test/test_new_encodings.py`:
-- 31 passing tests covering compression, decompression, and edge cases
-- Full roundtrip verification for all encodings
-- Empty input handling
-- Multiple sequence handling
-- Ambiguity and special character handling
-
-### Usage Guidelines
-
-**Recommended Encoding Selection:**
-
-For **Segment Sequences**:
-- Use 2-bit DNA (0x??05) for pure ACGT sequences
-- Optionally combine with RLE (0x??08) if many homopolymers
-- Fall back to zstd (0x??01) or gzip (0x??02) for non-DNA data
-
-For **CIGAR Strings**:
-- Use CIGAR-specific (0x??09) for structured CIGAR data
-- Use string compression (0x??02) for malformed or non-standard CIGARs
-
-For **Sample IDs and Names**:
-- Use dictionary (0x??0A) when many samples with repetitive naming patterns
-- Use zstd (0x??01) for diverse, non-repetitive identifiers
-
-For **General String Data**:
-- Use zstd (0x??01) for best general-purpose compression
-- Use RLE (0x??08) if data has obvious repetitive patterns
-- Use identity (0x??00) only when speed is critical and size doesn't matter
-
-### Backward Compatibility
-
-New encoding codes are assigned to previously unused slots (0x05, 0x08, 0x09, 0x0A) ensuring backward compatibility:
-- Old BGFA files using codes 0x00-0x04, 0x06-0x07 remain valid
-- Readers that don't support new encodings can detect unknown codes and fail gracefully
-- Recommended: Include version check in file header to indicate encoding capabilities
-
-### Performance Considerations
-
-**Encoding Speed** (relative to identity, approximate):
-- 2-bit DNA: ~5-10x slower (bit packing overhead)
-- RLE: ~2-5x slower (run detection)
-- CIGAR-specific: ~3-7x slower (parsing + bit packing)
-- Dictionary: ~2-4x slower (dictionary construction)
-
-**Decoding Speed** (relative to identity):
-- 2-bit DNA: ~10-20x slower (bit unpacking)
-- RLE: ~3-6x slower (run expansion)
-- CIGAR-specific: ~5-10x slower (CIGAR reconstruction)
-- Dictionary: ~2-3x slower (dictionary lookup)
-
-Despite being slower than identity encoding, the dramatic file size reductions (60-75% overall) make these encodings highly beneficial for:
-- Network transfer
-- Long-term storage
-- Memory-constrained systems
-- Large pangenome datasets
-
-### References
-
-- **Implementation Details**: `NEW_ENCODINGS.md` in repository root
-- **BGFA Core Implementation**: `pygfa/bgfa.py`
-- **Encoder Registry**: Lines 647-715 in `pygfa/bgfa.py`
-- **Test Suite**: `test/test_new_encodings.py`
-- **Integer Encodings**: `pygfa/encoding/integer_list_encoding.py`
-- **Existing String Encodings**: `pygfa/encoding/string_encoding.py`
