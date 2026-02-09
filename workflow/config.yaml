@@ -29,6 +29,8 @@ str_encodings:
   - gzip
   - lzma
   - huffman
+  - arithmetic
+  - bwt_huffman
 
 # Output directory for benchmark results
 output_dir: benchmark
