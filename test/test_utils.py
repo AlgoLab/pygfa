@@ -78,6 +78,19 @@ def should_run_test_for_gfa(test_name, gfa_path):
     return False
 
 
+def get_test_data_path(filename, data_dir="data"):
+    """Get path to a test data file.
+
+    Args:
+        filename: Name of the file in the data directory.
+        data_dir: Path to the data directory (default: "data").
+
+    Returns:
+        Full path to the test data file.
+    """
+    return os.path.join(data_dir, filename)
+
+
 def get_gfa_files_for_test(test_name, data_dir="data"):
     """Get all GFA files in the data directory that have a test comment for this test.
 

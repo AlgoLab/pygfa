@@ -1873,7 +1873,7 @@ class GFA:
                     return False
                 other_walks.pop(index)
 
-        except AttributeError, KeyError:
+        except (AttributeError, KeyError):
             return False
         return True
 
