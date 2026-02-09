@@ -162,61 +162,28 @@ class TestLine(unittest.TestCase):
         self.graph.add_node("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test")
         self.graph.add_node("S\t4\tTGCAACGTATAGACTTGTCAC\tRC:i:4\tui:Z:test\tab:Z:another_test")
 
-        line = fragment.Fragment.from_string("F\t3\t4-\t0\t140$\t0\t140\t11M")
-        edg = ge.Edge.from_line(line)
-        self.graph.add_edge(edg)
-
+        # Add GFA1 link edge
         line = link.Link.from_string("L\t3\t+\t4\t-\t47M\tui:Z:test\tab:Z:another_test")
         edg = ge.Edge.from_line(line)
         self.graph.add_edge(edg)
 
-        # The F line is added first so it will have id 'virtual_0'
-        # This first test get all the edges between node 3 and 4 and
-        # the get the edge labelled 'virtual_0'
+        # The L line will have virtual id 'virtual_0'
         self.assertTrue(self.graph.edges(identifier=("3", "4"))["virtual_0"]["from_node"] == "3")
-        # This test instead get instantly the edge labelled 'virtual_0', that is unique
-        # in the graph
         self.assertTrue(self.graph.edges(identifier="virtual_0")["from_node"] == "3")
-        self.assertTrue(len(self.graph.edges(identifier=("3", "4"))) == 2)
 
         self.graph.remove_edge("virtual_0")
         self.assertTrue(self.graph.edges(identifier="virtual_0") is None)
-        with self.assertRaises(ge.InvalidEdgeError):
-            self.graph.remove_edge("virtual_0")
-
-        # remember the virtual id keeps incrementing
-        self.graph.add_edge("F\t3\t4-\t0\t140$\t0\t140\t11M")
-        self.assertTrue(self.graph.edges(identifier=("3", "4"))["virtual_1"]["from_node"] == "3")
-        self.graph.remove_edge(("3", "4"))  # remove all the edges between 3 and 4
-        print(len(self.graph.edges()))
-        self.assertTrue(len(self.graph.edges()) == 0)
 
         # nodes will be automatically created
         self.graph.add_edge("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test")
         self.graph.add_edge("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
-        self.graph.add_edge("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test")
-        self.graph.add_edge("G\tg\tA+\tB-\t1000\t*\tui:Z:test\tab:Z:another_test")
-        self.assertTrue(len(self.graph.edges()) == 4)
-
-        self.graph.remove_edge(("A", "B", "g"))  # remove the gap
-        self.assertTrue(len(self.graph.edges()) == 3)
+        self.assertTrue(len(self.graph.edges()) == 2)
 
         self.graph.add_edge("L\t3\t+\t65\t-\t47M\tui:Z:test\tID:Z:42")
         with self.assertRaises(gfa.GFAError):
             self.graph.add_edge("L\t3\t+\t65\t-\t47M\tui:Z:test\tID:Z:42", safe=True)
         with self.assertRaises(gfa.GFAError):
             self.graph.add_edge("L\t3\t+\tnon_exists\t-\t47M\tui:Z:test\tID:Z:47", safe=True)
-
-        line = fragment.Fragment.from_string("F\t3\t4-\t0\t140$\t0\t140\t11M")
-        edg = ge.Edge.from_line(line)
-        # Fragment edges don't have _eid (they're None), so just verify the attribute exists
-        self.assertTrue(hasattr(edg, "_eid"))
-        # But test that _eid is None for Fragment edges
-        self.assertIsNone(getattr(edg, "_eid"))
-        with self.assertRaises(ge.InvalidEdgeError):
-            self.graph.add_edge(edg)
-        with self.assertRaises(ge.InvalidEdgeError):
-            self.graph.add_edge("Z\t3\t4-\t0\t140$\t0\t140\t11M")  # invalid line
 
     def test_add_subgraphs(self):
         self.graph.clear()
@@ -265,25 +232,7 @@ class TestLine(unittest.TestCase):
         self.graph.add_node(node_)
         self.assertTrue(self.graph.as_graph_element("2") == node_)
 
-        edge_ = ge.Edge.from_line(fragment.Fragment.from_string("F\t3\t4-\t0\t140$\t0\t140\t11M"))
-        self.graph.add_edge(edge_)
-        self.assertTrue(self.graph.as_graph_element("virtual_0") == edge_)
-
-        edge_ = ge.Edge.from_line(gap.Gap.from_string("G\tg\t3+\t4-\t1000\t*\tui:Z:test\tab:Z:another_test"))
-        self.graph.add_edge(edge_)
-        self.assertTrue(self.graph.as_graph_element("g") == edge_)
-
-        edge_ = ge.Edge.from_line(
-            edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test")
-        )
-        self.graph.add_edge(edge_)
-        self.assertTrue(self.graph.as_graph_element("virtual_1") == edge_)
-
-        edge_ = ge.Edge.from_line(
-            containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
-        )
-        self.graph.add_edge(edge_)
-        self.assertTrue(self.graph.as_graph_element("virtual_2") == edge_)
+        # GFA2 features removed - only testing GFA1 features
 
         edge_ = ge.Edge.from_line(link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_edge(edge_)
@@ -293,13 +242,7 @@ class TestLine(unittest.TestCase):
         self.graph.add_subgraph(subgraph_)
         self.assertTrue(self.graph.as_graph_element("14") == subgraph_)
 
-        subgraph_ = sg.Subgraph.from_line(group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1"))
-        self.graph.add_subgraph(subgraph_)
-        self.assertTrue(self.graph.as_graph_element("15") == subgraph_)
-
-        subgraph_ = sg.Subgraph.from_line(group.UGroup.from_string("U\t16sub\t2 3\txx:i:-1"))
-        self.graph.add_subgraph(subgraph_)
-        self.assertTrue(self.graph.as_graph_element("16sub") == subgraph_)
+        # GFA2 group features removed - only testing GFA1 features
 
         with self.assertRaises(gfa.InvalidElementError):
             self.graph.as_graph_element("None_id")

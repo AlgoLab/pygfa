@@ -11,7 +11,6 @@ Replaces repeated strings with varint references to a dictionary, achieving
 
 from __future__ import annotations
 
-import struct
 from collections.abc import Callable
 
 from pygfa.encoding.string_encoding import compress_string_list_dictionary

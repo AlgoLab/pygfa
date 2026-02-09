@@ -13,10 +13,6 @@ except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
 
-from pygfa.encoding.arithmetic_coding import (
-    compress_string_arithmetic,
-    decompress_string_arithmetic,
-)
 
 
 def compress_string_zstd(string: str) -> bytes:

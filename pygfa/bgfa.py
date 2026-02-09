@@ -46,22 +46,18 @@ from pygfa.encoding import (
 )
 from pygfa.encoding.dna_encoding import (
     compress_string_2bit_dna,
-    compress_string_list_2bit_dna,
     decompress_string_2bit_dna,
 )
 from pygfa.encoding.rle_encoding import (
     compress_string_rle,
-    compress_string_list_rle,
     decompress_string_rle,
 )
 from pygfa.encoding.cigar_encoding import (
     compress_string_cigar,
-    compress_string_list_cigar,
     decompress_string_cigar,
 )
 from pygfa.encoding.dictionary_encoding import (
     compress_string_dictionary,
-    compress_string_list_dictionary_wrapper,
     decompress_string_dictionary,
 )
 from pygfa.encoding.string_encoding import _build_codes, _build_huffman_tree
@@ -1187,8 +1183,39 @@ class ReaderBGFA:
                 if i == 0 and links:
                     logger.debug(f"First link: {links[0]}")
 
-        # TODO: Parse paths
-        # TODO: Parse walks
+        # Parse paths if present
+        if header["p_len"] > 0:
+            num_path_blocks = math.ceil(header["p_len"] / header["block_size"])
+            if verbose:
+                logger.info(f"Parsing {num_path_blocks} path blocks")
+
+            for i in range(num_path_blocks):
+                paths, read_bytes = self._parse_paths_blocks(bgfa_data, header, segment_names, offset)
+                offset += read_bytes
+                if verbose:
+                    logger.info(f"Parsed path block {i + 1}: {len(paths)} paths")
+
+                # Add paths to GFA graph (for now, just log them)
+                for path_data in paths:
+                    if verbose and len(paths) <= 5:  # Only log first few paths to avoid spam
+                        logger.debug(f"Path: {path_data}")
+
+        # Parse walks if present
+        if header["w_len"] > 0:
+            num_walk_blocks = math.ceil(header["w_len"] / header["block_size"])
+            if verbose:
+                logger.info(f"Parsing {num_walk_blocks} walk blocks")
+
+            for i in range(num_walk_blocks):
+                walks, read_bytes = self._parse_walks_blocks(bgfa_data, header, segment_names, offset)
+                offset += read_bytes
+                if verbose:
+                    logger.info(f"Parsed walk block {i + 1}: {len(walks)} walks")
+
+                # Add walks to GFA graph (for now, just log them)
+                for walk_data in walks:
+                    if verbose and len(walks) <= 5:  # Only log first few walks to avoid spam
+                        logger.debug(f"Walk: {walk_data}")
 
         node_count = len(gfa.nodes()) if gfa.nodes() is not None else 0
         edge_count = len(gfa.edges()) if gfa.edges() is not None else 0
@@ -1587,44 +1614,230 @@ class ReaderBGFA:
 
         return links, offset - initial_offset
 
+    def _decompress_string_list(self, compressed_data: bytes, compression_type: int) -> list[str]:
+        """Decompress a list of strings based on compression type.
+
+        :param compressed_data: Compressed string data
+        :param compression_type: Compression type code
+        :return: List of decompressed strings
+        """
+        if compression_type == 0x0000:  # Identity for strings
+            # Simple null-terminated strings
+            strings = []
+            pos = 0
+            while pos < len(compressed_data):
+                end_pos = compressed_data.find(0, pos)
+                if end_pos == -1:
+                    break
+                string_bytes = compressed_data[pos:end_pos]
+                strings.append(string_bytes.decode("ascii"))
+                pos = end_pos + 1
+            return strings
+        elif compression_type == 0x0001:  # gzip
+            # Decompress as gzip and split by null terminators
+            import gzip
+
+            decompressed = gzip.decompress(compressed_data)
+            strings = []
+            for string_bytes in decompressed.split(b"\0"):
+                if string_bytes:
+                    strings.append(string_bytes.decode("ascii"))
+            return strings
+        elif compression_type == 0x0002:  # lzma
+            import lzma
+
+            decompressed = lzma.decompress(compressed_data)
+            strings = []
+            for string_bytes in decompressed.split(b"\0"):
+                if string_bytes:
+                    strings.append(string_bytes.decode("ascii"))
+            return strings
+        elif compression_type == 0x0003:  # zstd
+            try:
+                import zstandard as zstd
+
+                decompressed = zstd.decompress(compressed_data)
+                strings = []
+                for string_bytes in decompressed.split(b"\0"):
+                    if string_bytes:
+                        strings.append(string_bytes.decode("ascii"))
+                return strings
+            except ImportError:
+                logger.warning("zstandard not available, cannot decompress zstd data")
+                return []
+        else:
+            logger.warning(f"Unsupported compression type for strings: {compression_type:04x}")
+            return []
+
     def _parse_paths_blocks(
-        self, bgfa_data: bytes, _header: dict, _segment_names: list, start_offset: int
+        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
     ) -> tuple[list, int]:
         """Parse a paths block from BGFA data.
 
         :param bgfa_data: Binary BGFA data
-        :param _header: Parsed header information (unused)
-        :param _segment_names: List of segment names (unused)
+        :param header: Parsed header information
+        :param segment_names: List of segment names
         :param start_offset: Offset where the paths block start
         :return: (List of paths dictionaries, number of bytes read)
         """
         offset = start_offset
 
-        # Read block header (unused fields prefixed with underscore)
-        _ = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)  # record_num
+        # Read block header
+        record_num = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        offset += 2
+        compression_path_names = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        offset += 2
+        compression_cigars = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
         offset += 2
         compressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        _ = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)  # uncompressed_len_cigar
+        uncompressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        _ = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)  # uncompressed_len_name
+        uncompressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        _ = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)  # compression_path_names
-        offset += 2
-        _ = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)  # compression_paths
-        offset += 2
-        _ = struct.unpack_from("<H", bgfa_data, offset)[0]  # compression_cigars
-        offset += 2
 
-        # Skip the payload for now
-        total_payload_len = compressed_len_name + compressed_len_cigar
-        offset += total_payload_len
+        # Extract compressed payloads
+        if compressed_len_name > 0:
+            compressed_names = bgfa_data[offset : offset + compressed_len_name]
+            offset += compressed_len_name
 
-        # Return empty list for paths
+            # Decompress path names
+            try:
+                path_names = self._decompress_string_list(compressed_names, compression_path_names)
+            except Exception as e:
+                logger.warning(f"Failed to decompress path names: {e}")
+                path_names = []
+        else:
+            path_names = []
+
+        if compressed_len_cigar > 0:
+            compressed_cigars = bgfa_data[offset : offset + compressed_len_cigar]
+            offset += compressed_len_cigar
+
+            # Decompress cigar strings
+            try:
+                cigar_strings = self._decompress_string_list(compressed_cigars, compression_cigars)
+            except Exception as e:
+                logger.warning(f"Failed to decompress cigar strings: {e}")
+                cigar_strings = []
+        else:
+            cigar_strings = []
+
+        # Parse paths data (stored as walks - sequence of oriented segment IDs)
         paths = []
+        for i in range(record_num):
+            if i < len(path_names):
+                path_name = path_names[i]
+            else:
+                path_name = f"path_{i}"
+
+            if i < len(cigar_strings):
+                cigar = cigar_strings[i]
+            else:
+                cigar = "*"
+
+            # Create path dictionary
+            path_data = {
+                "name": path_name,
+                "segments": [],  # TODO: Parse actual path segments when walks are implemented
+                "cigar": cigar,
+            }
+            paths.append(path_data)
+
         return paths, offset - start_offset
+
+    def _parse_walks_blocks(
+        self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
+    ) -> tuple[list, int]:
+        """Parse a walks block from BGFA data.
+
+        :param bgfa_data: Binary BGFA data
+        :param header: Parsed header information
+        :param segment_names: List of segment names
+        :param start_offset: Offset where the walks block start
+        :return: (List of walks dictionaries, number of bytes read)
+        """
+        offset = start_offset
+
+        # Read block header
+        record_num = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        offset += 2
+        compressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        uncompressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        uncompressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+
+        # Extract and decompress payloads
+        if compressed_len_sam > 0:
+            compressed_sam = bgfa_data[offset : offset + compressed_len_sam]
+            offset += compressed_len_sam
+            sample_ids = self._decompress_string_list(
+                compressed_sam, 0x0000
+            )  # Sample IDs are typically identity encoded
+        else:
+            sample_ids = []
+
+        if compressed_len_seq > 0:
+            compressed_seq = bgfa_data[offset : offset + compressed_len_seq]
+            offset += compressed_len_seq
+            sequence_ids = self._decompress_string_list(
+                compressed_seq, 0x0000
+            )  # Sequence IDs are typically identity encoded
+        else:
+            sequence_ids = []
+
+        if compressed_len_walk > 0:
+            compressed_walks = bgfa_data[offset : offset + compressed_len_walk]
+            offset += compressed_len_walk
+
+            # For now, treat walk data as simple sequence data
+            # TODO: Implement proper walk decoding (segment IDs + orientations)
+            try:
+                walks_data = self._decompress_string_list(compressed_walks, 0x0000)
+            except Exception as e:
+                logger.warning(f"Failed to decompress walks data: {e}")
+                walks_data = []
+        else:
+            walks_data = []
+
+        # Create walk dictionaries
+        walks = []
+        for i in range(record_num):
+            if i < len(sample_ids):
+                sample_id = sample_ids[i]
+            else:
+                sample_id = f"sample_{i}"
+
+            if i < len(sequence_ids):
+                sequence_id = sequence_ids[i]
+            else:
+                sequence_id = f"sequence_{i}"
+
+            if i < len(walks_data):
+                walk_data = walks_data[i]
+            else:
+                walk_data = "*"
+
+            # Create walk dictionary
+            walk_dict = {
+                "sample_id": sample_id,
+                "sequence_id": sequence_id,
+                "walk": walk_data,  # TODO: Parse actual walk segments and orientations
+                "haplotype_index": 0,  # TODO: Parse from walk data
+                "start_position": 0,  # TODO: Parse from walk data
+                "end_position": 0,  # TODO: Parse from walk data
+            }
+            walks.append(walk_dict)
+
+        return walks, offset - start_offset
 
 
 class BGFAWriter:
