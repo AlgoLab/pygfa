@@ -55,3 +55,15 @@ from pygfa.encoding.string_encoding import (
 from pygfa.encoding.string_encoding import (
     compress_string_zstd as compress_string_zstd,
 )
+from pygfa.encoding.arithmetic_coding import (
+    compress_string_arithmetic as compress_string_arithmetic,
+)
+from pygfa.encoding.arithmetic_coding import (
+    compress_string_bwt_huffman as compress_string_bwt_huffman,
+)
+from pygfa.encoding.arithmetic_coding import (
+    decompress_string_arithmetic as decompress_string_arithmetic,
+)
+from pygfa.encoding.arithmetic_coding import (
+    decompress_string_bwt_huffman as decompress_string_bwt_huffman,
+)
