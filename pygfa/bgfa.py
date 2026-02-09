@@ -19,6 +19,8 @@ import os
 import struct
 import tempfile
 
+from pygfa.utils.file_opener import open_gfa_file
+
 from pygfa.encoding import (
     compress_integer_list_delta,
     compress_integer_list_elias_gamma,
@@ -1053,7 +1055,7 @@ class ReaderBGFA:
         else:
             logger.debug(f"Verbose mode enabled, logfile: {logfile}")
 
-        with open(file_path, "rb") as f:
+        with open_gfa_file(file_path, "rb") as f:
             bgfa_data = f.read()
 
         gfa = GFA()

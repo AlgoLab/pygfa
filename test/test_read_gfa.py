@@ -71,6 +71,38 @@ class TestPPrint(unittest.TestCase):
         """Test that pprint output matches expected file content."""
         self._test_pprint_output_matches_expected_file("data/example_3.gfa", "results/example_3.txt")
 
+    def test_read_gzipped_file(self):
+        """Test reading gzipped GFA files."""
+        gfa_file = "data/sample1.gfa"
+        gzipped_file = "data/sample1.gfa.gz"
+
+        # Skip if gzipped file doesn't exist
+        if not os.path.exists(gzipped_file):
+            self.skipTest(f"Gzipped file {gzipped_file} not found")
+
+        # Read both uncompressed and gzipped versions
+        graph_uncompressed = gfa.GFA.from_gfa(gfa_file)
+        graph_compressed = gfa.GFA.from_gfa(gzipped_file)
+
+        # Verify they produce identical graphs
+        self.assertEqual(len(list(graph_uncompressed.nodes())), len(list(graph_compressed.nodes())))
+        self.assertEqual(len(list(graph_uncompressed.edges())), len(list(graph_compressed.edges())))
+
+    def test_invalid_gzipped_file(self):
+        """Test error handling for invalid gzip files."""
+        # Create fake .gz file with regular content
+        fake_gzipped = "data/fake.gfa.gz"
+        with open(fake_gzipped, "w") as f:
+            f.write("H\tVN:Z:1.0\n")
+
+        try:
+            with self.assertRaises(ValueError) as context:
+                gfa.GFA.from_gfa(fake_gzipped)
+            self.assertIn("not a valid gzip file", str(context.exception))
+        finally:
+            if os.path.exists(fake_gzipped):
+                os.unlink(fake_gzipped)
+
 
 if __name__ == "__main__":
     unittest.main()
