@@ -13,12 +13,16 @@ except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
 
+from pygfa.encoding.arithmetic_coding import (
+    compress_string_arithmetic,
+    decompress_string_arithmetic,
+)
+
 
 def compress_string_zstd(string: str) -> bytes:
     if not _ZSTD_AVAILABLE:
         raise ImportError(
-            "The 'compression' package is required for zstd compression. "
-            "Install it with: pip install compression"
+            "The 'compression' package is required for zstd compression. Install it with: pip install compression"
         )
     assert z is not None
     return z.compress(string.encode("ascii"), level=19)
@@ -54,8 +58,7 @@ def compress_string_list(
     if compression_method == "zstd":
         if not _ZSTD_AVAILABLE:
             raise ImportError(
-                "The 'compression' package is required for zstd compression. "
-                "Install it with: pip install compression"
+                "The 'compression' package is required for zstd compression. Install it with: pip install compression"
             )
         assert z is not None
         compressed_data = z.compress(concatenated_strings, level=compression_level)

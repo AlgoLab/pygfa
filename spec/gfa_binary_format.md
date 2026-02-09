@@ -196,10 +196,12 @@ We use question marks `??` to represent that all values of the byte can be used.
 | 0x09?? | vbyte       | list of integers |
 | 0x0A?? | fixed32     | list of integers |
 | 0x0B?? | fixed64     | list of integers |
-| 0x??01 | zstd        | string           |
-| 0x??02 | gzip        | string           |
-| 0x??03 | lzma        | string           |
-| 0x??04 | Huffman     | string           |
+| 0x??01 | zstd             | string           |
+| 0x??02 | gzip             | string           |
+| 0x??03 | lzma             | string           |
+| 0x??04 | Huffman          | string           |
+| 0x??06 | Arithmetic       | string           |
+| 0x??07 | BWT+Huffman      | string           |
   
 ### Encoding a list of strings
 
@@ -208,6 +210,30 @@ second byte how we encode the concatenation of the strings.
 
 Therefore `0x0102` implies that we use the varint method to encode the lengths
 and the gzip method to encode the concatenation of the string.
+
+#### Arithmetic Coding (0x??06)
+
+Arithmetic coding uses an adaptive model that updates symbol frequencies as it encodes. The format is:
+- uint32: original data length
+- bytes: encoded bitstream
+
+The encoder starts with a uniform distribution (all symbols have frequency 1) and adapts as it processes each byte. This provides good compression for sequences with non-uniform symbol distributions.
+
+#### BWT + Huffman Coding (0x??07)
+
+BWT (Burrows-Wheeler Transform) + Huffman coding provides excellent compression for repetitive sequences like DNA. The pipeline is:
+1. Apply Burrows-Wheeler Transform in configurable blocks (default 64KB)
+2. Apply Move-to-Front transform
+3. Encode with Huffman coding
+
+The block size can be configured via the `bwt_block_size` option in compression_options.
+
+The format is:
+- uint32: number of BWT blocks
+- For each block:
+  - uint32: primary index
+  - uint32: block size
+  - bytes: BWT data
 
 ### Encoding CIGAR strings
 
