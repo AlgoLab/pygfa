@@ -125,33 +125,81 @@ def decompress_string_arithmetic(data: bytes, lengths: List[int]) -> List[bytes]
 def compress_string_bwt_huffman(string: str, block_size: int = 65536) -> bytes:
     """Compress string using BWT -> MTF -> Huffman pipeline.
 
-    Note: Simplified implementation that returns raw data for now.
+    This is the classic bioinformatics compression pipeline used in tools like
+    bzip2 and CRAM. The Burrows-Wheeler Transform groups similar characters together,
+    Move-to-Front converts runs to small integers, and Huffman efficiently encodes
+    the skewed distribution.
 
     :param string: Input string to compress
     :param block_size: BWT block size (default: 65536 bytes)
     :return: Compressed bytes
     """
+    from pygfa.encoding.bwt import (
+        burrows_wheeler_transform,
+        move_to_front_encode,
+    )
+    # Import the BGFA-compatible Huffman encoder
+    from pygfa.bgfa import _compress_huffman_payload
+
     data = string.encode("ascii")
+    if not data:
+        return struct.pack("<I", 0)
+
+    # Apply BWT
+    bwt_data = burrows_wheeler_transform(data, block_size)
+
+    # Apply MTF
+    mtf_data = move_to_front_encode(bwt_data)
+
+    # Apply Huffman coding using BGFA-compatible format
+    # Convert MTF bytes to string for Huffman encoding
+    huffman_data = _compress_huffman_payload(mtf_data.decode("latin-1"))
+
+    # Prepend original length for reconstruction
     result = bytearray()
     result.extend(struct.pack("<I", len(data)))
-    result.extend(data)
+    result.extend(huffman_data)
+
     return bytes(result)
 
 
 def decompress_string_bwt_huffman(data: bytes, lengths: list[int]) -> list[bytes]:
     """Decompress BWT+Huffman compressed data.
 
-    Note: Simplified implementation.
+    Reverses the BWT -> MTF -> Huffman pipeline.
 
     :param data: Compressed data
     :param lengths: List of string lengths to extract
     :return: List of decompressed byte strings
     """
+    from pygfa.encoding.bwt import inverse_bwt, move_to_front_decode
+    from pygfa.bgfa import decompress_string_huffman
+
     if len(data) < 4:
         raise ValueError("Data too short")
 
+    # Read original total length
     total_len = struct.unpack_from("<I", data, 0)[0]
-    decoded = data[4 : 4 + total_len]
+
+    if total_len == 0:
+        return [b"" for _ in lengths]
+
+    # Decompress Huffman (get back MTF data)
+    huffman_data = data[4:]
+    # Huffman decoder expects lengths, but we're decoding a single stream
+    # We'll use a dummy length list and take the first result
+    mtf_strings = decompress_string_huffman(huffman_data, [total_len])
+
+    if not mtf_strings:
+        raise ValueError("Huffman decompression failed")
+
+    mtf_data = mtf_strings[0].encode("latin-1")
+
+    # Reverse MTF
+    bwt_data = move_to_front_decode(mtf_data)
+
+    # Reverse BWT
+    decoded = inverse_bwt(bwt_data)
 
     # Split into individual strings using lengths
     result = []

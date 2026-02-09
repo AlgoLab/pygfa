@@ -44,6 +44,26 @@ from pygfa.encoding import (
     decompress_string_arithmetic,
     decompress_string_bwt_huffman,
 )
+from pygfa.encoding.dna_encoding import (
+    compress_string_2bit_dna,
+    compress_string_list_2bit_dna,
+    decompress_string_2bit_dna,
+)
+from pygfa.encoding.rle_encoding import (
+    compress_string_rle,
+    compress_string_list_rle,
+    decompress_string_rle,
+)
+from pygfa.encoding.cigar_encoding import (
+    compress_string_cigar,
+    compress_string_list_cigar,
+    decompress_string_cigar,
+)
+from pygfa.encoding.dictionary_encoding import (
+    compress_string_dictionary,
+    compress_string_list_dictionary_wrapper,
+    decompress_string_dictionary,
+)
 from pygfa.encoding.string_encoding import _build_codes, _build_huffman_tree
 from pygfa.gfa import GFA
 from pygfa.graph_element import edge as ge
@@ -640,8 +660,12 @@ STRING_ENCODING_ZSTD = 0x01
 STRING_ENCODING_GZIP = 0x02
 STRING_ENCODING_LZMA = 0x03
 STRING_ENCODING_HUFFMAN = 0x04
+STRING_ENCODING_2BIT_DNA = 0x05
 STRING_ENCODING_ARITHMETIC = 0x06
 STRING_ENCODING_BWT_HUFFMAN = 0x07
+STRING_ENCODING_RLE = 0x08
+STRING_ENCODING_CIGAR = 0x09
+STRING_ENCODING_DICTIONARY = 0x0A
 
 # Mapping from integer encoding codes to compression functions
 INTEGER_ENCODERS = {
@@ -666,8 +690,12 @@ STRING_ENCODERS = {
     STRING_ENCODING_GZIP: compress_string_gzip,
     STRING_ENCODING_LZMA: compress_string_lzma,
     STRING_ENCODING_HUFFMAN: None,  # Huffman requires special handling (list-based)
+    STRING_ENCODING_2BIT_DNA: compress_string_2bit_dna,
     STRING_ENCODING_ARITHMETIC: compress_string_arithmetic,
     STRING_ENCODING_BWT_HUFFMAN: compress_string_bwt_huffman,
+    STRING_ENCODING_RLE: compress_string_rle,
+    STRING_ENCODING_CIGAR: compress_string_cigar,
+    STRING_ENCODING_DICTIONARY: compress_string_dictionary,
 }
 
 # Mapping from integer encoding codes to decompression functions
@@ -693,8 +721,12 @@ STRING_DECODERS = {
     STRING_ENCODING_GZIP: decompress_string_gzip,
     STRING_ENCODING_LZMA: decompress_string_lzma,
     STRING_ENCODING_HUFFMAN: decompress_string_huffman,
+    STRING_ENCODING_2BIT_DNA: decompress_string_2bit_dna,
     STRING_ENCODING_ARITHMETIC: decompress_string_arithmetic,
     STRING_ENCODING_BWT_HUFFMAN: decompress_string_bwt_huffman,
+    STRING_ENCODING_RLE: decompress_string_rle,
+    STRING_ENCODING_CIGAR: decompress_string_cigar,
+    STRING_ENCODING_DICTIONARY: decompress_string_dictionary,
 }
 
 

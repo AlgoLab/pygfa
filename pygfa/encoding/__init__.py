@@ -67,3 +67,39 @@ from pygfa.encoding.arithmetic_coding import (
 from pygfa.encoding.arithmetic_coding import (
     decompress_string_bwt_huffman as decompress_string_bwt_huffman,
 )
+from pygfa.encoding.dna_encoding import (
+    compress_string_2bit_dna as compress_string_2bit_dna,
+)
+from pygfa.encoding.dna_encoding import (
+    compress_string_list_2bit_dna as compress_string_list_2bit_dna,
+)
+from pygfa.encoding.dna_encoding import (
+    decompress_string_2bit_dna as decompress_string_2bit_dna,
+)
+from pygfa.encoding.rle_encoding import (
+    compress_string_rle as compress_string_rle,
+)
+from pygfa.encoding.rle_encoding import (
+    compress_string_list_rle as compress_string_list_rle,
+)
+from pygfa.encoding.rle_encoding import (
+    decompress_string_rle as decompress_string_rle,
+)
+from pygfa.encoding.cigar_encoding import (
+    compress_string_cigar as compress_string_cigar,
+)
+from pygfa.encoding.cigar_encoding import (
+    compress_string_list_cigar as compress_string_list_cigar,
+)
+from pygfa.encoding.cigar_encoding import (
+    decompress_string_cigar as decompress_string_cigar,
+)
+from pygfa.encoding.dictionary_encoding import (
+    compress_string_dictionary as compress_string_dictionary,
+)
+from pygfa.encoding.dictionary_encoding import (
+    compress_string_list_dictionary_wrapper as compress_string_list_dictionary_wrapper,
+)
+from pygfa.encoding.dictionary_encoding import (
+    decompress_string_dictionary as decompress_string_dictionary,
+)
