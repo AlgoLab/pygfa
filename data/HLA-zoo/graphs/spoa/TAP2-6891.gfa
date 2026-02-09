@@ -1,3 +1,5 @@
+# test: read_gfa
+# test: bgfa_roundtrip
 H	VN:Z:1.0
 S	719	AGAGAA
 S	699	TAAAAC

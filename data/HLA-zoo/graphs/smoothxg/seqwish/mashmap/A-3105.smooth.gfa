@@ -1,3 +1,5 @@
+# test: read_gfa
+# test: bgfa_roundtrip
 H	VN:Z:1.0
 S	1	A	DP:i:2	RC:i:2
 L	1	-	7895	-	0M

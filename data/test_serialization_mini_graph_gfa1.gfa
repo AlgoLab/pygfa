@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 # test: serialization
 S	11	*	xx:i:11
 S	13	*

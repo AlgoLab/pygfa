@@ -1,4 +1,6 @@
+# test: read_gfa
 # test: bgfa_roundtrip
+# test: bgfa
 # benchmark:
 H	VN:Z:1.0
 S	1	AT

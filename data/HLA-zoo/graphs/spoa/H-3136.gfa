@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 H	VN:Z:1.0
 S	56	T
 S	35	C

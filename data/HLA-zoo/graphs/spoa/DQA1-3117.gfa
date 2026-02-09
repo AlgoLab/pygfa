@@ -1,3 +1,5 @@
+# test: read_gfa
+# test: bgfa_roundtrip
 H	VN:Z:1.0
 S	1144	GAATTAAGTGAAAGAT
 S	2108	A

@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 H	VN:Z:1.0
 S	1	TAC	DP:i:6	RC:i:18
 L	1	+	3	+	0M

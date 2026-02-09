@@ -1,3 +1,6 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
 # test: gfa_graph
 S	1	*
 S	3	CGATGCTAGCTGACTGTCGATGCTGTGTG
