@@ -8,6 +8,8 @@ import os
 import re
 from typing import Any
 
+from pygfa.utils.file_opener import open_gfa_file
+
 try:
     import compression.zstd as z
 
@@ -1495,7 +1497,7 @@ class GFA:
         path_count = 0
         walk_count = 0
 
-        with open(filepath) as f:
+        with open_gfa_file(filepath) as f:
             for line in f:
                 line = line.strip()
                 line_count += 1
@@ -1733,6 +1735,19 @@ class GFA:
                 f"walk_length={len(walk_data.get('walk', ''))}"
             )
         return g
+
+    @classmethod
+    def from_file(cls, filepath, **kwargs):
+        """Alias for from_gfa() to maintain compatibility.
+
+        Args:
+            filepath: Path to GFA file
+            **kwargs: Additional arguments (passed to from_gfa)
+
+        Returns:
+            GFA object
+        """
+        return cls.from_gfa(filepath, **kwargs)
 
     def pprint(self):
         """Pretty print the entire GFA graph, including all attributes."""

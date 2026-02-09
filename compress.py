@@ -21,7 +21,7 @@ if __name__ == "__main__":
     try:
         args = parser.parse_args()
 
-        tmp_pygfa = pygfa.gfa.GFA.from_file(args.file[0], is_rGFA=False)
+        tmp_pygfa = pygfa.gfa.GFA.from_gfa(args.file[0])
         node_color = "r"
 
         if args.display:
