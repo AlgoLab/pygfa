@@ -88,17 +88,53 @@ class TestPPrint(unittest.TestCase):
         self.assertEqual(len(list(graph_uncompressed.nodes())), len(list(graph_compressed.nodes())))
         self.assertEqual(len(list(graph_uncompressed.edges())), len(list(graph_compressed.edges())))
 
+    def test_read_zstd_file(self):
+        """Test reading zstd-compressed GFA files."""
+        gfa_file = "data/sample1.gfa"
+        zstd_file = "data/sample1.gfa.zst"
+
+        # Skip if zstd file doesn't exist
+        if not os.path.exists(zstd_file):
+            self.skipTest(f"Zstd file {zstd_file} not found")
+
+        # Read both uncompressed and zstd-compressed versions
+        graph_uncompressed = gfa.GFA.from_gfa(gfa_file)
+        graph_compressed = gfa.GFA.from_gfa(zstd_file)
+
+        # Verify they produce identical graphs
+        self.assertEqual(len(list(graph_uncompressed.nodes())), len(list(graph_compressed.nodes())))
+        self.assertEqual(len(list(graph_uncompressed.edges())), len(list(graph_compressed.edges())))
+
+    def test_read_xz_file(self):
+        """Test reading xz-compressed GFA files."""
+        gfa_file = "data/sample1.gfa"
+        xz_file = "data/sample1.gfa.xz"
+
+        # Skip if xz file doesn't exist
+        if not os.path.exists(xz_file):
+            self.skipTest(f"XZ file {xz_file} not found")
+
+        # Read both uncompressed and xz-compressed versions
+        graph_uncompressed = gfa.GFA.from_gfa(gfa_file)
+        graph_compressed = gfa.GFA.from_gfa(xz_file)
+
+        # Verify they produce identical graphs
+        self.assertEqual(len(list(graph_uncompressed.nodes())), len(list(graph_compressed.nodes())))
+        self.assertEqual(len(list(graph_uncompressed.edges())), len(list(graph_compressed.edges())))
+
     def test_invalid_gzipped_file(self):
         """Test error handling for invalid gzip files."""
+        import gzip as gzip_module
+
         # Create fake .gz file with regular content
         fake_gzipped = "data/fake.gfa.gz"
         with open(fake_gzipped, "w") as f:
             f.write("H\tVN:Z:1.0\n")
 
         try:
-            with self.assertRaises(ValueError) as context:
+            with self.assertRaises(gzip_module.BadGzipFile) as context:
                 gfa.GFA.from_gfa(fake_gzipped)
-            self.assertIn("not a valid gzip file", str(context.exception))
+            self.assertIn("Not a gzipped file", str(context.exception))
         finally:
             if os.path.exists(fake_gzipped):
                 os.unlink(fake_gzipped)
