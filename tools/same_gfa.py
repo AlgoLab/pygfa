@@ -3,17 +3,18 @@ import os
 
 # Add the project root to the Python path to ensure imports work correctly
 # Assuming the script is located in 'tools/' and 'pygfa/' is in the root
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from pygfa.gfa import GFA
+from pygfa.gfa import GFA  # noqa: E402
+
 
 def main():
     """
     Compares two GFA files to determine if they represent the same graph structure,
     ignoring differences in element IDs.
-    
+
     Usage: python same_gfa.py <file1.gfa> <file2.gfa>
     """
     if len(sys.argv) != 3:
@@ -35,7 +36,7 @@ def main():
         # Load the first GFA file
         print(f"Loading {file1_path}...")
         gfa1 = GFA.from_file(file1_path)
-        
+
         # Load the second GFA file
         print(f"Loading {file2_path}...")
         gfa2 = GFA.from_file(file2_path)
@@ -53,6 +54,7 @@ def main():
     except Exception as e:
         print(f"An error occurred: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

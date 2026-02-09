@@ -1,4 +1,3 @@
-import sys
 
 import pygfa
 import networkx as nx

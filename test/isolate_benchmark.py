@@ -4,7 +4,6 @@ Isolate benchmark functionality in test directory to make it self-contained.
 """
 
 import os
-import sys
 
 
 def copy_benchmark_functions():

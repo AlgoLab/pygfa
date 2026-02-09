@@ -591,10 +591,6 @@ class GFA:
         """Interface to networx edges iterator."""
         return iter(self._graph.edges(nbunch=nbunch, data=data, keys=keys, default=default))
 
-    def nodes_iter(self, data=False, with_sequence=False):
-        """Interface to networx nodes iterator."""
-        return iter(self._graph.nodes(data=data))
-
     def add_subgraph(self, subgraph, safe=False):
         """Add a Subgraph object to the graph.
 
@@ -604,9 +600,6 @@ class GFA:
         if isinstance(subgraph, str):
             if subgraph[0] == "P":
                 subgraph = sg.Subgraph.from_line(path.Path.from_string(subgraph))
-            elif subgraph[0] == "O":
-                subgraph = sg.Subgraph.from_line(group.OGroup.from_string(subgraph))
-
             else:
                 raise sg.InvalidSubgraphError(
                     f"The string given cannot be represented as a subgraph,\ngiven: {subgraph}"

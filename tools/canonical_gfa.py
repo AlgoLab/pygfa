@@ -24,8 +24,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from pygfa.gfa import GFA
-from pygfa.graph_element.parser import header, segment, link, containment, path, line
+from pygfa.gfa import GFA  # noqa: E402
 
 
 def parse_gfa_file(filepath):
@@ -55,13 +54,9 @@ Examples:
 
     parser.add_argument("input_file", help="Input GFA file")
 
-    parser.add_argument(
-        "output_file", nargs="?", help="Output GFA file (optional, defaults to stdout)"
-    )
+    parser.add_argument("output_file", nargs="?", help="Output GFA file (optional, defaults to stdout)")
 
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Print verbose output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
 
     args = parser.parse_args()
 
@@ -78,7 +73,7 @@ Examples:
         gfa = parse_gfa_file(args.input_file)
 
         if args.verbose:
-            print(f"Successfully parsed GFA file")
+            print("Successfully parsed GFA file")
             print()
 
         # Use the to_gfa method to write canonical version
@@ -86,12 +81,12 @@ Examples:
 
         # Write the output
         if args.output_file:
-            with open(args.output_file, 'w') as f:
+            with open(args.output_file, "w") as f:
                 f.write(canonical_gfa_string)
-            line_count = canonical_gfa_string.count('\n') + 1
+            line_count = canonical_gfa_string.count("\n") + 1
         else:
             print(canonical_gfa_string)
-            line_count = canonical_gfa_string.count('\n') + 1
+            line_count = canonical_gfa_string.count("\n") + 1
 
         if not args.verbose:
             if args.output_file:

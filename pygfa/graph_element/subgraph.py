@@ -47,9 +47,7 @@ class Subgraph:
             opt_fields = {}
         if not isinstance(graph_id, str):
             raise InvalidSubgraphError(
-                "A subgraph has always an id "
-                "of type string, "
-                f"given {graph_id} of type {type(graph_id)}"
+                f"A subgraph has always an id of type string, given {graph_id} of type {type(graph_id)}"
             )
         if not isinstance(elements, dict):
             raise InvalidSubgraphError("A dictionary of elements id:orientation is required.")
@@ -85,23 +83,19 @@ class Subgraph:
             if line_.type == "P":
                 fields.pop("path_name")
                 fields.pop("seqs_names")
-                names = collections.OrderedDict(
-                    (ref[0:-1], ref[-1:]) for ref in line_.fields["seqs_names"].value
-                )
+                names = collections.OrderedDict((ref[0:-1], ref[-1:]) for ref in line_.fields["seqs_names"].value)
                 return Subgraph(line_.fields["path_name"].value, names, fields)
             if line_.type == "O":
                 fields.pop("oid")
                 fields.pop("references")
-                refs = collections.OrderedDict(
-                    (ref[0:-1], ref[-1:]) for ref in line_.fields["references"].value
-                )
+                refs = collections.OrderedDict((ref[0:-1], ref[-1:]) for ref in line_.fields["references"].value)
                 return Subgraph(line_.fields["oid"].value, refs, fields)
             if line_.type == "U":
                 fields.pop("uid")
                 fields.pop("ids")
                 ids = collections.OrderedDict((id, None) for id in line_.fields["ids"].value)
                 return Subgraph(line_.fields["uid"].value, ids, fields)
-            raise line.InvalidLineError(f"The given line type '{line_.type}' cannot be a Subgraph.")
+            return None
         except (KeyError, AttributeError) as err:
             raise line.InvalidLineError(f"The given line cannot be a Subgraph: {err}") from err
 

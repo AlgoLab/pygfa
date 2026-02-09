@@ -7,7 +7,8 @@ sys.path.insert(0, "../")
 
 from pygfa.graph_element import node, edge as graph_edge, subgraph
 from pygfa.graph_element.parser import segment, link, path, containment
-from pygfa.graph_element.parser import fragment, edge, gap, group
+
+# GFA2 modules removed: fragment, edge, gap, group
 from pygfa.graph_element.parser import line
 
 
@@ -126,7 +127,7 @@ class TestGraphElement(unittest.TestCase):
             node.Node.from_line(fault_line)
 
         # inserting a wrong field to opt_fields
-        seg = segment.SegmentV2.from_string("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
+        seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         seg.fields["wrong_field"] = 42
         self.assertTrue("wrong_field" in seg.fields)
         node_ = node.Node.from_line(seg)
@@ -138,6 +139,7 @@ class TestGraphElement(unittest.TestCase):
         with self.assertRaises(node.InvalidNodeError):
             node.Node("3", "3", "acgt acgt")
 
+    @unittest.skip("GFA2 edge module removed")
     def test_edge(self):
         edge_ = graph_edge.Edge.from_line(
             edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test")
@@ -291,11 +293,11 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(node_.sequence == seg.fields["sequence"].value)
         self.assertTrue(node_.opt_fields["RC"].value == seg.fields["RC"].value)
 
-        seg = segment.SegmentV2.from_string("S\t3\t21\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
+        seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         node_ = node.Node.from_line(seg)
 
-        self.assertTrue(node_.nid == seg.fields["sid"].value)
-        self.assertTrue(node_.slen == seg.fields["slen"].value)
+        self.assertTrue(node_.nid == seg.fields["name"].value)
+        self.assertTrue(node_.slen == len(seg.fields["sequence"].value))
         self.assertTrue(node_.sequence == seg.fields["sequence"].value)
         self.assertTrue(node_.opt_fields["RC"].value == seg.fields["RC"].value)
 
@@ -340,6 +342,7 @@ class TestGraphElement(unittest.TestCase):
         ed = graph_edge.Edge.from_line(line)
         self.assertTrue(ed.eid == "a_to_b")
 
+    @unittest.skip("GFA2 fragment module removed")
     def test_edge_from_fragment(self):
         line = fragment.Fragment.from_string("F\t12\t2-\t0\t140$\t0\t140\t11M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
@@ -357,6 +360,7 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(ed.opt_fields["ui"].value == "test")
         self.assertTrue(ed.opt_fields["ab"].value == "another_test")
 
+    @unittest.skip("GFA2 edge module removed")
     def test_edge_from_edge(self):
         line = edge.Edge.from_string("E\t*\t23-\t16+\t0\t11\t0\t11\t11M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
@@ -374,6 +378,7 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(ed.opt_fields["ui"].value == "test")
         self.assertTrue(ed.opt_fields["ab"].value == "another_test")
 
+    @unittest.skip("GFA2 gap module removed")
     def test_edge_from_gap(self):
         line = gap.Gap.from_string("G\tg\tA+\tB-\t1000\t*\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
@@ -399,6 +404,7 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue([u + v for u, v in sb.elements.items()] == line.fields["seqs_names"].value)
         self.assertTrue(sb.opt_fields["overlaps"].value == line.fields["overlaps"].value)
 
+    @unittest.skip("GFA2 group module removed")
     def test_subgraph_from_ogroup(self):
         line = group.OGroup.from_string("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
         sb = subgraph.Subgraph.from_line(line)
@@ -407,6 +413,7 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue([u + v for u, v in sb.elements.items()] == line.fields["references"].value)
         self.assertTrue(sb.opt_fields["xx"].value == line.fields["xx"].value)
 
+    @unittest.skip("GFA2 group module removed")
     def test_subgraph_from_ugroup(self):
         line = group.UGroup.from_string("U\t16sub\t2 3\txx:i:-1")
         sb = subgraph.Subgraph.from_line(line)
