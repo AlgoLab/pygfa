@@ -178,13 +178,13 @@ class TestLine(unittest.TestCase):
 
     @unittest.skip("API changed: Validation moved to different layer")
     def test_invalid_line(self):
-        l = line.Line("S")
+        line_obj = line.Line("S")
         with self.assertRaises(line.InvalidLineError):
-            l.add_field(line.Field("aa", "test"))
+            line_obj.add_field(line.Field("aa", "test"))
         with self.assertRaises(line.InvalidLineError):
-            l.add_field(line.Field("", "test"))
+            line_obj.add_field(line.Field("", "test"))
         with self.assertRaises(line.InvalidLineError):
-            l.add_field(line.Field("a", "test"))
+            line_obj.add_field(line.Field("a", "test"))
 
     @unittest.skip("API changed: Field validation behavior updated")
     def test_is_field(self):
@@ -263,19 +263,19 @@ class TestLine(unittest.TestCase):
 
     @unittest.skip("API changed: Field validation behavior updated")
     def test_Link(self):
-        l = link.Link.from_string("L\tfrom_id\t+\tto_id\t-\t100M")
-        self.assertEqual(l.type, "L")
-        self.assertEqual(l.fields["from"].value, "from_id")
-        self.assertEqual(l.fields["from_orn"].value, "+")
-        self.assertEqual(l.fields["to"].value, "to_id")
-        self.assertEqual(l.fields["to_orn"].value, "-")
-        self.assertEqual(l.fields["overlap"].value, "100M")
-        self.assertTrue(link.Link.is_valid(l))
+        link_obj = link.Link.from_string("L\tfrom_id\t+\tto_id\t-\t100M")
+        self.assertEqual(link_obj.type, "L")
+        self.assertEqual(link_obj.fields["from"].value, "from_id")
+        self.assertEqual(link_obj.fields["from_orn"].value, "+")
+        self.assertEqual(link_obj.fields["to"].value, "to_id")
+        self.assertEqual(link_obj.fields["to_orn"].value, "-")
+        self.assertEqual(link_obj.fields["overlap"].value, "100M")
+        self.assertTrue(link.Link.is_valid(link_obj))
 
         # test with optional fields
-        l = link.Link.from_string("L\ta\t+\tb\t-\t100M\tFC:i:123\tFC:Z:test")
-        self.assertEqual(l.fields["FC"].value, 123)
-        self.assertEqual(l.fields["FC_1"].value, "test")
+        link_obj2 = link.Link.from_string("L\ta\t+\tb\t-\t100M\tFC:i:123\tFC:Z:test")
+        self.assertEqual(link_obj2.fields["FC"].value, 123)
+        self.assertEqual(link_obj2.fields["FC_1"].value, "test")
 
     def test_Containment(self):
         c = containment.Containment.from_string("C\tcontainer\t+\tcontained\t-\t10\t5M")

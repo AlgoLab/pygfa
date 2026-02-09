@@ -10,7 +10,6 @@ ambiguity codes (N, R, Y, etc.) via an exception table.
 
 from __future__ import annotations
 
-import struct
 from collections.abc import Callable
 
 # 2-bit encoding: A=00, C=01, G=10, T=11

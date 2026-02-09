@@ -11,7 +11,6 @@ within a string to avoid expansion on non-repetitive data.
 
 from __future__ import annotations
 
-import struct
 from collections.abc import Callable
 
 # Minimum run length to encode as RLE (shorter runs use raw encoding)
@@ -48,7 +47,6 @@ def compress_string_rle(string: str) -> bytes:
     i = 0
     while i < len(data):
         # Count run length
-        run_start = i
         current_char = data[i]
         run_length = 1
 
@@ -63,7 +61,6 @@ def compress_string_rle(string: str) -> bytes:
             i += run_length
         else:
             # Collect raw bytes until we hit another run
-            raw_start = i
             raw_bytes = bytearray()
 
             while i < len(data):
