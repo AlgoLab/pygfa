@@ -1,5 +1,4 @@
 import os
-import re
 
 
 def fix_critical_imports():

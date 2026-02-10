@@ -72,7 +72,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             len(names_data),  # uncompressed_len_name
         )
 
-        # Combine header and data
+        # Combine header and data - cigars first, then names
         bgfa_data = header + cigars_data + names_data
 
         paths, bytes_read = self.reader._parse_paths_blocks(bgfa_data, {}, [], 0)

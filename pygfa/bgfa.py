@@ -1691,11 +1691,10 @@ class ReaderBGFA:
         offset += 2
         compressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
-        offset += 8
+        offset += 8  # Skip uncompressed_len_cigar
         compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8  # Skip uncompressed_len_name
         offset += 8
 
         # Extract compressed payloads - order: cigars first, then names
@@ -1766,15 +1765,13 @@ class ReaderBGFA:
         offset += 2
         compressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
-        offset += 8
+        offset += 8  # Skip uncompressed_len_sam
         compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
-        offset += 8
+        offset += 8  # Skip uncompressed_len_seq
         compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8  # Skip uncompressed_len_walk
         offset += 8
 
         # Extract and decompress payloads

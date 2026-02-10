@@ -3,11 +3,28 @@ import sys
 import tempfile
 import os
 import subprocess
+from pathlib import Path
 
 sys.path.insert(0, "../")
 
 
-class TestCanonicalGFA(unittest.TestCase):
+class TestToolsBase(unittest.TestCase):
+    """Base class for tool tests with proper temp file handling."""
+
+    def setUp(self):
+        """Set up test output directory."""
+        # Create output directory for this test class
+        self.test_output_dir = Path("results/test/tools")
+        self.test_output_dir.mkdir(parents=True, exist_ok=True)
+
+    def get_temp_file(self, suffix=".tmp"):
+        """Create a temporary file in the test output directory."""
+        fd, path = tempfile.mkstemp(suffix=suffix, dir=str(self.test_output_dir))
+        os.close(fd)
+        return path
+
+
+class TestCanonicalGFA(TestToolsBase):
     """Test canonical GFA tool."""
 
     def test_canonical_gfa_help(self):
@@ -23,7 +40,7 @@ class TestCanonicalGFA(unittest.TestCase):
             self.skipTest("canonical_gfa.py not available or timeout")
 
 
-class TestPrettifyGFA(unittest.TestCase):
+class TestPrettifyGFA(TestToolsBase):
     """Test prettify GFA tool."""
 
     def test_prettify_gfa_basic(self):
@@ -32,9 +49,9 @@ class TestPrettifyGFA(unittest.TestCase):
             # Create a simple GFA file
             gfa_content = "H\tVN:Z:1.0\nS\ts1\tATGC\nL\ts1\t+\ts2\t-\t4M\n"
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
+            temp_file = self.get_temp_file(suffix=".gfa")
+            with open(temp_file, "w") as f:
                 f.write(gfa_content)
-                temp_file = f.name
 
             # Run prettify tool
             result = subprocess.run(
@@ -65,7 +82,7 @@ class TestPrettifyGFA(unittest.TestCase):
             self.skipTest("prettify_gfa.py not available or timeout")
 
 
-class TestSameGFA(unittest.TestCase):
+class TestSameGFA(TestToolsBase):
     """Test same_gfa comparison tool."""
 
     def test_same_gfa_help(self):
@@ -87,13 +104,13 @@ class TestSameGFA(unittest.TestCase):
             # Create two identical GFA files
             gfa_content = "H\tVN:Z:1.0\nS\ts1\tATGC\n"
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f1:
-                f1.write(gfa_content)
-                temp_file1 = f1.name
+            temp_file1 = self.get_temp_file(suffix=".gfa")
+            temp_file2 = self.get_temp_file(suffix=".gfa")
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f2:
+            with open(temp_file1, "w") as f1:
+                f1.write(gfa_content)
+            with open(temp_file2, "w") as f2:
                 f2.write(gfa_content)
-                temp_file2 = f2.name
 
             # Run same_gfa tool
             result = subprocess.run(
@@ -118,13 +135,13 @@ class TestSameGFA(unittest.TestCase):
             gfa1 = "H\tVN:Z:1.0\nS\ts1\tATGC\n"
             gfa2 = "H\tVN:Z:1.0\nS\ts1\tGCTA\n"  # Different sequence
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f1:
-                f1.write(gfa1)
-                temp_file1 = f1.name
+            temp_file1 = self.get_temp_file(suffix=".gfa")
+            temp_file2 = self.get_temp_file(suffix=".gfa")
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f2:
+            with open(temp_file1, "w") as f1:
+                f1.write(gfa1)
+            with open(temp_file2, "w") as f2:
                 f2.write(gfa2)
-                temp_file2 = f2.name
 
             # Run same_gfa tool
             result = subprocess.run(
@@ -143,7 +160,7 @@ class TestSameGFA(unittest.TestCase):
             self.skipTest("same_gfa.py not available or timeout")
 
 
-class TestToolsIntegration(unittest.TestCase):
+class TestToolsIntegration(TestToolsBase):
     """Integration tests for tools."""
 
     def test_tool_error_handling(self):
@@ -152,9 +169,9 @@ class TestToolsIntegration(unittest.TestCase):
             # Test with invalid GFA syntax
             invalid_gfa = "This is not a GFA file\n"
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
+            temp_file = self.get_temp_file(suffix=".gfa")
+            with open(temp_file, "w") as f:
                 f.write(invalid_gfa)
-                temp_file = f.name
 
             # Test each tool with invalid input
             tools_to_test = [
@@ -191,9 +208,9 @@ class TestToolsIntegration(unittest.TestCase):
 
             large_gfa = "H\tVN:Z:1.0\n" + "".join(segments)
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
+            temp_file = self.get_temp_file(suffix=".gfa")
+            with open(temp_file, "w") as f:
                 f.write(large_gfa)
-                temp_file = f.name
 
             # Test prettify with larger file
             result = subprocess.run(
@@ -214,7 +231,7 @@ class TestToolsIntegration(unittest.TestCase):
             self.skipTest("Tool timeout or not available")
 
 
-class TestToolAvailability(unittest.TestCase):
+class TestToolAvailability(TestToolsBase):
     """Test that tools are available and executable."""
 
     def test_tools_exist(self):
