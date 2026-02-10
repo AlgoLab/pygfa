@@ -1737,17 +1737,26 @@ class GFA:
         return g
 
     @classmethod
-    def from_file(cls, filepath, **kwargs):
-        """Alias for from_gfa() to maintain compatibility.
+    def from_file(cls, filepath: str, **kwargs) -> "GFA":
+        """Load a GFA graph from a file, auto-detecting format from extension.
 
-        Args:
-            filepath: Path to GFA file
-            **kwargs: Additional arguments (passed to from_gfa)
+        Supports both text GFA (plain, gzip, zstd, xz) and binary BGFA formats.
 
-        Returns:
-            GFA object
+        :param filepath: Path to a .gfa, .gfa.gz, .gfa.zst, .gfa.xz, or .bgfa file.
+        :param kwargs: Passed to the underlying reader (e.g. verbose, debug, logfile for BGFA).
+        :return: GFA graph object.
         """
-        return cls.from_gfa(filepath, **kwargs)
+        # Strip compression suffixes to expose the base format extension
+        name = filepath
+        for suffix in (".gz", ".zst", ".zstd", ".xz"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+
+        if name.endswith(".bgfa"):
+            return cls.from_bgfa(filepath, **kwargs)
+        else:
+            return cls.from_gfa(filepath)
 
     def pprint(self):
         """Pretty print the entire GFA graph, including all attributes."""
