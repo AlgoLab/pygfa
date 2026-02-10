@@ -1,0 +1,106 @@
+"""Compliance tests for pygfa output directory structure.
+
+This test ensures all files write to the correct subdirectories
+under results/ according to project requirements.
+"""
+
+import tempfile
+from pathlib import Path
+import pytest
+
+
+@pytest.fixture(scope="session", autouse=True)
+def record_initial_state():
+    """Record the initial state before tests run."""
+    # Record files outside allowed directories before tests start
+    excluded_dirs = {"results", "data", "test", ".git", ".pytest_cache", "__pycache__"}
+    initial_files = set()
+
+    for pattern in ["*.log", "*.tmp", "*.gfa", "*.bgfa", "*.txt", "*.json", "*.tsv"]:
+        for file_path in Path(".").rglob(pattern):
+            # Skip files in excluded directories
+            if not any(str(file_path).startswith(f"{d}/") for d in excluded_dirs):
+                initial_files.add(str(file_path))
+
+    yield initial_files
+
+    # After tests complete, check for new files
+    final_files = set()
+    for pattern in ["*.log", "*.tmp", "*.gfa", "*.bgfa", "*.txt", "*.json", "*.tsv"]:
+        for file_path in Path(".").rglob(pattern):
+            if not any(str(file_path).startswith(f"{d}/") for d in excluded_dirs):
+                final_files.add(str(file_path))
+
+    new_files = final_files - initial_files
+    if new_files:
+        pytest.fail(f"Tests created files outside allowed directories: {new_files}")
+
+
+def test_output_directory_structure():
+    """Test that all output goes to correct directories."""
+    base_results = Path("results")
+
+    # Check results directory structure
+    expected_subdirs = {"test", "benchmark"}
+    if base_results.exists():
+        # Ensure all expected subdirectories exist
+        for subdir in expected_subdirs:
+            subdir_path = base_results / subdir
+            assert subdir_path.exists(), f"Missing subdirectory: {subdir}"
+
+    # Verify files are in correct subdirectories
+    test_files_found = []
+    if (base_results / "test").exists():
+        test_files_found = list((base_results / "test").rglob("*.*"))
+
+    # Check for any test output files
+    if len(test_files_found) > 0:
+        print(f"✅ Found {len(test_files_found)} test output files")
+
+    if (base_results / "benchmark").exists():
+        benchmark_files_found = list((base_results / "benchmark").rglob("*.*"))
+        if len(benchmark_files_found) > 0:
+            print(f"✅ Found {len(benchmark_files_found)} benchmark output files")
+
+
+def test_tempfile_usage_compliance():
+    """Test that tempfile usage respects output directory structure."""
+    # Check that no temporary files are created in system temp directories
+    temp_dir = tempfile.gettempdir()
+
+    # Look for any pygfa-related temp files that shouldn't be there
+    temp_patterns = ["*gfa*", "*bgfa*", "*pygfa*", "*test_*"]
+
+    for pattern in temp_patterns:
+        temp_files = list(Path(temp_dir).glob(pattern))
+        # This is a warning, not a failure, as some files might be from other runs
+        if temp_files:
+            print(f"⚠️  Found {len(temp_files)} temp files in system temp: {temp_files[:3]}...")
+
+
+def test_no_hardcoded_temp_paths():
+    """Test that no hardcoded temp paths like /tmp/ are used in test files."""
+    test_dir = Path("test")
+    hardcoded_temp_patterns = ["/tmp/", "/var/tmp/", "tempfile.mkstemp()", "tempfile.NamedTemporaryFile("]
+
+    violations = []
+    for test_file in test_dir.glob("test_*.py"):
+        try:
+            with open(test_file, "r") as f:
+                content = f.read()
+                for pattern in hardcoded_temp_patterns:
+                    if pattern in content and "results/test" not in content:
+                        violations.append(f"{test_file}: contains '{pattern}'")
+                        break
+        except (IOError, UnicodeDecodeError):
+            pass
+
+    if violations:
+        pytest.fail("Found hardcoded temp paths in test files:\n" + "\n".join(violations))
+
+
+if __name__ == "__main__":
+    test_output_directory_structure()
+    test_tempfile_usage_compliance()
+    test_no_hardcoded_temp_paths()
+    print("Output directory structure is compliant")

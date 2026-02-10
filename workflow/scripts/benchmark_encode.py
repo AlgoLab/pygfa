@@ -2,7 +2,7 @@
 """
 Benchmark BGFA encoding: GFA -> BGFA with timing.
 
-This script is called by Snakemake and uses the snakemake object to access:
+This script is called by Snakemake and uses snakemake object to access:
 - snakemake.input.gfa: Input GFA file path
 - snakemake.output.bgfa: Output BGFA file path
 - snakemake.output.time: Output file for encoding time
@@ -17,17 +17,19 @@ import time
 import sys
 import os
 
+from pygfa.utils.output_manager import OutputManager
+
 # Access Snakemake variables
-gfa_path = snakemake.input.gfa
-bgfa_path = snakemake.output.bgfa
-time_file = snakemake.output.time
+# noqa: F821  # snakemake provides these variables at runtime
+gfa_path = snakemake.input.gfa  # type: ignore  # noqa: F821
+bgfa_path = snakemake.output.bgfa  # type: ignore  # noqa: F821
+time_file = snakemake.output.time  # type: ignore  # noqa: F821
 
-int_flag = snakemake.params.int_flag
-str_flag = snakemake.params.str_flag
+int_flag = snakemake.params.int_flag  # type: ignore  # noqa: F821
+str_flag = snakemake.params.str_flag  # type: ignore  # noqa: F821
 
-# Ensure output directory exists
-os.makedirs(os.path.dirname(bgfa_path), exist_ok=True)
-os.makedirs(os.path.dirname(time_file), exist_ok=True)
+output_mgr = OutputManager()
+os.makedirs(output_mgr.ensure_dir(os.path.dirname(bgfa_path)), exist_ok=True)
 
 # Measure GFA file size before encoding
 gfa_bytes = os.path.getsize(gfa_path)

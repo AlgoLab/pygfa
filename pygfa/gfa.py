@@ -108,11 +108,11 @@ class GFA:
             raise GFAError(f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead.")
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs = {}
-        self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
         self._segment_map = {}
         self._paths = {}  # New attribute to store paths
         self._walks = {}  # New attribute to store walks
         self._header_info = {}  # Store BGFA header information
+        self._next_virtual_id = 0 if base_graph is None else self._find_max_virtual_id()
 
         # Initialize segment map from base_graph if provided
         if base_graph is not None and hasattr(base_graph, "_segment_map"):
@@ -183,11 +183,6 @@ class GFA:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._paths.keys():
-            match = regexp.fullmatch(key)
-            if match:
-                virtual_keys.append(int(match.group(1)))
-
-        for key in self._walks.keys():
             match = regexp.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))

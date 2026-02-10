@@ -12,8 +12,8 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from pygfa.gfa import GFA
-from test_utils import should_run_test_for_gfa
+from pygfa.gfa import GFA  # noqa: E402  # Needs sys.path setup first
+from test_utils import should_run_test_for_gfa  # noqa: E402  # Needs sys.path setup first
 
 # Import pytest with fallback for when it's not available
 try:
@@ -51,7 +51,14 @@ def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict 
     if compression_options is None:
         compression_options = {}
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
+    # Use results/test directory for temporary files
+    import tempfile
+    import os
+
+    # Create temporary files in results/test/bgfa_roundtrip
+    os.makedirs("results/test/bgfa_roundtrip", exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False, dir="results/test/bgfa_roundtrip") as f:
         f.write(gfa_text)
         gfa_path = f.name
 
@@ -73,7 +80,7 @@ def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: 
     if compression_options is None:
         compression_options = {}
 
-    bgfa_path = tempfile.mktemp(suffix=".bgfa")
+    bgfa_path = tempfile.mktemp(suffix=".bgfa", dir="results/test/bgfa_roundtrip")
 
     try:
         g = GFA.from_gfa(gfa_path)

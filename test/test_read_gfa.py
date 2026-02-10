@@ -62,16 +62,22 @@ class TestPPrint(unittest.TestCase):
     @unittest.skip("Pretty-print format changed - needs expected file update")
     def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file("data/example_1.gfa", "results/example_1.txt")
+        self._test_pprint_output_matches_expected_file(
+            "data/example_1.gfa", "results/test/read_gfa/expected/example_1.txt"
+        )
 
     @unittest.skip("Pretty-print format changed - needs expected file update")
     def test_pprint_output_matches_expected_file_2(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file("data/example_2.gfa", "results/example_2.txt")
+        self._test_pprint_output_matches_expected_file(
+            "data/example_2.gfa", "results/test/read_gfa/expected/example_2.txt"
+        )
 
     def test_pprint_output_matches_expected_file_3(self):
         """Test that pprint output matches expected file content."""
-        self._test_pprint_output_matches_expected_file("data/example_3.gfa", "results/example_3.txt")
+        self._test_pprint_output_matches_expected_file(
+            "data/example_3.gfa", "results/test/read_gfa/expected/example_3.txt"
+        )
 
     def test_read_gzipped_file(self):
         """Test reading gzipped GFA files."""

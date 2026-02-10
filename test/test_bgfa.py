@@ -12,8 +12,8 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from pygfa.gfa import GFA
-from test_utils import should_run_test_for_gfa
+from pygfa.gfa import GFA  # noqa: E402  # Needs sys.path setup first
+from test_utils import should_run_test_for_gfa  # noqa: E402  # Needs sys.path setup first
 
 # Import encoding constants from bgfa module
 try:
@@ -162,8 +162,7 @@ def gfa_file_path(request):
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
 def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding):
-    """
-    Regression test that receives a gfa filename and:
+    """Regression test that receives a gfa filename and:
     1. reads the gfa file to obtain a graph g
     2. writes the graph g to a bgfa file with specified encoding strategies
     3. reads the bgfa file to obtain a graph h
@@ -182,7 +181,9 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
 
     # 2. write the graph g to a bgfa file
     # Create results directory if it doesn't exist
-    results_dir = "results"
+    import os  # Fix for ruff F823 error
+
+    results_dir = "results/test/bgfa"
     os.makedirs(results_dir, exist_ok=True)
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", f"_{encoding_name}.bgfa")
     bgfa_path = os.path.join(results_dir, bgfa_filename)
@@ -211,7 +212,8 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
         h = GFA.from_bgfa(bgfa_path, verbose=False, debug=False, logfile=None)
     except Exception as e:
         # Print the bgfa_path to a log file for debugging
-        log_file = "/tmp/bgfa_error.log"
+        os.makedirs("results/test/bgfa", exist_ok=True)
+        log_file = "results/test/bgfa/error.log"
         with open(log_file, "a") as f:
             f.write(f"Error reading BGFA file: {bgfa_path} with encoding {encoding_name}\n")
             f.write(f"Error: {e}\n")

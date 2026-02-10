@@ -15,5 +15,6 @@ __all__ = [
     "bgfa",
     "gfa",
     "nodes_connected_component",
-    "nodes_connected_componentsto_bgfa",
+    "nodes_connected_components",
+    "to_bgfa",
 ]
