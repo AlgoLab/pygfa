@@ -239,9 +239,13 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
     # For now, just check that both graphs have the same number of elements
     # This is a temporary measure until BGFA reading/writing is fully implemented
     if len(g.nodes()) != len(h.nodes()) or len(g.edges()) != len(h.edges()):
-        with open(f"g_pprint_{encoding_name}.txt", "w") as f:
+        import os
+
+        output_dir = "results/test/bgfa"
+        os.makedirs(output_dir, exist_ok=True)
+        with open(f"{output_dir}/g_pprint_{encoding_name}.txt", "w") as f:
             f.write(g_pprint)
-        with open(f"h_pprint_{encoding_name}.txt", "w") as f:
+        with open(f"{output_dir}/h_pprint_{encoding_name}.txt", "w") as f:
             f.write(h_pprint)
         assert False, (
             f"Graph elements count mismatch with encoding {encoding_name}: nodes {len(g.nodes())} vs {len(h.nodes())}, edges {len(g.edges())} vs {len(h.edges())}"

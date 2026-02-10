@@ -247,6 +247,13 @@ def parse_cli_options():
         "--output", "-o", type=str, help="Output file (default: stdout)"
     )
 
+    # measure subcommand
+    measure_parser = subparsers.add_parser(
+        "measure", help="Analyze BGFA file structure and output block statistics to CSV"
+    )
+    measure_parser.add_argument("input_file", help="Path to input BGFA file")
+    measure_parser.add_argument("output_file", help="Path to output CSV file")
+
     # Options common to all commands
     parser.add_argument(
         "--verbose",
@@ -385,6 +392,345 @@ def parse_cli_options():
     return options, compression_options
 
 
+def measure_bgfa(input_file: str, output_file: str):
+    """Analyze BGFA file structure and output block statistics to CSV.
+    
+    :param input_file: Path to input BGFA file
+    :param output_file: Path to output CSV file
+    """
+    import csv
+    import struct
+    import math
+    from pygfa.utils.file_opener import open_gfa_file
+    
+    # Read BGFA file
+    with open_gfa_file(input_file, "rb") as f:
+        bgfa_data = f.read()
+    
+    rows = []
+    offset = 0
+    filename = os.path.basename(input_file)
+    
+    # Parse header
+    header_start = 0
+    
+    # Read version (uint16)
+    version = struct.unpack_from("<H", bgfa_data, offset)[0]
+    offset += 2
+    
+    # Read block_size (uint16)
+    block_size = struct.unpack_from("<H", bgfa_data, offset)[0]
+    offset += 2
+    
+    # Read counts (uint64)
+    s_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+    offset += 8
+    l_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+    offset += 8
+    p_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+    offset += 8
+    w_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+    offset += 8
+    
+    # Read header text (C string)
+    header_text = ""
+    while offset < len(bgfa_data) and bgfa_data[offset] != 0:
+        header_text += chr(bgfa_data[offset])
+        offset += 1
+    offset += 1  # Skip null terminator
+    
+    header_end = offset
+    
+    # Add header row
+    rows.append({
+        "filename": filename,
+        "block_type": "header",
+        "block_index": 0,
+        "block_size": block_size,
+        "record_count": "",
+        "offset_start": header_start,
+        "offset_end": header_end,
+        "size_bytes": header_end - header_start,
+        "compression_ratio": "",
+        "version": version,
+        "s_len": s_len,
+        "l_len": l_len,
+        "p_len": p_len,
+        "w_len": w_len,
+        "header_text": header_text,
+        "encoding_high": "",
+        "encoding_low": "",
+        "compressed_size": "",
+        "uncompressed_size": "",
+    })
+    
+    # Parse segment names blocks
+    num_blocks = math.ceil(s_len / block_size) if block_size > 0 else 0
+    for block_idx in range(num_blocks):
+        block_start = offset
+        
+        # Read block header
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        
+        # Skip payload
+        offset += compressed_len
+        block_end = offset
+        
+        # Calculate compression ratio
+        ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+        
+        # Extract encoding
+        int_encoding = (compression_names >> 8) & 0xFF
+        str_encoding = compression_names & 0xFF
+        
+        rows.append({
+            "filename": filename,
+            "block_type": "segment_names",
+            "block_index": block_idx,
+            "block_size": block_size,
+            "record_count": record_num,
+            "offset_start": block_start,
+            "offset_end": block_end,
+            "size_bytes": block_end - block_start,
+            "compression_ratio": f"{ratio:.4f}",
+            "version": "",
+            "s_len": "",
+            "l_len": "",
+            "p_len": "",
+            "w_len": "",
+            "header_text": "",
+            "encoding_high": f"0x{int_encoding:02x}",
+            "encoding_low": f"0x{str_encoding:02x}",
+            "compressed_size": compressed_len,
+            "uncompressed_size": uncompressed_len,
+        })
+    
+    # Parse segments blocks
+    num_blocks = math.ceil(s_len / block_size) if block_size > 0 else 0
+    for block_idx in range(num_blocks):
+        block_start = offset
+        
+        # Read block header
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compression_str = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        
+        # Skip payload
+        offset += compressed_len
+        block_end = offset
+        
+        # Calculate compression ratio
+        ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+        
+        # Extract encoding
+        int_encoding = (compression_str >> 8) & 0xFF
+        str_encoding = compression_str & 0xFF
+        
+        rows.append({
+            "filename": filename,
+            "block_type": "segments",
+            "block_index": block_idx,
+            "block_size": block_size,
+            "record_count": record_num,
+            "offset_start": block_start,
+            "offset_end": block_end,
+            "size_bytes": block_end - block_start,
+            "compression_ratio": f"{ratio:.4f}",
+            "version": "",
+            "s_len": "",
+            "l_len": "",
+            "p_len": "",
+            "w_len": "",
+            "header_text": "",
+            "encoding_high": f"0x{int_encoding:02x}",
+            "encoding_low": f"0x{str_encoding:02x}",
+            "compressed_size": compressed_len,
+            "uncompressed_size": uncompressed_len,
+        })
+    
+    # Parse links blocks
+    num_blocks = math.ceil(l_len / block_size) if block_size > 0 else 0
+    for block_idx in range(num_blocks):
+        block_start = offset
+        
+        # Read block header
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compression_fromto = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        
+        # Skip payload
+        offset += compressed_len
+        block_end = offset
+        
+        # Calculate compression ratio
+        ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+        
+        # Extract encodings (use fromto for high, cigars low for low as example)
+        int_encoding = (compression_fromto >> 8) & 0xFF
+        str_encoding = compression_cigars & 0xFF
+        
+        rows.append({
+            "filename": filename,
+            "block_type": "links",
+            "block_index": block_idx,
+            "block_size": block_size,
+            "record_count": record_num,
+            "offset_start": block_start,
+            "offset_end": block_end,
+            "size_bytes": block_end - block_start,
+            "compression_ratio": f"{ratio:.4f}",
+            "version": "",
+            "s_len": "",
+            "l_len": "",
+            "p_len": "",
+            "w_len": "",
+            "header_text": "",
+            "encoding_high": f"0x{int_encoding:02x}",
+            "encoding_low": f"0x{str_encoding:02x}",
+            "compressed_size": compressed_len,
+            "uncompressed_size": uncompressed_len,
+        })
+    
+    # Parse paths blocks (if present)
+    if p_len > 0:
+        num_blocks = math.ceil(p_len / block_size) if block_size > 0 else 0
+        for block_idx in range(num_blocks):
+            block_start = offset
+            
+            # Paths have 4 compression codes (uint16 each) + compressed_len + uncompressed_len
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression_paths = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            
+            # Skip payload
+            offset += compressed_len
+            block_end = offset
+            
+            # Calculate compression ratio
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            
+            # Extract encoding
+            int_encoding = (compression_paths >> 8) & 0xFF
+            str_encoding = compression_cigars & 0xFF
+            
+            rows.append({
+                "filename": filename,
+                "block_type": "paths",
+                "block_index": block_idx,
+                "block_size": block_size,
+                "record_count": record_num,
+                "offset_start": block_start,
+                "offset_end": block_end,
+                "size_bytes": block_end - block_start,
+                "compression_ratio": f"{ratio:.4f}",
+                "version": "",
+                "s_len": "",
+                "l_len": "",
+                "p_len": "",
+                "w_len": "",
+                "header_text": "",
+                "encoding_high": f"0x{int_encoding:02x}",
+                "encoding_low": f"0x{str_encoding:02x}",
+                "compressed_size": compressed_len,
+                "uncompressed_size": uncompressed_len,
+            })
+    
+    # Parse walks blocks (if present)
+    if w_len > 0:
+        num_blocks = math.ceil(w_len / block_size) if block_size > 0 else 0
+        for block_idx in range(num_blocks):
+            block_start = offset
+            
+            # Walks have multiple compression codes
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            # Skip sample, hep, seq, start, end compression codes (not used in output)
+            offset += 10  # 5 x uint16
+            compression_walks = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            
+            # Skip payload
+            offset += compressed_len
+            block_end = offset
+            
+            # Calculate compression ratio
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            
+            # Extract encoding
+            int_encoding = (compression_walks >> 8) & 0xFF
+            str_encoding = compression_walks & 0xFF
+            
+            rows.append({
+                "filename": filename,
+                "block_type": "walks",
+                "block_index": block_idx,
+                "block_size": block_size,
+                "record_count": record_num,
+                "offset_start": block_start,
+                "offset_end": block_end,
+                "size_bytes": block_end - block_start,
+                "compression_ratio": f"{ratio:.4f}",
+                "version": "",
+                "s_len": "",
+                "l_len": "",
+                "p_len": "",
+                "w_len": "",
+                "header_text": "",
+                "encoding_high": f"0x{int_encoding:02x}",
+                "encoding_low": f"0x{str_encoding:02x}",
+                "compressed_size": compressed_len,
+                "uncompressed_size": uncompressed_len,
+            })
+    
+    # Write CSV output
+    fieldnames = [
+        "filename", "block_type", "block_index", "block_size", "record_count",
+        "offset_start", "offset_end", "size_bytes", "compression_ratio",
+        "version", "s_len", "l_len", "p_len", "w_len", "header_text",
+        "encoding_high", "encoding_low", "compressed_size", "uncompressed_size",
+    ]
+    
+    with open(output_file, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    
+    print(f"Successfully wrote measurements to {output_file}")
+    print(f"Analyzed {len(rows)} blocks total")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -491,8 +837,18 @@ if __name__ == "__main__":
             print(gfa.to_gfa())
         logger.info("Cat command completed successfully")
 
+    elif options.get("command") == "measure":
+        try:
+            logger.info("Measuring BGFA file: %s", options.get("input_file"))
+            measure_bgfa(options.get("input_file"), options.get("output_file"))
+            logger.info("Measure command completed successfully")
+        except Exception as e:
+            logger.error("Error during measurement: %s", e, exc_info=True)
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
     else:
         # No command specified
-        logger.error("No command specified. Use 'bgfa' or 'cat'.")
+        logger.error("No command specified. Use 'bgfa', 'cat', or 'measure'.")
         print("Error: No command specified. Use 'bgfa' or 'cat'.", file=sys.stderr)
         sys.exit(1)

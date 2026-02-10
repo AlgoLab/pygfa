@@ -154,7 +154,7 @@ STR_ENCODINGS = config.get("str_encodings", [
     "none", "zstd", "gzip", "lzma", "huffman"
 ])
 
-OUTPUT_DIR = config.get("output_dir", "benchmark")
+OUTPUT_DIR = config.get("output_dir", "results/benchmark")
 
 # Helper to map "none" to empty string for bgfatools CLI
 def enc_to_flag(enc):
