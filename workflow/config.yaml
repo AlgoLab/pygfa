@@ -33,4 +33,4 @@ str_encodings:
   - bwt_huffman
 
 # Output directory for benchmark results
-output_dir: benchmark
+output_dir: results/benchmark

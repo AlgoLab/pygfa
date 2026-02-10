@@ -1698,20 +1698,7 @@ class ReaderBGFA:
         uncompressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
 
-        # Extract compressed payloads
-        if compressed_len_name > 0:
-            compressed_names = bgfa_data[offset : offset + compressed_len_name]
-            offset += compressed_len_name
-
-            # Decompress path names
-            try:
-                path_names = self._decompress_string_list(compressed_names, compression_path_names)
-            except Exception as e:
-                logger.warning(f"Failed to decompress path names: {e}")
-                path_names = []
-        else:
-            path_names = []
-
+        # Extract compressed payloads - order: cigars first, then names
         if compressed_len_cigar > 0:
             compressed_cigars = bgfa_data[offset : offset + compressed_len_cigar]
             offset += compressed_len_cigar
@@ -1724,6 +1711,19 @@ class ReaderBGFA:
                 cigar_strings = []
         else:
             cigar_strings = []
+
+        if compressed_len_name > 0:
+            compressed_names = bgfa_data[offset : offset + compressed_len_name]
+            offset += compressed_len_name
+
+            # Decompress path names
+            try:
+                path_names = self._decompress_string_list(compressed_names, compression_path_names)
+            except Exception as e:
+                logger.warning(f"Failed to decompress path names: {e}")
+                path_names = []
+        else:
+            path_names = []
 
         # Parse paths data (stored as walks - sequence of oriented segment IDs)
         paths = []
@@ -1769,6 +1769,8 @@ class ReaderBGFA:
         uncompressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        uncompressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8

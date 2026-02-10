@@ -535,7 +535,7 @@ packages:
 - pypi: ./
   name: pygfa
   version: 0.1.0
-  sha256: 8f0aae1ce3c283602cf0f3795642f9e6f92b72971383ac919569d8a1e5575922
+  sha256: cfcc9f015d9fa4c1704b192f1cde44dee6177c62d696411b5e642a292fe675f8
   requires_dist:
   - networkx>=3.6.1,<4
   - lark>=1.3.1,<2

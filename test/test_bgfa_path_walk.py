@@ -36,10 +36,9 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         """Test parsing empty paths blocks."""
         # Create minimal paths block header with no data
         header = struct.pack(
-            "<HHQQQQQQ",
+            "<HHHQQQQ",
             0,  # record_num
             0x0000,  # compression_path_names
-            0x0000,  # compression_paths
             0x0000,  # compression_cigars
             0,  # compressed_len_cigar
             0,  # uncompressed_len_cigar
@@ -49,7 +48,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
         paths, bytes_read = self.reader._parse_paths_blocks(header, {}, [], 0)
         self.assertEqual(paths, [])
-        self.assertEqual(bytes_read, len(header))
+        self.assertEqual(bytes_read, 38)  # Expected: 38 bytes (2+2+2+8+8+8+8)
 
     def test_parse_paths_blocks_with_data(self):
         """Test parsing paths blocks with actual data."""
@@ -63,10 +62,9 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
         # Create paths block header
         header = struct.pack(
-            "<HHQQQQQQ",
+            "<HHHQQQQ",
             2,  # record_num
             0x0000,  # compression_path_names
-            0x0000,  # compression_paths
             0x0000,  # compression_cigars
             len(cigars_data),  # compressed_len_cigar
             len(cigars_data),  # uncompressed_len_cigar
@@ -90,7 +88,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         """Test parsing empty walks blocks."""
         # Create minimal walks block header with no data
         header = struct.pack(
-            "<HQQQQQQQ",
+            "<HQQQQQQ",
             0,  # record_num
             0,  # compressed_len_sam
             0,  # uncompressed_len_sam
@@ -102,7 +100,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
         walks, bytes_read = self.reader._parse_walks_blocks(header, {}, [], 0)
         self.assertEqual(walks, [])
-        self.assertEqual(bytes_read, len(header))
+        self.assertEqual(bytes_read, 50)  # Expected: 50 bytes (2+8+8+8+8+8+8)
 
     def test_parse_walks_blocks_with_data(self):
         """Test parsing walks blocks with actual data."""
@@ -118,7 +116,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
         # Create walks block header
         header = struct.pack(
-            "<HQQQQQQQ",
+            "<HQQQQQQ",
             2,  # record_num
             len(samples_data),  # compressed_len_sam
             len(samples_data),  # uncompressed_len_sam
@@ -144,8 +142,11 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
     def test_bgfa_reader_with_paths_and_walks(self):
         """Test complete BGFA reader with paths and walks."""
-        # Create a minimal BGFA file with paths and walks
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        # Create output directory
+        output_dir = "results/test/bgfa_path_walk"
+        os.makedirs(output_dir, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:
             # Create BGFA header
             version = 1
             block_size = 1024
@@ -167,10 +168,9 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
             # Paths block header
             paths_header = struct.pack(
-                "<HHQHQHQHQHQ",
+                "<HHHQQQQ",
                 1,  # record_num
                 0x0000,  # compression_path_names
-                0x0000,  # compression_paths
                 0x0000,  # compression_cigars
                 len(cigars_data),  # compressed_len_cigar
                 len(cigars_data),  # uncompressed_len_cigar
@@ -191,7 +191,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
             # Walks block header
             walks_header = struct.pack(
-                "<HQHQHQHQHQ",
+                "<HQQQQQQ",
                 1,  # record_num
                 len(samples_data),  # compressed_len_sam
                 len(samples_data),  # uncompressed_len_sam
@@ -208,10 +208,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             tmp_file_path = tmp_file.name
 
         try:
-            # Read the BGFA file
+            # Read BGFA file
             gfa = self.reader.read_bgfa(tmp_file_path, verbose=True)
 
-            # Verify the GFA object was created
+            # Verify that GFA object was created
             self.assertIsInstance(gfa, GFA)
 
         finally:
