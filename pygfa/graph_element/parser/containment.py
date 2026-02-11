@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 
 from pygfa.graph_element.parser import field_validator as fv
@@ -38,9 +40,7 @@ class Containment(line.Line):
             fields = fields[1:]  # skip the first field(the C)
 
         if len(fields) < len(cls.REQUIRED_FIELDS):
-            raise line.InvalidLineError(
-                "The minimum number of field for " + "Containment line is not reached."
-            )
+            raise line.InvalidLineError("The minimum number of field for " + "Containment line is not reached.")
 
         containment = Containment()
 
