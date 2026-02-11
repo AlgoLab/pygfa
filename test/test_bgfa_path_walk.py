@@ -140,10 +140,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         self.assertEqual(walks[1]["walk"], "walk2")
         self.assertEqual(bytes_read, len(bgfa_data))
 
-    def test_bgfa_reader_with_paths_and_walks(self):
+    def test_bgfa_reader_with_paths_and_walks(self, test_output_dir):
         """Test complete BGFA reader with paths and walks."""
         # Create output directory
-        output_dir = "results/test/bgfa_path_walk"
+        output_dir = str(test_output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
         with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:

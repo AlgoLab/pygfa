@@ -46,7 +46,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 
-def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict = None):
+def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict = None, test_output_dir=None):
     """Write gfa_text to a file, load it, convert to BGFA and back, return (original, roundtrip) GFA objects."""
     if compression_options is None:
         compression_options = {}
@@ -55,10 +55,15 @@ def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict 
     import tempfile
     import os
 
-    # Create temporary files in results/test/bgfa_roundtrip
-    os.makedirs("results/test/bgfa_roundtrip", exist_ok=True)
+    # Create temporary files in test output directory
+    if test_output_dir is None:
+        test_output_dir = "results/test/bgfa_roundtrip"
+    else:
+        test_output_dir = str(test_output_dir)
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False, dir="results/test/bgfa_roundtrip") as f:
+    os.makedirs(test_output_dir, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False, dir=test_output_dir) as f:
         f.write(gfa_text)
         gfa_path = f.name
 
@@ -75,12 +80,17 @@ def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict 
                 os.unlink(p)
 
 
-def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: dict = None):
+def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: dict = None, test_output_dir=None):
     """Load a GFA file, convert to BGFA and back, return (original, roundtrip) GFA objects."""
     if compression_options is None:
         compression_options = {}
 
-    bgfa_path = tempfile.mktemp(suffix=".bgfa", dir="results/test/bgfa_roundtrip")
+    if test_output_dir is None:
+        test_output_dir = "results/test/bgfa_roundtrip"
+    else:
+        test_output_dir = str(test_output_dir)
+
+    bgfa_path = tempfile.mktemp(suffix=".bgfa", dir=test_output_dir)
 
     try:
         g = GFA.from_gfa(gfa_path)
@@ -229,10 +239,10 @@ DATA_FILES_NO_PATHS = _filter_data_files_by_comment(
 class TestDataFileStrictRoundtrip:
     """Full to_gfa() equality for data files that have only segments and links."""
 
-    def test_full_roundtrip(self, gfa_path):
+    def test_full_roundtrip(self, gfa_path, test_output_dir):
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path)
+        g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
         assert g.to_gfa() == h.to_gfa(), f"Round-trip mismatch for {gfa_path}"
 
 
@@ -251,16 +261,16 @@ class TestStructuralRoundtrip:
     Known limitation: paths are not read back from BGFA (reader stub).
     """
 
-    def test_segment_names_match(self, gfa_path):
+    def test_segment_names_match(self, gfa_path, test_output_dir):
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path)
+        g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
         assert sorted(g.nodes()) == sorted(h.nodes())
 
-    def test_segment_sequences_match(self, gfa_path):
+    def test_segment_sequences_match(self, gfa_path, test_output_dir):
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path)
+        g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
         g_data = dict(g.nodes_iter(data=True))
         h_data = dict(h.nodes_iter(data=True))
         for node_id in g.nodes():
@@ -269,11 +279,11 @@ class TestStructuralRoundtrip:
             h_seq = h_data[node_id].get("sequence", "*")
             assert g_seq == h_seq, f"Sequence mismatch for node {node_id}: {g_seq!r} vs {h_seq!r}"
 
-    def test_links_match(self, gfa_path):
+    def test_links_match(self, gfa_path, test_output_dir):
         """Check that links (including orientations) are preserved."""
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path)
+        g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
 
         def _link_set(gfa_obj):
             links = set()

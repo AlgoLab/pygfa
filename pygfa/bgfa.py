@@ -20,6 +20,7 @@ import struct
 import tempfile
 
 from pygfa.utils.file_opener import open_gfa_file
+from pygfa.utils.output_manager import OutputManager
 
 from pygfa.encoding import (
     compress_integer_list_delta,
@@ -1052,10 +1053,17 @@ class ReaderBGFA:
         # Only create log file if we're actually logging something
         if log_level <= logging.INFO:
             if logfile is None:
-                # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
-                logfile = temp_log.name
-                temp_log.close()
+                # Create a temporary log file in appropriate directory
+                try:
+                    # Try to use results directory if available
+                    output_mgr = OutputManager()
+                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"))
+                    logfile = str(temp_log)
+                except Exception:
+                    # Fallback to system temp directory
+                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
+                    logfile = temp_log.name
+                    temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
         # If we're not logging, use a dummy logfile
         elif os.name == "nt":  # Windows
@@ -1866,10 +1874,17 @@ class BGFAWriter:
         # Only create log file if we're actually logging something
         if log_level <= logging.INFO:
             if logfile is None:
-                # Create a temporary log file
-                temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
-                logfile = temp_log.name
-                temp_log.close()
+                # Create a temporary log file in appropriate directory
+                try:
+                    # Try to use results directory if available
+                    output_mgr = OutputManager()
+                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"))
+                    logfile = str(temp_log)
+                except Exception:
+                    # Fallback to system temp directory
+                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
+                    logfile = temp_log.name
+                    temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
         # If we're not logging, use a dummy logfile
         elif os.name == "nt":  # Windows
