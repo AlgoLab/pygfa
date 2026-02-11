@@ -1,102 +1,109 @@
-import copy
-from typing import Any
+"""Node (segment) graph element for pygfa.
 
+Modern dataclass implementation with standardized naming.
+"""
+
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from pygfa.exceptions import InvalidNodeError
 from pygfa.graph_element.parser import field_validator as fv
 from pygfa.graph_element.parser import line, segment
 
 
-class InvalidNodeError(Exception):
-    pass
-
-
 def is_node(obj: Any) -> bool:
-    """Check wheter the given object is a Node object.
+    """Check whether the given object is a Node object.
 
     :param obj: Any Python object.
-    :returns True: If obj can be treated as a Node object.
+    :returns: True if obj can be treated as a Node object.
     """
     try:
-        return obj.nid is not None and obj.sequence is not None and hasattr(obj, "slen") and hasattr(obj, "opt_fields")
+        return (
+            obj.node_id is not None
+            and obj.sequence is not None
+            and hasattr(obj, "sequence_length")
+            and hasattr(obj, "opt_fields")
+        )
     except Exception:
         return False
 
 
+@dataclass(frozen=True, slots=True)
 class Node:
-    """A Node object that abstracts the GFA1 Sequence concept.
+    """Represents a GFA segment (node).
 
     GFA graphs will operate on Nodes, by adding them directly to their
     structures.
+
+    Attributes:
+        node_id: Unique identifier for the node
+        sequence: DNA sequence or "*" for unknown
+        sequence_length: Length of the sequence (None if unknown)
+        opt_fields: Optional fields as dictionary
     """
 
-    def __init__(
-        self,
-        node_id: str,
-        sequence: str,
-        length: int | None,
-        opt_fields: dict[str, line.Field] | None = None,
-    ) -> None:
-        """Construct a Node given an id, a sequence and a length.
+    node_id: str
+    sequence: str
+    sequence_length: Optional[int] = None
+    opt_fields: dict[str, Any] = field(default_factory=dict)
 
-        :param node_id: A node id given in the form of a string.
-        :param sequence: A GFA1 sequence.
-        :param length: The length of the sequence. Can be `None`.
-        :param opt_fields: A dictionary of Field or OptField objects.
-
-        :raises InvalidNodeError: If node_id or sequence are undefined
-            or not valid as the specification states.
-        """
-        if opt_fields is None:
-            opt_fields = {}
-        if not isinstance(node_id, str) or node_id == "*":
+    def __post_init__(self) -> None:
+        """Validate node data after initialization."""
+        # Use object.__setattr__ since dataclass is frozen
+        if not isinstance(self.node_id, str) or self.node_id == "*":
             raise InvalidNodeError(
-                f"A Node has always a defined id of type string, given {node_id} of type {type(node_id)}"
+                f"A Node has always a defined id of type string, given {self.node_id} of type {type(self.node_id)}"
             )
 
-        # checks sequence validation against GFA1 sequence specification
-        if not (isinstance(sequence, str) and fv.is_valid(sequence, fv.GFA1_SEQUENCE)):
+        # Validate sequence
+        if not (isinstance(self.sequence, str) and fv.is_valid(self.sequence, fv.GFA1_SEQUENCE)):
             raise InvalidNodeError(
                 "A sequence must be of type string and must be a "
-                "valid GFA1 sequence,"
-                f"given '{sequence}' of type {type(sequence)}"
+                f"valid GFA1 sequence, given '{self.sequence}' of type {type(self.sequence)}"
             )
 
-        if not ((isinstance(length, int) and int(length) >= 0) or length is None):
-            raise InvalidNodeError(f"Sequence length must be a number >= 0, given {length} of type {type(length)}")
-        self._nid = node_id
-        self._sequence = sequence
-        self._slen = length
-        self._opt_fields = {}
-        for key, field in opt_fields.items():
-            if line.is_field(field):
-                self._opt_fields[key] = copy.deepcopy(field)
+        # Validate length
+        if not (
+            (isinstance(self.sequence_length, int) and int(self.sequence_length) >= 0) or self.sequence_length is None
+        ):
+            raise InvalidNodeError(
+                f"Sequence length must be a number >= 0, "
+                f"given {self.sequence_length} of type {type(self.sequence_length)}"
+            )
 
     @property
     def nid(self) -> str:
-        return self._nid
+        """Return node ID (deprecated alias, use node_id)."""
+        return self.node_id
 
     @property
-    def sequence(self) -> str:
-        return self._sequence
+    def id(self) -> str:
+        """Return node ID (alias for node_id)."""
+        return self.node_id
 
     @property
-    def slen(self) -> int | None:
-        return self._slen
+    def seq(self) -> str:
+        """Return sequence (alias for sequence)."""
+        return self.sequence
 
     @property
-    def opt_fields(self) -> dict[str, line.Field]:
-        return self._opt_fields
+    def slen(self) -> Optional[int]:
+        """Return sequence length (deprecated alias, use sequence_length)."""
+        return self.sequence_length
 
     @classmethod
     def from_line(cls, segment_line: line.Line) -> Node:
         """Given a Segment Line construct a Node from it.
 
-        If segment_line is a GFA1 Segment segment_line then the sequence length
+        If segment_line is a GFA1 Segment line then the sequence length
         taken into account will be the value of the optional
         field `LN` if specified in the line fields.
 
-        :param segment_line: A valid Segment Segment_line.
-        :raises InvalidSegment_lineError: If the given segment_line
-             is not valid.
+        :param segment_line: A valid Segment Line.
+        :raises InvalidNodeError: If the given line cannot be a Node.
         """
         try:
             fields = copy.deepcopy(segment_line.fields)
@@ -111,55 +118,63 @@ class Node:
                     length = segment_line.fields["LN"].value
                     fields.pop("LN")
 
-                return Node(
-                    segment_line.fields["name"].value,
-                    segment_line.fields["sequence"].value,
-                    length,
-                    fields,
+                return cls(
+                    node_id=segment_line.fields["name"].value,
+                    sequence=segment_line.fields["sequence"].value,
+                    sequence_length=length,
+                    opt_fields=fields,
                 )
             else:
                 fields.pop("sid")
                 fields.pop("sequence")
                 fields.pop("slen")
-                return Node(
-                    segment_line.fields["sid"].value,
-                    segment_line.fields["sequence"].value,
-                    segment_line.fields["slen"].value,
-                    fields,
+                return cls(
+                    node_id=segment_line.fields["sid"].value,
+                    sequence=segment_line.fields["sequence"].value,
+                    sequence_length=segment_line.fields["slen"].value,
+                    opt_fields=fields,
                 )
         except (KeyError, AttributeError) as err:
-            raise line.InvalidLineError("The given line cannot be " + "a Node.") from err
+            raise InvalidNodeError("The given line cannot be a Node.") from err
 
     def __eq__(self, other: Any) -> bool:
-        try:
-            if self.nid != other.nid or self.sequence != other.sequence or self.slen != other.slen:
+        """Check equality with another Node."""
+        if not isinstance(other, Node):
+            return False
+        if (
+            self.node_id != other.node_id
+            or self.sequence != other.sequence
+            or self.sequence_length != other.sequence_length
+        ):
+            return False
+
+        for key, item in self.opt_fields.items():
+            if key not in other.opt_fields or self.opt_fields[key] != other.opt_fields[key]:
                 return False
 
-            for key, _item in self.opt_fields.items():
-                if key not in other.opt_fields or not self.opt_fields[key] == other.opt_fields[key]:
-                    return False
-
-        except Exception:
-            return False
         return True
 
-    def __neq__(self, other: Any) -> bool:
-        return not self == other
-
     def __str__(self) -> str:  # pragma: no cover
-        fields = ("nid", "sequence", "slen", "opt_fields")
-        opt_fields = []
+        """String representation of Node."""
+        fields = ("node_id", "sequence", "sequence_length", "opt_fields")
+        opt_fields_str = []
         if len(self.opt_fields) > 0:
-            opt_fields = str.join(",\t", [str(field) for key, field in self.opt_fields.items()])
+            opt_fields_str = str.join(",\t", [str(field) for key, field in self.opt_fields.items()])
         values = (
-            str(self.nid),
+            str(self.node_id),
             str(self.sequence),
-            str(self.slen),
-            "{" + str(opt_fields) + "}",
+            str(self.sequence_length),
+            "{" + str(opt_fields_str) + "}",
         )
         assoc = [str.join(" : ", pair) for pair in zip(fields, values, strict=False)]
         return str.join(",\t", assoc)
 
+    def is_dna(self) -> bool:
+        """Check if sequence is valid DNA."""
+        if self.sequence == "*":
+            return False
+        valid_chars = set("ACGTNacgtn")
+        return all(c in valid_chars for c in self.sequence)
 
-if __name__ == "__main__":  # pragma: no cover
-    pass
+
+__all__ = ["Node", "is_node", "InvalidNodeError"]

@@ -1,15 +1,17 @@
 """
 Edge module for GFA graph elements.
+
+Modern dataclass implementation with standardized naming.
 """
 
+from __future__ import annotations
+
 import copy
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Optional, Tuple
 
+from pygfa.exceptions import InvalidEdgeError
 from pygfa.graph_element.parser import containment, line, link
-
-
-class InvalidEdgeError(Exception):
-    pass
 
 
 def is_edge(obj: Any) -> bool:
@@ -28,61 +30,72 @@ def is_edge(obj: Any) -> bool:
         return False
 
 
+@dataclass(frozen=True, slots=True)
 class Edge:
     """An edge in a GFA graph.
 
     Represents connections between nodes (segments) and can be derived from
     Link (L) or Containment (C) lines in GFA1 format.
+
+    Attributes:
+        edge_id: Edge identifier, can be None (virtual edge)
+        from_node: Source node identifier
+        from_orientation: Source orientation (+ or -)
+        to_node: Target node identifier
+        to_orientation: Target orientation (+ or -)
+        from_positions: Tuple of (start, end) positions on source
+        to_positions: Tuple of (start, end) positions on target
+        alignment: Alignment string (CIGAR, trace, etc.)
+        distance: Distance for gap edges
+        variance: Variance for gap edges
+        opt_fields: Optional fields dictionary
     """
 
-    def __init__(
-        self,
-        eid: str | None,
-        from_node: str,
-        from_orn: str,
-        to_node: str,
-        to_orn: str,
-        from_positions: tuple[int | None, int | None],
-        to_positions: tuple[int | None, int | None],
-        alignment: str,
-        distance: int | None,
-        variance: str | None,
-        opt_fields: dict[str, line.Field] | None = None,
-    ) -> None:
-        """Create an Edge.
+    edge_id: Optional[str]
+    from_node: str
+    from_orientation: str
+    to_node: str
+    to_orientation: str
+    from_positions: Tuple[Optional[int], Optional[int]]
+    to_positions: Tuple[Optional[int], Optional[int]]
+    alignment: str
+    distance: Optional[int] = None
+    variance: Optional[str] = None
+    opt_fields: dict[str, Any] = field(default_factory=dict)
 
-        :param eid: Edge identifier, can be None (virtual edge)
-        :param from_node: Source node identifier
-        :param from_orn: Source orientation (+ or -)
-        :param to_node: Target node identifier
-        :param to_orn: Target orientation (+ or -)
-        :param from_positions: Tuple of (start, end) positions on source
-        :param to_positions: Tuple of (start, end) positions on target
-        :param alignment: Alignment string (CIGAR, trace, etc.)
-        :param distance: Distance for gap edges
-        :param variance: Variance for gap edges
-        :param opt_fields: Optional fields dictionary
-        """
-        if opt_fields is None:
-            opt_fields = {}
+    def __post_init__(self) -> None:
+        """Validate edge data after initialization."""
+        if not self.from_node:
+            raise InvalidEdgeError("from_node cannot be empty")
+        if not self.to_node:
+            raise InvalidEdgeError("to_node cannot be empty")
+        if self.from_orientation not in ("+", "-"):
+            raise InvalidEdgeError(f"from_orientation must be '+' or '-', got {self.from_orientation}")
+        if self.to_orientation not in ("+", "-"):
+            raise InvalidEdgeError(f"to_orientation must be '+' or '-', got {self.to_orientation}")
 
-        self._eid = eid
-        self._from_node = from_node
-        self._from_orn = from_orn
-        self._to_node = to_node
-        self._to_orn = to_orn
-        self._from_positions = from_positions
-        self._to_positions = to_positions
-        self._alignment = alignment
-        self._distance = distance
-        self._variance = variance
-        self._opt_fields = {}
-        for key, field in opt_fields.items():
-            if line.is_field(field):
-                self._opt_fields[key] = copy.deepcopy(field)
+    @property
+    def eid(self) -> Optional[str]:
+        """Return edge ID (deprecated alias, use edge_id)."""
+        return self.edge_id
+
+    @property
+    def id(self) -> Optional[str]:
+        """Return edge ID (alias for edge_id)."""
+        return self.edge_id
+
+    @property
+    def from_orn(self) -> str:
+        """Return from orientation (deprecated alias, use from_orientation)."""
+        return self.from_orientation
+
+    @property
+    def to_orn(self) -> str:
+        """Return to orientation (deprecated alias, use to_orientation)."""
+        return self.to_orientation
 
     @classmethod
-    def from_line(cls, edge_line: line.Line) -> Edge | None:
+    def from_line(cls, edge_line: line.Line) -> Optional[Edge]:
         """Create an Edge from a Link or Containment line.
 
         :param edge_line: A line object to convert to an Edge
@@ -92,7 +105,7 @@ class Edge:
         if isinstance(edge_line, link.Link):
             fields = edge_line.fields
 
-            # Check for ID in optional fields
+            # Check for ID in optional fields - use "*" as default per GFA spec
             eid = "*"
             if "ID" in fields:
                 eid = fields["ID"].value
@@ -117,24 +130,24 @@ class Edge:
                     opt_fields[key] = value
 
             return cls(
-                eid,
-                from_node,
-                from_orn,
-                to_node,
-                to_orn,
-                from_positions,
-                to_positions,
-                alignment,
-                distance,
-                variance,
-                opt_fields,
+                edge_id=eid,
+                from_node=from_node,
+                from_orientation=from_orn,
+                to_node=to_node,
+                to_orientation=to_orn,
+                from_positions=from_positions,
+                to_positions=to_positions,
+                alignment=alignment,
+                distance=distance,
+                variance=variance,
+                opt_fields=opt_fields,
             )
 
         # Handle Containment lines (type 'C')
         if isinstance(edge_line, containment.Containment):
             fields = edge_line.fields
 
-            # Check for ID in optional fields
+            # Check for ID in optional fields - use "*" as default per GFA spec
             eid = "*"
             if "ID" in fields:
                 eid = fields["ID"].value
@@ -164,85 +177,44 @@ class Edge:
                 opt_fields["pos"] = line.Field("pos", position)
 
             return cls(
-                eid,
-                from_node,
-                from_orn,
-                to_node,
-                to_orn,
-                from_positions,
-                to_positions,
-                alignment,
-                distance,
-                variance,
-                opt_fields,
+                edge_id=eid,
+                from_node=from_node,
+                from_orientation=from_orn,
+                to_node=to_node,
+                to_orientation=to_orn,
+                from_positions=from_positions,
+                to_positions=to_positions,
+                alignment=alignment,
+                distance=distance,
+                variance=variance,
+                opt_fields=opt_fields,
             )
 
         # Not a Link or Containment line, cannot convert
         return None
 
-    @property
-    def eid(self) -> str | None:
-        return self._eid
-
-    @property
-    def from_node(self) -> str:
-        return self._from_node
-
-    @property
-    def from_orn(self) -> str:
-        return self._from_orn
-
-    @property
-    def to_node(self) -> str:
-        return self._to_node
-
-    @property
-    def to_orn(self) -> str:
-        return self._to_orn
-
-    @property
-    def from_positions(self) -> tuple[int | None, int | None]:
-        return self._from_positions
-
-    @property
-    def to_positions(self) -> tuple[int | None, int | None]:
-        return self._to_positions
-
-    @property
-    def alignment(self) -> str:
-        return self._alignment
-
-    @property
-    def distance(self) -> int | None:
-        return self._distance
-
-    @property
-    def variance(self) -> str | None:
-        return self._variance
-
-    @property
-    def opt_fields(self) -> dict[str, line.Field]:
-        return self._opt_fields
-
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Edge):
             return False
         return (
-            self._eid == other._eid
-            and self._from_node == other._from_node
-            and self._from_orn == other._from_orn
-            and self._to_node == other._to_node
-            and self._to_orn == other._to_orn
-            and self._from_positions == other._from_positions
-            and self._to_positions == other._to_positions
-            and self._alignment == other._alignment
-            and self._distance == other._distance
-            and self._variance == other._variance
-            and self._opt_fields == other._opt_fields
+            self.edge_id == other.edge_id
+            and self.from_node == other.from_node
+            and self.from_orientation == other.from_orientation
+            and self.to_node == other.to_node
+            and self.to_orientation == other.to_orientation
+            and self.from_positions == other.from_positions
+            and self.to_positions == other.to_positions
+            and self.alignment == other.alignment
+            and self.distance == other.distance
+            and self.variance == other.variance
+            and self.opt_fields == other.opt_fields
         )
 
     def __str__(self) -> str:
-        return f"Edge({self._eid}: {self._from_node}{self._from_orn} -> {self._to_node}{self._to_orn})"
+        return f"Edge({self.edge_id}: {self.from_node}{self.from_orientation} -> {self.to_node}{self.to_orientation})"
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+__all__ = ["Edge", "is_edge", "InvalidEdgeError"]
