@@ -27,7 +27,10 @@ class TestPPrint(unittest.TestCase):
         graph = gfa.GFA.from_gfa(gfa_filename)
 
         # Write to a temporary file instead of using StringIO
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as temp_file:
+        os.makedirs("results/test/read_gfa", exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".txt", dir="results/test/read_gfa"
+        ) as temp_file:
             temp_filename = temp_file.name
             original_stdout = sys.stdout
             sys.stdout = temp_file
@@ -135,7 +138,8 @@ class TestPPrint(unittest.TestCase):
         import gzip as gzip_module
 
         # Create fake .gz file with regular content
-        fake_gzipped = "data/fake.gfa.gz"
+        os.makedirs("results/test/read_gfa", exist_ok=True)
+        fake_gzipped = "results/test/read_gfa/fake.gfa.gz"
         with open(fake_gzipped, "w") as f:
             f.write("H\tVN:Z:1.0\n")
 

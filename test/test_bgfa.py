@@ -141,11 +141,10 @@ def get_encoding_name(encoding_code):
 @pytest.fixture(scope="module")
 def temp_dir():
     """Create a temporary directory for test files."""
-    test_dir = tempfile.mkdtemp()
+    os.makedirs("results/test/bgfa", exist_ok=True)
+    test_dir = tempfile.mkdtemp(dir="results/test/bgfa")
     yield test_dir
-    # Clean up temporary directory after tests
-    if os.path.exists(test_dir):
-        shutil.rmtree(test_dir)
+    # No cleanup - retain files for debugging
 
 
 @pytest.fixture(scope="module", params=TEST_FILES if TEST_FILES else [])
