@@ -139,10 +139,9 @@ def get_encoding_name(encoding_code):
 
 
 @pytest.fixture(scope="module")
-def temp_dir():
+def temp_dir(test_output_dir):
     """Create a temporary directory for test files."""
-    os.makedirs("results/test/bgfa", exist_ok=True)
-    test_dir = tempfile.mkdtemp(dir="results/test/bgfa")
+    test_dir = tempfile.mkdtemp(dir=str(test_output_dir))
     yield test_dir
     # No cleanup - retain files for debugging
 
@@ -160,7 +159,7 @@ def gfa_file_path(request):
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
-def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding):
+def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding, test_output_dir):
     """Regression test that receives a gfa filename and:
     1. reads the gfa file to obtain a graph g
     2. writes the graph g to a bgfa file with specified encoding strategies
@@ -182,7 +181,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
     # Create results directory if it doesn't exist
     import os  # Fix for ruff F823 error
 
-    results_dir = "results/test/bgfa"
+    results_dir = str(test_output_dir)
     os.makedirs(results_dir, exist_ok=True)
     bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", f"_{encoding_name}.bgfa")
     bgfa_path = os.path.join(results_dir, bgfa_filename)
@@ -211,8 +210,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
         h = GFA.from_bgfa(bgfa_path, verbose=False, debug=False, logfile=None)
     except Exception as e:
         # Print the bgfa_path to a log file for debugging
-        os.makedirs("results/test/bgfa", exist_ok=True)
-        log_file = "results/test/bgfa/error.log"
+        log_file = os.path.join(str(test_output_dir), "error.log")
         with open(log_file, "a") as f:
             f.write(f"Error reading BGFA file: {bgfa_path} with encoding {encoding_name}\n")
             f.write(f"Error: {e}\n")
@@ -242,7 +240,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
     if len(g.nodes()) != len(h.nodes()) or len(g.edges()) != len(h.edges()):
         import os
 
-        output_dir = "results/test/bgfa"
+        output_dir = str(test_output_dir)
         os.makedirs(output_dir, exist_ok=True)
         with open(f"{output_dir}/g_pprint_{encoding_name}.txt", "w") as f:
             f.write(g_pprint)

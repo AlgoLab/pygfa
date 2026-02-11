@@ -113,4 +113,3 @@ results/*
 
 # Pygfa
 .snakemake/
-benchmark/

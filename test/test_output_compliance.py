@@ -128,8 +128,8 @@ def test_no_hardcoded_temp_paths():
                 # Find all tempfile.mkdtemp() calls
                 mkdtemp_matches = re.findall(r"tempfile\.mkdtemp\([^)]*\)", content)
                 for match in mkdtemp_matches:
-                    # Allow if dir= points to results/test
-                    if "dir=" in match and "results/test" in match:
+                    # Allow if dir= points to results/test or uses test_output_dir variable
+                    if ("dir=" in match and "results/test" in match) or "test_output_dir" in match:
                         continue
                     # Skip test_output_compliance.py itself since it uses system temp for demonstration
                     if test_file.name == "test_output_compliance.py":

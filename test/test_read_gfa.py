@@ -16,8 +16,8 @@ class TestPPrint(unittest.TestCase):
         """Test that pprint output matches expected file content.
 
         Args:
-            gfa_filename: Path to the GFA file to test
-            expected_filename: Path to the file containing expected output
+            gfa_filename: Path to GFA file to test
+            expected_filename: Path to file containing expected output
         """
         # Check if this test should run for this GFA file
         if not should_run_test_for_gfa("read_gfa", gfa_filename):
@@ -27,10 +27,9 @@ class TestPPrint(unittest.TestCase):
         graph = gfa.GFA.from_gfa(gfa_filename)
 
         # Write to a temporary file instead of using StringIO
-        os.makedirs("results/test/read_gfa", exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            mode="w", delete=False, suffix=".txt", dir="results/test/read_gfa"
-        ) as temp_file:
+        test_output_dir = "results/test/read_gfa"
+        os.makedirs(test_output_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt", dir=test_output_dir) as temp_file:
             temp_filename = temp_file.name
             original_stdout = sys.stdout
             sys.stdout = temp_file
@@ -138,8 +137,9 @@ class TestPPrint(unittest.TestCase):
         import gzip as gzip_module
 
         # Create fake .gz file with regular content
-        os.makedirs("results/test/read_gfa", exist_ok=True)
-        fake_gzipped = "results/test/read_gfa/fake.gfa.gz"
+        test_output_dir = "results/test/read_gfa"
+        os.makedirs(test_output_dir, exist_ok=True)
+        fake_gzipped = os.path.join(test_output_dir, "fake.gfa.gz")
         with open(fake_gzipped, "w") as f:
             f.write("H\tVN:Z:1.0\n")
 
