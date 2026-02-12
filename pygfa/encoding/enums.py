@@ -31,6 +31,10 @@ class IntegerEncoding(IntEnum):
     SIMPLE_8B = 0x0D
     GROUP_VARINT = 0x0E
     BIT_PACKING = 0x0F
+    FIBONACCI = 0x10
+    EXP_GOLOMB = 0x11
+    BYTE_PACKED = 0x12
+    MASKED_VBYTE = 0x13
 
 
 class StringEncoding(IntEnum):
@@ -54,6 +58,7 @@ class StringEncoding(IntEnum):
     ZSTD_DICT = 0x0B
     LZ4 = 0x0C
     BROTLI = 0x0D
+    PPM = 0x0E
 
 
 class WalkDecomposition(IntEnum):
