@@ -17,7 +17,7 @@ from pygfa.graph_element.parser import line, field_validator as fv
 # how-do-you-unit-test-regular-expressions
 
 
-class TestField:
+class FieldTestHelper:
     """
     A test class that is similar to optfield, but without name
     attribute and allows to have any type of field listed in
@@ -43,7 +43,7 @@ class TestLine(unittest.TestCase):
 
     @unittest.skip("API changed: Field type validation refactored")
     def test_field_type(self):
-        """Use TestField to check how different field data types
+        """Use FieldTestHelper to check how different field data types
         are managed.
 
         TODO:
@@ -51,84 +51,84 @@ class TestLine(unittest.TestCase):
             (should exists).
         """
         with self.assertRaises(fv.UnknownDataTypeError):
-            optf = TestField("bb", "c")  # c is an invalid type of field
+            optf = FieldTestHelper("bb", "c")  # c is an invalid type of field
 
-        optf = TestField("A", "A")
+        optf = FieldTestHelper("A", "A")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa", "A")
+            optf = FieldTestHelper("aa", "A")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "A")
+            optf = FieldTestHelper("", "A")
 
-        optf = TestField("-42", "i")
+        optf = FieldTestHelper("-42", "i")
         self.assertTrue(optf.value == -42)
-        optf = TestField("+42", "i")
-        optf = TestField("42", "i")
+        optf = FieldTestHelper("+42", "i")
+        optf = FieldTestHelper("42", "i")
         self.assertTrue(optf.value == +42)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa", "i")
+            optf = FieldTestHelper("aa", "i")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "i")
+            optf = FieldTestHelper("", "i")
 
-        optf = TestField("-1.4241e-11", "f")
-        optf = TestField("+1.4241E+11", "f")
-        optf = TestField("42", "f")
+        optf = FieldTestHelper("-1.4241e-11", "f")
+        optf = FieldTestHelper("+1.4241E+11", "f")
+        optf = FieldTestHelper("42", "f")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("A", "f")
+            optf = FieldTestHelper("A", "f")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("042e0.5", "f")
+            optf = FieldTestHelper("042e0.5", "f")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "f")
+            optf = FieldTestHelper("", "f")
 
-        optf = TestField("The gray fox jumped from somewhere.", "Z")
+        optf = FieldTestHelper("The gray fox jumped from somewhere.", "Z")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("\n", "Z")
+            optf = FieldTestHelper("\n", "Z")
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", "Z")
+            optf = FieldTestHelper("", "Z")
 
-        optf = TestField("aa", fv.GFA1_NAME)
+        optf = FieldTestHelper("aa", fv.GFA1_NAME)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_NAME)
+            optf = FieldTestHelper("", fv.GFA1_NAME)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa aa", fv.GFA1_NAME)
+            optf = FieldTestHelper("aa aa", fv.GFA1_NAME)
 
-        optf = TestField("aa", fv.GFA1_NAMES)
+        optf = FieldTestHelper("aa", fv.GFA1_NAMES)
         self.assertTrue(optf.value == ["aa"])
-        optf = TestField("aa bb cc dd", fv.GFA1_NAMES)
+        optf = FieldTestHelper("aa bb cc dd", fv.GFA1_NAMES)
         self.assertTrue(optf.value == ["aa", "bb", "cc", "dd"])
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_NAMES)
+            optf = FieldTestHelper("", fv.GFA1_NAMES)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("aa bb", fv.GFA1_NAMES)
+            optf = FieldTestHelper("aa bb", fv.GFA1_NAMES)
 
-        optf = TestField("+", fv.GFA1_ORIENTATION)
-        optf = TestField("-", fv.GFA1_ORIENTATION)
+        optf = FieldTestHelper("+", fv.GFA1_ORIENTATION)
+        optf = FieldTestHelper("-", fv.GFA1_ORIENTATION)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_ORIENTATION)
+            optf = FieldTestHelper("", fv.GFA1_ORIENTATION)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("a", fv.GFA1_ORIENTATION)
+            optf = FieldTestHelper("a", fv.GFA1_ORIENTATION)
 
-        optf = TestField("acgt", fv.GFA1_SEQUENCE)
+        optf = FieldTestHelper("acgt", fv.GFA1_SEQUENCE)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_SEQUENCE)
+            optf = FieldTestHelper("", fv.GFA1_SEQUENCE)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("acgtn", fv.GFA1_SEQUENCE)
+            optf = FieldTestHelper("acgtn", fv.GFA1_SEQUENCE)
 
-        optf = TestField("10M5I10M", fv.GFA1_CIGAR)
-        optf = TestField("10M", fv.GFA1_CIGAR)
-        optf = TestField("*", fv.GFA1_CIGAR)
+        optf = FieldTestHelper("10M5I10M", fv.GFA1_CIGAR)
+        optf = FieldTestHelper("10M", fv.GFA1_CIGAR)
+        optf = FieldTestHelper("*", fv.GFA1_CIGAR)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_CIGAR)
+            optf = FieldTestHelper("", fv.GFA1_CIGAR)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("10M5I", fv.GFA1_CIGAR)
+            optf = FieldTestHelper("10M5I", fv.GFA1_CIGAR)
 
-        optf = TestField("10M", fv.GFA1_CIGARS)
-        optf = TestField("*,*,*", fv.GFA1_CIGARS)
-        optf = TestField("*", fv.GFA1_CIGARS)
-        optf = TestField("5I2M,*,3X,22M", fv.GFA1_CIGARS)
+        optf = FieldTestHelper("10M", fv.GFA1_CIGARS)
+        optf = FieldTestHelper("*,*,*", fv.GFA1_CIGARS)
+        optf = FieldTestHelper("*", fv.GFA1_CIGARS)
+        optf = FieldTestHelper("5I2M,*,3X,22M", fv.GFA1_CIGARS)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("", fv.GFA1_CIGARS)
+            optf = FieldTestHelper("", fv.GFA1_CIGARS)
         with self.assertRaises(fv.InvalidFieldError):
-            optf = TestField("5I2M,*,3,22M", fv.GFA1_CIGARS)
+            optf = FieldTestHelper("5I2M,*,3,22M", fv.GFA1_CIGARS)
 
         # GFA2 field tests removed - these constants no longer exist in field_validator
 
