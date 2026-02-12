@@ -1151,7 +1151,7 @@ class ReaderBGFA:
                     node_name,
                     segment_data["sequence"],
                     segment_data["length"],
-                    opt_fields={},
+                    opt_fields=segment_data.get("opt_fields", {}),
                 )
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
@@ -1399,6 +1399,8 @@ class ReaderBGFA:
 
         # Handle legacy identity encoding (0x0000): fixed format with null-terminated strings
         if compression_str == 0x0000:
+            import json
+
             pos = 0
             for _ in range(record_num):
                 # Read segment ID (uint64)
@@ -1415,9 +1417,19 @@ class ReaderBGFA:
                 pos += 1  # Skip null terminator
                 sequence = sequence_bytes.decode("ascii")
 
+                # Read optional fields JSON (null-terminated string) - new addition
+                opt_fields_bytes = bytearray()
+                while pos < len(segment_data) and segment_data[pos] != 0:
+                    opt_fields_bytes.append(segment_data[pos])
+                    pos += 1
+                pos += 1  # Skip null terminator
+                opt_fields_str = opt_fields_bytes.decode("ascii")
+                opt_fields = json.loads(opt_fields_str) if opt_fields_str.strip() else {}
+
                 segments[segment_id] = {
                     "sequence": sequence,
                     "length": sequence_length,
+                    "opt_fields": opt_fields,
                 }
 
             return segments, offset - initial_offset
@@ -1460,6 +1472,7 @@ class ReaderBGFA:
             segments[segment_id] = {
                 "sequence": sequence,
                 "length": sequence_length,
+                "opt_fields": {},  # Default empty for backward compatibility
             }
 
         logger.debug(f"Decoded {len(segments)} segments")
@@ -2220,27 +2233,45 @@ class BGFAWriter:
         segment_ids = []
         sequence_lengths = []
         sequences = []
+        opt_fields_list = []
         for i, (name, seg_id) in enumerate(chunk):
             node_data = dict(self._gfa.nodes(data=True))[name]
             sequence = node_data.get("sequence", "*")
             seq_len = len(sequence) if sequence != "*" else 0
 
+            # Extract optional fields (excluding standard GFA fields)
+            opt_fields = {}
+            for key, value in node_data.items():
+                if key not in ["nid", "sequence", "slen"]:
+                    opt_fields[key] = value
+
             segment_ids.append(seg_id)
             sequence_lengths.append(seq_len)
             sequences.append(sequence)
+            opt_fields_list.append(opt_fields)
 
             if i < 3:
-                logger.debug(f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}")
+                logger.debug(
+                    f"Segment {i}: name={name}, seg_id={seg_id}, seq_len={seq_len}, opt_fields={list(opt_fields.keys())}"
+                )
             elif i == 3:
                 logger.debug("... (remaining segments omitted)")
 
+        # Convert optional fields to JSON strings for storage
+        import json
+
+        opt_fields_strings = [json.dumps(opt_fields) if opt_fields else "{}" for opt_fields in opt_fields_list]
+
         if compression_code == 0x0000:
-            # Identity encoding: segment_id (uint64) + seq_len (uint64) + null-terminated sequence
+            # Identity encoding: segment_id (uint64) + seq_len (uint64) + null-terminated sequence + null-terminated optional fields JSON
             payload_parts = []
-            for seg_id, seq_len, sequence in zip(segment_ids, sequence_lengths, sequences, strict=False):
+            for seg_id, seq_len, sequence, opt_fields_str in zip(
+                segment_ids, sequence_lengths, sequences, opt_fields_strings, strict=False
+            ):
                 payload_parts.append(struct.pack("<Q", seg_id))
                 payload_parts.append(struct.pack("<Q", seq_len))
                 payload_parts.append(sequence.encode("ascii") + b"\x00")
+                payload_parts.append(opt_fields_str.encode("ascii") + b"\x00")
             payload = b"".join(payload_parts)
             uncompressed_len = len(payload)
             compressed_len = len(payload)
@@ -2249,12 +2280,14 @@ class BGFAWriter:
             # 1. Encoded segment IDs (using integer encoding)
             # 2. Encoded sequence lengths (using integer encoding)
             # 3. Compressed concatenated sequences (using string encoding)
+            # 4. Compressed concatenated optional fields JSON strings (using string encoding)
             int_encoder = get_integer_encoder(compression_code)
             encoded_ids = int_encoder(segment_ids)
             encoded_lengths = int_encoder(sequence_lengths)
             compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
-            payload = encoded_ids + encoded_lengths + compressed_sequences
-            uncompressed_len = sum(sequence_lengths)
+            compressed_opt_fields = _compress_string_for_bgfa("".join(opt_fields_strings), str_encoding)
+            payload = encoded_ids + encoded_lengths + compressed_sequences + compressed_opt_fields
+            uncompressed_len = sum(sequence_lengths) + sum(len(opt_str) for opt_str in opt_fields_strings)
             compressed_len = len(payload)
 
         logger.debug(

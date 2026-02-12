@@ -222,8 +222,13 @@ class TestAlgorithmEdgeCases(unittest.TestCase):
         ) -> list[tuple[str, str]]:
             if custom_arg == "test":
                 return [(node, "B")]
+            return []
 
-        paths = list(all_simple_paths(mock_graph, "A", "B", lambda n, **kwargs: selector_with_args(n, **kwargs)))
+        paths = list(
+            all_simple_paths(
+                mock_graph, "A", "B", lambda n, **kwargs: selector_with_args(n, **kwargs, custom_arg="test")
+            )
+        )
 
         # Should find path when custom_arg matches
         self.assertEqual(len(paths), 1)
