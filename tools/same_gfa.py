@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 
-
 from networkx.algorithms.isomorphism import (
     MultiGraphMatcher,
     categorical_edge_match,
@@ -49,12 +48,27 @@ def check_isomorphism(gfa1, gfa2):
     return matcher.is_isomorphic()
 
 
+def graphs_equal(gfa1, gfa2):
+    """Check if two GFA graphs are equal (direct comparison).
+    
+    This uses the GFA.__eq__ method which compares graph elements directly.
+    
+    :param gfa1: First GFA object
+    :param gfa2: Second GFA object
+    :return: True if graphs are equal, False otherwise
+    """
+    return gfa1 == gfa2
+
+
 def main():
     """
-    Compares two GFA files to determine if they represent the same graph structure,
-    ignoring differences in element IDs.
+    Compares two GFA files to determine if they represent the same graph structure.
+    
+    By default, this checks both direct equality and graph isomorphism, returning
+    True if either check passes. This means graphs with different GFA representations
+    but identical structure will be considered equal.
 
-    Usage: python same_gfa.py [-i|--isomorphic] <file1.gfa> <file2.gfa>
+    Usage: python same_gfa.py [-s|--strict] <file1.gfa> <file2.gfa>
     """
     parser = argparse.ArgumentParser(
         description="Compare two GFA files for structural equality."
@@ -62,10 +76,16 @@ def main():
     parser.add_argument("file1", help="First GFA file")
     parser.add_argument("file2", help="Second GFA file")
     parser.add_argument(
-        "-i",
-        "--isomorphic",
+        "-s",
+        "--strict",
         action="store_true",
-        help="Use graph isomorphism checking instead of direct comparison",
+        help="Use strict comparison only (no isomorphism checking)",
+    )
+    parser.add_argument(
+        "-i",
+        "--isomorphic-only",
+        action="store_true",
+        help="Use only isomorphism checking (skip direct comparison)",
     )
 
     args = parser.parse_args()
@@ -90,9 +110,19 @@ def main():
         print(f"Loading {file2_path}...")
         gfa2 = GFA.from_file(file2_path)
 
-        # Compare the graphs
-        if args.isomorphic:
-            print("Using graph isomorphism checking...")
+        # Compare the graphs based on mode
+        if args.strict:
+            # Strict mode: only direct comparison
+            print("Using strict comparison...")
+            if graphs_equal(gfa1, gfa2):
+                print("Result: The graphs are equal.")
+                sys.exit(0)
+            else:
+                print("Result: The graphs are different.")
+                sys.exit(1)
+        elif args.isomorphic_only:
+            # Isomorphism only mode
+            print("Using isomorphism checking...")
             if check_isomorphism(gfa1, gfa2):
                 print("Result: The graphs are isomorphic (structurally equivalent).")
                 sys.exit(0)
@@ -100,14 +130,18 @@ def main():
                 print("Result: The graphs are NOT isomorphic.")
                 sys.exit(1)
         else:
-            print("Using direct comparison...")
-            # The GFA.__eq__ method is designed to handle ID differences
-            # and check structural equality.
-            if gfa1 == gfa2:
-                print("Result: The graphs are the same (ignoring element IDs).")
+            # Default mode: try both, succeed if either passes
+            print("Checking graph equality...")
+            if graphs_equal(gfa1, gfa2):
+                print("Result: The graphs are equal.")
+                sys.exit(0)
+            
+            print("Direct comparison failed. Checking isomorphism...")
+            if check_isomorphism(gfa1, gfa2):
+                print("Result: The graphs are isomorphic (structurally equivalent).")
                 sys.exit(0)
             else:
-                print("Result: The graphs are different.")
+                print("Result: The graphs are different (not equal and not isomorphic).")
                 sys.exit(1)
 
     except Exception as e:
