@@ -17,7 +17,7 @@ from test_utils import should_run_test_for_gfa, get_test_data_path
 #                          [s4_s4_s4]--
 #                          [s3_s3_s3]
 
-GFA_FILE = get_test_data_path("test_biconnected.gfa", "HLA-zoo")
+GFA_FILE = get_test_data_path("test_biconnected.gfa")
 
 
 class TestLine(unittest.TestCase):
@@ -27,8 +27,7 @@ class TestLine(unittest.TestCase):
         if not should_run_test_for_gfa("biconnected", GFA_FILE):
             raise unittest.SkipTest(f"No '# test: biconnected' comment found in {GFA_FILE}")
 
-        cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(GFA_FILE)
+        cls.graph = pygfa.gfa.GFA.from_gfa(GFA_FILE)
 
     def test_articulation_points(self):
         """Test that the correct articulation points are

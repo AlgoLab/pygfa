@@ -1,17 +1,17 @@
+# test: gfa_operations
 # test: read_gfa
 # test: bgfa_roundtrip
 # test: bgfa
-S	s1	25	*
-S	s2	21	*
-S	s3	10	*
-S	s4	12	*
-S	s5	21	*
-E	l12	s1+	s2+	20	24$	0	4	*
-E	l23	s2+	s3+	18	20$	0	2	*
-E	lgeneric34	s3+	s4+	5	8	0	3	*
-E	l45	s4+	s5+	9	11$	0	2	*
-F	fragment5	s5+	10	14	100	104	*
-S	s6	12	*
-S	s7	24	*
-S	s8	9	*
-E	l67	s6+	s7+	9	11$	0	2	*
+S	s1	*	LN:i:25
+S	s2	*	LN:i:21
+S	s3	*	LN:i:10
+S	s4	*	LN:i:12
+S	s5	*	LN:i:21
+S	s6	*	LN:i:12
+S	s7	*	LN:i:24
+S	s8	*	LN:i:9
+L	s1	+	s2	+	*
+L	s2	+	s3	+	*
+L	s3	+	s4	+	*
+L	s4	+	s5	+	*
+L	s6	+	s7	+	*

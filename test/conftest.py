@@ -13,18 +13,13 @@ def test_output_dir(request):
     else:
         test_name = module_name
 
-    # Create output directory
-    output_dir = Path("results/test") / test_name
+    # Create output directory (use absolute path to avoid path resolution issues)
+    project_root = Path(__file__).parent.parent  # Go up from test/ to project root
+    output_dir = project_root / "results/test" / test_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Change to module's output directory for duration of test
-    original_cwd = os.getcwd()
-    os.chdir(output_dir)
-
-    yield output_dir
-
-    # Restore original working directory
-    os.chdir(original_cwd)
+    # Return absolute path to avoid working directory issues
+    yield output_dir.resolve()
 
 
 @pytest.fixture(autouse=True)

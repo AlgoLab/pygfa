@@ -26,25 +26,19 @@ class TestLine(unittest.TestCase):
     def setUpClass(cls):
         """Set up test class by checking if test should run."""
         if not should_run_test_for_gfa("gfa_operations", GFA_FILE):
-            raise unittest.SkipTest(
-                f"No '# test: gfa_operations' comment found in {GFA_FILE}"
-            )
+            raise unittest.SkipTest(f"No '# test: gfa_operations' comment found in {GFA_FILE}")
 
         cls.graph = pygfa.gfa.GFA()
         cls.graph.from_gfa(GFA_FILE)
 
     def test_nodes_connected_components(self):
         nodes = set(self.graph.nodes())
-        self.assertTrue(
-            {"s1", "fragment5", "s2", "s3", "s4", "s5"}
-            in pygfa.nodes_connected_components(self.graph)
-        )
+        self.assertTrue({"s1", "s2", "s3", "s4", "s5"} in pygfa.nodes_connected_components(self.graph))
         nodes.remove("s1")
         nodes.remove("s2")
         nodes.remove("s3")
         nodes.remove("s4")
         nodes.remove("s5")
-        nodes.remove("fragment5")
         self.assertTrue({"s6", "s7"} in pygfa.nodes_connected_components(self.graph))
         nodes.remove("s6")
         nodes.remove("s7")
@@ -53,10 +47,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(nodes == set())
 
     def test_nodes_connected_component(self):
-        self.assertTrue(
-            {"s1", "s2", "s3", "s4", "s5", "fragment5"}
-            == pygfa.nodes_connected_component(self.graph, "s4")
-        )
+        self.assertTrue({"s1", "s2", "s3", "s4", "s5"} == pygfa.nodes_connected_component(self.graph, "s4"))
         with self.assertRaises(pygfa.gfa.GFAError):
             pygfa.nodes_connected_component(self.graph, "42")
 

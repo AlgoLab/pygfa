@@ -1,6 +1,7 @@
 # test: read_gfa
 # test: bgfa_roundtrip
 # test: bgfa
+# test: compression
 H	ac:Z:test2
 H	VN:Z:1.0
 H	aa:i:12	ab:Z:test1

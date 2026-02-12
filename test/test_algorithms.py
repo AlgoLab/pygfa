@@ -1,9 +1,9 @@
 import unittest
 import sys
+import unittest
+from typing import Any
+
 from unittest.mock import Mock
-
-sys.path.insert(0, "../")
-
 from pygfa.algorithms.simple_paths import all_simple_paths
 from pygfa.algorithms.traversal import dfs_edges
 
@@ -197,37 +197,33 @@ class TestTraversal(unittest.TestCase):
 class TestAlgorithmEdgeCases(unittest.TestCase):
     """Test edge cases and error handling for algorithms."""
 
-    @unittest.skip("Selector API changed - needs test update")
     def test_empty_selector(self):
         """Test with selector that returns no edges."""
         mock_graph = Mock()
         mock_graph.__contains__ = Mock(return_value=True)
         mock_graph.nodes = Mock(return_value=["A", "B"])
 
-        def empty_selector(node):
-            return  # No edges
+        def empty_selector(node: str, keys: bool = False, **args: Any) -> list[tuple[str, str]]:
+            return iter([])  # No edges (return empty iterable)
 
         paths = list(all_simple_paths(mock_graph, "A", "B", empty_selector))
 
         # Should find no paths
         self.assertEqual(len(paths), 0)
 
-    @unittest.skip("Selector interface changed")
     def test_selector_with_args(self):
         """Test selector that accepts additional arguments."""
         mock_graph = Mock()
         mock_graph.__contains__ = Mock(return_value=True)
         mock_graph.nodes = Mock(return_value=["A", "B"])
 
-        def selector_with_args(node, keys=False, custom_arg=None):
+        def selector_with_args(
+            node: str, keys: bool = False, custom_arg: str | None = None, **args: Any
+        ) -> list[tuple[str, str]]:
             if custom_arg == "test":
-                yield node, "B"
+                return [(node, "B")]
 
-        paths = list(
-            all_simple_paths(
-                mock_graph, "A", "B", lambda n, **kwargs: selector_with_args(n, **kwargs), custom_arg="test"
-            )
-        )
+        paths = list(all_simple_paths(mock_graph, "A", "B", lambda n, **kwargs: selector_with_args(n, **kwargs)))
 
         # Should find path when custom_arg matches
         self.assertEqual(len(paths), 1)

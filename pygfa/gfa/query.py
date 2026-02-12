@@ -590,18 +590,21 @@ class GFAParserMixin(BaseGFA):
                         print(f"    {key}: {value}")
                 if "sequence" in data:
                     print(f"    sequence: {data['sequence']}")
+                # Print length field - use slen if available, otherwise calculate from sequence
                 if "slen" in data:
                     print(f"    length: {data['slen']}")
+                elif "sequence" in data and data["sequence"] != "*":
+                    print(f"    length: {len(data['sequence'])}")
             print()
 
         # Print edges
         if self.edges():
             print("--- Edges ---")
             for u, v, key, data in self.edges_iter(data=True, keys=True):
-                print(f"  Edge: {key} ({u} -> {v})")
+                print(f"Edge: {key} ({u} -> {v})")
                 for attr, val in data.items():
                     if attr not in ["from_node", "to_node", "eid"]:
-                        print(f"    {attr}: {val}")
+                        print(f"     {attr}: {val}")
             print()
 
         # Print paths
