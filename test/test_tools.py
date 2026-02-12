@@ -92,7 +92,8 @@ class TestSameGFA(TestToolsBase):
 
             # Should show usage (no arguments provided)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Usage:", result.stdout)
+            # argparse prints usage to stderr, not stdout
+            self.assertTrue("usage:" in result.stderr.lower() or "usage:" in result.stdout)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
             self.skipTest("same_gfa.py not available or timeout")

@@ -76,7 +76,9 @@ class BaseGFA:
         :raises TypeError: If base_graph is not a MultiGraph.
         """
         if base_graph is not None and not isinstance(base_graph, nx.MultiGraph):
-            raise TypeError(f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead.")
+            raise InvalidElementError(
+                f"{type(base_graph)} cannot be used as base graph, use networkx.MultiGraph instead."
+            )
 
         self._graph = nx.MultiGraph(base_graph)
         self._subgraphs: dict[str, Any] = {}
