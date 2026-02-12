@@ -148,3 +148,23 @@ from pygfa.encoding.group_varint import (
     compress_integer_list_group_varint as compress_integer_list_group_varint,
     decompress_integer_list_group_varint as decompress_integer_list_group_varint,
 )
+from pygfa.encoding.fibonacci_coding import (
+    compress_integer_list_fibonacci as compress_integer_list_fibonacci,
+    decompress_integer_list_fibonacci as decompress_integer_list_fibonacci,
+)
+from pygfa.encoding.exp_golomb import (
+    compress_integer_list_exp_golomb as compress_integer_list_exp_golomb,
+    decompress_integer_list_exp_golomb as decompress_integer_list_exp_golomb,
+)
+from pygfa.encoding.byte_packed import (
+    compress_integer_list_byte_packed as compress_integer_list_byte_packed,
+    decompress_integer_list_byte_packed as decompress_integer_list_byte_packed,
+)
+from pygfa.encoding.masked_vbyte import (
+    compress_integer_list_masked_vbyte as compress_integer_list_masked_vbyte,
+    decompress_integer_list_masked_vbyte as decompress_integer_list_masked_vbyte,
+)
+from pygfa.encoding.ppm_coding import (
+    compress_string_ppm as compress_string_ppm,
+    compress_string_list_ppm as compress_string_list_ppm,
+)
