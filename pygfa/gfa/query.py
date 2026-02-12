@@ -22,6 +22,7 @@ from pygfa.graph_element import edge as ge
 from pygfa.graph_element import node
 from pygfa.graph_element import subgraph as sg
 from pygfa.graph_element.parser import segment
+from pygfa.utils.file_opener import open_gfa_file
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -198,6 +199,9 @@ class GFAParserMixin(BaseGFA):
             if len(line_) < 1:
                 logger.debug(f"Skipping empty line {i + 1}")
                 continue
+            if line_.startswith("#"):
+                logger.debug(f"Skipping comment line {i + 1}")
+                continue
 
             logger.debug(f"Processing line {i + 1}: {line_[:50]}{'...' if len(line_) > 50 else ''}")
 
@@ -217,8 +221,7 @@ class GFAParserMixin(BaseGFA):
                         elif child.data == "link_line":
                             self._process_link_line(child, i, logger)
                         elif child.data == "containment_line":
-                            # Handle containment line
-                            pass
+                            self._process_containment_line(child, i, logger)
                         elif child.data == "path_line":
                             self._process_path_line(child)
                         elif child.data == "walk_line":
@@ -329,6 +332,71 @@ class GFAParserMixin(BaseGFA):
                 )
             )
 
+    def _process_containment_line(self, child, line_num: int, logger) -> None:
+        """Process a parsed containment line and add it to the graph.
+
+        :param child: The parsed containment line from lark.
+        :param line_num: The line number for logging.
+        :param logger: The logger instance.
+        """
+        containment_data: dict[str, Any] = {}
+        segment_names = []
+        orientations = []
+
+        for containment_child in child.children:
+            if hasattr(containment_child, "data"):
+                if containment_child.data == "segment_name":
+                    segment_names.append(containment_child.children[0].value)
+                elif containment_child.data == "position":
+                    containment_data["pos"] = containment_child.children[0].value
+                    logger.debug(f"Position: {containment_data['pos']}")
+                elif containment_child.data == "cigar":
+                    containment_data["alignment"] = containment_child.children[0].value
+                    logger.debug(f"Alignment: {containment_data['alignment']}")
+                elif containment_child.data == "optional_field":
+                    tag = containment_child.children[0].children[0].value
+                    _ = containment_child.children[1].children[0].value  # value_type
+                    value = containment_child.children[2].children[0].value
+                    containment_data[tag] = value
+                    logger.debug(f"Optional field: {tag}={value}")
+            else:
+                # It's a Token (orientation)
+                orientations.append(str(containment_child))
+
+        # Assign segment names and orientations
+        if len(segment_names) >= 2:
+            containment_data["from_node"] = segment_names[0]
+            containment_data["to_node"] = segment_names[1]
+            logger.debug(f"From node: {containment_data['from_node']}")
+            logger.debug(f"To node: {containment_data['to_node']}")
+        if len(orientations) >= 2:
+            containment_data["from_orn"] = orientations[0]
+            containment_data["to_orn"] = orientations[1]
+            logger.debug(f"From orientation: {containment_data['from_orn']}")
+            logger.debug(f"To orientation: {containment_data['to_orn']}")
+
+        if all(k in containment_data for k in ["from_node", "from_orn", "to_node", "to_orn", "pos", "alignment"]):
+            logger.debug(f"Adding containment edge: {containment_data['from_node']} -> {containment_data['to_node']}")
+            self.add_edge(
+                ge.Edge(
+                    None,  # eid
+                    containment_data["from_node"],
+                    containment_data["from_orn"],
+                    containment_data["to_node"],
+                    containment_data["to_orn"],
+                    (None, None),  # from_positions
+                    (None, None),  # to_positions
+                    containment_data["alignment"],
+                    None,  # distance
+                    None,  # variance
+                    opt_fields={
+                        k: v
+                        for k, v in containment_data.items()
+                        if k not in ["from_node", "from_orn", "to_node", "to_orn", "alignment", "pos"]
+                    },
+                )
+            )
+
     def _process_path_line(self, child) -> None:
         """Process a parsed path line and add it to the graph.
 
@@ -393,3 +461,456 @@ class GFAParserMixin(BaseGFA):
 
         if "sample_id" in walk_data and "walk" in walk_data:
             self.add_walk(walk_data)
+
+    @classmethod
+    def from_gfa(cls, filepath):
+        """Parse the given file and return a GFA object.
+
+        Since GFA is a line-oriented format, we can parse each line separately.
+        This allows to avoid keeping the entire parse tree in memory.
+
+        :param filepath: Path to the GFA file.
+        :returns: A new GFA graph object.
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug(f"GFA.from_gfa(): Starting to parse file: {filepath}")
+
+        g = cls()
+
+        # Load the grammar from the gfa.lark file
+        grammar_file = os.path.join(os.path.dirname(__file__), "..", "graph_element", "parser", "gfa.lark")
+        logger.debug(f"Loading grammar from: {grammar_file}")
+        with open(grammar_file) as f:
+            grammar = f.read()
+        logger.debug(f"Grammar loaded, size: {len(grammar)} characters")
+
+        # Create the parser
+        parser = lark.Lark(grammar, start="start")
+        logger.debug("Lark parser created")
+
+        # Read and parse the file line by line
+        line_count = 0
+        with open_gfa_file(filepath) as f:
+            for line in f:
+                line = line.strip()
+                line_count += 1
+                if not line or line.startswith("#"):
+                    continue
+
+                try:
+                    # Parse the line using from_string logic
+                    tree = parser.parse(line + "\n")
+                    logger.debug(f"Line {line_count}: Successfully parsed")
+
+                    # Process the parsed tree based on line type
+                    for subtree in tree.children:
+                        for child in subtree.children:
+                            if child.data == "header_line":
+                                pass
+                            elif child.data == "segment_line":
+                                g._process_segment_line(child)
+                            elif child.data == "link_line":
+                                g._process_link_line(child, line_count, logger)
+                            elif child.data == "containment_line":
+                                g._process_containment_line(child, line_count, logger)
+                            elif child.data == "path_line":
+                                g._process_path_line(child)
+                            elif child.data == "walk_line":
+                                g._process_walk_line(child)
+
+                except lark.exceptions.LarkError as e:
+                    logger.warning(
+                        f"Failed to parse line {line_count}: {line[:50]}{'...' if len(line) > 50 else ''} - {e}"
+                    )
+                    continue
+
+        return g
+
+    @classmethod
+    def from_file(cls, filepath: str, **kwargs) -> "GFA":
+        """Load a GFA graph from a file, auto-detecting format from extension.
+
+        Supports both text GFA (plain, gzip, zstd, xz) and binary BGFA formats.
+
+        :param filepath: Path to a .gfa, .gfa.gz, .gfa.zst, .gfa.xz, or .bgfa file.
+        :param kwargs: Passed to the underlying reader (e.g. verbose, debug, logfile for BGFA).
+        :return: GFA graph object.
+        """
+        # Strip compression suffixes to expose the base format extension
+        name = filepath
+        for suffix in (".gz", ".zst", ".zstd", ".xz"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+
+        if name.endswith(".bgfa"):
+            return cls.from_bgfa(filepath, **kwargs)
+        else:
+            return cls.from_gfa(filepath)
+
+    @classmethod
+    def from_bgfa(
+        cls,
+        file_path: str,
+        verbose: bool = False,
+        debug: bool = False,
+        logfile: str = None,
+    ) -> "GFA":
+        """Read a BGFA file and return the corresponding GFA graph.
+
+        :param file_path: Path to the BGFA file
+        :param verbose: If True, log detailed information
+        :param debug: If True, log debug information
+        :param logfile: Path to log file (if None and verbose=True, uses a temporary file)
+        :return: GFA graph object
+        """
+        from pygfa.bgfa import read_bgfa
+
+        return read_bgfa(file_path, verbose=verbose, debug=debug, logfile=logfile)
+
+    def pprint(self):
+        """Pretty print the entire GFA graph, including all attributes."""
+        print("=== GFA Graph ===")
+
+        # Print header information
+        print(f"Nodes: {len(self.nodes())}")
+        print(f"Edges: {len(self.edges())}")
+        print(f"Subgraphs: {len(self.subgraphs())}")
+        print(f"Paths: {len(self.paths())}")
+        print(f"Walks: {len(self.walks())}")
+        print()
+
+        # Print nodes
+        if self.nodes():
+            print("--- Nodes ---")
+            for node_id, data in self.nodes_iter(data=True):
+                print(f"  Node: {node_id}")
+                for key, value in data.items():
+                    if key not in ["nid", "sequence", "slen"]:
+                        print(f"    {key}: {value}")
+                if "sequence" in data:
+                    print(f"    sequence: {data['sequence']}")
+                if "slen" in data:
+                    print(f"    length: {data['slen']}")
+            print()
+
+        # Print edges
+        if self.edges():
+            print("--- Edges ---")
+            for u, v, key, data in self.edges_iter(data=True, keys=True):
+                print(f"  Edge: {key} ({u} -> {v})")
+                for attr, val in data.items():
+                    if attr not in ["from_node", "to_node", "eid"]:
+                        print(f"    {attr}: {val}")
+            print()
+
+        # Print paths
+        if self.paths():
+            print("--- Paths ---")
+            for path_id, path_data in self.paths_iter(data=True):
+                print(f"  Path: {path_id}")
+                for key, value in path_data.items():
+                    print(f"    {key}: {value}")
+            print()
+
+        # Print walks
+        if self.walks():
+            print("--- Walks ---")
+            for walk_id, walk_data in self.walks_iter(data=True):
+                print(f"  Walk: {walk_id}")
+                for key, value in walk_data.items():
+                    print(f"    {key}: {value}")
+            print()
+
+        # Print subgraphs
+        if self.subgraphs():
+            print("--- Subgraphs ---")
+            for sub_id, sub_data in self.subgraphs_iter(data=True):
+                print(f"  Subgraph: {sub_id}")
+                sub_dict = sub_data.as_dict()
+                for key, value in sub_dict.items():
+                    print(f"    {key}: {value}")
+            print()
+
+    def to_bgfa(
+        self,
+        file=None,
+        block_size=1024,
+        compression_options=None,
+        verbose: bool = False,
+        debug: bool = False,
+        logfile: str = None,
+    ) -> bytes:
+        """Convert this GFA graph to BGFA binary format and write to file.
+
+        :param file: Output file path or file object (optional)
+        :param block_size: Block size for BGFA format
+        :param compression_options: Dictionary of compression options. Accepts either:
+            - New-style keys matching bgfa.to_bgfa parameters
+            - Legacy keys from bgfatools CLI
+        :param verbose: If True, log detailed information
+        :param debug: If True, log debug information
+        :param logfile: Path to log file
+        :return: BGFA binary data if file is None, otherwise writes to file
+        """
+        if verbose or debug:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            output_file = file if file else "bytes"
+            logger.info(f"GFA.to_bgfa(): Starting conversion to BGFA, output: {output_file}")
+
+        from pygfa.bgfa import (
+            INTEGER_ENCODING_DELTA,
+            INTEGER_ENCODING_ELIAS_GAMMA,
+            INTEGER_ENCODING_ELIAS_OMEGA,
+            INTEGER_ENCODING_FIXED16,
+            INTEGER_ENCODING_FIXED32,
+            INTEGER_ENCODING_FIXED64,
+            INTEGER_ENCODING_GOLOMB,
+            INTEGER_ENCODING_IDENTITY,
+            INTEGER_ENCODING_RICE,
+            INTEGER_ENCODING_STREAMVBYTE,
+            INTEGER_ENCODING_VARINT,
+            INTEGER_ENCODING_VBYTE,
+            STRING_ENCODING_GZIP,
+            STRING_ENCODING_HUFFMAN,
+            STRING_ENCODING_IDENTITY,
+            STRING_ENCODING_LZMA,
+            STRING_ENCODING_ZSTD,
+        )
+        from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+
+        if compression_options is None:
+            compression_options = {}
+
+        _INT_NAME_TO_CODE = {
+            "": INTEGER_ENCODING_IDENTITY,
+            "varint": INTEGER_ENCODING_VARINT,
+            "fixed16": INTEGER_ENCODING_FIXED16,
+            "fixed32": INTEGER_ENCODING_FIXED32,
+            "fixed64": INTEGER_ENCODING_FIXED64,
+            "delta": INTEGER_ENCODING_DELTA,
+            "gamma": INTEGER_ENCODING_ELIAS_GAMMA,
+            "omega": INTEGER_ENCODING_ELIAS_OMEGA,
+            "golomb": INTEGER_ENCODING_GOLOMB,
+            "rice": INTEGER_ENCODING_RICE,
+            "streamvbyte": INTEGER_ENCODING_STREAMVBYTE,
+            "vbyte": INTEGER_ENCODING_VBYTE,
+        }
+        _STR_NAME_TO_CODE = {
+            "": STRING_ENCODING_IDENTITY,
+            "zstd": STRING_ENCODING_ZSTD,
+            "gzip": STRING_ENCODING_GZIP,
+            "lzma": STRING_ENCODING_LZMA,
+            "huffman": STRING_ENCODING_HUFFMAN,
+        }
+
+        def _resolve_int(name):
+            if name is None or name == "":
+                return INTEGER_ENCODING_IDENTITY
+            if isinstance(name, int):
+                return name
+            return _INT_NAME_TO_CODE.get(str(name), INTEGER_ENCODING_IDENTITY)
+
+        def _resolve_str(name):
+            if name is None or name == "":
+                return STRING_ENCODING_IDENTITY
+            if isinstance(name, int):
+                return name
+            return _STR_NAME_TO_CODE.get(str(name), STRING_ENCODING_IDENTITY)
+
+        has_new_keys = any(k.endswith("_int_encoding") or k.endswith("_str_encoding") for k in compression_options)
+
+        if has_new_keys:
+            kwargs = {}
+            for key, value in compression_options.items():
+                if value is not None:
+                    kwargs[key] = value
+        else:
+            kwargs = {
+                "segment_names_int_encoding": _resolve_int(compression_options.get("segment_names_payload_lengths")),
+                "segment_names_str_encoding": _resolve_str(compression_options.get("segment_names_payload_names")),
+                "segments_int_encoding": _resolve_int(compression_options.get("segments_payload_lengths")),
+                "segments_str_encoding": _resolve_str(compression_options.get("segments_payload_strings")),
+                "links_fromto_int_encoding": _resolve_int(compression_options.get("links_payload_from")),
+                "links_cigars_int_encoding": _resolve_int(compression_options.get("links_payload_cigar_lengths")),
+                "links_cigars_str_encoding": _resolve_str(compression_options.get("links_payload_cigar")),
+                "paths_names_int_encoding": _resolve_int(compression_options.get("paths_payload_names")),
+                "paths_names_str_encoding": _resolve_str(compression_options.get("paths_payload_names")),
+                "paths_cigars_int_encoding": _resolve_int(compression_options.get("paths_payload_cigar_lengths")),
+                "paths_cigars_str_encoding": _resolve_str(compression_options.get("paths_payload_cigar")),
+                "walks_sample_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sample_ids")),
+                "walks_sample_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sample_ids")),
+                "walks_hap_indices_int_encoding": _resolve_int(compression_options.get("walks_payload_hep_indices")),
+                "walks_seq_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sequence_ids")),
+                "walks_seq_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sequence_ids")),
+                "walks_start_int_encoding": _resolve_int(compression_options.get("walks_payload_start")),
+                "walks_end_int_encoding": _resolve_int(compression_options.get("walks_payload_end")),
+            }
+
+        return bgfa_to_bgfa(
+            self,
+            file=file,
+            block_size=block_size,
+            verbose=verbose,
+            debug=debug,
+            logfile=logfile,
+            **kwargs,
+        )
+
+    def to_gfa(self):
+        """Output a GFA string associated to this GFA graph.
+
+        The elements appear in this order:
+        1. Header
+        2. Segments (sorted by name)
+        3. Links (sorted by From, then To)
+        4. Paths (sorted by PathName)
+        5. Walks (sorted by SampleID, then SeqId)
+        6. Containments (sorted by Container, then Contained)
+
+        :returns: A string containing the GFA representation
+        """
+        logger = logging.getLogger(__name__)
+        logger.debug("to_gfa(): Starting GFA serialization")
+
+        lines = []
+
+        # 1. Header
+        lines.append("H\tVN:Z:1.0")
+        logger.debug("to_gfa(): Added header")
+
+        # 2. Segments (sorted by name)
+        segments = []
+        logger.debug(f"to_gfa(): Processing {len(list(self.nodes_iter()))} nodes")
+        for node_id, data in self.nodes_iter(data=True):
+            line_parts = ["S", node_id, data.get("sequence", "*")]
+            # Add optional fields
+            for key, value in data.items():
+                if key not in ["nid", "sequence", "slen"]:
+                    if isinstance(value, int):
+                        line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, str):
+                        line_parts.append(f"{key}:Z:{value}")
+            segments.append("\t".join(line_parts))
+        segments.sort(key=lambda x: x.split("\t")[1])
+        lines.extend(segments)
+        logger.debug(f"to_gfa(): Added {len(segments)} segments")
+
+        # 3. Links (sorted by From, then To)
+        links = []
+        logger.debug(f"to_gfa(): Processing {len(list(self.edges_iter()))} edges")
+        for u, v, _key, data in self.edges_iter(data=True, keys=True):
+            from_node = data.get("from_node", u)
+            from_orn = data.get("from_orn", "+")
+            to_node = data.get("to_node", v)
+            to_orn = data.get("to_orn", "+")
+            alignment = data.get("alignment", "*")
+
+            line_parts = ["L", from_node, from_orn, to_node, to_orn, alignment]
+
+            # Add optional fields
+            for field_name, value in data.items():
+                if field_name not in [
+                    "eid",
+                    "from_node",
+                    "from_orn",
+                    "to_node",
+                    "to_orn",
+                    "alignment",
+                    "distance",
+                    "variance",
+                    "from_positions",
+                    "to_positions",
+                    "from_segment_end",
+                    "to_segment_end",
+                ]:
+                    if isinstance(value, int):
+                        line_parts.append(f"{field_name}:i:{value}")
+                    elif isinstance(value, str):
+                        line_parts.append(f"{field_name}:Z:{value}")
+
+            links.append("\t".join(line_parts))
+
+        links.sort(key=lambda x: (x.split("\t")[2], x.split("\t")[4]))
+        lines.extend(links)
+        logger.debug(f"to_gfa(): Added {len(links)} links")
+
+        # 4. Paths (sorted by PathName)
+        paths = []
+        logger.debug(f"to_gfa(): Processing {len(self._paths)} paths")
+        for path_id, path_data in self.paths_iter(data=True):
+            line_parts = ["P", path_id]
+
+            # Add segments
+            segments = path_data.get("segments", [])
+            line_parts.append(",".join(segments))
+
+            # Add overlaps
+            overlaps = path_data.get("overlaps", [])
+            if overlaps:
+                line_parts.append(",".join(overlaps))
+
+            # Add optional fields
+            for key, value in path_data.items():
+                if key not in ["path_name", "segments", "overlaps"]:
+                    if isinstance(value, int):
+                        line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, str):
+                        line_parts.append(f"{key}:Z:{value}")
+
+            paths.append("\t".join(line_parts))
+
+        paths.sort(key=lambda x: x.split("\t")[1])
+        lines.extend(paths)
+        logger.debug(f"to_gfa(): Added {len(paths)} paths")
+
+        # 5. Walks (sorted by SampleID, then SeqId)
+        walks = []
+        logger.debug(f"to_gfa(): Processing {len(self._walks)} walks")
+        for _walk_id, walk_data in self.walks_iter(data=True):
+            line_parts = ["W"]
+
+            # Add required fields
+            line_parts.append(walk_data.get("sample_id", ""))
+            line_parts.append(str(walk_data.get("hapindex", 0)))
+            line_parts.append(walk_data.get("seq_id", ""))
+
+            # Add optional positions
+            seq_start = walk_data.get("seq_start", "*")
+            seq_end = walk_data.get("seq_end", "*")
+            line_parts.append(str(seq_start) if seq_start is not None else "*")
+            line_parts.append(str(seq_end) if seq_end is not None else "*")
+
+            # Add walk string
+            line_parts.append(walk_data.get("walk", ""))
+
+            # Add optional fields
+            for key, value in walk_data.items():
+                if key not in [
+                    "sample_id",
+                    "hapindex",
+                    "seq_id",
+                    "seq_start",
+                    "seq_end",
+                    "walk",
+                ]:
+                    if isinstance(value, int):
+                        line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, str):
+                        line_parts.append(f"{key}:Z:{value}")
+
+            walks.append("\t".join(line_parts))
+
+        walks.sort(key=lambda x: (x.split("\t")[1], x.split("\t")[3]))
+        lines.extend(walks)
+        logger.debug(f"to_gfa(): Added {len(walks)} walks")
+
+        # 6. Containments (sorted by Container, then Contained)
+        # For now, containments are not fully supported
+        # This would require parsing and storing containment lines
+
+        result = "\n".join(lines)
+        logger.debug(f"to_gfa(): GFA serialization complete, {len(result)} characters")
+        return result

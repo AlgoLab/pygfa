@@ -52,3 +52,12 @@ class GFA(GFAElementsMixin, GFAQueryMixin, GFAParserMixin):
 from pygfa.graph_element import node, edge, subgraph
 
 __all__.extend(["node", "edge", "subgraph"])
+
+# Re-export exceptions for backward compatibility
+from pygfa.exceptions import (
+    GFAError,
+    InvalidSearchParameters,
+    InvalidElementError,
+)
+
+__all__.extend(["GFAError", "InvalidSearchParameters", "InvalidElementError"])

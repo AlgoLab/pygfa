@@ -74,7 +74,11 @@ class GFAElementsMixin(BaseGFA):
 
         if isinstance(new_node, str) and new_node[0] == "S":
             logger.debug("add_node(): Parsing node from string")
-            new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
+            # Detect if this is GFA2 format (has length field)
+            if segment.is_segmentv2(new_node.strip()):
+                new_node = node.Node.from_line(segment.SegmentV2.from_string(new_node.strip()))
+            else:
+                new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
 
         if not node.is_node(new_node):
             logger.debug("add_node(): Invalid node object")
