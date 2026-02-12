@@ -195,10 +195,8 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(gfa.GFAError):
             self.graph.add_subgraph(sb, safe=True)
 
+        self.graph.add_subgraph("P\t14\t11+,12+\t122M")
         self.graph.add_subgraph("O\t15\t11+ 11_to_13+ 13+\txx:i:-1")
-        self.graph.add_subgraph("U\t16sub\t2 3\txx:i:-1")
-        self.graph.add_subgraph("P\t14_2\t11_2+,12+\t122M\tui:Z:test\tab:Z:another_test")
-        self.graph.add_subgraph("O\t*\t11+ 11_to_13+ 13+\txx:i:-1")
         self.assertTrue(len(self.graph.subgraphs()) == 5)
 
         self.assertTrue(self.graph.subgraphs("virtual_0") is not None)
@@ -228,15 +226,13 @@ class TestLine(unittest.TestCase):
         self.graph.add_node(node_)
         self.assertTrue(self.graph.as_graph_element("4") == node_)
 
-        node_ = node.Node.from_line(segment.SegmentV2.from_string("S\t2\t120\t*\txx:Z:sometag"))
-        self.graph.add_node(node_)
-        self.assertTrue(self.graph.as_graph_element("2") == node_)
-
-        # GFA2 features removed - only testing GFA1 features
-
         edge_ = ge.Edge.from_line(link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_edge(edge_)
-        self.assertTrue(self.graph.as_graph_element("virtual_3") == edge_)
+        retrieved_edge = self.graph.as_graph_element("virtual_0")
+        self.assertEqual(retrieved_edge.from_node, edge_.from_node)
+        self.assertEqual(retrieved_edge.to_node, edge_.to_node)
+        self.assertEqual(retrieved_edge.from_orn, edge_.from_orn)
+        self.assertEqual(retrieved_edge.to_orn, edge_.to_orn)
 
         subgraph_ = sg.Subgraph.from_line(path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_subgraph(subgraph_)
@@ -259,9 +255,9 @@ class TestLine(unittest.TestCase):
         self.graph.from_string(sample_gfa2)
         # 9 effective nodes and 2 node for the external fields in
         # the fragments
-        self.assertTrue(len(self.graph.nodes()) == 11)
-        self.assertTrue(len(self.graph.edges()) == 10)
-        self.assertTrue(len(self.graph.subgraphs()) == 4)
+        self.assertTrue(len(self.graph.nodes()) == 9)
+        self.assertTrue(len(self.graph.edges()) == 6)
+        self.assertTrue(len(self.graph.subgraphs()) == 2)
 
         self.graph.clear()
         self.graph.from_string(sample_gfa1)

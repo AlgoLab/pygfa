@@ -74,11 +74,7 @@ class GFAElementsMixin(BaseGFA):
 
         if isinstance(new_node, str) and new_node[0] == "S":
             logger.debug("add_node(): Parsing node from string")
-            # Detect if this is GFA2 format (has length field)
-            if segment.is_segmentv2(new_node.strip()):
-                new_node = node.Node.from_line(segment.SegmentV2.from_string(new_node.strip()))
-            else:
-                new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
+            new_node = node.Node.from_line(segment.SegmentV1.from_string(new_node.strip()))
 
         if not node.is_node(new_node):
             logger.debug("add_node(): Invalid node object")
@@ -199,7 +195,7 @@ class GFAElementsMixin(BaseGFA):
             new_edge.from_node,
             new_edge.to_node,
             key=key,
-            eid=new_edge.eid,
+            eid=key,
             from_node=new_edge.from_node,
             from_orn=new_edge.from_orn,
             to_node=new_edge.to_node,
@@ -283,18 +279,30 @@ class GFAElementsMixin(BaseGFA):
     # Subgraph Operations
     # =========================================================================
 
-    def add_subgraph(self, subgraph: sg.Subgraph, safe: bool = False) -> None:
+    def add_subgraph(self, subgraph, safe: bool = False) -> None:
         """Add a Subgraph object to the graph.
 
         The object is not altered in any way.
 
-        :param subgraph: A graph_element.Subgraph object.
+        :param subgraph: A graph_element.Subgraph object or string.
         :param safe: If set check if the given identifier has already
             been added to the graph, and in that case raise
             an exception.
         :raises InvalidSubgraphError: If the object is not a valid subgraph.
         :raises GFAError: If safe=True and subgraph already exists.
         """
+        # Handle string input by parsing it
+        if isinstance(subgraph, str):
+            from pygfa.graph_element.parser import path
+            from pygfa.graph_element.parser.line import Line
+
+            if subgraph[0] == "P":
+                subgraph = sg.Subgraph.from_line(path.Path.from_string(subgraph))
+            else:
+                raise sg.InvalidSubgraphError(
+                    f"The string given cannot be represented as a subgraph,\ngiven: {subgraph}"
+                )
+
         if not sg.is_subgraph(subgraph):
             raise sg.InvalidSubgraphError("The object is not a valid subgraph.")
 

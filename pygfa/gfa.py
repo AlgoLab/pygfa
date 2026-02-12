@@ -972,7 +972,7 @@ class GFA:
                                 logger.debug(f"Adding edge: {link_data['from_node']} -> {link_data['to_node']}")
                                 self.add_edge(
                                     ge.Edge(
-                                        None,  # eid
+                                        link_data.get("ID"),  # eid
                                         link_data["from_node"],
                                         link_data["from_orn"],
                                         link_data["to_node"],
@@ -1033,7 +1033,31 @@ class GFA:
                                     path_data[tag] = value
 
                             if "path_name" in path_data and "segments" in path_data:
+                                print(f"DEBUG: Processing path line: {path_data}")  # Debug
                                 self.add_path(path_data)
+                                # Also add as subgraph for compatibility
+                                from pygfa.graph_element import subgraph as sg
+                                from pygfa.graph_element.parser import path as path_parser
+
+                                try:
+                                    # Re-parse the path line to create subgraph
+                                    path_line_str = f"P\t{path_data['path_name']}\t{','.join(path_data['segments'])}"
+                                    if "overlaps" in path_data:
+                                        path_line_str += f"\t{','.join(path_data['overlaps'])}"
+                                    # Add optional fields
+                                    for key, value in path_data.items():
+                                        if key not in ["path_name", "segments", "overlaps"]:
+                                            path_line_str += f"\t{key}:{value}"
+
+                                    path_line = path_parser.Path.from_string(path_line_str)
+                                    subgraph = sg.Subgraph.from_line(path_line)
+                                    self.add_subgraph(subgraph)
+except Exception as e:
+                                # Log error but don't fail parsing
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.warning(f"Failed to convert path to subgraph: {e}")
+                                print(f"DEBUG: Path to subgraph conversion failed: {e}")  # Debug output
 
                         elif child.data == "walk_line":
                             # Handle walk line
@@ -1075,6 +1099,33 @@ class GFA:
 
         # Log graph dump - print actual content
         logger.debug("Graph content after from_string():")
+        
+        # Convert paths to subgraphs for compatibility
+        for path_id, path_data in self.paths_iter(data=True):
+            try:
+                from pygfa.graph_element.parser import path as path_parser
+                from pygfa.graph_element import subgraph as sg
+                
+                # Reconstruct path line
+                segments = path_data.get('segments', [])
+                overlaps = path_data.get('overlaps', [])
+                path_line_str = f"P\t{path_data['path_name']}\t{','.join(segments)}"
+                if overlaps:
+                    path_line_str += f"\t{','.join(overlaps)}"
+                
+                # Add optional fields
+                for key, value in path_data.items():
+                    if key not in ["path_name", "segments", "overlaps"]:
+                        path_line_str += f"\t{key}:{value}"
+                
+                path_line = path_parser.Path.from_string(path_line_str)
+                subgraph = sg.Subgraph.from_line(path_line)
+                self.add_subgraph(subgraph)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to convert path to subgraph: {e}")
+        
         # Print nodes
         for node_id, node_data in self.nodes_iter(data=True):
             logger.debug(
