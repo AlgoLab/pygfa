@@ -147,11 +147,15 @@ for bench_type, datasets in BENCHMARK_GROUPS.items():
 
 INT_ENCODINGS = config.get("int_encodings", [
     "none", "varint", "fixed32", "fixed64", "delta",
-    "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte"
+    "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte",
+    "pfor_delta", "simple8b", "group_varint", "bit_packing",
+    "fibonacci", "exp_golomb", "byte_packed", "masked_vbyte"
 ])
 
 STR_ENCODINGS = config.get("str_encodings", [
-    "none", "zstd", "gzip", "lzma", "huffman"
+    "none", "zstd", "gzip", "lzma", "lz4", "brotli",
+    "huffman", "frontcoding", "delta", "dictionary",
+    "rle", "cigar", "2bit", "arithmetic", "bwt_huffman", "ppm"
 ])
 
 OUTPUT_DIR = config.get("output_dir", "results/benchmark")

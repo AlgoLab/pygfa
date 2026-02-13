@@ -58,6 +58,7 @@ def parse_cli_options():
     # create the dictionary integers_encoding where the keys are all
     # possible functions to encode a list of integers, taken from gfa.py
     integers_encoding = {
+        "none": "compress_integer_list_none",
         "varint": "compress_integer_list_varint",
         "fixed32": "compress_integer_list_fixed",
         "fixed64": "compress_integer_list_fixed",
@@ -68,6 +69,14 @@ def parse_cli_options():
         "rice": "compress_integer_list_rice",
         "streamvbyte": "compress_integer_list_streamvbyte",
         "vbyte": "compress_integer_list_vbyte",
+        "pfor_delta": "compress_integer_list_pfor_delta",
+        "simple8b": "compress_integer_list_simple8b",
+        "group_varint": "compress_integer_list_group_varint",
+        "bit_packing": "compress_integer_list_bitpacking",
+        "fibonacci": "compress_integer_list_fibonacci",
+        "exp_golomb": "compress_integer_list_exp_golomb",
+        "byte_packed": "compress_integer_list_byte_packed",
+        "masked_vbyte": "compress_integer_list_masked_vbyte",
         "": "compress_integer_list_none",
     }
     integers_encoding_str = (
@@ -76,13 +85,22 @@ def parse_cli_options():
     # create the dictionary string_encoding where the keys are all
     # possible functions to encode a string, taken from gfa.py
     string_encoding = {
+        "none": "compress_string_none",
         "zstd": "compress_string_zstd",
         "gzip": "compress_string_gzip",
         "lzma": "compress_string_lzma",
+        "lz4": "compress_string_lz4",
+        "brotli": "compress_string_brotli",
+        "huffman": "compress_string_list_huffman",
         "frontcoding": "compress_string_list_frontcoding",
         "delta": "compress_string_list_delta",
         "dictionary": "compress_string_list_dictionary",
-        "huffman": "compress_string_list_huffman",
+        "rle": "compress_string_rle",
+        "cigar": "compress_string_cigar",
+        "2bit": "compress_string_2bit_dna",
+        "arithmetic": "compress_string_arithmetic",
+        "bwt_huffman": "compress_string_bwt_huffman",
+        "ppm": "compress_string_ppm",
         "": "compress_string_none",
     }
     string_encoding_str = f" possible values: {'/'.join(string_encoding.keys())[:-1]}"
