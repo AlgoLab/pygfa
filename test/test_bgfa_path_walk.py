@@ -143,7 +143,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
     def test_bgfa_reader_with_paths_and_walks(self):
         """Test complete BGFA reader with paths and walks."""
         # Create output directory using tempfile
-        output_dir = tempfile.mkdtemp()
+        output_dir = tempfile.mkdtemp(dir="results/test")
 
         with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:
             # Create BGFA header
