@@ -4,7 +4,6 @@ import itertools
 import os
 import sys
 import tempfile
-import shutil
 import glob
 
 # Add the project root to the Python path to ensure imports work correctly
@@ -258,7 +257,7 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
 
 
 # Helper function for idempotent tests
-def _idempotent_test_helper(gfa_path, int_encoding, str_encoding):
+def _idempotent_test_helper(gfa_path, int_encoding, str_encoding, test_output_dir):
     """Helper function to run idempotent tests on specific GFA files."""
     # Check if file has bgfa test comment
     if not should_run_test_for_gfa("bgfa", gfa_path):
@@ -267,25 +266,25 @@ def _idempotent_test_helper(gfa_path, int_encoding, str_encoding):
     if not os.path.exists(gfa_path):
         pytest.skip(f"Test file not found: {gfa_path}")
 
-    test_gfa_to_bgfa_to_gfa_regression(gfa_path, int_encoding, str_encoding)
+    test_gfa_to_bgfa_to_gfa_regression(gfa_path, int_encoding, str_encoding, test_output_dir)
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
-def test_bgfa_idempotent_1(int_encoding, str_encoding):
+def test_bgfa_idempotent_1(int_encoding, str_encoding, test_output_dir):
     """Test that pprint output matches expected file content with all encoding strategies."""
-    _idempotent_test_helper("data/example_1.gfa", int_encoding, str_encoding)
+    _idempotent_test_helper("data/example_1.gfa", int_encoding, str_encoding, test_output_dir)
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
-def test_bgfa_idempotent_2(int_encoding, str_encoding):
+def test_bgfa_idempotent_2(int_encoding, str_encoding, test_output_dir):
     """Test that pprint output matches expected file content with all encoding strategies."""
-    _idempotent_test_helper("data/example_2.gfa", int_encoding, str_encoding)
+    _idempotent_test_helper("data/example_2.gfa", int_encoding, str_encoding, test_output_dir)
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
-def test_bgfa_idempotent_3(int_encoding, str_encoding):
+def test_bgfa_idempotent_3(int_encoding, str_encoding, test_output_dir):
     """Test that pprint output matches expected file content with all encoding strategies."""
-    _idempotent_test_helper("data/example_3.gfa", int_encoding, str_encoding)
+    _idempotent_test_helper("data/example_3.gfa", int_encoding, str_encoding, test_output_dir)
 
 
 if __name__ == "__main__":
