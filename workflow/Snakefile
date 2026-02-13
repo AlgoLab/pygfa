@@ -50,9 +50,11 @@ def generate_datasets_with_benchmark_types():
         filename = os.path.basename(file_path)
         base_name = filename[:-4] if filename.endswith('.gfa') else filename[:-7]
         
-        if len(benchmark_names) > 1:
+        # Deduplicate benchmark names to avoid duplicate suffixes
+        unique_benchmark_names = sorted(set(benchmark_names))
+        if len(unique_benchmark_names) > 1:
             # Combined name for multiple benchmarks
-            combined_name = f"{base_name}_" + "_".join(sorted(benchmark_names))
+            combined_name = f"{base_name}_" + "_".join(unique_benchmark_names)
             dataset_name = combined_name
         else:
             dataset_name = base_name

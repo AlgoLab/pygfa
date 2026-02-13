@@ -14,8 +14,6 @@ import os
 
 # Access Snakemake variables
 # noqa: F821  # snakemake provides these variables at runtime
-import snakemake  # noqa: F401
-
 from pygfa.utils.output_manager import OutputManager
 
 bgfa_path = snakemake.input.bgfa

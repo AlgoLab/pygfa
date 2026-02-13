@@ -1,13 +1,6 @@
 # Configuration for BGFA benchmarking workflow
 # This file can be used to customize the benchmark without editing the Snakefile
 
-# GFA files to benchmark
-# Key: dataset name (used in output paths)
-# Value: path to GFA file
-datasets:
-  atcc_staggered.assembly_graph_with_scaffolds: data/atcc_staggered.assembly_graph_with_scaffolds.gfa
-  medium_example: data/medium_example.gfa
-
 # Integer encoding strategies to test
 int_encodings:
   - none
