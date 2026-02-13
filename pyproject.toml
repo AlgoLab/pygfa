@@ -64,11 +64,13 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--junit-xml=results/test/junit.xml",
-    "--html=results/test/report.html", 
-    "--self-contained-html",
-    "--tb=short"
+    "-v",
+    "-s",
+    "--full-trace",
+    "--tb=long",
+    "--strict-markers",
+    "--color=yes"
 ]
 log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(filename)s:%(lineno)d: %(message)s"
