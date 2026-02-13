@@ -253,14 +253,6 @@ class TestLine(unittest.TestCase):
 
         # GFA2 SegmentV2 tests removed - no longer supported
 
-    @unittest.skip("GFA2 fragment module removed")
-    def test_Fragment(self):
-        pass
-
-    @unittest.skip("GFA2 edge module removed")
-    def test_Edge(self):
-        pass
-
     @unittest.skip("API changed: Field validation behavior updated")
     def test_Link(self):
         link_obj = link.Link.from_string("L\tfrom_id\t+\tto_id\t-\t100M")
@@ -288,10 +280,6 @@ class TestLine(unittest.TestCase):
         self.assertEqual(c.fields["overlap"].value, "5M")
         self.assertTrue(containment.Containment.is_valid(c))
 
-    @unittest.skip("GFA2 gap module removed")
-    def test_Gap(self):
-        pass
-
     @unittest.skip("API changed: CIGAR format handling updated")
     def test_Path(self):
         p = path.Path.from_string("P\tpath_id\tn1+,n2-\t100M")
@@ -300,14 +288,6 @@ class TestLine(unittest.TestCase):
         self.assertEqual(p.fields["seqs_names"].value, ["n1+", "n2-"])
         self.assertEqual(p.fields["overlaps"].value, "100M")
         self.assertTrue(path.Path.is_valid(p))
-
-    @unittest.skip("GFA2 group module removed")
-    def test_OGroup(self):
-        pass
-
-    @unittest.skip("GFA2 group module removed")
-    def test_UGroup(self):
-        pass
 
 
 if __name__ == "__main__":
