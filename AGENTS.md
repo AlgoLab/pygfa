@@ -165,16 +165,16 @@ S	1	AT
 
 ```bash
 # List all benchmark files
-pixi run python tools/benchmark_filter.py --list
+pixi run python test/benchmark_filter.py --list
 
 # Filter by benchmark name
-pixi run python tools/benchmark_filter.py --list --benchmark-name bgfa_compression
+pixi run python test/benchmark_filter.py --list --benchmark-name bgfa_compression
 
 # Generate Snakemake configuration
-pixi run python tools/generate_benchmark_config.py --benchmark-name bgfa_compression
+pixi run python test/benchmark_filter.py --config --benchmark-name bgfa_compression
 
 # Run benchmark workflow
-pixi run snakemake -s workflow/Snakefile --configfile workflow/config.json -j 8
+pixi run snakemake -s workflow/Snakefile --configfile workflow/config.yaml -j 8
 ```
 
 
