@@ -95,20 +95,23 @@ pixi install
 
 ### Running Tests
 
+All commands output to terminal for immediate debugging visibility.
+
 ```bash
-# Run all tests
-pixi run python -m pytest test/
+# Run all tests (verbose, full trace, no capture)
+pixi run python -m pytest test/ -v -s --full-trace --tb=long
 
-# Run a single test file
-pixi run python -m pytest test/test_graph_element.py -v
+# Run specific test file with maximum detail
+pixi run python -m pytest test/test_graph_element.py -v -s --full-trace --tb=long
 
-# Run a single test
-pixi run python -m pytest test/test_graph_element.py::TestGraphElement::test_node -v
+# Run single test with full context
+pixi run python -m pytest test/test_graph_element.py::TestGraphElement::test_node -v -s --full-trace --tb=long
 
-# Run with coverage
-pixi run coverage run -p test/run_tests.sh
-pixi run coverage combine
-pixi run coverage html --omit=/usr/*
+# Run tests showing all output (no capture) for debugging print statements
+pixi run python -m pytest test/test_encoding.py -v -s --full-trace
+
+# Run with debug logging enabled
+pixi run python -m pytest test/ -v -s --full-trace --tb=long --log-cli-level=DEBUG
 ```
 
 All tests must pass.
@@ -120,35 +123,6 @@ Each `*.gfa*` file has one or more comments of the form `# test: TESTNAME` where
 case of the `/test/test_TESTNAME.py` or the `/test/TESTNAME.py` script.
 Those comments must be at the beginning of the file.
 There can be multiple such comments in each gfa file.
-```
-
-### Test Output Structure
-
-All test outputs are organized in the `results/` directory:
-- Individual test outputs: `results/test/{test_name}/`
-- Combined test reports: `results/test/report.html`
-- JUnit XML: `results/test/junit.xml`
-- Coverage reports: `results/test/htmlcov/`
-- Test logs: `results/test/pytest.log`
-
-Each test file gets its own output subdirectory, ensuring clean separation of test artifacts.
-
-```bash
-# Basic test run (outputs to results/test/)
-pixi run python -m pytest test/ -v
-
-# Run tests with specific test file
-pixi run python -m pytest test/test_node.py -v
-
-# Run tests with verbosity
-pixi run python -m pytest test/test_encoding.py -v -s
-
-# Run tests with coverage (outputs to results/test/)
-pixi run python -m pytest test/test_graph_element.py -v --cov=pygfa
-
-# Run tests using test script
-pixi run python test/run_tests.sh
-```
 
 ### Development Tools
 
