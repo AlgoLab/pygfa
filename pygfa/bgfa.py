@@ -1716,7 +1716,6 @@ class ReaderBGFA:
         compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         offset += 8  # Skip uncompressed_len_name
-        offset += 8
 
         # Extract compressed payloads - order: cigars first, then names
         if compressed_len_cigar > 0:
@@ -1793,7 +1792,6 @@ class ReaderBGFA:
         compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         offset += 8  # Skip uncompressed_len_walk
-        offset += 8
 
         # Extract and decompress payloads
         if compressed_len_sam > 0:
