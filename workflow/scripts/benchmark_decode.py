@@ -11,13 +11,19 @@ import subprocess
 import time
 import sys
 import os
+from pathlib import Path
+
+# Add project root to path (script is in workflow/scripts/)
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from pygfa.utils.output_manager import OutputManager  # noqa: E402
 
 # Access Snakemake variables
-# noqa: F821  # snakemake provides these variables at runtime
-from pygfa.utils.output_manager import OutputManager
+# snakemake provides these variables at runtime
 
-bgfa_path = snakemake.input.bgfa
-time_file = snakemake.output.time
+bgfa_path = snakemake.input.bgfa  # noqa: F821
+time_file = snakemake.output.time  # noqa: F821
 
 output_mgr = OutputManager()
 os.makedirs(output_mgr.ensure_dir(os.path.dirname(time_file)), exist_ok=True)
