@@ -2,7 +2,6 @@
 # test: bgfa_roundtrip
 # test: bgfa
 # benchmark: bgfa_compression
-# benchmark: bgfa_roundtrip
 S	1	*
 S	3	CGATGCTAGCTGACTGTCGATGCTGTGTG
 L	1	+	2	+	12M	ID:Z:1_to_2

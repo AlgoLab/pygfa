@@ -144,14 +144,11 @@ All benchmark outputs are stored in `results/benchmark/`:
 - Individual benchmark results: `results/benchmark/{benchmark_type}/{dataset}/`
 - Combined results: `results/benchmark/summary.tsv`
 
-The benchmark system allows filtering GFA files based on `# benchmark: NAME` comments and running automated benchmarks.
-
 ### Benchmark Comments
 
 Add benchmark comments to GFA files:
 ```gfa
 # benchmark: bgfa_compression
-# benchmark: bgfa_roundtrip
 H	VN:Z:1.0
 S	1	AT
 ```

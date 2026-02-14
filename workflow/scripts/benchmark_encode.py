@@ -16,8 +16,13 @@ import subprocess
 import time
 import sys
 import os
+from pathlib import Path
 
-from pygfa.utils.output_manager import OutputManager
+# Add project root to path (script is in workflow/scripts/)
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from pygfa.utils.output_manager import OutputManager  # noqa: E402
 
 # Access Snakemake variables
 # noqa: F821  # snakemake provides these variables at runtime
