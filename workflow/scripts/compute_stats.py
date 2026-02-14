@@ -2,31 +2,30 @@
 """
 Compute compression statistics for a single BGFA encoding combination.
 
-This script is called by Snakemake and uses the snakemake object to access:
-- snakemake.input.gfa: Original GFA file path
-- snakemake.input.bgfa: Encoded BGFA file path
-- snakemake.input.encode_time: File containing encoding time
-- snakemake.input.decode_time: File containing decoding time
-- snakemake.output.stats: Output TSV file with statistics
-- snakemake.wildcards.dataset: Dataset name
-- snakemake.wildcards.int_enc: Integer encoding name
-- snakemake.wildcards.str_enc: String encoding name
+Environment variables:
+- INPUT_GFA: Original GFA file path
+- INPUT_BGFA: Encoded BGFA file path
+- INPUT_ENCODE_TIME: File containing encoding time
+- INPUT_DECODE_TIME: File containing decoding time
+- OUTPUT_STATS: Output TSV file with statistics
+- DATASET: Dataset name
+- INT_ENC: Integer encoding name
+- STR_ENC: String encoding name
 """
 
 import os
 import sys
 
-# Access Snakemake variables
-# noqa: F821  # snakemake provides these variables at runtime
-gfa_path = snakemake.input.gfa  # type: ignore  # noqa: F821
-bgfa_path = snakemake.input.bgfa  # type: ignore  # noqa: F821
-encode_time_file = snakemake.input.encode_time  # type: ignore  # noqa: F821
-decode_time_file = snakemake.input.decode_time  # type: ignore  # noqa: F821
-stats_file = snakemake.output.stats  # type: ignore  # noqa: F821
+# Read environment variables
+gfa_path = os.environ["INPUT_GFA"]
+bgfa_path = os.environ["INPUT_BGFA"]
+encode_time_file = os.environ["INPUT_ENCODE_TIME"]
+decode_time_file = os.environ["INPUT_DECODE_TIME"]
+stats_file = os.environ["OUTPUT_STATS"]
 
-dataset = snakemake.wildcards.dataset  # type: ignore  # noqa: F821
-int_enc = snakemake.wildcards.int_enc  # type: ignore  # noqa: F821
-str_enc = snakemake.wildcards.str_enc  # type: ignore  # noqa: F821
+dataset = os.environ["DATASET"]
+int_enc = os.environ["INT_ENC"]
+str_enc = os.environ["STR_ENC"]
 
 # Ensure output directory exists
 os.makedirs(os.path.dirname(stats_file), exist_ok=True)
