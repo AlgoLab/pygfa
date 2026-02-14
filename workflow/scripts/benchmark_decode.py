@@ -2,15 +2,15 @@
 """
 Benchmark BGFA decoding: BGFA -> GFA with timing.
 
-This script is called by Snakemake and uses snakemake object to access:
-- snakemake.input.bgfa: Input BGFA file path
-- snakemake.output.time: Output file for decoding time
+Environment variables:
+- INPUT_BGFA: Input BGFA file path
+- OUTPUT_TIME: Output file for decoding time
 """
 
-import subprocess
-import time
-import sys
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 # Add project root to path (script is in workflow/scripts/)
@@ -19,11 +19,9 @@ sys.path.insert(0, str(project_root))
 
 from pygfa.utils.output_manager import OutputManager  # noqa: E402
 
-# Access Snakemake variables
-# snakemake provides these variables at runtime
-
-bgfa_path = snakemake.input.bgfa  # noqa: F821
-time_file = snakemake.output.time  # noqa: F821
+# Read environment variables
+bgfa_path = os.environ["INPUT_BGFA"]
+time_file = os.environ["OUTPUT_TIME"]
 
 output_mgr = OutputManager()
 os.makedirs(output_mgr.ensure_dir(os.path.dirname(time_file)), exist_ok=True)

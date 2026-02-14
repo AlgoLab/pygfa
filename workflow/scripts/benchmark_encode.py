@@ -2,20 +2,18 @@
 """
 Benchmark BGFA encoding: GFA -> BGFA with timing.
 
-This script is called by Snakemake and uses snakemake object to access:
-- snakemake.input.gfa: Input GFA file path
-- snakemake.output.bgfa: Output BGFA file path
-- snakemake.output.time: Output file for encoding time
-- snakemake.wildcards.int_enc: Integer encoding name
-- snakemake.wildcards.str_enc: String encoding name
-- snakemake.params.int_flag: Integer encoding flag ("" or encoding name)
-- snakemake.params.str_flag: String encoding flag ("" or encoding name)
+Environment variables:
+- INPUT_GFA: Input GFA file path
+- OUTPUT_BGFA: Output BGFA file path
+- OUTPUT_TIME: Output file for encoding time
+- INT_FLAG: Integer encoding flag ("" or encoding name)
+- STR_FLAG: String encoding flag ("" or encoding name)
 """
 
-import subprocess
-import time
-import sys
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 # Add project root to path (script is in workflow/scripts/)
@@ -24,14 +22,12 @@ sys.path.insert(0, str(project_root))
 
 from pygfa.utils.output_manager import OutputManager  # noqa: E402
 
-# Access Snakemake variables
-# noqa: F821  # snakemake provides these variables at runtime
-gfa_path = snakemake.input.gfa  # type: ignore  # noqa: F821
-bgfa_path = snakemake.output.bgfa  # type: ignore  # noqa: F821
-time_file = snakemake.output.time  # type: ignore  # noqa: F821
-
-int_flag = snakemake.params.int_flag  # type: ignore  # noqa: F821
-str_flag = snakemake.params.str_flag  # type: ignore  # noqa: F821
+# Read environment variables
+gfa_path = os.environ["INPUT_GFA"]
+bgfa_path = os.environ["OUTPUT_BGFA"]
+time_file = os.environ["OUTPUT_TIME"]
+int_flag = os.environ["INT_FLAG"]
+str_flag = os.environ["STR_FLAG"]
 
 output_mgr = OutputManager()
 os.makedirs(output_mgr.ensure_dir(os.path.dirname(bgfa_path)), exist_ok=True)
