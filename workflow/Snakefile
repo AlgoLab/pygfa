@@ -166,73 +166,30 @@ OUTPUT_DIR = config.get("output_dir", "results/benchmark")
 def enc_to_flag(enc):
     return "" if enc == "none" else enc
 
-# Generate all combinations with benchmark types
-def get_all_stats_files():
+# Generate all output CSV files
+def get_all_csv_files():
     files = []
     for benchmark_type in BENCHMARK_TYPES:
         for dataset in BENCHMARK_GROUPS[benchmark_type].keys():
             for int_enc in INT_ENCODINGS:
                 for str_enc in STR_ENCODINGS:
-                    files.append(f"{OUTPUT_DIR}/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.stats.tsv")
+                    files.append(f"{OUTPUT_DIR}/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.csv")
     return files
 
-# Default rule - aggregate all results
+# Default rule - generate all block statistics CSV files
 rule all:
     input:
-        f"{OUTPUT_DIR}/summary.tsv"
+        get_all_csv_files()
 
-# Rule: Encode GFA to BGFA with timing
+# Rule: Encode GFA to BGFA and generate block statistics CSV
 rule encode_gfa:
     input:
         gfa=lambda wildcards: DATASETS[wildcards.dataset]
     output:
-        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
-        time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.encode_time.txt"
+        csv=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.csv"
     params:
+        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
         int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
     shell:
-        "INPUT_GFA={input.gfa} OUTPUT_BGFA={output.bgfa} OUTPUT_TIME={output.time} INT_FLAG={params.int_flag} STR_FLAG={params.str_flag} pixi run python workflow/scripts/benchmark_encode.py"
-
-# Rule: Decode BGFA with timing
-rule decode_bgfa:
-    input:
-        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa"
-    output:
-        time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
-    shell:
-        "INPUT_BGFA={input.bgfa} OUTPUT_TIME={output.time} pixi run python workflow/scripts/benchmark_decode.py"
-
-# Rule: Compute statistics for a single combination
-rule compute_stats:
-    input:
-        gfa=lambda wildcards: DATASETS[wildcards.dataset],
-        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
-        encode_time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.encode_time.txt",
-        decode_time=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.decode_time.txt"
-    output:
-        stats=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.stats.tsv"
-    wildcard_constraints:
-        dataset="[^/]+",
-        int_enc="[^/]+",
-        str_enc="[^/]+",
-        benchmark_type="[^/]+"
-    shell:
-        "INPUT_GFA={input.gfa} INPUT_BGFA={input.bgfa} INPUT_ENCODE_TIME={input.encode_time} INPUT_DECODE_TIME={input.decode_time} OUTPUT_STATS={output.stats} DATASET={wildcards.dataset} INT_ENC={wildcards.int_enc} STR_ENC={wildcards.str_enc} pixi run python workflow/scripts/compute_stats.py"
-
-# Rule: Aggregate all statistics into summary file
-rule aggregate_results:
-    input:
-        get_all_stats_files()
-    output:
-        OUTPUT_DIR + "/summary.tsv"
-    shell:
-        """
-        # Write header
-        echo -e "dataset\\tint_encoding\\tstr_encoding\\tgfa_bytes\\tbgfa_bytes\\tcompression_ratio\\tencode_seconds\\tdecode_seconds" > {output}
-
-        # Concatenate all stats files (sorted for reproducibility)
-        for f in {input}; do
-            cat "$f"
-        done | sort >> {output}
-        """
+        "INPUT_GFA={input.gfa} OUTPUT_BGFA={params.bgfa} OUTPUT_CSV={output.csv} INT_FLAG={params.int_flag} STR_FLAG={params.str_flag} pixi run python workflow/scripts/benchmark_encode.py"
