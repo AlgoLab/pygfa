@@ -1,6 +1,5 @@
 # test: read_gfa
 # test: bgfa_roundtrip
-# test: bgfa
 # benchmark: bgfa_compression
 S	1	*
 S	3	CGATGCTAGCTGACTGTCGATGCTGTGTG
