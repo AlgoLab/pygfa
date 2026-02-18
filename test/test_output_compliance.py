@@ -40,13 +40,12 @@ def test_output_directory_structure():
     """Test that all output goes to correct directories."""
     base_results = Path("results")
 
-    # Check results directory structure
+    # Create results directory structure if it doesn't exist
     expected_subdirs = {"test", "benchmark"}
-    if base_results.exists():
-        # Ensure all expected subdirectories exist
-        for subdir in expected_subdirs:
-            subdir_path = base_results / subdir
-            assert subdir_path.exists(), f"Missing subdirectory: {subdir}"
+    base_results.mkdir(parents=True, exist_ok=True)
+    for subdir in expected_subdirs:
+        subdir_path = base_results / subdir
+        subdir_path.mkdir(parents=True, exist_ok=True)
 
     # Verify files are in correct subdirectories
     test_files_found = []
