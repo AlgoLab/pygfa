@@ -173,22 +173,66 @@ def get_all_csv_files():
         for dataset in BENCHMARK_GROUPS[benchmark_type].keys():
             for int_enc in INT_ENCODINGS:
                 for str_enc in STR_ENCODINGS:
-                    files.append(f"{OUTPUT_DIR}/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.csv")
+                    files.append(f"{OUTPUT_DIR}/{benchmark_type}/{dataset}/{int_enc}-{str_enc}.csv")
     return files
 
-# Default rule - generate all block statistics CSV files
+# Default rule - generate all block statistics CSV files and summary
 rule all:
     input:
+        csv_files=get_all_csv_files(),
+        summary=OUTPUT_DIR + "/summary.tsv"
+
+# Rule: Aggregate all CSV files into a single summary TSV
+rule aggregate_results:
+    input:
         get_all_csv_files()
+    output:
+        OUTPUT_DIR + "/summary.tsv"
+    run:
+        import csv
+        import os
+
+        # Read all input CSV files and aggregate
+        all_rows = []
+        header = None
+
+        for csv_file in input:
+            with open(csv_file, 'r') as f:
+                reader = csv.DictReader(f)
+                if header is None:
+                    header = reader.fieldnames
+                for row in reader:
+                    # Add metadata about the source file
+                    path_parts = csv_file.replace(OUTPUT_DIR + "/", "").split("/")
+                    if len(path_parts) >= 3:
+                        row['benchmark_type'] = path_parts[0]
+                        row['dataset'] = path_parts[1]
+                        encoding_parts = path_parts[2].replace('.csv', '').split('-')
+                        if len(encoding_parts) == 2:
+                            row['int_encoding'] = encoding_parts[0]
+                            row['str_encoding'] = encoding_parts[1]
+                    all_rows.append(row)
+
+        # Write aggregated TSV
+        if header and all_rows:
+            # Add new metadata columns
+            output_header = ['benchmark_type', 'dataset', 'int_encoding', 'str_encoding'] + header
+
+            with open(output[0], 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=output_header, delimiter='\t')
+                writer.writeheader()
+                writer.writerows(all_rows)
+
+        print(f"Aggregated {len(all_rows)} rows from {len(input)} files into {output[0]}")
 
 # Rule: Encode GFA to BGFA and generate block statistics CSV
 rule encode_gfa:
     input:
         gfa=lambda wildcards: DATASETS[wildcards.dataset]
     output:
-        csv=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.csv"
+        csv=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}-{str_enc}.csv"
     params:
-        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}_{str_enc}.bgfa",
+        bgfa=OUTPUT_DIR + "/{benchmark_type}/{dataset}/{int_enc}-{str_enc}.bgfa",
         int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
     shell:
