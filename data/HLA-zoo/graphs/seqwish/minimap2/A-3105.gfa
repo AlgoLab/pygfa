@@ -1,6 +1,5 @@
 # test: read_gfa
 # test: bgfa_roundtrip
-# benchmark: gfa_compression
 H	VN:Z:1.0
 S	1	AGAGAAGCCAATCAGTGTCGTCGCGGTCGCTGTTCTAAAG
 S	2	C

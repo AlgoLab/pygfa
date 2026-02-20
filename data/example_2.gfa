@@ -1,6 +1,7 @@
 # test: read_gfa
 # test: bgfa
 # test: bgfa_roundtrip
+# benchmark: bgfa_compression
 H	VN:Z:1.0
 S	1	*	LN:i:6871	RC:i:2200067
 S	101	ATTCCGGCTT	LN:i:251	RC:i:82006
