@@ -478,8 +478,8 @@ def measure_bgfa(input_file: str, output_file: str):
         "header_text": header_text,
         "encoding_high": "",
         "encoding_low": "",
-        "compressed_size": "",
-        "uncompressed_size": "",
+        "compressed_size": header_end - header_start,
+        "uncompressed_size": header_end - header_start,
     })
     
     # Parse segment names blocks
