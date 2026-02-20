@@ -40,6 +40,7 @@ class TestPPrint(unittest.TestCase):
                 sys.stdout = original_stdout
 
         if not os.path.exists(expected_filename):
+            os.makedirs(os.path.dirname(expected_filename), exist_ok=True)
             shutil.copy(temp_filename, expected_filename)
         # Use the standard diff program to look for differences
         result = subprocess.run(
