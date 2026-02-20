@@ -142,7 +142,7 @@ The benchmark system allows filtering GFA files based on `# benchmark: NAME` com
 
 All benchmark outputs are stored in `results/benchmark/`:
 - Individual benchmark results: `results/benchmark/{benchmark_type}/{dataset}/`
-- Combined results: `results/benchmark/summary.tsv`
+- Combined results: `results/benchmark/summary.csv.zstd`
 
 ### Benchmark Comments
 
