@@ -104,6 +104,8 @@ measure_cmd = [
     "measure",
     bgfa_path,
     csv_file,
+    "--original-gfa",
+    gfa_path,
 ]
 
 measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)

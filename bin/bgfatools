@@ -271,6 +271,9 @@ def parse_cli_options():
     )
     measure_parser.add_argument("input_file", help="Path to input BGFA file")
     measure_parser.add_argument("output_file", help="Path to output CSV file")
+    measure_parser.add_argument(
+        "--original-gfa", type=str, help="Path to original GFA file (for reference in output)"
+    )
 
     # Options common to all commands
     parser.add_argument(
@@ -326,6 +329,8 @@ def parse_cli_options():
         options["config"] = args.config
     if hasattr(args, "output"):
         options["output"] = args.output
+    if hasattr(args, "original_gfa"):
+        options["original_gfa"] = args.original_gfa
 
     # Extract positional arguments and save them to the options dict
     if hasattr(args, "input_file"):
@@ -410,11 +415,12 @@ def parse_cli_options():
     return options, compression_options
 
 
-def measure_bgfa(input_file: str, output_file: str):
+def measure_bgfa(input_file: str, output_file: str, original_gfa: str = ""):
     """Analyze BGFA file structure and output block statistics to CSV.
     
     :param input_file: Path to input BGFA file
     :param output_file: Path to output CSV file
+    :param original_gfa: Path to original GFA file
     """
     import csv
     import struct
@@ -428,6 +434,7 @@ def measure_bgfa(input_file: str, output_file: str):
     rows = []
     offset = 0
     filename = os.path.basename(input_file)
+    original_gfa_path = original_gfa if original_gfa else ""
     
     # Parse header
     header_start = 0
@@ -461,6 +468,7 @@ def measure_bgfa(input_file: str, output_file: str):
     
     # Add header row
     rows.append({
+        "original_gfa": original_gfa_path,
         "filename": filename,
         "block_type": "header",
         "block_index": 0,
@@ -509,6 +517,7 @@ def measure_bgfa(input_file: str, output_file: str):
         str_encoding = compression_names & 0xFF
         
         rows.append({
+            "original_gfa": original_gfa_path,
             "filename": filename,
             "block_type": "segment_names",
             "block_index": block_idx,
@@ -557,6 +566,7 @@ def measure_bgfa(input_file: str, output_file: str):
         str_encoding = compression_str & 0xFF
         
         rows.append({
+            "original_gfa": original_gfa_path,
             "filename": filename,
             "block_type": "segments",
             "block_index": block_idx,
@@ -607,6 +617,7 @@ def measure_bgfa(input_file: str, output_file: str):
         str_encoding = compression_cigars & 0xFF
         
         rows.append({
+            "original_gfa": original_gfa_path,
             "filename": filename,
             "block_type": "links",
             "block_index": block_idx,
@@ -660,6 +671,7 @@ def measure_bgfa(input_file: str, output_file: str):
             str_encoding = compression_cigars & 0xFF
             
             rows.append({
+                "original_gfa": original_gfa_path,
                 "filename": filename,
                 "block_type": "paths",
                 "block_index": block_idx,
@@ -711,6 +723,7 @@ def measure_bgfa(input_file: str, output_file: str):
             str_encoding = compression_walks & 0xFF
             
             rows.append({
+                "original_gfa": original_gfa_path,
                 "filename": filename,
                 "block_type": "walks",
                 "block_index": block_idx,
@@ -734,7 +747,7 @@ def measure_bgfa(input_file: str, output_file: str):
     
     # Write CSV output
     fieldnames = [
-        "filename", "block_type", "block_index", "block_size", "record_count",
+        "original_gfa", "filename", "block_type", "block_index", "block_size", "record_count",
         "offset_start", "offset_end", "size_bytes", "compression_ratio",
         "version", "s_len", "l_len", "p_len", "w_len", "header_text",
         "encoding_high", "encoding_low", "compressed_size", "uncompressed_size",
@@ -858,7 +871,8 @@ if __name__ == "__main__":
     elif options.get("command") == "measure":
         try:
             logger.info("Measuring BGFA file: %s", options.get("input_file"))
-            measure_bgfa(options.get("input_file"), options.get("output_file"))
+            original_gfa = options.get("original_gfa", "")
+            measure_bgfa(options.get("input_file"), options.get("output_file"), original_gfa)
             logger.info("Measure command completed successfully")
         except Exception as e:
             logger.error("Error during measurement: %s", e, exc_info=True)
