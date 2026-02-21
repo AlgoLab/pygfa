@@ -87,6 +87,7 @@ def parse_cli_options():
     string_encoding = {
         "none": "compress_string_none",
         "zstd": "compress_string_zstd",
+        "zstd_dict": "compress_string_zstd_dict",
         "gzip": "compress_string_gzip",
         "lzma": "compress_string_lzma",
         "lz4": "compress_string_lz4",
