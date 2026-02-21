@@ -1,6 +1,7 @@
 # test: read_gfa
 # test: bgfa_roundtrip
 # benchmark: bgfa_compression
+# benchmark: single_param
 S	1	*
 S	3	CGATGCTAGCTGACTGTCGATGCTGTGTG
 L	1	+	2	+	12M	ID:Z:1_to_2

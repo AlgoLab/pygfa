@@ -1,0 +1,111 @@
+# Configuration for single-parameter BGFA benchmarking workflow
+# Each benchmark type tests ONE parameter while keeping others at identity/none
+
+# =============================================================================
+# Integer Encoding Benchmark
+# Tests each integer encoding with string encoding = identity
+# =============================================================================
+int_encodings:
+  - identity
+  - varint
+  - fixed16
+  - fixed32
+  - fixed64
+  - delta
+  - gamma
+  - omega
+  - golomb
+  - rice
+  - streamvbyte
+  - vbyte
+  - pfor_delta
+  - simple8b
+  - group_varint
+  - bit_packing
+  - fibonacci
+  - exp_golomb
+  - byte_packed
+  - masked_vbyte
+
+# =============================================================================
+# String Encoding Benchmark
+# Tests each string encoding with integer encoding = identity
+# =============================================================================
+str_encodings:
+  - identity
+  - zstd
+  - gzip
+  - lzma
+  - lz4
+  - brotli
+  - huffman
+  - rle
+  - dictionary
+  - arithmetic
+  - bwt_huffman
+  - ppm
+  - 2bit
+  - cigar
+  - zstd_dict
+
+# =============================================================================
+# Block Size Benchmark
+# Tests different block sizes with all encodings = identity
+# =============================================================================
+block_sizes:
+  - 64
+  - 128
+  - 256
+  - 512
+  - 1024
+  - 2048
+  - 4096
+  - 8192
+  - 16384
+  - 32768
+
+# =============================================================================
+# Block-Specific Benchmark
+# Tests per-block compression strategies
+# Each block type is tested with relevant encodings
+# =============================================================================
+block_specific:
+  segments:
+    int_encodings:
+      - identity
+      - varint
+      - delta
+    str_encodings:
+      - identity
+      - zstd
+      - 2bit
+  links:
+    int_encodings:
+      - identity
+      - varint
+      - delta
+    str_encodings:
+      - identity
+      - zstd
+      - cigar
+  paths:
+    int_encodings:
+      - identity
+      - varint
+      - delta
+    str_encodings:
+      - identity
+      - zstd
+  walks:
+    int_encodings:
+      - identity
+      - varint
+      - delta
+    str_encodings:
+      - identity
+      - zstd
+
+# =============================================================================
+# Output Configuration
+# =============================================================================
+output_dir: results/benchmark
