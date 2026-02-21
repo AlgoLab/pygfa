@@ -60,6 +60,7 @@ def parse_cli_options():
     integers_encoding = {
         "none": "compress_integer_list_none",
         "varint": "compress_integer_list_varint",
+        "fixed16": "compress_integer_list_fixed",
         "fixed32": "compress_integer_list_fixed",
         "fixed64": "compress_integer_list_fixed",
         "delta": "compress_integer_list_delta",
