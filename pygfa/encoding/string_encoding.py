@@ -14,7 +14,6 @@ except ImportError:
     z = None
 
 
-
 def compress_string_zstd(string: str) -> bytes:
     if not _ZSTD_AVAILABLE:
         raise ImportError(
@@ -22,6 +21,47 @@ def compress_string_zstd(string: str) -> bytes:
         )
     assert z is not None
     return z.compress(string.encode("ascii"), level=19)
+
+
+_ZSTD_STATIC_DICT = None
+
+
+def _get_zstd_dict():
+    global _ZSTD_STATIC_DICT
+    if _ZSTD_STATIC_DICT is None:
+        import zstandard as zstd
+
+        common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
+        _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
+    return _ZSTD_STATIC_DICT
+
+
+def compress_string_zstd_dict(string: str) -> bytes:
+    if not _ZSTD_AVAILABLE:
+        raise ImportError(
+            "The 'compression' package is required for zstd compression. Install it with: pip install compression"
+        )
+    import zstandard as zstd
+
+    data = string.encode("ascii")
+    dictionary = _get_zstd_dict()
+    compressor = zstd.ZstdCompressor(dict_data=dictionary, level=3)
+    return compressor.compress(data)
+
+
+def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
+    if not _ZSTD_AVAILABLE:
+        raise ImportError(
+            "The 'compression' package is required for zstd decompression. Install it with: pip install compression"
+        )
+    import zstandard as zstd
+
+    dictionary = _get_zstd_dict()
+    decompressor = zstd.ZstdDecompressor(dict_data=dictionary)
+    decompressed = decompressor.decompress(data)
+    from pygfa.bgfa import decompress_string_identity
+
+    return decompress_string_identity(decompressed, lengths)
 
 
 def compress_string_gzip(string: str) -> bytes:

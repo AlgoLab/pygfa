@@ -2052,6 +2052,7 @@ class GFA:
             STRING_ENCODING_IDENTITY,
             STRING_ENCODING_LZMA,
             STRING_ENCODING_ZSTD,
+            STRING_ENCODING_ZSTD_DICT,
         )
         from pygfa.bgfa import (
             to_bgfa as bgfa_to_bgfa,
@@ -2078,6 +2079,7 @@ class GFA:
         _STR_NAME_TO_CODE = {
             "": STRING_ENCODING_IDENTITY,
             "zstd": STRING_ENCODING_ZSTD,
+            "zstd_dict": STRING_ENCODING_ZSTD_DICT,
             "gzip": STRING_ENCODING_GZIP,
             "lzma": STRING_ENCODING_LZMA,
             "huffman": STRING_ENCODING_HUFFMAN,

@@ -55,6 +55,12 @@ from pygfa.encoding.string_encoding import (
 from pygfa.encoding.string_encoding import (
     compress_string_zstd as compress_string_zstd,
 )
+from pygfa.encoding.string_encoding import (
+    compress_string_zstd_dict as compress_string_zstd_dict,
+)
+from pygfa.encoding.string_encoding import (
+    decompress_string_zstd_dict as decompress_string_zstd_dict,
+)
 from pygfa.encoding.arithmetic_coding import (
     compress_string_arithmetic as compress_string_arithmetic,
 )

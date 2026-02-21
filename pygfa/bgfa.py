@@ -40,6 +40,7 @@ from pygfa.encoding import (
     compress_string_lzma,
     compress_string_none,
     compress_string_zstd,
+    compress_string_zstd_dict,
 )
 from pygfa.encoding import (
     decompress_string_arithmetic,
@@ -86,6 +87,7 @@ __all__ = [
     "STRING_ENCODING_IDENTITY",
     "STRING_ENCODING_LZMA",
     "STRING_ENCODING_ZSTD",
+    "STRING_ENCODING_ZSTD_DICT",
     "WALK_DECOMP_IDENTITY",
     "WALK_DECOMP_ORIENTATION_NUMID",
     "WALK_DECOMP_ORIENTATION_STRID",
@@ -130,6 +132,18 @@ def decompress_string_zstd(data: bytes, lengths: list[int]) -> list[bytes]:
 
     decompressed = z.decompress(data)
     return decompress_string_identity(decompressed, lengths)
+
+
+def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
+    """Decompress zstd-dict-compressed data and extract strings.
+
+    :param data: Zstd-dict-compressed concatenated string data
+    :param lengths: List of string lengths
+    :return: List of extracted byte strings
+    """
+    from pygfa.encoding.string_encoding import decompress_string_zstd_dict as dec
+
+    return dec(data, lengths)
 
 
 def decompress_string_gzip(data: bytes, lengths: list[int]) -> list[bytes]:
@@ -663,6 +677,7 @@ STRING_ENCODING_BWT_HUFFMAN = 0x07
 STRING_ENCODING_RLE = 0x08
 STRING_ENCODING_CIGAR = 0x09
 STRING_ENCODING_DICTIONARY = 0x0A
+STRING_ENCODING_ZSTD_DICT = 0x0B
 
 # Mapping from integer encoding codes to compression functions
 INTEGER_ENCODERS = {
@@ -693,6 +708,7 @@ STRING_ENCODERS = {
     STRING_ENCODING_RLE: compress_string_rle,
     STRING_ENCODING_CIGAR: compress_string_cigar,
     STRING_ENCODING_DICTIONARY: compress_string_dictionary,
+    STRING_ENCODING_ZSTD_DICT: compress_string_zstd_dict,
 }
 
 # Mapping from integer encoding codes to decompression functions
@@ -724,6 +740,7 @@ STRING_DECODERS = {
     STRING_ENCODING_RLE: decompress_string_rle,
     STRING_ENCODING_CIGAR: decompress_string_cigar,
     STRING_ENCODING_DICTIONARY: decompress_string_dictionary,
+    STRING_ENCODING_ZSTD_DICT: decompress_string_zstd_dict,
 }
 
 
