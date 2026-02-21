@@ -8,6 +8,13 @@ Benchmark comments must be at the beginning of GFA files and follow the pattern:
 
 Where NAME is the name of the benchmark. If NAME is missing, the GFA file must
 be used for all benchmarks. Only other comments may precede benchmark comments.
+
+Single-Parameter Benchmarks:
+  # benchmark: single_param      - Include in all single-param benchmarks
+  # benchmark: int_encoding      - Integer encoding benchmark
+  # benchmark: str_encoding      - String encoding benchmark
+  # benchmark: block_size        - Block size benchmark
+  # benchmark: block_specific    - Block-specific compression benchmark
 """
 
 import os
