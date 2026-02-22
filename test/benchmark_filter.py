@@ -15,6 +15,33 @@ Single-Parameter Benchmarks:
   # benchmark: str_encoding      - String encoding benchmark
   # benchmark: block_size        - Block size benchmark
   # benchmark: block_specific    - Block-specific compression benchmark
+
+Section-Specific Benchmarks:
+  Test encoding methods for individual sections:
+  # benchmark: segment_names_header
+  # benchmark: segment_names_payload_lengths
+  # benchmark: segment_names_payload_names
+  # benchmark: segments_header
+  # benchmark: segments_payload_lengths
+  # benchmark: segments_payload_strings
+  # benchmark: links_header
+  # benchmark: links_payload_from
+  # benchmark: links_payload_to
+  # benchmark: links_payload_cigar_lengths
+  # benchmark: links_payload_cigar
+  # benchmark: paths_header
+  # benchmark: paths_payload_names
+  # benchmark: paths_payload_segment_lengths
+  # benchmark: paths_payload_path_ids
+  # benchmark: paths_payload_cigar_lengths
+  # benchmark: paths_payload_cigar
+  # benchmark: walks_header
+  # benchmark: walks_payload_sample_ids
+  # benchmark: walks_payload_hep_indices
+  # benchmark: walks_payload_sequence_ids
+  # benchmark: walks_payload_start
+  # benchmark: walks_payload_end
+  # benchmark: walks_payload_walks
 """
 
 import os

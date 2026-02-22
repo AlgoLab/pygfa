@@ -106,6 +106,183 @@ block_specific:
       - zstd
 
 # =============================================================================
+# Section-Specific Benchmarks
+# Tests each section independently with all relevant encodings
+# Integer sections test integer encodings, string sections test string encodings
+# =============================================================================
+section_specific:
+  segment_names_header:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+      - lzma
+      - lz4
+      - brotli
+  segment_names_payload_lengths:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+      - gamma
+      - pfor_delta
+  segment_names_payload_names:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+      - dictionary
+      - frontcoding
+  segments_header:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+      - lzma
+      - lz4
+      - brotli
+  segments_payload_lengths:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+      - gamma
+      - pfor_delta
+  segments_payload_strings:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+      - lzma
+      - lz4
+      - brotli
+      - 2bit
+      - rle
+  links_header:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+  links_payload_from:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  links_payload_to:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  links_payload_cigar_lengths:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  links_payload_cigar:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - cigar
+      - gzip
+  paths_header:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+  paths_payload_names:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - dictionary
+      - frontcoding
+  paths_payload_segment_lengths:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  paths_payload_path_ids:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - delta
+      - dictionary
+  paths_payload_cigar_lengths:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  paths_payload_cigar:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - cigar
+  walks_header:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+  walks_payload_sample_ids:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - delta
+      - dictionary
+  walks_payload_hep_indices:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  walks_payload_sequence_ids:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - delta
+      - dictionary
+  walks_payload_start:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  walks_payload_end:
+    type: integer
+    encodings:
+      - identity
+      - varint
+      - delta
+  walks_payload_walks:
+    type: string
+    encodings:
+      - identity
+      - zstd
+      - gzip
+      - lzma
+      - lz4
+      - rle
+      - cigar
+
+# =============================================================================
 # Output Configuration
 # =============================================================================
 output_dir: results/benchmark
