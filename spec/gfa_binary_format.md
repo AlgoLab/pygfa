@@ -106,8 +106,8 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field            | Description                                       | Type            |
 |------------------|---------------------------------------------------|-----------------|
-| from             | Tail segment of the links                         | `uints`        |
-| to               | Head segment of the  link                         | `uints`        |
+| from             | Tail segment of the links                         | `uints`         |
+| to               | Head segment of the  link                         | `uints`         |
 | from_orientation | orientations of all from segments. 0 is +, 1 is - | `bits`          |
 | to_orientation   | orientations of all from segments. 0 is +, 1 is - | `bits`          |
 | cigar_strings    | CIGAR strings                                     | `cigar strings` |
@@ -151,20 +151,20 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                 | Description                                   | Type     |
-|-----------------------|-----------------------------------------------|----------|
-| record_num            | number of record in the block <= block_size   | `uint16` |
+| Field                 | Description                                       | Type     |
+|-----------------------|---------------------------------------------------|----------|
+| record_num            | number of record in the block <= block_size       | `uint16` |
 | compression_samples   | Encoding strategy for the sample IDs              | `uint16` |
 | compression_hep       | Encoding strategy for the haplotype indices       | `uint16` |
 | compression_sequence  | Encoding strategy for the sequence IDs            | `uint16` |
 | compression_positions | Encoding strategy for the start and end positions | `uint16` |
 | compression_walks     | Encoding strategy for the walks                   | `uint16` |
-| compressed_len_sam    | length of compressed concatenated sample_id   | `uint64` |
-| uncompressed_len_sam  | length of uncompressed concatenated sample_id | `uint64` |
-| compressed_len_seq    | length of compressed concatenated seq_id      | `uint64` |
-| uncompressed_len_nseq | length of uncompressed concatenated seq_id    | `uint64` |
-| compressed_len_walk   | length of compressed concatenated walks       | `uint64` |
-| uncompressed_len_walk | length of uncompressed concatenated walks     | `uint64` |
+| compressed_len_sam    | length of compressed concatenated sample_id       | `uint64` |
+| uncompressed_len_sam  | length of uncompressed concatenated sample_id     | `uint64` |
+| compressed_len_seq    | length of compressed concatenated seq_id          | `uint64` |
+| uncompressed_len_nseq | length of uncompressed concatenated seq_id        | `uint64` |
+| compressed_len_walk   | length of compressed concatenated walks           | `uint64` |
+| uncompressed_len_walk | length of uncompressed concatenated walks         | `uint64` |
 
 #### Payload
 
@@ -186,10 +186,10 @@ For example the code 0x0102 is used for the method 0x01 for the lengths and the
 method 0x02 for the strings.
 We use question marks `??` to represent that all values of the byte can be used.
 
-| Code   | Strategy       | Type             |
-|--------|----------------|------------------|
+| Code   | Strategy       | Type    |
+|--------|----------------|---------|
 | 0x00?? | Identity       | `uints` |
-| 0x??00 | Identity       | string           |
+| 0x??00 | Identity       | string  |
 | 0x01?? | varint         | `uints` |
 | 0x02?? | fixed16        | `uints` |
 | 0x03?? | delta          | `uints` |
@@ -201,16 +201,16 @@ We use question marks `??` to represent that all values of the byte can be used.
 | 0x09?? | vbyte          | `uints` |
 | 0x0A?? | fixed32        | `uints` |
 | 0x0B?? | fixed64        | `uints` |
-| 0x??01 | zstd           | string           |
-| 0x??02 | gzip           | string           |
-| 0x??03 | lzma           | string           |
-| 0x??04 | Huffman        | string           |
-| 0x??05 | 2-bit DNA      | string           |
-| 0x??06 | Arithmetic     | string           |
-| 0x??07 | BWT+Huffman    | string           |
-| 0x??08 | RLE            | string           |
-| 0x??09 | CIGAR-specific | string           |
-| 0x??0A | Dictionary     | string           |
+| 0x??01 | zstd           | string  |
+| 0x??02 | gzip           | string  |
+| 0x??03 | lzma           | string  |
+| 0x??04 | Huffman        | string  |
+| 0x??05 | 2-bit DNA      | string  |
+| 0x??06 | Arithmetic     | string  |
+| 0x??07 | BWT+Huffman    | string  |
+| 0x??08 | RLE            | string  |
+| 0x??09 | CIGAR-specific | string  |
+| 0x??0A | Dictionary     | string  |
   
 ### Encoding strings
 
