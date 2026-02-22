@@ -2673,8 +2673,13 @@ class BGFAWriter:
             f"walks={compressed_len_walk}/{uncompressed_len_walk} bytes"
         )
 
-        # Write header according to spec
+        # Write header according to spec (updated to include 5 compression codes)
         buffer.write(struct.pack("<H", record_num))
+        buffer.write(struct.pack("<H", compression_sample_ids))
+        buffer.write(struct.pack("<H", compression_hap_indices))
+        buffer.write(struct.pack("<H", compression_seq_ids))
+        buffer.write(struct.pack("<H", compression_start))  # shared for start/end positions
+        buffer.write(struct.pack("<H", compression_walks))
         buffer.write(struct.pack("<Q", compressed_len_sam))
         buffer.write(struct.pack("<Q", uncompressed_len_sam))
         buffer.write(struct.pack("<Q", compressed_len_seq))
@@ -2692,7 +2697,8 @@ class BGFAWriter:
 
         bytes_written = (
             2
-            + 6 * 8  # header
+            + 5 * 2  # record_num + 5 compression codes
+            + 6 * 8  # 6 length fields
             + compressed_len_sam
             + len(compressed_haps)
             + compressed_len_seq
