@@ -154,6 +154,11 @@ Only the last block can have fewer than `block_size` objects.
 | Field                 | Description                                   | Type     |
 |-----------------------|-----------------------------------------------|----------|
 | record_num            | number of record in the block <= block_size   | `uint16` |
+| compression_samples   | Encoding strategy for the sample IDs              | `uint16` |
+| compression_hep       | Encoding strategy for the haplotype indices       | `uint16` |
+| compression_sequence  | Encoding strategy for the sequence IDs            | `uint16` |
+| compression_positions | Encoding strategy for the start and end positions | `uint16` |
+| compression_walks     | Encoding strategy for the walks                   | `uint16` |
 | compressed_len_sam    | length of compressed concatenated sample_id   | `uint64` |
 | uncompressed_len_sam  | length of uncompressed concatenated sample_id | `uint64` |
 | compressed_len_seq    | length of compressed concatenated seq_id      | `uint64` |
