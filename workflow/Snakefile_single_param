@@ -19,6 +19,10 @@ from benchmark_filter import filter_gfa_files, extract_header_comments
 
 SINGLE_PARAM_BENCHMARKS = ["int_encoding", "str_encoding", "block_size", "block_specific", "single_param"]
 
+SECTION_SPECIFIC_CONFIG = config.get("section_specific", {})
+
+ALL_SECTIONS = list(SECTION_SPECIFIC_CONFIG.keys())
+
 def discover_single_param_datasets(benchmark_type):
     """Discover GFA files for a specific single-param benchmark type"""
     all_files = filter_gfa_files("data", None)
@@ -100,11 +104,17 @@ STR_DATASETS = get_datasets_for_benchmark("str_encoding")
 BLOCK_SIZE_DATASETS = get_datasets_for_benchmark("block_size")
 BLOCK_SPECIFIC_DATASETS = get_datasets_for_benchmark("block_specific")
 
+SECTION_DATASETS = {}
+for section in ALL_SECTIONS:
+    SECTION_DATASETS[section] = get_datasets_for_benchmark(section)
+
 print(f"Single-parameter benchmark datasets:")
 print(f"  int_encoding: {len(INT_DATASETS)} datasets")
 print(f"  str_encoding: {len(STR_DATASETS)} datasets")
 print(f"  block_size: {len(BLOCK_SIZE_DATASETS)} datasets")
 print(f"  block_specific: {len(BLOCK_SPECIFIC_DATASETS)} datasets")
+for section in ALL_SECTIONS:
+    print(f"  {section}: {len(SECTION_DATASETS.get(section, {}))} datasets")
 
 def enc_to_flag(enc):
     return "" if enc == "identity" else enc
@@ -139,8 +149,21 @@ def get_block_specific_csvs():
                     files.append(f"{OUTPUT_DIR}/block_specific/{dataset}/{block_type}_{int_enc}_{str_enc}.csv")
     return files
 
+def get_section_csvs():
+    files = []
+    for section, cfg in SECTION_SPECIFIC_CONFIG.items():
+        datasets = SECTION_DATASETS.get(section, {})
+        enc_type = cfg.get("type", "string")
+        encodings = cfg.get("encodings", [])
+        for dataset_name in datasets:
+            for enc in encodings:
+                files.append(f"{OUTPUT_DIR}/section/{section}/{dataset_name}/{enc}.csv")
+    return files
+
 def get_all_csv_files():
-    return get_int_encoding_csvs() + get_str_encoding_csvs() + get_block_size_csvs() + get_block_specific_csvs()
+    return (get_int_encoding_csvs() + get_str_encoding_csvs() + 
+            get_block_size_csvs() + get_block_specific_csvs() + 
+            get_section_csvs())
 
 rule all:
     input:
@@ -180,9 +203,12 @@ rule benchmark_int_encoding:
         int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc)
     shell:
         """
-        INT_FLAG="{params.int_flag}" STR_FLAG="" \
-        INPUT_GFA="{input.gfa}" OUTPUT_BGFA="{params.bgfa}" OUTPUT_CSV="{output.csv}" \
-        pixi run python workflow/scripts/benchmark_encode.py
+        pixi run python workflow/scripts/benchmark_encode.py \
+            --input-gfa "{input.gfa}" \
+            --output-bgfa "{params.bgfa}" \
+            --output-csv "{output.csv}" \
+            --int-flag "{params.int_flag}" \
+            --str-flag ""
         """
 
 rule benchmark_str_encoding:
@@ -195,9 +221,12 @@ rule benchmark_str_encoding:
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
     shell:
         """
-        INT_FLAG="" STR_FLAG="{params.str_flag}" \
-        INPUT_GFA="{input.gfa}" OUTPUT_BGFA="{params.bgfa}" OUTPUT_CSV="{output.csv}" \
-        pixi run python workflow/scripts/benchmark_encode.py
+        pixi run python workflow/scripts/benchmark_encode.py \
+            --input-gfa "{input.gfa}" \
+            --output-bgfa "{params.bgfa}" \
+            --output-csv "{output.csv}" \
+            --int-flag "" \
+            --str-flag "{params.str_flag}"
         """
 
 rule benchmark_block_size:
@@ -210,9 +239,11 @@ rule benchmark_block_size:
         block_size=lambda wildcards: wildcards.block_size
     shell:
         """
-        INT_FLAG="" STR_FLAG="" BLOCK_SIZE="{params.block_size}" \
-        INPUT_GFA="{input.gfa}" OUTPUT_BGFA="{params.bgfa}" OUTPUT_CSV="{output.csv}" \
-        pixi run python workflow/scripts/benchmark_encode_single_param.py
+        pixi run python workflow/scripts/benchmark_encode_single_param.py \
+            --input-gfa "{input.gfa}" \
+            --output-bgfa "{params.bgfa}" \
+            --output-csv "{output.csv}" \
+            --block-size "{params.block_size}"
         """
 
 rule benchmark_block_specific:
@@ -227,7 +258,35 @@ rule benchmark_block_specific:
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
     shell:
         """
-        BLOCK_TYPE="{params.block_type}" INT_FLAG="{params.int_flag}" STR_FLAG="{params.str_flag}" \
-        INPUT_GFA="{input.gfa}" OUTPUT_BGFA="{params.bgfa}" OUTPUT_CSV="{output.csv}" \
-        pixi run python workflow/scripts/benchmark_encode_single_param.py
+        pixi run python workflow/scripts/benchmark_encode_single_param.py \
+            --input-gfa "{input.gfa}" \
+            --output-bgfa "{params.bgfa}" \
+            --output-csv "{output.csv}" \
+            --block-type "{params.block_type}" \
+            --int-flag "{params.int_flag}" \
+            --str-flag "{params.str_flag}"
         """
+
+rule benchmark_section:
+    input:
+        gfa=lambda wildcards: SECTION_DATASETS[wildcards.section][wildcards.dataset]
+    output:
+        csv=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}.csv"
+    params:
+        bgfa=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}.bgfa",
+        section=lambda wildcards: wildcards.section,
+        encoding=lambda wildcards: wildcards.encoding
+    run:
+        cfg = SECTION_SPECIFIC_CONFIG.get(wildcards.section, {})
+        enc_type = cfg.get("type", "string")
+        int_flag = enc_to_flag(wildcards.encoding) if enc_type == "integer" else ""
+        str_flag = enc_to_flag(wildcards.encoding) if enc_type == "string" else ""
+        shell(
+            "pixi run python workflow/scripts/benchmark_encode_single_param.py "
+            "--input-gfa '{input.gfa}' "
+            "--output-bgfa '{params.bgfa}' "
+            "--output-csv '{output.csv}' "
+            "--section '{params.section}' "
+            "--int-flag '{int_flag}' "
+            "--str-flag '{str_flag}'"
+        )
