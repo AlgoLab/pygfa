@@ -1,3 +1,4 @@
+# -*- mode: snakemake; -*-
 # Snakemake workflow for BGFA benchmarking
 # Migrated from bin/benchmark_bgfa.sh
 #
@@ -202,4 +203,11 @@ rule encode_gfa:
         int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
         str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
     shell:
-        "INPUT_GFA={input.gfa} OUTPUT_BGFA={params.bgfa} OUTPUT_CSV={output.csv} INT_FLAG={params.int_flag} STR_FLAG={params.str_flag} pixi run python workflow/scripts/benchmark_encode.py"
+        """
+        pixi run python workflow/scripts/benchmark_encode_single_param.py \
+            --input-gfa "{input.gfa}" \
+            --output-bgfa "{params.bgfa}" \
+            --output-csv "{output.csv}" \
+            --int-flag "{params.int_flag}" \
+            --str-flag "{params.str_flag}"
+        """
