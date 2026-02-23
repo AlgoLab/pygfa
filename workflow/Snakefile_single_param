@@ -1,15 +1,14 @@
+# -*- mode: snakemake; -*-
 # Snakemake workflow for single-parameter BGFA benchmarking
-# Each benchmark varies ONE parameter while keeping others at identity/none
+# Tests each section independently with all relevant encodings and block sizes
 #
 # Usage:
-#   snakemake -s workflow/Snakefile_single_param -j 8
-#   snakemake -s workflow/Snakefile_single_param -n  # dry run
+#   snakemake -s workflow/Snakefile_single_param --configfile workflow/config_single_param.yaml -j 8
+#   snakemake -s workflow/Snakefile_single_param --configfile workflow/config_single_param.yaml -n  # dry run
 #
-# Benchmark types:
-#   - int_encoding: Test integer encodings (19 variants)
-#   - str_encoding: Test string encodings (15 variants)
-#   - block_size: Test block sizes (10 variants)
-#   - block_specific: Test per-block compression
+# Output:
+#   - Individual: results/benchmark/section/{short_section}/{dataset}/{encoding}_{block_size}.csv
+#   - Summary: results/benchmark/summary-single-parameter.csv.zstd
 
 import os
 import sys
@@ -17,33 +16,66 @@ import sys
 sys.path.insert(0, "test")
 from benchmark_filter import filter_gfa_files, extract_header_comments
 
-SINGLE_PARAM_BENCHMARKS = ["int_encoding", "str_encoding", "block_size", "block_specific", "single_param"]
-
 SECTION_SPECIFIC_CONFIG = config.get("section_specific", {})
-
 ALL_SECTIONS = list(SECTION_SPECIFIC_CONFIG.keys())
+
+INTEGER_ENCODINGS = config.get("integer_encodings", ["identity"])
+STRING_ENCODINGS = config.get("string_encodings", ["identity"])
+CIGAR_ENCODINGS = config.get("cigar_encodings", ["identity"])
+WALK_ENCODINGS = config.get("walk_encodings", ["identity"])
+
+SECTION_SHORT_NAMES = {
+    "segment_names_header": "seg_names_h",
+    "segment_names_payload_lengths": "seg_names_pay_len",
+    "segment_names_payload_names": "seg_names_pay_n",
+    "segments_header": "seg_h",
+    "segments_payload_lengths": "seg_pay_len",
+    "segments_payload_strings": "seg_pay_str",
+    "links_header": "links_h",
+    "links_payload_from": "links_pay_from",
+    "links_payload_to": "links_pay_to",
+    "links_payload_cigar_lengths": "links_pay_cigar_len",
+    "links_payload_cigar": "links_pay_cigar",
+    "paths_header": "paths_h",
+    "paths_payload_names": "paths_pay_n",
+    "paths_payload_segment_lengths": "paths_pay_seg_len",
+    "paths_payload_path_ids": "paths_pay_path_id",
+    "paths_payload_cigar_lengths": "paths_pay_cigar_len",
+    "paths_payload_cigar": "paths_pay_cigar",
+    "walks_header": "walks_h",
+    "walks_payload_sample_ids": "walks_pay_samp_id",
+    "walks_payload_hep_indices": "walks_pay_hep_idx",
+    "walks_payload_sequence_ids": "walks_pay_seq_id",
+    "walks_payload_start": "walks_pay_start",
+    "walks_payload_end": "walks_pay_end",
+    "walks_payload_walks": "walks_pay_w",
+}
+
+SECTION_SHORT_TO_FULL = {v: k for k, v in SECTION_SHORT_NAMES.items()}
+
 
 def discover_single_param_datasets(benchmark_type):
     """Discover GFA files for a specific single-param benchmark type"""
     all_files = filter_gfa_files("data", None)
     matching_files = []
-    
+
     for file_path in all_files:
         comments = extract_header_comments(file_path)
         benchmark_comments = [c[len("# benchmark:"):].strip() for c in comments if c.startswith("# benchmark:")]
-        
+
         if benchmark_type in benchmark_comments:
             matching_files.append(file_path)
         elif "single_param" in benchmark_comments:
             matching_files.append(file_path)
-    
+
     return sorted(set(matching_files))
+
 
 def get_datasets_for_benchmark(benchmark_type):
     """Convert file paths to dataset name -> path mapping"""
     files = discover_single_param_datasets(benchmark_type)
     datasets = {}
-    
+
     for file_path in files:
         filename = os.path.basename(file_path)
         if filename.endswith(".gfa.gz"):
@@ -52,138 +84,73 @@ def get_datasets_for_benchmark(benchmark_type):
             dataset_name = filename[:-4]
         else:
             dataset_name = filename
-        
+
         if dataset_name in datasets:
             parent_dir = os.path.basename(os.path.dirname(file_path))
             dataset_name = f"{parent_dir}_{dataset_name}"
-        
+
         datasets[dataset_name] = file_path
-    
+
     return datasets
 
-INT_ENCODINGS = config.get("int_encodings", [
-    "identity", "varint", "fixed16", "fixed32", "fixed64", "delta",
-    "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte",
-    "pfor_delta", "simple8b", "group_varint", "bit_packing",
-    "fibonacci", "exp_golomb", "byte_packed", "masked_vbyte"
-])
-
-STR_ENCODINGS = config.get("str_encodings", [
-    "identity", "zstd", "gzip", "lzma", "lz4", "brotli",
-    "huffman", "rle", "dictionary", "arithmetic", "bwt_huffman",
-    "ppm", "2bit", "cigar", "zstd_dict"
-])
-
-BLOCK_SIZES = config.get("block_sizes", [
-    64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768
-])
-
-BLOCK_SPECIFIC_CONFIG = config.get("block_specific", {
-    "segments": {
-        "int_encodings": ["identity", "varint", "delta"],
-        "str_encodings": ["identity", "zstd", "2bit"]
-    },
-    "links": {
-        "int_encodings": ["identity", "varint", "delta"],
-        "str_encodings": ["identity", "zstd", "cigar"]
-    },
-    "paths": {
-        "int_encodings": ["identity", "varint", "delta"],
-        "str_encodings": ["identity", "zstd"]
-    },
-    "walks": {
-        "int_encodings": ["identity", "varint", "delta"],
-        "str_encodings": ["identity", "zstd"]
-    }
-})
-
-OUTPUT_DIR = config.get("output_dir", "results/benchmark")
-
-INT_DATASETS = get_datasets_for_benchmark("int_encoding")
-STR_DATASETS = get_datasets_for_benchmark("str_encoding")
-BLOCK_SIZE_DATASETS = get_datasets_for_benchmark("block_size")
-BLOCK_SPECIFIC_DATASETS = get_datasets_for_benchmark("block_specific")
 
 SECTION_DATASETS = {}
 for section in ALL_SECTIONS:
     SECTION_DATASETS[section] = get_datasets_for_benchmark(section)
 
-print(f"Single-parameter benchmark datasets:")
-print(f"  int_encoding: {len(INT_DATASETS)} datasets")
-print(f"  str_encoding: {len(STR_DATASETS)} datasets")
-print(f"  block_size: {len(BLOCK_SIZE_DATASETS)} datasets")
-print(f"  block_specific: {len(BLOCK_SPECIFIC_DATASETS)} datasets")
-for section in ALL_SECTIONS:
-    print(f"  {section}: {len(SECTION_DATASETS.get(section, {}))} datasets")
+SECTION_DATASETS_BY_SHORT = {}
+for section, datasets in SECTION_DATASETS.items():
+    short_name = SECTION_SHORT_NAMES.get(section, section)
+    SECTION_DATASETS_BY_SHORT[short_name] = datasets
+
+BLOCK_SIZES = config.get("block_sizes", [
+    512, 1024, 2048, 4096, 8192, 16384, 32768,
+    65536, 131072, 262144
+])
+
+OUTPUT_DIR = config.get("output_dir", "results/benchmark")
+
 
 def enc_to_flag(enc):
     return "" if enc == "identity" else enc
 
-def get_int_encoding_csvs():
-    files = []
-    for dataset in INT_DATASETS:
-        for enc in INT_ENCODINGS:
-            files.append(f"{OUTPUT_DIR}/int_encoding/{dataset}/{enc}.csv")
-    return files
 
-def get_str_encoding_csvs():
-    files = []
-    for dataset in STR_DATASETS:
-        for enc in STR_ENCODINGS:
-            files.append(f"{OUTPUT_DIR}/str_encoding/{dataset}/{enc}.csv")
-    return files
+def get_encodings_for_type(section_type):
+    """Get the list of encodings for a given section type"""
+    if section_type == "integer":
+        return INTEGER_ENCODINGS
+    elif section_type == "string":
+        return STRING_ENCODINGS
+    elif section_type == "cigar":
+        return CIGAR_ENCODINGS
+    elif section_type == "walk":
+        return WALK_ENCODINGS
+    else:
+        return ["identity"]
 
-def get_block_size_csvs():
-    files = []
-    for dataset in BLOCK_SIZE_DATASETS:
-        for size in BLOCK_SIZES:
-            files.append(f"{OUTPUT_DIR}/block_size/{dataset}/{size}.csv")
-    return files
-
-def get_block_specific_csvs():
-    files = []
-    for dataset in BLOCK_SPECIFIC_DATASETS:
-        for block_type, cfg in BLOCK_SPECIFIC_CONFIG.items():
-            for int_enc in cfg["int_encodings"]:
-                for str_enc in cfg["str_encodings"]:
-                    files.append(f"{OUTPUT_DIR}/block_specific/{dataset}/{block_type}_{int_enc}_{str_enc}.csv")
-    return files
 
 def get_section_csvs():
     files = []
     for section, cfg in SECTION_SPECIFIC_CONFIG.items():
         datasets = SECTION_DATASETS.get(section, {})
-        enc_type = cfg.get("type", "string")
-        encodings = cfg.get("encodings", [])
+        short_name = SECTION_SHORT_NAMES.get(section, section)
+        section_type = cfg.get("type", "string")
+        encodings = get_encodings_for_type(section_type)
         for dataset_name in datasets:
             for enc in encodings:
-                files.append(f"{OUTPUT_DIR}/section/{section}/{dataset_name}/{enc}.csv")
+                for block_size in BLOCK_SIZES:
+                    files.append(f"{OUTPUT_DIR}/section/{short_name}/{dataset_name}/{enc}_{block_size}.csv")
     return files
 
+
 def get_all_csv_files():
-    return (get_int_encoding_csvs() + get_str_encoding_csvs() + 
-            get_block_size_csvs() + get_block_specific_csvs() + 
-            get_section_csvs())
+    return get_section_csvs()
+
 
 rule all:
     input:
         OUTPUT_DIR + "/summary-single-parameter.csv.zstd"
 
-rule benchmark_int_encoding_only:
-    input:
-        get_int_encoding_csvs()
-
-rule benchmark_str_encoding_only:
-    input:
-        get_str_encoding_csvs()
-
-rule benchmark_block_size_only:
-    input:
-        get_block_size_csvs()
-
-rule benchmark_block_specific_only:
-    input:
-        get_block_specific_csvs()
 
 rule aggregate_single_param_results:
     input:
@@ -193,100 +160,45 @@ rule aggregate_single_param_results:
     shell:
         "(head -n 1 {input[0]} && tail -n +2 -q {input}) | zstd > {output}"
 
-rule benchmark_int_encoding:
-    input:
-        gfa=lambda wildcards: INT_DATASETS[wildcards.dataset]
-    output:
-        csv=OUTPUT_DIR + "/int_encoding/{dataset}/{int_enc}.csv"
-    params:
-        bgfa=OUTPUT_DIR + "/int_encoding/{dataset}/{int_enc}.bgfa",
-        int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc)
-    shell:
-        """
-        pixi run python workflow/scripts/benchmark_encode.py \
-            --input-gfa "{input.gfa}" \
-            --output-bgfa "{params.bgfa}" \
-            --output-csv "{output.csv}" \
-            --int-flag "{params.int_flag}" \
-            --str-flag ""
-        """
-
-rule benchmark_str_encoding:
-    input:
-        gfa=lambda wildcards: STR_DATASETS[wildcards.dataset]
-    output:
-        csv=OUTPUT_DIR + "/str_encoding/{dataset}/{str_enc}.csv"
-    params:
-        bgfa=OUTPUT_DIR + "/str_encoding/{dataset}/{str_enc}.bgfa",
-        str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
-    shell:
-        """
-        pixi run python workflow/scripts/benchmark_encode.py \
-            --input-gfa "{input.gfa}" \
-            --output-bgfa "{params.bgfa}" \
-            --output-csv "{output.csv}" \
-            --int-flag "" \
-            --str-flag "{params.str_flag}"
-        """
-
-rule benchmark_block_size:
-    input:
-        gfa=lambda wildcards: BLOCK_SIZE_DATASETS[wildcards.dataset]
-    output:
-        csv=OUTPUT_DIR + "/block_size/{dataset}/{block_size}.csv"
-    params:
-        bgfa=OUTPUT_DIR + "/block_size/{dataset}/{block_size}.bgfa",
-        block_size=lambda wildcards: wildcards.block_size
-    shell:
-        """
-        pixi run python workflow/scripts/benchmark_encode_single_param.py \
-            --input-gfa "{input.gfa}" \
-            --output-bgfa "{params.bgfa}" \
-            --output-csv "{output.csv}" \
-            --block-size "{params.block_size}"
-        """
-
-rule benchmark_block_specific:
-    input:
-        gfa=lambda wildcards: BLOCK_SPECIFIC_DATASETS[wildcards.dataset]
-    output:
-        csv=OUTPUT_DIR + "/block_specific/{dataset}/{block_type}_{int_enc}_{str_enc}.csv"
-    params:
-        bgfa=OUTPUT_DIR + "/block_specific/{dataset}/{block_type}_{int_enc}_{str_enc}.bgfa",
-        block_type=lambda wildcards: wildcards.block_type,
-        int_flag=lambda wildcards: enc_to_flag(wildcards.int_enc),
-        str_flag=lambda wildcards: enc_to_flag(wildcards.str_enc)
-    shell:
-        """
-        pixi run python workflow/scripts/benchmark_encode_single_param.py \
-            --input-gfa "{input.gfa}" \
-            --output-bgfa "{params.bgfa}" \
-            --output-csv "{output.csv}" \
-            --block-type "{params.block_type}" \
-            --int-flag "{params.int_flag}" \
-            --str-flag "{params.str_flag}"
-        """
 
 rule benchmark_section:
     input:
-        gfa=lambda wildcards: SECTION_DATASETS[wildcards.section][wildcards.dataset]
+        gfa=lambda wildcards: SECTION_DATASETS_BY_SHORT[wildcards.section][wildcards.dataset]
     output:
-        csv=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}.csv"
+        csv=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}_{block_size}.csv"
     params:
-        bgfa=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}.bgfa",
+        bgfa=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}_{block_size}.bgfa",
         section=lambda wildcards: wildcards.section,
-        encoding=lambda wildcards: wildcards.encoding
+        full_section=lambda wildcards: SECTION_SHORT_TO_FULL.get(wildcards.section, wildcards.section),
+        encoding=lambda wildcards: wildcards.encoding,
+        block_size=lambda wildcards: wildcards.block_size
     run:
-        cfg = SECTION_SPECIFIC_CONFIG.get(wildcards.section, {})
-        enc_type = cfg.get("type", "string")
-        int_flag = enc_to_flag(wildcards.encoding) if enc_type == "integer" else ""
-        str_flag = enc_to_flag(wildcards.encoding) if enc_type == "string" else ""
+        cfg = SECTION_SPECIFIC_CONFIG.get(params.full_section, {})
+        section_type = cfg.get("type", "string")
+
+        if section_type == "integer":
+            int_flag = enc_to_flag(wildcards.encoding)
+            str_flag = ""
+        elif section_type == "string":
+            int_flag = ""
+            str_flag = enc_to_flag(wildcards.encoding)
+        elif section_type == "cigar":
+            int_flag = ""
+            str_flag = enc_to_flag(wildcards.encoding)
+        elif section_type == "walk":
+            int_flag = ""
+            str_flag = enc_to_flag(wildcards.encoding)
+        else:
+            int_flag = ""
+            str_flag = ""
+
         shell(
             "pixi run python workflow/scripts/benchmark_encode_single_param.py "
             "--input-gfa '{input.gfa}' "
             "--output-bgfa '{params.bgfa}' "
             "--output-csv '{output.csv}' "
-            "--section '{params.section}' "
+            "--section '{params.full_section}' "
             "--int-flag '{int_flag}' "
-            "--str-flag '{str_flag}'"
+            "--str-flag '{str_flag}' "
+            "--block-size '{params.block_size}'"
         )

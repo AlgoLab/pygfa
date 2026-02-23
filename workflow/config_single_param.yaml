@@ -1,11 +1,11 @@
 # Configuration for single-parameter BGFA benchmarking workflow
-# Each benchmark type tests ONE parameter while keeping others at identity/none
+# Tests each section independently with all relevant encodings and block sizes
+# Section types: integer (uints), string (strings), cigar, walk
 
 # =============================================================================
-# Integer Encoding Benchmark
-# Tests each integer encoding with string encoding = identity
+# Integer encodings (uints)
 # =============================================================================
-int_encodings:
+integer_encodings:
   - identity
   - varint
   - fixed16
@@ -18,20 +18,11 @@ int_encodings:
   - rice
   - streamvbyte
   - vbyte
-  - pfor_delta
-  - simple8b
-  - group_varint
-  - bit_packing
-  - fibonacci
-  - exp_golomb
-  - byte_packed
-  - masked_vbyte
 
 # =============================================================================
-# String Encoding Benchmark
-# Tests each string encoding with integer encoding = identity
+# String encodings (strings)
 # =============================================================================
-str_encodings:
+string_encodings:
   - identity
   - zstd
   - gzip
@@ -39,23 +30,90 @@ str_encodings:
   - lz4
   - brotli
   - huffman
-  - rle
+  - frontcoding
+  - delta
   - dictionary
+  - rle
   - arithmetic
   - bwt_huffman
-  - ppm
-  - 2bit
-  - cigar
-  - zstd_dict
 
 # =============================================================================
-# Block Size Benchmark
-# Tests different block sizes with all encodings = identity
+# CIGAR encodings (cigar strings)
+# =============================================================================
+cigar_encodings:
+  - identity
+  - zstd
+  - gzip
+  - lzma
+
+# =============================================================================
+# Walk encodings (walks)
+# =============================================================================
+walk_encodings:
+  - identity
+  - zstd
+  - gzip
+  - lzma
+
+# =============================================================================
+# Section-specific config
+# Only specify type: integer, string, cigar, or walk
+# =============================================================================
+section_specific:
+  segment_names_header:
+    type: string
+  segment_names_payload_lengths:
+    type: integer
+  segment_names_payload_names:
+    type: string
+  segments_header:
+    type: string
+  segments_payload_lengths:
+    type: integer
+  segments_payload_strings:
+    type: string
+  links_header:
+    type: string
+  links_payload_from:
+    type: integer
+  links_payload_to:
+    type: integer
+  links_payload_cigar_lengths:
+    type: integer
+  links_payload_cigar:
+    type: cigar
+  paths_header:
+    type: string
+  paths_payload_names:
+    type: string
+  paths_payload_segment_lengths:
+    type: integer
+  paths_payload_path_ids:
+    type: walk
+  paths_payload_cigar_lengths:
+    type: integer
+  paths_payload_cigar:
+    type: cigar
+  walks_header:
+    type: string
+  walks_payload_sample_ids:
+    type: string
+  walks_payload_hep_indices:
+    type: integer
+  walks_payload_sequence_ids:
+    type: string
+  walks_payload_start:
+    type: integer
+  walks_payload_end:
+    type: integer
+  walks_payload_walks:
+    type: walk
+
+# =============================================================================
+# Block sizes
+# Powers of 2 from 2^9 to 2^18
 # =============================================================================
 block_sizes:
-  - 64
-  - 128
-  - 256
   - 512
   - 1024
   - 2048
@@ -63,224 +121,9 @@ block_sizes:
   - 8192
   - 16384
   - 32768
-
-# =============================================================================
-# Block-Specific Benchmark
-# Tests per-block compression strategies
-# Each block type is tested with relevant encodings
-# =============================================================================
-block_specific:
-  segments:
-    int_encodings:
-      - identity
-      - varint
-      - delta
-    str_encodings:
-      - identity
-      - zstd
-      - 2bit
-  links:
-    int_encodings:
-      - identity
-      - varint
-      - delta
-    str_encodings:
-      - identity
-      - zstd
-      - cigar
-  paths:
-    int_encodings:
-      - identity
-      - varint
-      - delta
-    str_encodings:
-      - identity
-      - zstd
-  walks:
-    int_encodings:
-      - identity
-      - varint
-      - delta
-    str_encodings:
-      - identity
-      - zstd
-
-# =============================================================================
-# Section-Specific Benchmarks
-# Tests each section independently with all relevant encodings
-# Integer sections test integer encodings, string sections test string encodings
-# =============================================================================
-section_specific:
-  segment_names_header:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-      - lzma
-      - lz4
-      - brotli
-  segment_names_payload_lengths:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-      - gamma
-      - pfor_delta
-  segment_names_payload_names:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-      - dictionary
-      - frontcoding
-  segments_header:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-      - lzma
-      - lz4
-      - brotli
-  segments_payload_lengths:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-      - gamma
-      - pfor_delta
-  segments_payload_strings:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-      - lzma
-      - lz4
-      - brotli
-      - 2bit
-      - rle
-  links_header:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-  links_payload_from:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  links_payload_to:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  links_payload_cigar_lengths:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  links_payload_cigar:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - cigar
-      - gzip
-  paths_header:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-  paths_payload_names:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - dictionary
-      - frontcoding
-  paths_payload_segment_lengths:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  paths_payload_path_ids:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - delta
-      - dictionary
-  paths_payload_cigar_lengths:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  paths_payload_cigar:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - cigar
-  walks_header:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-  walks_payload_sample_ids:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - delta
-      - dictionary
-  walks_payload_hep_indices:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  walks_payload_sequence_ids:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - delta
-      - dictionary
-  walks_payload_start:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  walks_payload_end:
-    type: integer
-    encodings:
-      - identity
-      - varint
-      - delta
-  walks_payload_walks:
-    type: string
-    encodings:
-      - identity
-      - zstd
-      - gzip
-      - lzma
-      - lz4
-      - rle
-      - cigar
+  - 65536
+  - 131072
+  - 262144
 
 # =============================================================================
 # Output Configuration
