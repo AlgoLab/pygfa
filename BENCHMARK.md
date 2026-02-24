@@ -13,7 +13,7 @@ The single-parameter approach allows isolating the effect of each compression st
 
 ```bash
 # Run all single-parameter benchmarks
-snakemake -s workflow/Snakefile_single_param -j 8
+snakemake -s workflow/Snakefile_single_param --configfile workflow/config_single_param.yaml -j 8
 
 # Dry run to see what will be executed
 snakemake -s workflow/Snakefile_single_param -n
