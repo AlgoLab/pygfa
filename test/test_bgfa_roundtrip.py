@@ -4,6 +4,7 @@
 Tests that converting a GFA file to BGFA and back produces an identical GFA.
 """
 
+import glob
 import os
 import sys
 import tempfile
@@ -217,44 +218,15 @@ class TestStrictRoundtrip:
 
 
 # ---------------------------------------------------------------------------
-# Data file tests with comment-based filtering
+# Data file tests with comment-based filtering (all files recursively)
 # ---------------------------------------------------------------------------
 
-
-def _filter_data_files_by_comment(gfa_files):
-    """Filter GFA files to only include those with bgfa_roundtrip test comment."""
-    return [f for f in gfa_files if should_run_test_for_gfa("bgfa_roundtrip", f)]
-
-
-# Files without paths (segments + links, no paths)
-DATA_FILES_NO_PATHS = _filter_data_files_by_comment(
-    [
-        "data/example_1.gfa",
-        "data/example_2.gfa",
-    ]
-)
+ALL_BGFA_ROUNDTRIP_FILES = [
+    f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa("bgfa_roundtrip", f)
+]
 
 
-@pytest.mark.parametrize("gfa_path", DATA_FILES_NO_PATHS)
-class TestDataFileStrictRoundtrip:
-    """Full to_gfa() equality for data files that have only segments and links."""
-
-    def test_full_roundtrip(self, gfa_path, test_output_dir):
-        if not os.path.exists(gfa_path):
-            pytest.skip(f"Test file not found: {gfa_path}")
-        g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
-        assert g.to_gfa() == h.to_gfa(), f"Round-trip mismatch for {gfa_path}"
-
-
-# Files with paths (path reader is a stub)
-DATA_FILES_WITH_PATHS = _filter_data_files_by_comment(
-    [
-        "data/example_3.gfa",
-    ]
-)
-
-
-@pytest.mark.parametrize("gfa_path", DATA_FILES_WITH_PATHS)
+@pytest.mark.parametrize("gfa_path", ALL_BGFA_ROUNDTRIP_FILES)
 class TestStructuralRoundtrip:
     """Compare graph components individually for files with paths.
 
@@ -332,6 +304,100 @@ class TestBlockSizes:
     def test_block_size_mixed_orientations(self, block_size):
         g, h = _roundtrip(self.GFA_TEXT_MIXED_ORN, block_size=block_size)
         assert g.to_gfa() == h.to_gfa()
+
+
+# ---------------------------------------------------------------------------
+# Encoding parametrized tests for all bgfa_roundtrip files
+# ---------------------------------------------------------------------------
+
+INT_ENCODINGS = [
+    ("identity", 0x00),
+    ("varint", 0x01),
+    ("delta", 0x03),
+]
+STR_ENCODINGS = [
+    ("identity", 0x00),
+    ("zstd", 0x01),
+    ("gzip", 0x02),
+]
+BLOCK_SIZES = [512, 1024, 4096]
+
+ENCODING_COMBINATIONS = [
+    (int_name, int_code, str_name, str_code, bs)
+    for int_name, int_code in INT_ENCODINGS
+    for str_name, str_code in STR_ENCODINGS
+    for bs in BLOCK_SIZES
+]
+
+ALL_ENCODING_TEST_PARAMS = [
+    (gfa_path, int_name, str_name, bs)
+    for gfa_path in ALL_BGFA_ROUNDTRIP_FILES
+    for int_name, _, str_name, _, bs in ENCODING_COMBINATIONS
+]
+
+
+def _build_compression_options(int_encoding_name: str, str_encoding_name: str) -> dict:
+    """Build compression_options dict with encoding for all applicable fields."""
+    int_code = dict(INT_ENCODINGS).get(int_encoding_name, 0x00)
+    str_code = dict(STR_ENCODINGS).get(str_encoding_name, 0x00)
+    return {
+        "segment_names_int_encoding": int_code,
+        "segment_names_str_encoding": str_code,
+        "segments_int_encoding": int_code,
+        "segments_str_encoding": str_code,
+        "links_fromto_int_encoding": int_code,
+        "links_cigars_int_encoding": int_code,
+        "links_cigars_str_encoding": str_code,
+        "paths_names_int_encoding": int_code,
+        "paths_names_str_encoding": str_code,
+        "paths_cigars_int_encoding": int_code,
+        "paths_cigars_str_encoding": str_code,
+        "walks_sample_ids_str_encoding": str_code,
+        "walks_hap_indices_int_encoding": int_code,
+        "walks_seq_ids_int_encoding": int_code,
+        "walks_seq_ids_str_encoding": str_code,
+        "walks_start_int_encoding": int_code,
+        "walks_end_int_encoding": int_code,
+    }
+
+
+@pytest.mark.parametrize("gfa_path,int_encoding,str_encoding,block_size", ALL_ENCODING_TEST_PARAMS)
+class TestEncodingRoundtrip:
+    """Test round-trip with different encoding combinations for all bgfa_roundtrip files."""
+
+    def test_roundtrip_with_encoding(self, gfa_path, int_encoding, str_encoding, block_size, test_output_dir):
+        if not os.path.exists(gfa_path):
+            pytest.skip(f"Test file not found: {gfa_path}")
+
+        compression_options = _build_compression_options(int_encoding, str_encoding)
+        g, h = _roundtrip_file(
+            gfa_path, block_size=block_size, compression_options=compression_options, test_output_dir=test_output_dir
+        )
+
+        assert sorted(g.nodes()) == sorted(h.nodes()), f"Nodes mismatch with {int_encoding}/{str_encoding}/{block_size}"
+
+        g_data = dict(g.nodes_iter(data=True))
+        h_data = dict(h.nodes_iter(data=True))
+        for node_id in g.nodes():
+            assert node_id in h_data, f"Node {node_id} missing after round-trip"
+            g_seq = g_data[node_id].get("sequence", "*")
+            h_seq = h_data[node_id].get("sequence", "*")
+            assert g_seq == h_seq, f"Sequence mismatch for node {node_id}: {g_seq!r} vs {h_seq!r}"
+
+        def _link_set(gfa_obj):
+            links = set()
+            for u, v, key, data in gfa_obj.edges_iter(data=True, keys=True):
+                from_node = data.get("from_node", u)
+                from_orn = data.get("from_orn", "+")
+                to_node = data.get("to_node", v)
+                to_orn = data.get("to_orn", "+")
+                alignment = data.get("alignment", "*")
+                links.add((from_node, from_orn, to_node, to_orn, alignment))
+            return links
+
+        g_links = _link_set(g)
+        h_links = _link_set(h)
+        assert g_links == h_links, f"Link mismatch with {int_encoding}/{str_encoding}/{block_size}"
 
 
 if __name__ == "__main__":
