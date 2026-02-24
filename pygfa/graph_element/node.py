@@ -13,6 +13,8 @@ from pygfa.exceptions import InvalidNodeError
 from pygfa.graph_element.parser import field_validator as fv
 from pygfa.graph_element.parser import line, segment
 
+from pygfa.utils.string_utils import sanitize_string
+
 
 def is_node(obj: Any) -> bool:
     """Check whether the given object is a Node object.
@@ -118,9 +120,12 @@ class Node:
                     length = segment_line.fields["LN"].value
                     fields.pop("LN")
 
+                node_id, _ = sanitize_string(segment_line.fields["name"].value)
+                sequence, _ = sanitize_string(segment_line.fields["sequence"].value)
+
                 return cls(
-                    node_id=segment_line.fields["name"].value,
-                    sequence=segment_line.fields["sequence"].value,
+                    node_id=node_id,
+                    sequence=sequence,
                     sequence_length=length,
                     opt_fields=fields,
                 )
@@ -128,9 +133,13 @@ class Node:
                 fields.pop("sid")
                 fields.pop("sequence")
                 fields.pop("slen")
+
+                node_id, _ = sanitize_string(segment_line.fields["sid"].value)
+                sequence, _ = sanitize_string(segment_line.fields["sequence"].value)
+
                 return cls(
-                    node_id=segment_line.fields["sid"].value,
-                    sequence=segment_line.fields["sequence"].value,
+                    node_id=node_id,
+                    sequence=sequence,
                     sequence_length=segment_line.fields["slen"].value,
                     opt_fields=fields,
                 )

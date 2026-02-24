@@ -7,13 +7,16 @@ from collections.abc import Iterable
 def compress_integer_list_varint(int_list: Iterable[int], _size: int = 0) -> bytes:
     encoded_bytes = b""
     for integer in int_list:
-        length = integer
-        while length > 0:
-            byte = length & 0x7F
-            length >>= 7
-            if length > 0:
+        value = integer
+        while True:
+            byte = value & 0x7F
+            value >>= 7
+            if value == 0:
+                encoded_bytes += bytes([byte])
+                break
+            else:
                 byte |= 0x80
-            encoded_bytes += bytes([byte])
+                encoded_bytes += bytes([byte])
     return encoded_bytes
 
 
