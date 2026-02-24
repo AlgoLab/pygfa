@@ -6,12 +6,13 @@ Modern dataclass implementation with standardized naming.
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple
 
 from pygfa.exceptions import InvalidEdgeError
 from pygfa.graph_element.parser import containment, line, link
+
+from pygfa.utils.string_utils import sanitize_string
 
 
 def is_edge(obj: Any) -> bool:
@@ -110,10 +111,15 @@ class Edge:
             if "ID" in fields:
                 eid = fields["ID"].value
 
-            from_node = fields.get("from").value
-            from_orn = fields.get("from_orn").value
-            to_node = fields.get("to").value
-            to_orn = fields.get("to_orn").value
+            from_node_raw = fields.get("from").value
+            from_orn_raw = fields.get("from_orn").value
+            to_node_raw = fields.get("to").value
+            to_orn_raw = fields.get("to_orn").value
+
+            from_node, _ = sanitize_string(from_node_raw)
+            from_orn, _ = sanitize_string(from_orn_raw)
+            to_node, _ = sanitize_string(to_node_raw)
+            to_orn, _ = sanitize_string(to_orn_raw)
 
             overlap = fields.get("overlap")
             alignment = overlap.value if overlap is not None else "*"
@@ -152,10 +158,15 @@ class Edge:
             if "ID" in fields:
                 eid = fields["ID"].value
 
-            from_node = fields.get("from").value
-            from_orn = fields.get("from_orn").value
-            to_node = fields.get("to").value
-            to_orn = fields.get("to_orn").value
+            from_node_raw = fields.get("from").value
+            from_orn_raw = fields.get("from_orn").value
+            to_node_raw = fields.get("to").value
+            to_orn_raw = fields.get("to_orn").value
+
+            from_node, _ = sanitize_string(from_node_raw)
+            from_orn, _ = sanitize_string(from_orn_raw)
+            to_node, _ = sanitize_string(to_node_raw)
+            to_orn, _ = sanitize_string(to_orn_raw)
 
             pos = fields.get("pos")
             position = pos.value if pos is not None else None

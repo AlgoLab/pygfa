@@ -6,9 +6,11 @@ Modern dataclass implementation with standardized naming.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List
 
 from pygfa.exceptions import InvalidPathError
+
+from pygfa.utils.string_utils import sanitize_string
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,33 +65,42 @@ class Path:
         Returns:
             New Path instance
         """
-        from pygfa.graph_element.parser import line as line_module
 
         if not hasattr(line, "fields"):
             raise InvalidPathError("Line object must have 'fields' attribute")
 
         fields = line.fields
-        path_id = fields.get("path_name", fields.get("pid", ""))
-        if hasattr(path_id, "value"):
-            path_id = path_id.value
+        path_id_raw = fields.get("path_name", fields.get("pid", ""))
+        if hasattr(path_id_raw, "value"):
+            path_id_raw = path_id_raw.value
+
+        path_id, _ = sanitize_string(path_id_raw)
 
         # Get segment names/orientations
         segment_ids = []
         if "segment_names" in fields:
             seg_names = fields["segment_names"]
             if hasattr(seg_names, "value"):
-                segment_ids = seg_names.value
+                segment_ids_raw = seg_names.value
             else:
-                segment_ids = seg_names
+                segment_ids_raw = seg_names
+            segment_ids = []
+            for seg_raw in segment_ids_raw:
+                seg_sanitized, _ = sanitize_string(seg_raw)
+                segment_ids.append(seg_sanitized)
 
         # Get overlaps
         overlaps = []
         if "overlaps" in fields:
             ov = fields["overlaps"]
             if hasattr(ov, "value"):
-                overlaps = ov.value
+                overlaps_raw = ov.value
             else:
-                overlaps = ov
+                overlaps_raw = ov
+            overlaps = []
+            for overlap_raw in overlaps_raw:
+                overlap_sanitized, _ = sanitize_string(overlap_raw)
+                overlaps.append(overlap_sanitized)
 
         # Extract optional fields
         opt_fields = {}
