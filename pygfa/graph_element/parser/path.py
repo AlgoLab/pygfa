@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 from pygfa.graph_element.parser import field_validator as fv
 from pygfa.graph_element.parser import line
+from pygfa.utils.string_utils import sanitize_string
 
 
 class Path(line.Line):
@@ -39,13 +40,22 @@ class Path(line.Line):
         if len(fields) < len(cls.REQUIRED_FIELDS):
             raise line.InvalidLineError("The minimum number of field for " + "Path line is not reached.")
         path = Path()
-        path_name = fv.validate(fields[0], cls.REQUIRED_FIELDS["path_name"])
-        sequences_names = [fv.validate(label, cls.REQUIRED_FIELDS["seqs_names"]) for label in fields[1].split(",")]
+        path_name_raw = fields[0]
+        path_name_sanitized, _ = sanitize_string(path_name_raw)
+        path_name = fv.validate(path_name_sanitized, cls.REQUIRED_FIELDS["path_name"])
 
-        overlaps = fv.validate(fields[2], cls.REQUIRED_FIELDS["overlaps"])
+        sequences_names_raw = fields[1].split(",")
+        sequences_names_sanitized = []
+        for label in sequences_names_raw:
+            label_sanitized, _ = sanitize_string(label)
+            sequences_names_sanitized.append(fv.validate(label_sanitized, cls.REQUIRED_FIELDS["seqs_names"]))
+
+        overlaps_raw = fields[2]
+        overlaps_sanitized, _ = sanitize_string(overlaps_raw)
+        overlaps = fv.validate(overlaps_sanitized, cls.REQUIRED_FIELDS["overlaps"])
 
         pfields.append(line.Field("path_name", path_name))
-        pfields.append(line.Field("seqs_names", sequences_names))
+        pfields.append(line.Field("seqs_names", sequences_names_sanitized))
         pfields.append(line.Field("overlaps", overlaps))
 
         for field in fields[3:]:
