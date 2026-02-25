@@ -472,7 +472,7 @@ class GFA:
             else:
                 return iter(nid for nid, data_ in self._graph.nodes(data=True) if "sequence" in data_)
         else:
-            return iter(list(self._graph.nodes(data=data)))
+            return self._graph.nodes(data=data)
 
     def nbunch_iter(self, nbunch=None):
         """Return an iterator of nodes contained in nbunch that are

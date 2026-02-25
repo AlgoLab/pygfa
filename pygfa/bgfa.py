@@ -18,6 +18,7 @@ import math
 import os
 import struct
 import tempfile
+from itertools import islice
 
 from pygfa.utils.file_opener import open_gfa_file
 from pygfa.utils.output_manager import OutputManager
@@ -1659,6 +1660,14 @@ class ReaderBGFA:
         :param compression_type: Compression type code
         :return: List of decompressed strings
         """
+
+        def decode_string(string_bytes: bytes) -> str:
+            """Decode bytes to string, trying UTF-8 first, then Latin-1 as fallback."""
+            try:
+                return string_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                return string_bytes.decode("latin-1")
+
         if compression_type == 0x0000:  # Identity for strings
             # Simple null-terminated strings
             strings = []
@@ -1668,7 +1677,7 @@ class ReaderBGFA:
                 if end_pos == -1:
                     break
                 string_bytes = compressed_data[pos:end_pos]
-                strings.append(string_bytes.decode("ascii"))
+                strings.append(decode_string(string_bytes))
                 pos = end_pos + 1
             return strings
         elif compression_type == 0x0001:  # gzip
@@ -1679,7 +1688,7 @@ class ReaderBGFA:
             strings = []
             for string_bytes in decompressed.split(b"\0"):
                 if string_bytes:
-                    strings.append(string_bytes.decode("ascii"))
+                    strings.append(decode_string(string_bytes))
             return strings
         elif compression_type == 0x0002:  # lzma
             import lzma
@@ -1688,7 +1697,7 @@ class ReaderBGFA:
             strings = []
             for string_bytes in decompressed.split(b"\0"):
                 if string_bytes:
-                    strings.append(string_bytes.decode("ascii"))
+                    strings.append(decode_string(string_bytes))
             return strings
         elif compression_type == 0x0003:  # zstd
             try:
@@ -1698,7 +1707,7 @@ class ReaderBGFA:
                 strings = []
                 for string_bytes in decompressed.split(b"\0"):
                     if string_bytes:
-                        strings.append(string_bytes.decode("ascii"))
+                        strings.append(decode_string(string_bytes))
                 return strings
             except ImportError:
                 logger.warning("zstandard not available, cannot decompress zstd data")
@@ -2018,20 +2027,20 @@ class BGFAWriter:
             offset += len(chunk)
 
         # Write links blocks
-        edges = list(self._gfa.edges(data=True, keys=True))
-        offset = 0
-        total_links = len(edges)
+        edges_iter = iter(self._gfa.edges(data=True, keys=True))
+        total_links = len(self._gfa.edges())
         logger.info(f"Writing {total_links} links in blocks of size {block_size}")
-        while offset < total_links:
-            chunk = edges[offset : offset + block_size]
-            block_num = offset // block_size + 1
+        block_num = 1
+        while True:
+            chunk = list(islice(edges_iter, block_size))
+            if not chunk:
+                break
             logger.info(f"Writing links block {block_num}: {len(chunk)} links")
-            if len(chunk) > 0:
-                # chunk[0] is (u, v, key, data)
-                u, v, key, data = chunk[0]
-                from_node = data.get("from_node", u)
-                to_node = data.get("to_node", v)
-                logger.debug(f"First link in block {block_num}: from={from_node}, to={to_node}")
+            # chunk[0] is (u, v, key, data)
+            u, v, key, data = chunk[0]
+            from_node = data.get("from_node", u)
+            to_node = data.get("to_node", v)
+            logger.debug(f"First link in block {block_num}: from={from_node}, to={to_node}")
             # Get compression codes from options (default: 0x0000 = identity)
             links_fromto_compression = self._compression_options.get("links_fromto_compression_code", 0x0000)
             links_cigars_compression = self._compression_options.get("links_cigars_compression_code", 0x0000)
@@ -2041,16 +2050,17 @@ class BGFAWriter:
                 compression_fromto=links_fromto_compression,
                 compression_cigars=links_cigars_compression,
             )
-            offset += block_size
+            block_num += 1
 
         # Write paths blocks
-        paths = list(self._gfa.paths_iter(data=True))
-        offset = 0
-        total_paths = len(paths)
+        paths_iter = iter(self._gfa.paths_iter(data=True))
+        total_paths = len(self._gfa.paths())
         logger.info(f"Writing {total_paths} paths in blocks of size {block_size}")
-        while offset < total_paths:
-            chunk = paths[offset : offset + block_size]
-            block_num = offset // block_size + 1
+        block_num = 1
+        while True:
+            chunk = list(islice(paths_iter, block_size))
+            if not chunk:
+                break
             logger.info(f"Writing paths block {block_num}: {len(chunk)} paths")
             # Get compression codes from options (default: 0x0000 = identity)
             paths_names_compression = self._compression_options.get("paths_names_compression_code", 0x0000)
@@ -2063,16 +2073,17 @@ class BGFAWriter:
                 compression_paths=paths_paths_compression,
                 compression_cigars=paths_cigars_compression,
             )
-            offset += block_size
+            block_num += 1
 
         # Write walks blocks
-        walks = list(self._gfa.walks_iter(data=True))
-        offset = 0
-        total_walks = len(walks)
+        walks_iter = iter(self._gfa.walks_iter(data=True))
+        total_walks = len(self._gfa.walks())
         logger.info(f"Writing {total_walks} walks in blocks of size {block_size}")
-        while offset < total_walks:
-            chunk = walks[offset : offset + block_size]
-            block_num = offset // block_size + 1
+        block_num = 1
+        while True:
+            chunk = list(islice(walks_iter, block_size))
+            if not chunk:
+                break
             logger.info(f"Writing walks block {block_num}: {len(chunk)} walks")
             # Get compression codes from options (default: 0x0000 = identity)
             walks_sample_ids_compression = self._compression_options.get("walks_sample_ids_compression_code", 0x0000)
@@ -2091,7 +2102,7 @@ class BGFAWriter:
                 compression_end=walks_end_compression,
                 compression_walks=walks_walks_compression,
             )
-            offset += block_size
+            block_num += 1
 
         # Get the entire buffer as bytes
         result = buffer.getvalue()
@@ -2193,8 +2204,12 @@ class BGFAWriter:
             # 1. Encode string lengths with integer encoder
             # 2. Compress concatenated names (no null terminators) with string encoder
             int_encoder = get_integer_encoder(compression_code)
+            int_encoding = (compression_code >> 8) & 0xFF
             lengths = [len(name.encode("ascii")) for name in to_write]
             encoded_lengths = int_encoder(lengths)
+            # Add comma delimiter for identity integer encoding to separate from compressed names
+            if int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_lengths += b","
 
             concatenated = "".join(to_write)
             compressed_names = _compress_string_for_bgfa(concatenated, str_encoding)
@@ -2298,6 +2313,9 @@ class BGFAWriter:
             # 4. Compressed concatenated optional fields JSON strings (using string encoding)
             int_encoder = get_integer_encoder(compression_code)
             encoded_ids = int_encoder(segment_ids)
+            # Add comma delimiter for identity integer encoding to separate from lengths
+            if int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_ids += b","
             encoded_lengths = int_encoder(sequence_lengths)
             compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
             compressed_opt_fields = _compress_string_for_bgfa("".join(opt_fields_strings), str_encoding)
@@ -2397,10 +2415,14 @@ class BGFAWriter:
             # 5. Encoded CIGAR lengths
             # 6. Compressed concatenated CIGARs
             fromto_int_encoder = get_integer_encoder(compression_fromto)
+            fromto_int_encoding = (compression_fromto >> 8) & 0xFF
             cigars_int_encoder = get_integer_encoder(compression_cigars)
             cigars_str_encoding = compression_cigars & 0xFF
 
             encoded_from = fromto_int_encoder(from_ids)
+            # Add comma delimiter for identity integer encoding to separate from to_ids
+            if fromto_int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_from += b","
             encoded_to = fromto_int_encoder(to_ids)
             cigar_lengths = [len(c.encode("ascii")) for c in cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
@@ -2491,8 +2513,12 @@ class BGFAWriter:
         else:
             # Non-identity: encode name lengths with integer encoder + compress names
             names_int_encoder = get_integer_encoder(compression_path_names)
+            names_int_encoding = (compression_path_names >> 8) & 0xFF
             name_lengths = [len(name.encode("ascii")) for name in path_names]
             encoded_name_lengths = names_int_encoder(name_lengths)
+            # Add comma delimiter for identity integer encoding
+            if names_int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_name_lengths += b","
             compressed_name_data = _compress_string_for_bgfa("".join(path_names), names_str_encoding)
             compressed_names = encoded_name_lengths + compressed_name_data
             uncompressed_len_name = sum(name_lengths)
@@ -2514,8 +2540,12 @@ class BGFAWriter:
         else:
             # Non-identity: encode cigar lengths with integer encoder + compress cigars
             cigars_int_encoder = get_integer_encoder(compression_cigars)
+            cigars_int_encoding = (compression_cigars >> 8) & 0xFF
             cigar_lengths = [len(c.encode("ascii")) for c in all_cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
+            # Add comma delimiter for identity integer encoding
+            if cigars_int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_cigar_lengths += b","
             compressed_cigar_data = _compress_string_for_bgfa("".join(all_cigars), cigars_str_encoding)
             compressed_cigars = encoded_cigar_lengths + compressed_cigar_data
             uncompressed_len_cigar = sum(cigar_lengths)
@@ -2620,8 +2650,12 @@ class BGFAWriter:
             uncompressed_len_sam = len(compressed_samples)
         else:
             sam_int_encoder = get_integer_encoder(compression_sample_ids)
+            sam_int_encoding = (compression_sample_ids >> 8) & 0xFF
             sam_lengths = [len(s.encode("ascii")) for s in sample_ids]
             encoded_sam_lengths = sam_int_encoder(sam_lengths)
+            # Add comma delimiter for identity integer encoding
+            if sam_int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_sam_lengths += b","
             compressed_sam_data = _compress_string_for_bgfa("".join(sample_ids), sam_str_encoding)
             compressed_samples = encoded_sam_lengths + compressed_sam_data
             uncompressed_len_sam = sum(sam_lengths)
@@ -2641,8 +2675,12 @@ class BGFAWriter:
             uncompressed_len_seq = len(compressed_seqids)
         else:
             seq_int_encoder = get_integer_encoder(compression_seq_ids)
+            seq_int_encoding = (compression_seq_ids >> 8) & 0xFF
             seq_lengths = [len(s.encode("ascii")) for s in seq_ids]
             encoded_seq_lengths = seq_int_encoder(seq_lengths)
+            # Add comma delimiter for identity integer encoding
+            if seq_int_encoding == INTEGER_ENCODING_IDENTITY:
+                encoded_seq_lengths += b","
             compressed_seq_data = _compress_string_for_bgfa("".join(seq_ids), seq_str_encoding)
             compressed_seqids = encoded_seq_lengths + compressed_seq_data
             uncompressed_len_seq = sum(seq_lengths)
