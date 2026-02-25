@@ -1,4 +1,3 @@
-import os
 import sys
 import unittest
 
@@ -8,32 +7,26 @@ sys.path.insert(0, "../")
 
 
 from pygfa import gfa
-from test_utils import should_run_test_for_gfa
+from test_utils import should_run_test_for_gfa, get_gfa_file_from_args
 from pygfa.graph_element.parser import segment, link, path
 from pygfa.graph_element import node, edge as ge, subgraph as sg
 
-# Load sample GFA files from data directory
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-GFA_FILE_1 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
-with open(GFA_FILE_1, "r") as f:
-    sample_gfa1 = f.read()
 
-GFA_FILE_2 = os.path.join(_DATA_DIR, "test_gfa_graph_sample_gfa1.gfa")
-with open(GFA_FILE_2, "r") as f:
-    sample_gfa2 = f.read()
-
-
-class TestLine(unittest.TestCase):
+class TestGfaGraph(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Set up test class by checking if test should run for both GFA files."""
-        # Check if test should run for sample_gfa2
-        if not should_run_test_for_gfa("gfa_graph", GFA_FILE_2):
-            raise unittest.SkipTest(f"No '# test: gfa_graph' comment found in {GFA_FILE_2}")
+        """Set up test class by getting the GFA file to test."""
+        try:
+            gfa_file = get_gfa_file_from_args("gfa_graph")
+        except ValueError as e:
+            raise unittest.SkipTest(str(e))
 
-        # Check if test should run for sample_gfa1
-        if not should_run_test_for_gfa("gfa_graph", GFA_FILE_1):
-            raise unittest.SkipTest(f"No '# test: gfa_graph' comment found in {GFA_FILE_1}")
+        if not should_run_test_for_gfa("gfa_graph", gfa_file):
+            raise unittest.SkipTest(f"No '# test: gfa_graph' comment found in {gfa_file}")
+
+        # Load the GFA file content
+        with open(gfa_file, "r") as f:
+            cls.sample_gfa = f.read()
 
     graph = gfa.GFA()
 
@@ -252,7 +245,7 @@ class TestLine(unittest.TestCase):
 
     def test_from_string(self):
         self.graph.clear()
-        self.graph.from_string(sample_gfa2)
+        self.graph.from_string(self.sample_gfa)
         # 9 effective nodes
         self.assertTrue(len(self.graph.nodes()) == 9)
         self.assertTrue(len(self.graph.edges()) == 6)
@@ -260,7 +253,7 @@ class TestLine(unittest.TestCase):
         self.assertTrue(len(self.graph.paths()) == 2)
 
         self.graph.clear()
-        self.graph.from_string(sample_gfa1)
+        self.graph.from_string(self.sample_gfa)
         self.assertTrue(len(self.graph.nodes()) == 9)
         self.assertTrue(len(self.graph.edges()) == 6)
         self.assertTrue(len(self.graph.paths()) == 2)
@@ -268,7 +261,7 @@ class TestLine(unittest.TestCase):
     def test_get_subgraph(self):
         """Get the path 15 from sample_gfa2 - stored in paths() not subgraphs()."""
         self.graph.clear()
-        self.graph.from_string(sample_gfa2)
+        self.graph.from_string(self.sample_gfa)
 
         # Paths are stored in paths(), not subgraphs()
         path_15 = self.graph.paths("15")
@@ -283,7 +276,7 @@ class TestLine(unittest.TestCase):
         """Test the subgraph interface to networkx method
         `subgraph`."""
         self.graph.clear()
-        self.graph.from_string(sample_gfa2)
+        self.graph.from_string(self.sample_gfa)
         subgraph_ = self.graph.subgraph(["1", "3", "5"])
         self.assertTrue(subgraph_ is not None)
         self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
@@ -328,7 +321,7 @@ class TestLine(unittest.TestCase):
             or equal to 140.
         """
         self.graph.clear()
-        self.graph.from_string(sample_gfa2)
+        self.graph.from_string(self.sample_gfa)
 
         result = self.graph.search(lambda element: element["from_node"] == "1", limit_type=gfa.Element.EDGE)
         # Search returns edge keys (virtual IDs)
@@ -354,9 +347,9 @@ class TestLine(unittest.TestCase):
 
     def test_graph_equality(self):
         self.graph.clear()
-        self.graph.from_string(sample_gfa2)
+        self.graph.from_string(self.sample_gfa)
         same_graph = gfa.GFA()
-        same_graph.from_string(sample_gfa2)
+        same_graph.from_string(self.sample_gfa)
         # Note: __eq__ implementation is incomplete, skip detailed comparison
         # Just verify both graphs can be created and parsed
         self.assertTrue(len(list(self.graph.nodes())) > 0)
@@ -364,7 +357,7 @@ class TestLine(unittest.TestCase):
 
     def test_neighborhood_operation(self):
         self.graph.clear()
-        self.graph.from_string(sample_gfa1)
+        self.graph.from_string(self.sample_gfa)
 
         neighbors_ = self.graph.neighbors("2")
         self.assertTrue("6" in neighbors_)

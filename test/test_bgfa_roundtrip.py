@@ -221,9 +221,32 @@ class TestStrictRoundtrip:
 # Data file tests with comment-based filtering (all files recursively)
 # ---------------------------------------------------------------------------
 
-ALL_BGFA_ROUNDTRIP_FILES = [
+_ALL_BGFA_ROUNDTRIP_FILES = [
     f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa("bgfa_roundtrip", f)
 ]
+
+
+def pytest_generate_tests(metafunc):
+    """Dynamically generate tests based on --gfa-file option."""
+    if "gfa_path" in metafunc.fixturenames:
+        gfa_file = metafunc.config.getoption("--gfa-file")
+
+        if gfa_file:
+            # Use only the specified file
+            test_files = (
+                [gfa_file] if (os.path.exists(gfa_file) and should_run_test_for_gfa("bgfa_roundtrip", gfa_file)) else []
+            )
+        else:
+            # Use all matching files
+            test_files = _ALL_BGFA_ROUNDTRIP_FILES
+
+        if not test_files:
+            pytest.skip("No matching GFA files found. Use --gfa-file to specify a file.")
+
+        metafunc.parametrize("gfa_path", test_files)
+
+
+ALL_BGFA_ROUNDTRIP_FILES = _ALL_BGFA_ROUNDTRIP_FILES
 
 
 @pytest.mark.parametrize("gfa_path", ALL_BGFA_ROUNDTRIP_FILES)

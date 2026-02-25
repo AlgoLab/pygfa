@@ -6,6 +6,7 @@ test-related comments.
 
 import os
 import re
+import sys
 
 
 def get_test_names_from_gfa(gfa_path):
@@ -91,17 +92,25 @@ def get_test_data_path(filename, data_dir="data"):
     return os.path.join(data_dir, filename)
 
 
-def get_gfa_files_for_test(test_name, data_dir="data"):
+def get_gfa_files_for_test(test_name, data_dir=None):
     """Get all GFA files in the data directory that have a test comment for this test.
 
     Args:
         test_name: The name of the test.
         data_dir: Path to the data directory containing GFA files.
+                  If None, defaults to 'data' directory relative to the test directory.
 
     Returns:
         A list of paths to GFA files that have the test comment.
     """
     matching_files = []
+
+    # Determine default data directory
+    if data_dir is None:
+        # Get the test directory (where test_utils.py is located)
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(test_dir, "..", "data")
+        data_dir = os.path.normpath(data_dir)
 
     if not os.path.exists(data_dir):
         return matching_files
@@ -111,5 +120,156 @@ def get_gfa_files_for_test(test_name, data_dir="data"):
             gfa_path = os.path.join(data_dir, filename)
             if should_run_test_for_gfa(test_name, gfa_path):
                 matching_files.append(gfa_path)
+
+    return matching_files
+
+
+def get_gfa_file_from_args(test_name, data_dir=None):
+    """Get GFA file from command-line args, environment variable, or auto-discover.
+
+    Usage:
+        python test_testname.py [gfa_file]
+        GFA_FILE=data/test_compression.gfa python test_testname.py
+
+    If a GFA file path is provided as:
+    1. The GFA_FILE environment variable, OR
+    2. The second element of sys.argv (sys.argv[1]) - only if it looks like a valid file path
+
+    Then it validates that the file has the appropriate '# test: TESTNAME' comment
+    and returns that file.
+
+    Otherwise, auto-discovers all GFA files in data_dir with matching test comment.
+    Returns the first match, or raises ValueError if no matching files found.
+
+    Note: When running with unittest directly (not pytest), arguments after the script name
+    are interpreted as test selectors. Use GFA_FILE environment variable or pytest --gfa-file
+    option to avoid conflicts.
+
+    Args:
+        test_name: The name of the test (e.g., 'compression', 'gfa_operations').
+        data_dir: Path to the data directory. If None, uses 'data' relative to test directory.
+
+    Returns:
+        Path to the GFA file to test.
+
+    Raises:
+        ValueError: If no matching GFA file is found.
+    """
+    gfa_path = None
+
+    # First, check GFA_FILE environment variable
+    gfa_path = os.environ.get("GFA_FILE")
+
+    if gfa_path:
+        # Make path absolute if relative
+        if not os.path.isabs(gfa_path):
+            gfa_path = os.path.abspath(gfa_path)
+
+        if not os.path.exists(gfa_path):
+            raise ValueError(f"GFA file not found: {gfa_path}")
+
+        # Validate that this file has the correct test comment
+        if not should_run_test_for_gfa(test_name, gfa_path):
+            raise ValueError(
+                f"GFA file '{gfa_path}' does not have '# test: {test_name}' comment. "
+                f"Use a file with the appropriate test comment or run without arguments "
+                f"to auto-discover matching files."
+            )
+
+        return gfa_path
+
+    # Check if a GFA file was provided as command-line argument
+    # Only if it looks like a valid file path (exists and ends with .gfa)
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        # Skip unittest arguments (those starting with -)
+        if arg.startswith("-"):
+            arg = None
+        # Only accept if it's a valid .gfa file that exists
+        elif not (arg.endswith(".gfa") and os.path.exists(arg)):
+            arg = None
+
+        if arg:
+            gfa_path = arg
+            # Make path absolute if relative
+            if not os.path.isabs(gfa_path):
+                gfa_path = os.path.abspath(gfa_path)
+
+            if not os.path.exists(gfa_path):
+                raise ValueError(f"GFA file not found: {gfa_path}")
+
+            # Validate that this file has the correct test comment
+            if not should_run_test_for_gfa(test_name, gfa_path):
+                raise ValueError(
+                    f"GFA file '{gfa_path}' does not have '# test: {test_name}' comment. "
+                    f"Use a file with the appropriate test comment or run without arguments "
+                    f"to auto-discover matching files."
+                )
+
+            return gfa_path
+
+    # Auto-discover matching files
+    matching_files = get_gfa_files_for_test(test_name, data_dir)
+
+    if not matching_files:
+        # Determine data_dir for error message
+        if data_dir is None:
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            data_dir = os.path.join(test_dir, "..", "data")
+            data_dir = os.path.normpath(data_dir)
+        raise ValueError(
+            f"No GFA files found with '# test: {test_name}' comment in '{data_dir}'. "
+            f"Provide a GFA file path as argument or set GFA_FILE environment variable."
+        )
+
+    return matching_files[0]
+
+
+def get_all_gfa_files_for_test(test_name, data_dir="data"):
+    """Get all GFA files for a test, optionally filtered by command-line argument.
+
+    Usage: python test_testname.py [gfa_file]
+
+    If a GFA file path is provided as sys.argv[1], returns only that file (if valid).
+    Otherwise, returns all GFA files in data_dir with matching test comment.
+
+    Args:
+        test_name: The name of the test (e.g., 'compression', 'gfa_operations').
+        data_dir: Path to the data directory (default: "data").
+
+    Returns:
+        List of paths to GFA files to test.
+
+    Raises:
+        ValueError: If sys.argv[1] is provided but is invalid.
+    """
+    # Check if a specific GFA file was provided as command-line argument
+    if len(sys.argv) > 1:
+        gfa_path = sys.argv[1]
+        # Make path absolute if relative
+        if not os.path.isabs(gfa_path):
+            gfa_path = os.path.abspath(gfa_path)
+
+        if not os.path.exists(gfa_path):
+            raise ValueError(f"GFA file not found: {gfa_path}")
+
+        # Validate that this file has the correct test comment
+        if not should_run_test_for_gfa(test_name, gfa_path):
+            raise ValueError(
+                f"GFA file '{gfa_path}' does not have '# test: {test_name}' comment. "
+                f"Use a file with the appropriate test comment or run without arguments "
+                f"to auto-discover matching files."
+            )
+
+        return [gfa_path]
+
+    # Auto-discover all matching files
+    matching_files = get_gfa_files_for_test(test_name, data_dir)
+
+    if not matching_files:
+        raise ValueError(
+            f"No GFA files found with '# test: {test_name}' comment in '{data_dir}'. "
+            f"Provide a GFA file path as argument."
+        )
 
     return matching_files

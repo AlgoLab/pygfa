@@ -1,12 +1,11 @@
 import logging
-import os
 import sys
 import unittest
 
 sys.path.insert(0, "../")
 
 import pygfa
-from test_utils import should_run_test_for_gfa
+from test_utils import should_run_test_for_gfa, get_gfa_file_from_args
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -25,18 +24,21 @@ logging.basicConfig(level=logging.DEBUG)
 #              |________|        [18_18_18]
 #
 
-GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "check_overlap_test.gfa")
 
-
-class TestLine(unittest.TestCase):
+class TestCheckOverlap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Set up test class by checking if test should run."""
-        if not should_run_test_for_gfa("check_overlap", GFA_FILE):
-            raise unittest.SkipTest(f"No '# test: check_overlap' comment found in {GFA_FILE}")
+        """Set up test class by getting the GFA file to test."""
+        try:
+            gfa_file = get_gfa_file_from_args("check_overlap")
+        except ValueError as e:
+            raise unittest.SkipTest(str(e))
+
+        if not should_run_test_for_gfa("check_overlap", gfa_file):
+            raise unittest.SkipTest(f"No '# test: check_overlap' comment found in {gfa_file}")
 
         cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(GFA_FILE)
+        cls.graph.from_gfa(gfa_file)
 
     def test_no_external_fasta(self):
         edges_no_consistency = []
