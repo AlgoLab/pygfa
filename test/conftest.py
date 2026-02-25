@@ -3,6 +3,16 @@ from pathlib import Path
 import pytest
 
 
+def pytest_addoption(parser):
+    """Add custom command-line options for pytest."""
+    parser.addoption(
+        "--gfa-file",
+        action="store",
+        default=None,
+        help="Run tests only on the specified GFA file instead of all matching files",
+    )
+
+
 @pytest.fixture(scope="module")
 def test_output_dir(request):
     """Provide a dedicated output directory for each test file."""

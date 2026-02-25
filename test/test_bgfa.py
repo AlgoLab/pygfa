@@ -6,6 +6,8 @@ import sys
 import tempfile
 import glob
 
+import pytest
+
 # Add the project root to the Python path to ensure imports work correctly
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
@@ -106,7 +108,6 @@ ALL_ENCODING_COMBINATIONS = list(itertools.product(INTEGER_ENCODINGS, STRING_ENC
 # Filter to only include files with the '# test: bgfa' comment
 _ALL_GFA_FILES = glob.glob("test/*.gfa")
 _ALL_GFA_FILES.extend(glob.glob("data/*.gfa"))
-TEST_FILES = [f for f in _ALL_GFA_FILES if should_run_test_for_gfa("bgfa", f)]
 
 
 def get_encoding_name(encoding_code):
@@ -145,16 +146,32 @@ def temp_dir(test_output_dir):
     # No cleanup - retain files for debugging
 
 
-@pytest.fixture(scope="module", params=TEST_FILES if TEST_FILES else [])
+@pytest.fixture(scope="module")
 def gfa_file_path(request):
     """Provide the path to a GFA file for testing."""
-    file_path = request.param
+    # This fixture is now parametrized via pytest_generate_tests
+    # Just validate the file exists
+    if not os.path.exists(request.param):
+        pytest.skip(f"Test file not found: {request.param}")
+    return request.param
 
-    # Check if file exists (it should, since glob found it)
-    if not os.path.exists(file_path):
-        pytest.skip(f"Test file not found: {file_path}")
 
-    return file_path
+def pytest_generate_tests(metafunc):
+    """Dynamically generate tests based on --gfa-file option."""
+    if "gfa_file_path" in metafunc.fixturenames:
+        gfa_file = metafunc.config.getoption("--gfa-file")
+
+        if gfa_file:
+            # Use only the specified file
+            test_files = [gfa_file] if (os.path.exists(gfa_file) and should_run_test_for_gfa("bgfa", gfa_file)) else []
+        else:
+            # Use all matching files
+            test_files = [f for f in _ALL_GFA_FILES if should_run_test_for_gfa("bgfa", f)]
+
+        if not test_files:
+            pytest.skip("No matching GFA files found. Use --gfa-file to specify a file.")
+
+        metafunc.parametrize("gfa_file_path", test_files)
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])

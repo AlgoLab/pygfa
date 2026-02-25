@@ -1,11 +1,10 @@
-import os
 import sys
 import unittest
 
 sys.path.insert(0, "../")
 
 import pygfa
-from test_utils import should_run_test_for_gfa
+from test_utils import should_run_test_for_gfa, get_gfa_file_from_args
 
 #
 # ~~~ = other overlap
@@ -18,18 +17,21 @@ from test_utils import should_run_test_for_gfa
 # [s6_s6] --- [s7_s7]                [s8_s8_s8]
 #
 
-GFA_FILE = os.path.join(os.path.dirname(__file__), "data", "test_gfa_operations.gfa")
 
-
-class TestLine(unittest.TestCase):
+class TestGfaOperations(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Set up test class by checking if test should run."""
-        if not should_run_test_for_gfa("gfa_operations", GFA_FILE):
-            raise unittest.SkipTest(f"No '# test: gfa_operations' comment found in {GFA_FILE}")
+        """Set up test class by getting the GFA file to test."""
+        try:
+            gfa_file = get_gfa_file_from_args("gfa_operations")
+        except ValueError as e:
+            raise unittest.SkipTest(str(e))
+
+        if not should_run_test_for_gfa("gfa_operations", gfa_file):
+            raise unittest.SkipTest(f"No '# test: gfa_operations' comment found in {gfa_file}")
 
         cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(GFA_FILE)
+        cls.graph.from_gfa(gfa_file)
 
     def test_nodes_connected_components(self):
         nodes = set(self.graph.nodes())

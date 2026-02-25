@@ -4,7 +4,7 @@ import unittest
 sys.path.insert(0, "../")
 
 import pygfa
-from test_utils import should_run_test_for_gfa, get_test_data_path
+from test_utils import should_run_test_for_gfa, get_gfa_file_from_args
 
 #
 # ~~~ = other overlap
@@ -17,17 +17,20 @@ from test_utils import should_run_test_for_gfa, get_test_data_path
 #                          [s4_s4_s4]--
 #                          [s3_s3_s3]
 
-GFA_FILE = get_test_data_path("test_biconnected.gfa")
 
-
-class TestLine(unittest.TestCase):
+class TestBiconnected(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Set up test class by checking if test should run."""
-        if not should_run_test_for_gfa("biconnected", GFA_FILE):
-            raise unittest.SkipTest(f"No '# test: biconnected' comment found in {GFA_FILE}")
+        """Set up test class by getting the GFA file to test."""
+        try:
+            gfa_file = get_gfa_file_from_args("biconnected")
+        except ValueError as e:
+            raise unittest.SkipTest(str(e))
 
-        cls.graph = pygfa.gfa.GFA.from_gfa(GFA_FILE)
+        if not should_run_test_for_gfa("biconnected", gfa_file):
+            raise unittest.SkipTest(f"No '# test: biconnected' comment found in {gfa_file}")
+
+        cls.graph = pygfa.gfa.GFA.from_gfa(gfa_file)
 
     def test_articulation_points(self):
         """Test that the correct articulation points are

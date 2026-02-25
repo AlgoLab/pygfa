@@ -124,6 +124,24 @@ case of the `/test/test_TESTNAME.py` or the `/test/TESTNAME.py` script.
 Those comments must be at the beginning of the file.
 There can be multiple such comments in each gfa file.
 
+### Running Tests on Specific GFA Files
+
+Tests that operate on GFA files can be run on a specific file or all matching files:
+
+```bash
+# Run test on all GFA files with matching # test: comment (auto-discover)
+python test/test_compression.py
+
+# With pytest - run on specific file
+pytest test/test_bgfa.py --gfa-file data/test_compression.gfa -v
+
+# With pytest - run on all matching files
+pytest test/test_bgfa.py -v
+
+# With pytest - run on specific file for roundtrip tests
+pytest test/test_bgfa_roundtrip.py --gfa-file data/test_compression.gfa -v
+```
+
 ### Development Tools
 
 ```bash
