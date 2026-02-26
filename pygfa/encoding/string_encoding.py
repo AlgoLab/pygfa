@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import lzma
 import struct
+import threading
 from collections.abc import Callable
 
 try:
@@ -24,15 +25,18 @@ def compress_string_zstd(string: str) -> bytes:
 
 
 _ZSTD_STATIC_DICT = None
+_zstd_dict_lock = threading.Lock()
 
 
 def _get_zstd_dict():
     global _ZSTD_STATIC_DICT
     if _ZSTD_STATIC_DICT is None:
-        import zstandard as zstd
+        with _zstd_dict_lock:
+            if _ZSTD_STATIC_DICT is None:
+                import zstandard as zstd
 
-        common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
-        _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
+                common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
+                _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
     return _ZSTD_STATIC_DICT
 
 

@@ -13,9 +13,11 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_output_dir(request):
-    """Provide a dedicated output directory for each test file."""
+    """Provide a dedicated output directory for each test function."""
+    import uuid
+
     # Get test module name without .py extension
     module_name = request.module.__name__
     if module_name.startswith("test_"):
@@ -23,9 +25,15 @@ def test_output_dir(request):
     else:
         test_name = module_name
 
+    # Get test function name
+    test_func_name = request.node.name
+
+    # Create unique subdirectory to avoid collisions in parallel runs
+    unique_id = str(uuid.uuid4())[:8]
+
     # Create output directory (use absolute path to avoid path resolution issues)
     project_root = Path(__file__).parent.parent  # Go up from test/ to project root
-    output_dir = project_root / "results/test" / test_name
+    output_dir = project_root / "results/test" / test_name / f"{test_func_name}_{unique_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Return absolute path to avoid working directory issues

@@ -146,19 +146,19 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         output_dir = tempfile.mkdtemp(dir="results/test")
 
         with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:
-            # Create BGFA header
+            # Create BGFA header (new format: no block_size)
             version = 1
-            block_size = 1024
             header_text = "test_header\0"
 
-            # Write file header: version + block_size + reserved (32 bytes) + header_text
-            tmp_file.write(struct.pack("<HH", version, block_size))
-            tmp_file.write(b"\x00" * 32)  # reserved space
+            # Write file header: version + reserved (34 bytes) + header_text
+            tmp_file.write(struct.pack("<H", version))
+            tmp_file.write(b"\x00" * 34)  # reserved space
             tmp_file.write(header_text.encode("ascii"))
 
-            # Add segment names block (empty - record_num = 0 indicates no more blocks)
+            # Add segment names block with section_id (empty - record_num = 0 indicates no more blocks)
             seg_names_header = struct.pack(
-                "<HHQQ",
+                "<BHHQQ",
+                1,  # section_id = 1 (segment names)
                 0,  # record_num = 0 (last block)
                 0x0000,  # compression_names
                 0,  # compressed_len
@@ -166,9 +166,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             )
             tmp_file.write(seg_names_header)
 
-            # Add segments block (empty - record_num = 0 indicates no more blocks)
+            # Add segments block with section_id (empty - record_num = 0 indicates no more blocks)
             seg_header = struct.pack(
-                "<HHQQ",
+                "<BHHQQ",
+                2,  # section_id = 2 (segments)
                 0,  # record_num = 0 (last block)
                 0x0000,  # compression_str
                 0,  # compressed_len
@@ -182,9 +183,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             names_data = path_name.encode("ascii") + b"\0"
             cigars_data = path_cigar.encode("ascii") + b"\0"
 
-            # Paths block header (with 3 compression codes + 4 length fields = 28 bytes)
+            # Paths block header with section_id (with section_id + 3 compression codes + 4 length fields = 29 bytes)
             paths_header = struct.pack(
-                "<HHHHQQQQ",
+                "<BHHHHQQQQ",
+                4,  # section_id = 4 (paths)
                 1,  # record_num
                 0x0000,  # compression_path_names
                 0x0000,  # compression_paths
@@ -206,9 +208,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             sequences_data = sequence_id.encode("ascii") + b"\0"
             walks_data = walk_data.encode("ascii") + b"\0"
 
-            # Walks block header (with 5 compression codes + 6 length fields = 72 bytes total)
+            # Walks block header with section_id (section_id + 5 compression codes + 6 length fields = 73 bytes total)
             walks_header = struct.pack(
-                "<HHHHHHQQQQQQ",
+                "<BHHHHHHQQQQQQ",
+                5,  # section_id = 5 (walks)
                 1,  # record_num
                 0x0000,  # compression_samples
                 0x0000,  # compression_hep
