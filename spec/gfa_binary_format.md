@@ -7,12 +7,11 @@ The first part is the file header, which contains some metadata.
 All other parts are a list of blocks.
 
 *  File Header
-*  List of Segment Names Blocks
-*  List of Segments Blocks
-*  List of Links Blocks
-*  List of Paths Blocks
+*  List of Blocks (segment names, segments, links, paths, walks)
 
-Each list of blocks is the concatenation of the blocks, without any separator.
+Each block contains a `section_id` field that identifies its type, allowing blocks
+to appear in any order in the file. The writer maintains the original ordering.
+
 Each block has a header and a payload.
 
 The `uint16` and `uint64` types are written as little endian.
@@ -26,8 +25,10 @@ A C string is an ASCII string terminated by `\0`
 | Field        | Description                                                  | Type       |
 |--------------|--------------------------------------------------------------|------------|
 | `version`    | Format version                                               | `uint16`   |
-| `block_size` | number of objects stored in each block, default value = 1024 | `uint16`   |
 | `header`     | gfa header text                                              | `C string` |
+
+The file header does not store `block_size`. The reader must know the block size
+separately (e.g., via configuration or default value of 1024).
 
 
 ### Segment Names Block
@@ -41,7 +42,8 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field               | Description                                  | Type     |
 |---------------------|----------------------------------------------|----------|
-| `record_num`        | number of record in the block < = block_size | `uint16` |
+| `section_id`        | Section type (1 = segment names)            | `uint8`  |
+| `record_num`        | number of record in the block <= block_size | `uint16` |
 | `compression_names` | Encoding strategy for the names              | `uint16` |
 | `compressed_len`    | length of compressed names field             | `uint64` |
 | `uncompressed_len`  | length of uncompressed names field           | `uint64` |
@@ -66,6 +68,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field              | Description                                    | Type     |
 |--------------------|------------------------------------------------|----------|
+| `section_id`       | Section type (2 = segments)                    | `uint8`  |
 | `record_num`       | number of record in the block < = block_size   | `uint16` |
 | `compression_str`  | Encoding strategy for the segment sequences    | `uint16` |
 | `compressed_len`   | length of compressed segment_sequences field   | `uint64` |
@@ -90,6 +93,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field                | Description                                  | Type     |
 |----------------------|----------------------------------------------|----------|
+| `section_id`         | Section type (3 = links)                     | `uint8`  |
 | `record_num`         | number of record in the block <= block_size  | `uint16` |
 | `compression_fromto` | Encoding strategy for the from and to fields | `uint16` |
 | `compression_cigars` | Encoding strategy for the cigar strings      | `uint16` |
@@ -118,6 +122,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field                    | Description                                             | Type     |
 |--------------------------|---------------------------------------------------------|----------|
+| `section_id`             | Section type (4 = paths)                               | `uint8`  |
 | `record_num`             | number of record in the block <= block_size             | `uint16` |
 | `compression_path`_names | Encoding strategy for the path names                    | `uint16` |
 | `compression_paths`      | Encoding strategy for the paths as list of segments ids | `uint16` |
@@ -147,6 +152,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field                   | Description                                       | Type     |
 |-------------------------|---------------------------------------------------|----------|
+| `section_id`            | Section type (5 = walks)                         | `uint8`  |
 | `record_num`            | number of record in the block <= block_size       | `uint16` |
 | `compression_samples`   | Encoding strategy for the sample IDs              | `uint16` |
 | `compression_hep`       | Encoding strategy for the haplotype indices       | `uint16` |
