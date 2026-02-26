@@ -2078,20 +2078,9 @@ class BGFAWriter:
             logger.debug(f"Verbose mode enabled, logfile: {logfile}")
             logger.debug(f"Compression options: {self._compression_options}")
 
-        # Compute counts
-        s_len = len(self._gfa.nodes())
-        l_len = len(self._gfa.edges())
-        p_len = len(self._gfa.paths())
-        w_len = len(self._gfa.walks())
-
         # Write the header
-        logger.info(f"Writing header: S_len={s_len}, L_len={l_len}, P_len={p_len}, W_len={w_len}")
         self._write_header(
             buffer,
-            s_len,
-            l_len,
-            p_len,
-            w_len,
             self._block_size,
         )
 
@@ -2257,10 +2246,6 @@ class BGFAWriter:
     def _write_header(
         self,
         buffer,
-        s_len,
-        l_len,
-        p_len,
-        w_len,
         block_size,
     ):
         """Write BGFA header in binary format."""
@@ -2268,11 +2253,8 @@ class BGFAWriter:
         buffer.write(struct.pack("<H", 1))
         # Write block_size (uint16)
         buffer.write(struct.pack("<H", block_size))
-        # Write counts (uint64)
-        buffer.write(struct.pack("<Q", s_len))
-        buffer.write(struct.pack("<Q", l_len))
-        buffer.write(struct.pack("<Q", p_len))
-        buffer.write(struct.pack("<Q", w_len))
+        # Write reserved space (32 bytes - previously used for S_len, L_len, P_len, W_len)
+        buffer.write(b"\x00" * 32)
 
         # Write header text (C string)
         header_text = "H\tVN:Z:1.0"
@@ -2282,7 +2264,7 @@ class BGFAWriter:
     def header(self, block_size: int = 1024) -> bytes:
         """Create placeholder header with zeros."""
         buffer = io.BytesIO()
-        self._write_header(buffer, 0, 0, 0, 0, block_size)
+        self._write_header(buffer, block_size)
         return buffer.getvalue()
 
     def _write_segment_names_block(
