@@ -48,6 +48,7 @@ zstandard = ">=0.22.0"
 lz4 = ">=4.0.0"
 brotli = ">=1.1.0"
 pytest-xdist = ">=3.8.0,<4"
+pytest-memray = ">=1.8.0,<2"
 
 [tool.ruff]
 line-length = 120
