@@ -228,7 +228,7 @@ _ALL_BGFA_ROUNDTRIP_FILES = [
 
 def pytest_generate_tests(metafunc):
     """Dynamically generate tests based on --gfa-file option."""
-    if "gfa_path" in metafunc.fixturenames:
+    if "gfa_path" in metafunc.fixturenames and metafunc.cls is TestStructuralRoundtrip:
         gfa_file = metafunc.config.getoption("--gfa-file")
 
         if gfa_file:
