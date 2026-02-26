@@ -249,7 +249,6 @@ def pytest_generate_tests(metafunc):
 ALL_BGFA_ROUNDTRIP_FILES = _ALL_BGFA_ROUNDTRIP_FILES
 
 
-@pytest.mark.parametrize("gfa_path", ALL_BGFA_ROUNDTRIP_FILES)
 class TestStructuralRoundtrip:
     """Compare graph components individually for files with paths.
 
@@ -257,12 +256,14 @@ class TestStructuralRoundtrip:
     """
 
     def test_segment_names_match(self, gfa_path, test_output_dir):
+        print(f"\n--- Testing file: {gfa_path} ---")
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
         assert sorted(g.nodes()) == sorted(h.nodes())
 
     def test_segment_sequences_match(self, gfa_path, test_output_dir):
+        print(f"\n--- Testing file: {gfa_path} ---")
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
@@ -276,6 +277,7 @@ class TestStructuralRoundtrip:
 
     def test_links_match(self, gfa_path, test_output_dir):
         """Check that links (including orientations) are preserved."""
+        print(f"\n--- Testing file: {gfa_path} ---")
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
         g, h = _roundtrip_file(gfa_path, test_output_dir=test_output_dir)
@@ -389,6 +391,9 @@ class TestEncodingRoundtrip:
     """Test round-trip with different encoding combinations for all bgfa_roundtrip files."""
 
     def test_roundtrip_with_encoding(self, gfa_path, int_encoding, str_encoding, block_size, test_output_dir):
+        print(
+            f"\n--- Testing file: {gfa_path} with encoding: {int_encoding}/{str_encoding}, block_size: {block_size} ---"
+        )
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
 
