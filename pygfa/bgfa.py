@@ -1495,7 +1495,10 @@ class ReaderBGFA:
         for i in range(record_num):
             segment_id = segment_ids[i]
             sequence_length = sequence_lengths[i]
-            sequence = sequence_bytes_list[i].decode("ascii")
+            if sequence_length == 0:
+                sequence = "*"
+            else:
+                sequence = sequence_bytes_list[i].decode("ascii")
 
             segments[segment_id] = {
                 "sequence": sequence,

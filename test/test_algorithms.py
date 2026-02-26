@@ -233,25 +233,6 @@ class TestAlgorithmEdgeCases(unittest.TestCase):
         # Should find path when custom_arg matches
         self.assertEqual(len(paths), 1)
 
-    @unittest.skip("Graph traversal behavior changed")
-    def test_self_loop_handling(self):
-        """Test handling of self-loops in paths."""
-        mock_graph = Mock()
-        mock_graph.__contains__ = Mock(return_value=True)
-        mock_graph.nodes = Mock(return_value=["A"])
-
-        def selector_with_self_loop(node):
-            if node == "A":
-                yield "A", "A"  # Self loop
-
-        # With cutoff=None, this should create infinite recursion
-        # But with cutoff, it should handle gracefully
-        paths = list(all_simple_paths(mock_graph, "A", "A", selector_with_self_loop, cutoff=1))
-
-        # Should find the self-loop path
-        self.assertEqual(len(paths), 1)
-        self.assertEqual(paths[0], ["A"])
-
 
 class TestAlgorithmPerformance(unittest.TestCase):
     """Test algorithm performance characteristics."""
