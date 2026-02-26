@@ -1139,62 +1139,6 @@ class GFA:
                 f"walk_length={len(walk_data.get('walk', ''))}"
             )
 
-    def header(self, block_size=1024):
-        """Generate the header corresponding to a graph.
-
-        According to the BGFA specification:
-        version (uint16)
-        S_len (uint64) - Number of Segments
-        L_len (uint64) - Number of Links
-        P_len (uint64) - Number of Paths
-        W_len (uint64) - Number of Walks
-        S_offset (uint64) - offset to first segment block
-        L_offset (uint64) - offset to first link block
-        P_offset (uint64) - offset to first path block
-        W_offset (uint64) - offset to first walk block
-        block_size (uint16) - number of objects stored in each block
-        header (C string) - GFA header text
-        """
-        # For now, we'll use version 1
-        version = 1
-
-        # Counts
-        s_len = len(self.nodes())
-        l_len = len(self.edges())
-        p_len = len(self.paths())
-        w_len = len(self.walks())
-
-        # Offsets will be calculated later when writing the full file
-        # For now, set them to 0
-        s_offset = 0
-        l_offset = 0
-        p_offset = 0
-        w_offset = 0
-
-        # Header text from GFA
-        header_text = "H\tVN:Z:1.0"
-
-        header = bytes(
-            b"".join(
-                [
-                    version.to_bytes(2, byteorder="big", signed=False),
-                    s_len.to_bytes(8, byteorder="big", signed=False),
-                    l_len.to_bytes(8, byteorder="big", signed=False),
-                    p_len.to_bytes(8, byteorder="big", signed=False),
-                    w_len.to_bytes(8, byteorder="big", signed=False),
-                    s_offset.to_bytes(8, byteorder="big", signed=False),
-                    l_offset.to_bytes(8, byteorder="big", signed=False),
-                    p_offset.to_bytes(8, byteorder="big", signed=False),
-                    w_offset.to_bytes(8, byteorder="big", signed=False),
-                    block_size.to_bytes(2, byteorder="big", signed=False),
-                    header_text.encode("ascii") + b"\0",
-                ]
-            )
-        )
-        logging.info(f"header,{len(header)},{len(header)}")
-
-        return header
-
     def set_segment_map(self, map):
         """Set the segment map for the graph.
 
@@ -1528,10 +1472,6 @@ class GFA:
 
         # Read and parse the file line by line
         line_count = 0
-        segment_count = 0
-        link_count = 0
-        path_count = 0
-        walk_count = 0
 
         with open_gfa_file(filepath) as f:
             for line in f:
@@ -1585,7 +1525,6 @@ class GFA:
                                             },
                                         )
                                     )
-                                    segment_count += 1
 
                             elif child.data == "link_line":
                                 # Handle link line
@@ -1652,7 +1591,6 @@ class GFA:
                                             },
                                         )
                                     )
-                                    link_count += 1
 
                             elif child.data == "containment_line":
                                 # Handle containment line
@@ -1697,7 +1635,6 @@ class GFA:
                                 if "path_name" in path_data and "segments" in path_data:
                                     logger.debug(f"  Adding path: {path_data['path_name']}")
                                     g.add_path(path_data)
-                                    path_count += 1
 
                             elif child.data == "walk_line":
                                 # Handle walk line
@@ -1735,7 +1672,6 @@ class GFA:
                                 if "sample_id" in walk_data and "walk" in walk_data:
                                     logger.debug(f"  Adding walk for sample: {walk_data['sample_id']}")
                                     g.add_walk(walk_data)
-                                    walk_count += 1
 
                             elif child.data == "jump_line":
                                 # Handle jump line
@@ -1746,10 +1682,7 @@ class GFA:
                     logger.warning(f"Line {line_count}: Failed to parse - {e}")
                     continue
 
-        logger.debug(
-            f"Finished parsing {filepath}: {line_count} lines, {segment_count} segments, "
-            f"{link_count} links, {path_count} paths, {walk_count} walks"
-        )
+        logger.debug(f"Finished parsing {filepath}: {line_count} lines")
         # Log graph dump - print actual content
         logger.debug("Graph content after from_gfa():")
         # Print nodes

@@ -1132,31 +1132,79 @@ class ReaderBGFA:
         header = self._parse_header(bgfa_data)
         # Store header information in the GFA object
         gfa._header_info = header.copy()
-        logger.info(
-            f"Header parsed: version={header['version']}, s_len={header['s_len']}, "
-            f"l_len={header['l_len']}, p_len={header['p_len']}, w_len={header['w_len']}"
-        )
+        logger.info(f"Header parsed: version={header['version']}, block_size={header['block_size']}")
         logger.debug(f"Full header: {header}")
-        # Parse segment names
+
+        # Check minimum file size
+        if len(bgfa_data) < header["header_size"]:
+            raise ValueError(
+                f"BGFA file is too short: {len(bgfa_data)} bytes, expected at least {header['header_size']}"
+            )
+
+        # Parse segment names - read until we have a block with record_num < block_size
         offset = header["header_size"]
         segment_names = []
-        num_blocks = math.ceil(header["s_len"] / header["block_size"])
-        logger.info(f"Parsing {num_blocks} segment name blocks")
-        for i in range(num_blocks):
+        block_size = header["block_size"]
+        total_segment_names_read = 0
+        logger.info("Parsing segment name blocks")
+
+        while offset < len(bgfa_data):
+            # Check if we have enough bytes to read the block header
+            if offset + 20 > len(bgfa_data):  # 2 + 2 + 8 + 8 = 20 bytes header
+                raise ValueError(f"BGFA file is too short: cannot read segment names block header at offset {offset}")
+
             segment_names_block, read_bytes = self._parse_segment_names_block(bgfa_data, offset)
             offset += read_bytes
+            record_count = len(segment_names_block)
+            total_segment_names_read += record_count
             segment_names.extend(segment_names_block)
-            logger.info(f"Parsed segment names block {i + 1}: {len(segment_names_block)} names")
+            logger.info(
+                f"Parsed segment names block {total_segment_names_read // block_size + 1}: {record_count} names (total: {total_segment_names_read})"
+            )
+
+            # Break conditions:
+            # 1. Last block has fewer than block_size records: record_count < block_size
+            # 2. No more data in file: offset >= len(bgfa_data)
+            if record_count < block_size:
+                break
+            if offset >= len(bgfa_data):
+                break
+
+        # Skip terminator block (record_num = 0) if present
+        if offset + 20 <= len(bgfa_data):
+            next_record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            if next_record_num == 0:
+                # Skip the terminator block (20 bytes: 2 + 2 + 8 + 8)
+                offset += 20
+                logger.debug("Skipped terminator block after segment names")
+
         logger.info(f"Total segment names: {len(segment_names)}")
         logger.debug(f"First 5 segment names: {segment_names[:5]}")
 
-        # Parse segments
-        num_blocks = math.ceil(header["s_len"] / header["block_size"])
-        logger.info(f"Parsing {num_blocks} segment blocks")
-        for i in range(num_blocks):
+        # Check for extra data after segment names (before segments)
+        remaining_before_segments = len(bgfa_data) - offset
+        if remaining_before_segments > 0 and len(segment_names) > 0:
+            # Need to read at least one segment block to verify
+            if offset + 20 > len(bgfa_data):
+                raise ValueError(f"BGFA file is too short: cannot read segments block header at offset {offset}")
+
+        # Parse segments - read until we have a block with record_num < block_size
+        total_segments_read = 0
+        logger.info("Parsing segment blocks")
+
+        while offset < len(bgfa_data):
+            # Check if we have enough bytes to read the block header
+            if offset + 20 > len(bgfa_data):
+                raise ValueError(f"BGFA file is too short: cannot read segment block header at offset {offset}")
+
             segment_block, read_bytes = self._parse_segments_block(bgfa_data, offset)
             offset += read_bytes
-            logger.info(f"Parsed segments block {i + 1}: {len(segment_block)} segments")
+            record_count = len(segment_block)
+            total_segments_read += record_count
+            logger.info(
+                f"Parsed segments block {total_segments_read // block_size + 1}: {record_count} segments (total: {total_segments_read})"
+            )
+
             # Add nodes to GFA graph with segment IDs
             for segment_id, segment_data in segment_block.items():
                 # Get node name from segment_names list (0-based index)
@@ -1174,18 +1222,46 @@ class ReaderBGFA:
                 gfa.add_node(n)
                 # The GFA class has a _segment_map attribute
                 gfa._segment_map[node_name] = segment_id
-                if i == 0 and segment_id < 5:  # Log first few segments
+                block_num = total_segments_read // block_size
+                if block_num == 0 and segment_id < 5:
                     logger.debug(f"Added segment {segment_id}: {node_name}, length={segment_data['length']}")
-                elif i == 0 and segment_id == 5:
+                elif block_num == 0 and segment_id == 5:
                     logger.debug("... (remaining segments logged at debug level)")
 
-        # Parse links
-        num_blocks = math.ceil(header["l_len"] / header["block_size"])
-        logger.info(f"Parsing {num_blocks} link blocks")
-        for i in range(num_blocks):
+            # Break conditions:
+            # 1. Last block has fewer than block_size records: record_count < block_size
+            # 2. No more data in file: offset >= len(bgfa_data)
+            # 3. For block_size=1 case: we might have exact division, so also check if we can read next header
+            if record_count < block_size:
+                break
+            if offset >= len(bgfa_data):
+                break
+            # Try to peek at next block header - if not enough bytes, we're done
+            # Otherwise continue reading
+
+        # Check for extra data after segments (before links)
+        remaining_before_links = len(bgfa_data) - offset
+        if remaining_before_links > 0 and total_segments_read > 0:
+            # Need to read at least one link block to verify
+            if offset + 24 > len(bgfa_data):  # links header is 24 bytes
+                raise ValueError(f"BGFA file is too short: cannot read links block header at offset {offset}")
+
+        # Parse links - read until we have a block with record_num < block_size
+        total_links_read = 0
+        logger.info("Parsing link blocks")
+
+        while offset < len(bgfa_data):
+            # Check if we have enough bytes to read the block header
+            if offset + 24 > len(bgfa_data):
+                raise ValueError(f"BGFA file is too short: cannot read link block header at offset {offset}")
+
             links, read_bytes = self._parse_links_block(bgfa_data, segment_names, offset)
             offset += read_bytes
-            logger.info(f"Parsed links block {i + 1}: {len(links)} links")
+            record_count = len(links)
+            total_links_read += record_count
+            logger.info(
+                f"Parsed links block {total_links_read // block_size + 1}: {record_count} links (total: {total_links_read})"
+            )
 
             # Add edges to GFA graph
             for link in links:
@@ -1205,43 +1281,111 @@ class ReaderBGFA:
                     )
                 )
             if verbose:
-                logger.info(f"Added {len(links)} links from block {i + 1}")
-                if i == 0 and links:
+                block_num = total_links_read // block_size + 1
+                logger.info(f"Added {record_count} links from block {block_num}")
+                if block_num == 1 and links:
                     logger.debug(f"First link: {links[0]}")
 
-        # Parse paths if present
-        if header["p_len"] > 0:
-            num_path_blocks = math.ceil(header["p_len"] / header["block_size"])
+            # Break conditions:
+            # 1. Last block has fewer than block_size records: record_count < block_size
+            # 2. No more data in file: offset >= len(bgfa_data)
+            # 3. For block_size=1 case: we might have exact division, so also check if we can read next header
+            if record_count < block_size:
+                break
+            if offset >= len(bgfa_data):
+                break
+            # Try to peek at next block header - if not enough bytes, we're done
+            # Otherwise continue reading
+
+        # Check for extra data after links (before paths)
+        remaining_before_paths = len(bgfa_data) - offset
+        if remaining_before_paths > 0 and total_links_read > 0:
+            # Need to read at least one path block to verify
+            if offset + 28 > len(bgfa_data):  # paths header is 28 bytes (6 uint16 + 4 uint64)
+                raise ValueError(f"BGFA file is too short: cannot read paths block header at offset {offset}")
+
+        # Parse paths - read until we have a block with record_num < block_size or EOF
+        total_paths_read = 0
+        has_paths = False
+
+        while offset < len(bgfa_data):
+            # Check if we have enough bytes to read the block header
+            if offset + 28 > len(bgfa_data):
+                # No more path blocks - may have walks or end of file
+                logger.debug(f"No more path blocks at offset {offset}, remaining bytes: {len(bgfa_data) - offset}")
+                break
+
+            has_paths = True
+            paths, read_bytes = self._parse_paths_blocks(bgfa_data, header, segment_names, offset)
+            offset += read_bytes
+            record_count = len(paths)
+            total_paths_read += record_count
             if verbose:
-                logger.info(f"Parsing {num_path_blocks} path blocks")
+                logger.info(f"Parsed path block {total_paths_read // block_size + 1}: {record_count} paths")
 
-            for i in range(num_path_blocks):
-                paths, read_bytes = self._parse_paths_blocks(bgfa_data, header, segment_names, offset)
-                offset += read_bytes
-                if verbose:
-                    logger.info(f"Parsed path block {i + 1}: {len(paths)} paths")
+            # Add paths to GFA graph (for now, just log them)
+            for path_data in paths:
+                if verbose and total_paths_read <= 5:
+                    logger.debug(f"Path: {path_data}")
 
-                # Add paths to GFA graph (for now, just log them)
-                for path_data in paths:
-                    if verbose and len(paths) <= 5:  # Only log first few paths to avoid spam
-                        logger.debug(f"Path: {path_data}")
+            # Break conditions:
+            # 1. Last block has fewer than block_size records: record_count < block_size
+            # 2. No more data in file: offset >= len(bgfa_data)
+            # 3. For block_size=1 case: we might have exact division, so also check if we can read next header
+            if record_count < block_size:
+                break
+            if offset >= len(bgfa_data):
+                break
+            # Try to peek at next block header - if not enough bytes, we're done
+            # Otherwise continue reading
 
-        # Parse walks if present
-        if header["w_len"] > 0:
-            num_walk_blocks = math.ceil(header["w_len"] / header["block_size"])
+        if has_paths and total_paths_read == 0:
+            logger.warning("Path block header found but no paths were parsed")
+
+        # Check for extra data after paths (before walks)
+        remaining_before_walks = len(bgfa_data) - offset
+        if remaining_before_walks > 0 and total_paths_read > 0:
+            # Need to read at least one walk block to verify
+            if offset + 36 > len(bgfa_data):  # walks header is 36 bytes (6 uint16 + 6 uint64)
+                raise ValueError(f"BGFA file is too short: cannot read walks block header at offset {offset}")
+
+        # Parse walks - read until we have a block with record_num < block_size or EOF
+        total_walks_read = 0
+
+        while offset < len(bgfa_data):
+            # Check if we have enough bytes to read the block header
+            if offset + 36 > len(bgfa_data):
+                # No more walk blocks - end of file
+                logger.debug(f"No more walk blocks at offset {offset}, remaining bytes: {len(bgfa_data) - offset}")
+                break
+
+            walks, read_bytes = self._parse_walks_blocks(bgfa_data, header, segment_names, offset)
+            offset += read_bytes
+            record_count = len(walks)
+            total_walks_read += record_count
             if verbose:
-                logger.info(f"Parsing {num_walk_blocks} walk blocks")
+                logger.info(f"Parsed walk block {total_walks_read // block_size + 1}: {record_count} walks")
 
-            for i in range(num_walk_blocks):
-                walks, read_bytes = self._parse_walks_blocks(bgfa_data, header, segment_names, offset)
-                offset += read_bytes
-                if verbose:
-                    logger.info(f"Parsed walk block {i + 1}: {len(walks)} walks")
+            # Add walks to GFA graph (for now, just log them)
+            for walk_data in walks:
+                if verbose and total_walks_read <= 5:
+                    logger.debug(f"Walk: {walk_data}")
 
-                # Add walks to GFA graph (for now, just log them)
-                for walk_data in walks:
-                    if verbose and len(walks) <= 5:  # Only log first few walks to avoid spam
-                        logger.debug(f"Walk: {walk_data}")
+            # Break conditions:
+            # 1. Last block has fewer than block_size records: record_count < block_size
+            # 2. No more data in file: offset >= len(bgfa_data)
+            # 3. For block_size=1 case: we might have exact division, so also check if we can read next header
+            if record_count < block_size:
+                break
+            if offset >= len(bgfa_data):
+                break
+            # Try to peek at next block header - if not enough bytes, we're done
+            # Otherwise continue reading
+
+        # Check for extra data after walks
+        remaining_after_walks = len(bgfa_data) - offset
+        if remaining_after_walks > 0:
+            logger.warning(f"Extra data found after walks: {remaining_after_walks} bytes remaining at offset {offset}")
 
         node_count = len(gfa.nodes()) if gfa.nodes() is not None else 0
         edge_count = len(gfa.edges()) if gfa.edges() is not None else 0
@@ -1263,15 +1407,8 @@ class ReaderBGFA:
         block_size = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
 
-        # Read counts (uint64)
-        s_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
-        l_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
-        p_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
-        w_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
+        # Skip reserved space for counts (32 bytes - previously S_len, L_len, P_len, W_len)
+        offset += 32
 
         # Read header text (C string)
         header_text = ""
@@ -1282,10 +1419,6 @@ class ReaderBGFA:
 
         return {
             "version": version,
-            "s_len": s_len,
-            "l_len": l_len,
-            "p_len": p_len,
-            "w_len": w_len,
             "block_size": block_size,
             "header_text": header_text,
             "header_size": offset,
