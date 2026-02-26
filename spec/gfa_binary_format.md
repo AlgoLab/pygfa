@@ -40,13 +40,13 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field               | Description                                  | Type     |
-|---------------------|----------------------------------------------|----------|
+| Field               | Description                                 | Type     |
+|---------------------|---------------------------------------------|----------|
 | `section_id`        | Section type (1 = segment names)            | `uint8`  |
 | `record_num`        | number of record in the block <= block_size | `uint16` |
-| `compression_names` | Encoding strategy for the names              | `uint16` |
-| `compressed_len`    | length of compressed names field             | `uint64` |
-| `uncompressed_len`  | length of uncompressed names field           | `uint64` |
+| `compression_names` | Encoding strategy for the names             | `uint16` |
+| `compressed_len`    | length of compressed names field            | `uint64` |
+| `uncompressed_len`  | length of uncompressed names field          | `uint64` |
 
 #### Payload
 

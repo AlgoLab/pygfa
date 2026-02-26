@@ -226,6 +226,19 @@ _ALL_BGFA_ROUNDTRIP_FILES = [
 ]
 
 
+def _gfa_test_id(gfa_path):
+    """Generate test ID with full GFA file path in brackets."""
+    return f"[{gfa_path}]"
+
+
+def _encoding_test_id(params):
+    """Generate test ID for encoding tests: [gfa_path]-int_encoding-str_encoding-block_size"""
+    if isinstance(params, (list, tuple)) and len(params) == 4:
+        gfa_path, int_encoding, str_encoding, block_size = params
+        return f"[{gfa_path}]-{int_encoding}-{str_encoding}-{block_size}"
+    return str(params)
+
+
 def pytest_generate_tests(metafunc):
     """Dynamically generate tests based on --gfa-file option."""
     if "gfa_path" in metafunc.fixturenames and metafunc.cls is TestStructuralRoundtrip:
@@ -243,7 +256,7 @@ def pytest_generate_tests(metafunc):
         if not test_files:
             pytest.skip("No matching GFA files found. Use --gfa-file to specify a file.")
 
-        metafunc.parametrize("gfa_path", test_files, ids=lambda f: os.path.basename(f))
+        metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 
 
 ALL_BGFA_ROUNDTRIP_FILES = _ALL_BGFA_ROUNDTRIP_FILES
@@ -386,7 +399,9 @@ def _build_compression_options(int_encoding_name: str, str_encoding_name: str) -
     }
 
 
-@pytest.mark.parametrize("gfa_path,int_encoding,str_encoding,block_size", ALL_ENCODING_TEST_PARAMS)
+@pytest.mark.parametrize(
+    "gfa_path,int_encoding,str_encoding,block_size", ALL_ENCODING_TEST_PARAMS, ids=_encoding_test_id
+)
 class TestEncodingRoundtrip:
     """Test round-trip with different encoding combinations for all bgfa_roundtrip files."""
 
