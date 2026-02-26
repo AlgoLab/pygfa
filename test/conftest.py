@@ -1,6 +1,12 @@
 import os
+import datetime
 from pathlib import Path
 import pytest
+
+# ANSI color codes for terminal output
+COLOR_GREEN = "\033[92m"
+COLOR_RED = "\033[91m"
+COLOR_RESET = "\033[0m"
 
 
 def pytest_addoption(parser):
@@ -13,31 +19,52 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="function")
-def test_output_dir(request):
-    """Provide a dedicated output directory for each test function."""
-    import uuid
+def pytest_runtest_setup(item):
+    """Generate exact pytest command without pixi run prefix."""
+    if hasattr(item, "function"):
+        test_file = item.fspath
+        test_name = item.name
+        gfa_file = item.config.getoption("--gfa-file")
 
-    # Get test module name without .py extension
-    module_name = request.module.__name__
-    if module_name.startswith("test_"):
-        test_name = module_name[5:]  # Remove "test_" prefix
-    else:
-        test_name = module_name
+        # Build command without pixi run
+        command = f'python -m pytest {test_file} -k "{test_name}"'
+        if gfa_file:
+            command += f" --gfa-file {gfa_file}"
 
-    # Get test function name
-    test_func_name = request.node.name
+        # Store command for later use
+        setattr(item, "_test_command", command)
 
-    # Create unique subdirectory to avoid collisions in parallel runs
-    unique_id = str(uuid.uuid4())[:8]
 
-    # Create output directory (use absolute path to avoid path resolution issues)
-    project_root = Path(__file__).parent.parent  # Go up from test/ to project root
-    output_dir = project_root / "results/test" / test_name / f"{test_func_name}_{unique_id}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+def pytest_runtest_logreport(report):
+    """Print command with timestamp and result on same line with color coding."""
+    if report.when == "call":
+        command = getattr(report.item, "_test_command", None)
+        if command:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Return absolute path to avoid working directory issues
-    yield output_dir.resolve()
+            if report.passed:
+                # Green output for passed tests
+                print(f"{COLOR_GREEN}[{command}] [{timestamp}] [PASSED]{COLOR_RESET}")
+            else:
+                # Red output for failed tests with truncated error message
+                error_msg = str(report.longreprtext or report.message or "Unknown error")
+                # Truncate to 200 characters
+                if len(error_msg) > 200:
+                    error_msg = error_msg[:197] + "..."
+                print(f"{COLOR_RED}[{command}] [{timestamp}] [FAILED] {error_msg}{COLOR_RESET}")
+
+
+def temp_file_factory(test_output_dir):
+    """Factory for creating temporary files in test output directory."""
+
+    def _temp_file(prefix="test", suffix=".tmp"):
+        import tempfile
+
+        fd, path = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=test_output_dir)
+        os.close(fd)
+        return path
+
+    return _temp_file
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +75,41 @@ def setup_test_environment():
 
 
 @pytest.fixture
+def pytest_runtest_setup(item):
+    """Generate exact pytest command without pixi run prefix."""
+    if hasattr(item, "function"):
+        test_file = item.fspath
+        test_name = item.name
+        gfa_file = item.config.getoption("--gfa-file")
+
+        # Build command without pixi run
+        command = f'python -m pytest {test_file} -k "{test_name}"'
+        if gfa_file:
+            command += f" --gfa-file {gfa_file}"
+
+        # Store command for later use
+        setattr(item, "_test_command", command)
+
+
+def pytest_runtest_logreport(report):
+    """Print command with timestamp and result on same line with color coding."""
+    if report.when == "call":
+        command = getattr(report.item, "_test_command", None)
+        if command:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            if report.passed:
+                # Green output for passed tests
+                print(f"{COLOR_GREEN}[{command}] [{timestamp}] [PASSED]{COLOR_RESET}")
+            else:
+                # Red output for failed tests with truncated error message
+                error_msg = str(report.longreprtext or report.message or "Unknown error")
+                # Truncate to 200 characters
+                if len(error_msg) > 200:
+                    error_msg = error_msg[:197] + "..."
+                print(f"{COLOR_RED}[{command}] [{timestamp}] [FAILED] {error_msg}{COLOR_RESET}")
+
+
 def temp_file_factory(test_output_dir):
     """Factory for creating temporary files in test output directory."""
 
