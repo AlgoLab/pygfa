@@ -60,10 +60,12 @@ class Node:
                 f"A Node has always a defined id of type string, given {self.node_id} of type {type(self.node_id)}"
             )
 
-        # Validate sequence
-        if not (isinstance(self.sequence, str) and fv.is_valid(self.sequence, fv.GFA1_SEQUENCE)):
+        # Validate sequence - allow '*' for unknown sequences
+        if not (
+            isinstance(self.sequence, str) and (self.sequence == "*" or fv.is_valid(self.sequence, fv.GFA1_SEQUENCE))
+        ):
             raise InvalidNodeError(
-                "A sequence must be of type string and must be a "
+                "A sequence must be of type string and must be either '*' for unknown or a "
                 f"valid GFA1 sequence, given '{self.sequence}' of type {type(self.sequence)}"
             )
 
