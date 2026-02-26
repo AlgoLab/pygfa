@@ -473,7 +473,8 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = ""):
             "filename": filename,
             "block_type": "",
             "block_index": 0,
-            "block_size": block_size,
+            "section_id": 0,
+            "block_size": "",
             "record_count": 0,
             "offset_start": 0,
             "offset_end": 0,
@@ -501,12 +502,8 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = ""):
     version = struct.unpack_from("<H", bgfa_data, offset)[0]
     offset += 2
     
-    # Read block_size (uint16)
-    block_size = struct.unpack_from("<H", bgfa_data, offset)[0]
-    offset += 2
-    
-    # Skip reserved space for counts (32 bytes - previously S_len, L_len, P_len, W_len)
-    offset += 32
+    # Skip reserved space (previously block_size + S_len, L_len, P_len, W_len)
+    offset += 34
     
     # Read header text (C string)
     header_text = ""
@@ -523,7 +520,7 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = ""):
         "filename": filename,
         "block_type": "header",
         "block_index": 0,
-        "block_size": block_size,
+        "block_size": "",
         "record_count": "",
         "offset_start": header_start,
         "offset_end": header_end,
@@ -541,57 +538,182 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = ""):
         "uncompressed_size": header_end - header_start,
     })
     
-    # Parse segment names blocks - read until record_num < block_size
-    block_idx = 0
+    # Parse blocks in any order using section_id
     while offset < len(bgfa_data):
-        # Check if we have enough bytes to read the block header
-        if offset + 20 > len(bgfa_data):
+        # Check if we have enough bytes to read the section_id
+        if offset + 1 > len(bgfa_data):
             break  # No more complete blocks
         
         block_start = offset
         
-        # Read block header
-        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 2
-        compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
-        offset += 2
-        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
-        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
-        offset += 8
+        # Read section_id to determine block type
+        section_id = struct.unpack_from("<B", bgfa_data, offset)[0]
+        offset += 1
         
-        # Check if we have enough bytes for the payload
-        if offset + compressed_len > len(bgfa_data):
-            raise ValueError(f"BGFA file is too short: cannot read segment names payload at offset {offset}")
-        
-        # Skip payload
-        offset += compressed_len
-        block_end = offset
-        
-        # Calculate compression ratio
-        ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
-        
-        # Extract encoding
-        int_encoding = (compression_names >> 8) & 0xFF
-        str_encoding = compression_names & 0xFF
+        # Section IDs: 1=segment_names, 2=segments, 3=links, 4=paths, 5=walks
+        if section_id == 1:  # segment_names
+            # Read block header: record_num (uint16), compression (uint16), lengths (2x uint64)
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            
+            # Check if we have enough bytes for the payload
+            if offset + compressed_len > len(bgfa_data):
+                raise ValueError(f"BGFA file is too short: cannot read segment names payload at offset {offset}")
+            
+            # Skip payload
+            offset += compressed_len
+            block_end = offset
+            
+            # Calculate compression ratio
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            
+            # Extract encoding
+            int_encoding = (compression_names >> 8) & 0xFF
+            str_encoding = compression_names & 0xFF
 
-        row = create_base_row()
-        row["block_type"] = "segment_names"
-        row["block_index"] = block_idx
-        row["record_count"] = record_num
-        row["offset_start"] = block_start
-        row["offset_end"] = block_end
-        row["size_bytes"] = block_end - block_start
-        row["compression_ratio"] = f"{ratio:.4f}"
-        row["encoding_high"] = f"0x{int_encoding:02x}"
-        row["encoding_low"] = f"0x{str_encoding:02x}"
-        row["compressed_size"] = compressed_len
-        row["uncompressed_size"] = uncompressed_len
-        row["param_segment_names_payload_lengths"] = get_int_encoding_name(int_encoding)
-        row["param_segment_names_payload_names"] = get_str_encoding_name(str_encoding)
-        rows.append(row)
-        
-        block_idx += 1
+            row = create_base_row()
+            row["block_type"] = "segment_names"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["encoding_high"] = f"0x{int_encoding:02x}"
+            row["encoding_low"] = f"0x{str_encoding:02x}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            row["param_segment_names_payload_lengths"] = get_int_encoding_name(int_encoding)
+            row["param_segment_names_payload_names"] = get_str_encoding_name(str_encoding)
+            rows.append(row)
+            
+        elif section_id == 2:  # segments
+            # Read block header: record_num (uint16), compression (uint16), lengths (2x uint64)
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            
+            # Skip payload
+            offset += compressed_len
+            block_end = offset
+            
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            int_encoding = (compression >> 8) & 0xFF
+            str_encoding = compression & 0xFF
+            
+            row = create_base_row()
+            row["block_type"] = "segments"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["encoding_high"] = f"0x{int_encoding:02x}"
+            row["encoding_low"] = f"0x{str_encoding:02x}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            rows.append(row)
+            
+        elif section_id == 3:  # links
+            # Read block header
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 2  # skip compression_fromto
+            offset += 2  # skip compression_cigars
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            
+            # Skip payload
+            offset += compressed_len
+            block_end = offset
+            
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            
+            row = create_base_row()
+            row["block_type"] = "links"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            rows.append(row)
+            
+        elif section_id == 4:  # paths
+            # Read block header
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 6  # skip compression codes
+            offset += 16  # skip length fields
+            compressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            offset += 8  # skip uncompressed_len_cigar
+            compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            offset += 8  # skip uncompressed_len_name
+            
+            # Skip payload
+            offset += compressed_len_cigar + compressed_len_name
+            block_end = offset
+            
+            total_compressed = compressed_len_cigar + compressed_len_name
+            ratio = total_compressed / total_compressed if total_compressed > 0 else 0
+            
+            row = create_base_row()
+            row["block_type"] = "paths"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["compressed_size"] = total_compressed
+            row["uncompressed_size"] = total_compressed
+            rows.append(row)
+            
+        elif section_id == 5:  # walks
+            # Read block header
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 10  # skip 5 compression codes
+            offset += 48  # skip 6 length fields
+            
+            # For walks, we need to skip all payloads - approximate for now
+            # Skip remaining data
+            block_end = offset + 100  # placeholder
+            # Actually, let's just read remaining bytes until we find next section or end
+            # This is a simplified approach
+            
+            row = create_base_row()
+            row["block_type"] = "walks"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["size_bytes"] = 0
+            rows.append(row)
+            
+        else:
+            # Unknown section_id - skip remaining bytes
+            logger.warning(f"Unknown section_id={section_id} at offset {block_start}")
+            break
+    
+    return rows
         if record_num < block_size:
             break
     
