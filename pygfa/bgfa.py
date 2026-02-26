@@ -1786,11 +1786,12 @@ class ReaderBGFA:
 
         return links, offset - initial_offset
 
-    def _decompress_string_list(self, compressed_data: bytes, compression_type: int) -> list[str]:
+    def _decompress_string_list(self, compressed_data: bytes, compression_type: int, record_num: int) -> list[str]:
         """Decompress a list of strings based on compression type.
 
         :param compressed_data: Compressed string data
         :param compression_type: Compression type code
+        :param record_num: Number of strings to decode
         :return: List of decompressed strings
         """
 
@@ -1801,8 +1802,9 @@ class ReaderBGFA:
             except UnicodeDecodeError:
                 return string_bytes.decode("latin-1")
 
-        if compression_type == 0x0000:  # Identity for strings
-            # Simple null-terminated strings
+        str_encoding = compression_type & 0xFF
+
+        if str_encoding == STRING_ENCODING_IDENTITY:
             strings = []
             pos = 0
             while pos < len(compressed_data):
@@ -1813,41 +1815,19 @@ class ReaderBGFA:
                 strings.append(decode_string(string_bytes))
                 pos = end_pos + 1
             return strings
-        elif compression_type == 0x0001:  # gzip
-            # Decompress as gzip and split by null terminators
-            import gzip
-
-            decompressed = gzip.decompress(compressed_data)
-            strings = []
-            for string_bytes in decompressed.split(b"\0"):
-                if string_bytes:
-                    strings.append(decode_string(string_bytes))
-            return strings
-        elif compression_type == 0x0002:  # lzma
-            import lzma
-
-            decompressed = lzma.decompress(compressed_data)
-            strings = []
-            for string_bytes in decompressed.split(b"\0"):
-                if string_bytes:
-                    strings.append(decode_string(string_bytes))
-            return strings
-        elif compression_type == 0x0003:  # zstd
-            try:
-                import zstandard as zstd
-
-                decompressed = zstd.decompress(compressed_data)
-                strings = []
-                for string_bytes in decompressed.split(b"\0"):
-                    if string_bytes:
-                        strings.append(decode_string(string_bytes))
-                return strings
-            except ImportError:
-                logger.warning("zstandard not available, cannot decompress zstd data")
-                return []
         else:
-            logger.warning(f"Unsupported compression type for strings: {compression_type:04x}")
-            return []
+            int_decoder = get_integer_decoder(compression_type)
+            str_decoder = get_string_decoder(compression_type)
+
+            try:
+                lengths, lengths_consumed = int_decoder(compressed_data, record_num)
+                compressed_strings = compressed_data[lengths_consumed:]
+                string_bytes = str_decoder(compressed_strings, lengths)
+                strings = [s.decode("ascii") for s in string_bytes]
+                return strings
+            except Exception as e:
+                logger.warning(f"Failed to decompress string list: {e}")
+                return []
 
     def _parse_paths_blocks(
         self, bgfa_data: bytes, header: dict, segment_names: list, start_offset: int
@@ -1883,7 +1863,7 @@ class ReaderBGFA:
 
             # Decompress cigar strings
             try:
-                cigar_strings = self._decompress_string_list(compressed_cigars, compression_cigars)
+                cigar_strings = self._decompress_string_list(compressed_cigars, compression_cigars, record_num)
             except Exception as e:
                 logger.warning(f"Failed to decompress cigar strings: {e}")
                 cigar_strings = []
@@ -1896,7 +1876,7 @@ class ReaderBGFA:
 
             # Decompress path names
             try:
-                path_names = self._decompress_string_list(compressed_names, compression_path_names)
+                path_names = self._decompress_string_list(compressed_names, compression_path_names, record_num)
             except Exception as e:
                 logger.warning(f"Failed to decompress path names: {e}")
                 path_names = []
@@ -1957,7 +1937,7 @@ class ReaderBGFA:
             compressed_sam = bgfa_data[offset : offset + compressed_len_sam]
             offset += compressed_len_sam
             sample_ids = self._decompress_string_list(
-                compressed_sam, 0x0000
+                compressed_sam, 0x0000, record_num
             )  # Sample IDs are typically identity encoded
         else:
             sample_ids = []
@@ -1966,7 +1946,7 @@ class ReaderBGFA:
             compressed_seq = bgfa_data[offset : offset + compressed_len_seq]
             offset += compressed_len_seq
             sequence_ids = self._decompress_string_list(
-                compressed_seq, 0x0000
+                compressed_seq, 0x0000, record_num
             )  # Sequence IDs are typically identity encoded
         else:
             sequence_ids = []
@@ -1978,7 +1958,7 @@ class ReaderBGFA:
             # For now, treat walk data as simple sequence data
             # TODO: Implement proper walk decoding (segment IDs + orientations)
             try:
-                walks_data = self._decompress_string_list(compressed_walks, 0x0000)
+                walks_data = self._decompress_string_list(compressed_walks, 0x0000, record_num)
             except Exception as e:
                 logger.warning(f"Failed to decompress walks data: {e}")
                 walks_data = []
@@ -2135,6 +2115,12 @@ class BGFAWriter:
             segment_names_compression_code = self._compression_options.get("segment_names_compression_code", 0x0000)
             self._write_segment_names_block(buffer, chunk, compression_code=segment_names_compression_code)
             offset += len(chunk)
+
+        # Write terminator block (record_num = 0) to mark end of segment names
+        # This is needed because without counts in header, the reader needs a way to detect section boundaries
+        buffer.write(
+            struct.pack("<HHQQ", 0, 0, 0, 0)
+        )  # record_num=0, compression=0, compressed_len=0, uncompressed_len=0
 
         # Write segments blocks
         logger.debug("Writing segment blocks")
