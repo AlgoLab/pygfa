@@ -196,10 +196,13 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
     # 2. write the graph g to a bgfa file
     # Create results directory if it doesn't exist
     import os  # Fix for ruff F823 error
+    import uuid
 
     results_dir = str(test_output_dir)
     os.makedirs(results_dir, exist_ok=True)
-    bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", f"_{encoding_name}.bgfa")
+    # Add unique identifier to avoid collisions in parallel runs
+    unique_id = uuid.uuid4().hex[:8]
+    bgfa_filename = os.path.basename(gfa_file_path).replace(".gfa", f"_{encoding_name}_{unique_id}.bgfa")
     bgfa_path = os.path.join(results_dir, bgfa_filename)
     try:
         # Create compression options with specified encoding strategies
