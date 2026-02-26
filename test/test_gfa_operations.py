@@ -30,8 +30,7 @@ class TestGfaOperations(unittest.TestCase):
         if not should_run_test_for_gfa("gfa_operations", gfa_file):
             raise unittest.SkipTest(f"No '# test: gfa_operations' comment found in {gfa_file}")
 
-        cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(gfa_file)
+        cls.graph = pygfa.gfa.GFA.from_gfa(gfa_file)
 
     def test_nodes_connected_components(self):
         nodes = set(self.graph.nodes())

@@ -171,7 +171,7 @@ def pytest_generate_tests(metafunc):
         if not test_files:
             pytest.skip("No matching GFA files found. Use --gfa-file to specify a file.")
 
-        metafunc.parametrize("gfa_file_path", test_files)
+        metafunc.parametrize("gfa_file_path", test_files, ids=lambda f: os.path.basename(f))
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
