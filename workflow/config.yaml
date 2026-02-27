@@ -1,59 +1,7 @@
 # Configuration for single-parameter BGFA benchmarking workflow
 # Tests each section independently with all relevant encodings and block sizes
 # Section types: integer (uints), string (strings), cigar, walk
-
-# =============================================================================
-# Integer encodings (uints)
-# =============================================================================
-integer_encodings:
-  - identity
-  - varint
-  - fixed16
-  - fixed32
-  - fixed64
-  - delta
-  - gamma
-  - omega
-  - golomb
-  - rice
-  - streamvbyte
-  - vbyte
-
-# =============================================================================
-# String encodings (strings)
-# =============================================================================
-string_encodings:
-  - identity
-  - zstd
-  - gzip
-  - lzma
-  - lz4
-  - brotli
-  - huffman
-  - frontcoding
-  - delta
-  - dictionary
-  - rle
-  - arithmetic
-  - bwt_huffman
-
-# =============================================================================
-# CIGAR encodings (cigar strings)
-# =============================================================================
-cigar_encodings:
-  - identity
-  - zstd
-  - gzip
-  - lzma
-
-# =============================================================================
-# Walk encodings (walks)
-# =============================================================================
-walk_encodings:
-  - identity
-  - zstd
-  - gzip
-  - lzma
+# Encodings are dynamically discovered at runtime via bgfatools show-full-encodings
 
 # =============================================================================
 # Section-specific config
