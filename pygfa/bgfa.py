@@ -2973,3 +2973,318 @@ def read_bgfa(file_path: str, verbose: bool = False, debug: bool = False, logfil
     """
     reader = ReaderBGFA()
     return reader.read_bgfa(file_path, verbose=verbose, debug=debug, logfile=logfile)
+
+
+MEASURE_PARAM_COLUMNS = [
+    "param_segment_names_header",
+    "param_segment_names_payload_lengths",
+    "param_segment_names_payload_names",
+    "param_segments_header",
+    "param_segments_payload_lengths",
+    "param_segments_payload_strings",
+    "param_links_header",
+    "param_links_payload_from",
+    "param_links_payload_to",
+    "param_links_payload_cigar_lengths",
+    "param_links_payload_cigar",
+    "param_paths_header",
+    "param_paths_payload_names",
+    "param_paths_payload_segment_lengths",
+    "param_paths_payload_path_ids",
+    "param_paths_payload_cigar_lengths",
+    "param_paths_payload_cigar",
+    "param_walks_header",
+    "param_walks_payload_sample_ids",
+    "param_walks_payload_hep_indices",
+    "param_walks_payload_sequence_ids",
+    "param_walks_payload_start",
+    "param_walks_payload_end",
+    "param_walks_payload_walks",
+]
+
+
+def get_int_encoding_name(code: int) -> str:
+    """Map integer encoding code to name."""
+    from pygfa.encoding.enums import IntegerEncoding
+
+    INT_ENCODING_NAMES = {v.value: v.name.lower() for v in IntegerEncoding}
+    return INT_ENCODING_NAMES.get(code, f"0x{code:02x}")
+
+
+def get_str_encoding_name(code: int) -> str:
+    """Map string encoding code to name."""
+    from pygfa.encoding.enums import StringEncoding
+
+    STR_ENCODING_NAMES = {v.value: v.name.lower() for v in StringEncoding}
+    return STR_ENCODING_NAMES.get(code, f"0x{code:02x}")
+
+
+def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> list[dict]:
+    """Analyze BGFA file structure and output block statistics to CSV.
+
+    :param input_file: Path to input BGFA file
+    :param output_file: Path to output CSV file
+    :param original_gfa: Path to original GFA file
+    """
+    import csv
+    import struct
+
+    with open_gfa_file(input_file, "rb") as f:
+        bgfa_data = f.read()
+
+    rows = []
+    offset = 0
+    filename = os.path.basename(input_file)
+    original_gfa_path = original_gfa if original_gfa else ""
+
+    def create_base_row():
+        row = {
+            "original_gfa": original_gfa_path,
+            "filename": filename,
+            "block_type": "",
+            "block_index": 0,
+            "section_id": 0,
+            "block_size": "",
+            "record_count": 0,
+            "offset_start": 0,
+            "offset_end": 0,
+            "size_bytes": 0,
+            "compression_ratio": "",
+            "version": "",
+            "s_len": "",
+            "l_len": "",
+            "p_len": "",
+            "w_len": "",
+            "header_text": "",
+            "encoding_high": "",
+            "encoding_low": "",
+            "compressed_size": 0,
+            "uncompressed_size": 0,
+        }
+        for col in MEASURE_PARAM_COLUMNS:
+            row[col] = ""
+        return row
+
+    header_start = 0
+
+    version = struct.unpack_from("<H", bgfa_data, offset)[0]
+    offset += 2
+
+    offset += 34
+
+    header_text = ""
+    while offset < len(bgfa_data) and bgfa_data[offset] != 0:
+        header_text += chr(bgfa_data[offset])
+        offset += 1
+    offset += 1
+
+    header_end = offset
+
+    rows.append(
+        {
+            "original_gfa": original_gfa_path,
+            "filename": filename,
+            "block_type": "header",
+            "block_index": 0,
+            "block_size": "",
+            "record_count": "",
+            "offset_start": header_start,
+            "offset_end": header_end,
+            "size_bytes": header_end - header_start,
+            "compression_ratio": "",
+            "version": version,
+            "s_len": "",
+            "l_len": "",
+            "p_len": "",
+            "w_len": "",
+            "header_text": header_text,
+            "encoding_high": "",
+            "encoding_low": "",
+            "compressed_size": header_end - header_start,
+            "uncompressed_size": header_end - header_start,
+        }
+    )
+
+    while offset < len(bgfa_data):
+        if offset + 1 > len(bgfa_data):
+            break
+
+        block_start = offset
+
+        section_id = struct.unpack_from("<B", bgfa_data, offset)[0]
+        offset += 1
+
+        if section_id == 1:
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
+            if offset + compressed_len > len(bgfa_data):
+                raise ValueError(f"BGFA file is too short: cannot read segment names payload at offset {offset}")
+
+            offset += compressed_len
+            block_end = offset
+
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+
+            int_encoding = (compression_names >> 8) & 0xFF
+            str_encoding = compression_names & 0xFF
+
+            row = create_base_row()
+            row["block_type"] = "segment_names"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["encoding_high"] = f"0x{int_encoding:02x}"
+            row["encoding_low"] = f"0x{str_encoding:02x}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            row["param_segment_names_payload_lengths"] = get_int_encoding_name(int_encoding)
+            row["param_segment_names_payload_names"] = get_str_encoding_name(str_encoding)
+            rows.append(row)
+
+        elif section_id == 2:
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compression = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
+            offset += compressed_len
+            block_end = offset
+
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+            int_encoding = (compression >> 8) & 0xFF
+            str_encoding = compression & 0xFF
+
+            row = create_base_row()
+            row["block_type"] = "segments"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["encoding_high"] = f"0x{int_encoding:02x}"
+            row["encoding_low"] = f"0x{str_encoding:02x}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            rows.append(row)
+
+        elif section_id == 3:
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 2
+            offset += 2
+            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
+            offset += compressed_len
+            block_end = offset
+
+            ratio = compressed_len / uncompressed_len if uncompressed_len > 0 else 0
+
+            row = create_base_row()
+            row["block_type"] = "links"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            rows.append(row)
+
+        elif section_id == 4:
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 6
+            offset += 16
+            compressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            offset += 8
+            compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            offset += 8
+
+            offset += compressed_len_cigar + compressed_len_name
+            block_end = offset
+
+            total_compressed = compressed_len_cigar + compressed_len_name
+            ratio = total_compressed / total_compressed if total_compressed > 0 else 0
+
+            row = create_base_row()
+            row["block_type"] = "paths"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["offset_end"] = block_end
+            row["size_bytes"] = block_end - block_start
+            row["compression_ratio"] = f"{ratio:.4f}"
+            row["compressed_size"] = total_compressed
+            row["uncompressed_size"] = total_compressed
+            rows.append(row)
+
+        elif section_id == 5:
+            record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
+            offset += 10
+            offset += 48
+
+            block_end = offset + 100
+
+            row = create_base_row()
+            row["block_type"] = "walks"
+            row["section_id"] = section_id
+            row["record_count"] = record_num
+            row["offset_start"] = block_start
+            row["size_bytes"] = 0
+            rows.append(row)
+
+        else:
+            break
+
+    fieldnames = [
+        "original_gfa",
+        "filename",
+        "block_type",
+        "section_id",
+        "block_index",
+        "block_size",
+        "record_count",
+        "offset_start",
+        "offset_end",
+        "size_bytes",
+        "compression_ratio",
+        "version",
+        "s_len",
+        "l_len",
+        "p_len",
+        "w_len",
+        "header_text",
+        "encoding_high",
+        "encoding_low",
+        "compressed_size",
+        "uncompressed_size",
+    ] + MEASURE_PARAM_COLUMNS
+
+    with open(output_file, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return rows
