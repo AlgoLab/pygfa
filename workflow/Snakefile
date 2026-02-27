@@ -53,6 +53,20 @@ SECTION_SHORT_NAMES = {
 
 SECTION_SHORT_TO_FULL = {v: k for k, v in SECTION_SHORT_NAMES.items()}
 
+# Sections that use integer encoding (vs string encoding)
+SECTION_INT_ENCODINGS = {
+    "segment_names_payload_lengths",
+    "segments_payload_lengths",
+    "links_payload_from",
+    "links_payload_to",
+    "links_payload_cigar_lengths",
+    "paths_payload_segment_lengths",
+    "paths_payload_cigar_lengths",
+    "walks_payload_hep_indices",
+    "walks_payload_start",
+    "walks_payload_end",
+}
+
 
 def discover_single_param_datasets(benchmark_type):
     """Discover GFA files for a specific single-param benchmark type"""
@@ -192,13 +206,77 @@ rule benchmark_section:
             int_flag = ""
             str_flag = ""
 
-        shell(
-            "pixi run python workflow/scripts/benchmark_encode_single_param.py "
-            "--input-gfa '{input.gfa}' "
-            "--output-bgfa '{params.bgfa}' "
-            "--output-csv '{output.csv}' "
-            "--section '{params.full_section}' "
-            "--int-flag '{int_flag}' "
-            "--str-flag '{str_flag}' "
-            "--block-size '{params.block_size}'"
-        )
+        # Build bgfatools command with section-specific flags
+        section = params.full_section
+        
+        # Map section to bgfatools argument
+        section_arg_map = {
+            "segment_names_header": "--segment-names-header",
+            "segment_names_payload_lengths": "--segment-names-payload-lengths",
+            "segment_names_payload_names": "--segment-names-payload-names",
+            "segments_header": "--segments-header",
+            "segments_payload_lengths": "--segments-payload-lengths",
+            "segments_payload_strings": "--segments-payload-strings",
+            "links_header": "--links-header",
+            "links_payload_from": "--links-payload-from",
+            "links_payload_to": "--links-payload-to",
+            "links_payload_cigar_lengths": "--links-payload-cigar-lengths",
+            "links_payload_cigar": "--links-payload-cigar",
+            "paths_header": "--paths-header",
+            "paths_payload_names": "--paths-payload-names",
+            "paths_payload_segment_lengths": "--paths-payload-segment-lengths",
+            "paths_payload_path_ids": "--paths-payload-path-ids",
+            "paths_payload_cigar_lengths": "--paths-payload-cigar-lengths",
+            "paths_payload_cigar": "--paths-payload-cigar",
+            "walks_header": "--walks-header",
+            "walks_payload_sample_ids": "--walks-payload-sample-ids",
+            "walks_payload_hep_indices": "--walks-payload-hep-indices",
+            "walks_payload_sequence_ids": "--walks-payload-sequence-ids",
+            "walks_payload_start": "--walks-payload-start",
+            "walks_payload_end": "--walks-payload-end",
+            "walks_payload_walks": "--walks-payload-walks",
+        }
+        
+        # Determine if section uses int or str encoding
+        if section in SECTION_INT_ENCODINGS:
+            flag_value = int_flag
+        else:
+            flag_value = str_flag
+        
+        section_arg = section_arg_map.get(section, "")
+        
+        # Build and run bgfatools bgfa command
+        bgfa_cmd = [
+            "pixi", "run", "python", "bin/bgfatools", "bgfa",
+            input.gfa,
+            params.bgfa,
+            "--block-size", str(params.block_size),
+        ]
+        
+        if section_arg and flag_value is not None:
+            bgfa_cmd.extend([section_arg, flag_value])
+        
+        import subprocess
+        result = subprocess.run(bgfa_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"ERROR: Encoding failed for {input.gfa}", file=sys.stderr)
+            print(f"Command: {' '.join(bgfa_cmd)}", file=sys.stderr)
+            print(f"stdout: {result.stdout}", file=sys.stderr)
+            print(f"stderr: {result.stderr}", file=sys.stderr)
+            raise Exception(f"bgfatools bgfa failed: {result.stderr}")
+        
+        # Run bgfatools measure to get CSV output
+        measure_cmd = [
+            "pixi", "run", "python", "bin/bgfatools", "measure",
+            params.bgfa,
+            output.csv,
+            "--original-gfa", input.gfa,
+        ]
+        
+        measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
+        if measure_result.returncode != 0:
+            print(f"ERROR: Measurement failed for {params.bgfa}", file=sys.stderr)
+            print(f"Command: {' '.join(measure_cmd)}", file=sys.stderr)
+            print(f"stdout: {measure_result.stdout}", file=sys.stderr)
+            print(f"stderr: {measure_result.stderr}", file=sys.stderr)
+            raise Exception(f"bgfatools measure failed: {measure_result.stderr}")
