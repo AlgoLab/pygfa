@@ -3,8 +3,8 @@
 # Tests each section independently with all relevant encodings and block sizes
 #
 # Usage:
-#   snakemake -s workflow/Snakefile_single_param --configfile workflow/config_single_param.yaml -j 8
-#   snakemake -s workflow/Snakefile_single_param --configfile workflow/config_single_param.yaml -n  # dry run
+#   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -j 8
+#   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -n  # dry run
 #
 # Output:
 #   - Individual: results/benchmark/section/{short_section}/{dataset}/{encoding}_{block_size}.csv
@@ -12,17 +12,33 @@
 
 import os
 import sys
+import subprocess
+import json
 
 sys.path.insert(0, "test")
 from benchmark_filter import filter_gfa_files, extract_header_comments
 
+
+def discover_encodings():
+    """Discover available encodings from bgfatools show-full-encodings"""
+    cmd = ["pixi", "run", "python", "bin/bgfatools", "show-full-encodings"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception(f"Failed to discover encodings: {result.stderr}")
+    output = result.stdout.split('\n', 1)[1] if '\n' in result.stdout else result.stdout
+    encodings_data = json.loads(output)
+    first_section = next(iter(encodings_data.keys()))
+    return encodings_data[first_section]
+
+
+onstart:
+    global ALL_ENCODINGS
+    ALL_ENCODINGS = discover_encodings()
+    print(f"Discovered {len(ALL_ENCODINGS)} encodings: {ALL_ENCODINGS}")
+
+
 SECTION_SPECIFIC_CONFIG = config.get("section_specific", {})
 ALL_SECTIONS = list(SECTION_SPECIFIC_CONFIG.keys())
-
-INTEGER_ENCODINGS = config.get("integer_encodings", ["identity"])
-STRING_ENCODINGS = config.get("string_encodings", ["identity"])
-CIGAR_ENCODINGS = config.get("cigar_encodings", ["identity"])
-WALK_ENCODINGS = config.get("walk_encodings", ["identity"])
 
 SECTION_SHORT_NAMES = {
     "segment_names_header": "seg_names_h",
@@ -130,17 +146,11 @@ def enc_to_flag(enc):
 
 
 def get_encodings_for_type(section_type):
-    """Get the list of encodings for a given section type"""
-    if section_type == "integer":
-        return INTEGER_ENCODINGS
-    elif section_type == "string":
-        return STRING_ENCODINGS
-    elif section_type == "cigar":
-        return CIGAR_ENCODINGS
-    elif section_type == "walk":
-        return WALK_ENCODINGS
-    else:
-        return ["identity"]
+    """Get the list of encodings - uses ALL_ENCODINGS discovered at runtime"""
+    global ALL_ENCODINGS
+    if "ALL_ENCODINGS" not in globals():
+        ALL_ENCODINGS = discover_encodings()
+    return ALL_ENCODINGS
 
 
 def get_section_csvs():
