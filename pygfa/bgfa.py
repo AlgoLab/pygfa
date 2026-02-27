@@ -2197,7 +2197,7 @@ class BGFAWriter:
             lengths = [len(name.encode("ascii")) for name in to_write]
             encoded_lengths = int_encoder(lengths)
             # Add comma delimiter for identity integer encoding to separate from compressed names
-            if int_encoding == INTEGER_ENCODING_IDENTITY:
+            if int_encoding == INTEGER_ENCODING_IDENTITY and lengths:
                 encoded_lengths += b","
 
             concatenated = "".join(to_write)
@@ -2304,7 +2304,7 @@ class BGFAWriter:
             int_encoder = get_integer_encoder(compression_code)
             encoded_ids = int_encoder(segment_ids)
             # Add comma delimiter for identity integer encoding to separate from lengths
-            if int_encoding == INTEGER_ENCODING_IDENTITY:
+            if int_encoding == INTEGER_ENCODING_IDENTITY and encoded_ids:
                 encoded_ids += b","
             encoded_lengths = int_encoder(sequence_lengths)
             compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
@@ -2412,7 +2412,7 @@ class BGFAWriter:
 
             encoded_from = fromto_int_encoder(from_ids)
             # Add comma delimiter for identity integer encoding to separate from to_ids
-            if fromto_int_encoding == INTEGER_ENCODING_IDENTITY:
+            if fromto_int_encoding == INTEGER_ENCODING_IDENTITY and encoded_from:
                 encoded_from += b","
             encoded_to = fromto_int_encoder(to_ids)
             cigar_lengths = [len(c.encode("ascii")) for c in cigars]
@@ -2509,7 +2509,7 @@ class BGFAWriter:
             name_lengths = [len(name.encode("ascii")) for name in path_names]
             encoded_name_lengths = names_int_encoder(name_lengths)
             # Add comma delimiter for identity integer encoding
-            if names_int_encoding == INTEGER_ENCODING_IDENTITY:
+            if names_int_encoding == INTEGER_ENCODING_IDENTITY and name_lengths:
                 encoded_name_lengths += b","
             compressed_name_data = _compress_string_for_bgfa("".join(path_names), names_str_encoding)
             compressed_names = encoded_name_lengths + compressed_name_data
@@ -2536,7 +2536,7 @@ class BGFAWriter:
             cigar_lengths = [len(c.encode("ascii")) for c in all_cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
             # Add comma delimiter for identity integer encoding
-            if cigars_int_encoding == INTEGER_ENCODING_IDENTITY:
+            if cigars_int_encoding == INTEGER_ENCODING_IDENTITY and cigar_lengths:
                 encoded_cigar_lengths += b","
             compressed_cigar_data = _compress_string_for_bgfa("".join(all_cigars), cigars_str_encoding)
             compressed_cigars = encoded_cigar_lengths + compressed_cigar_data
@@ -2649,7 +2649,7 @@ class BGFAWriter:
             sam_lengths = [len(s.encode("ascii")) for s in sample_ids]
             encoded_sam_lengths = sam_int_encoder(sam_lengths)
             # Add comma delimiter for identity integer encoding
-            if sam_int_encoding == INTEGER_ENCODING_IDENTITY:
+            if sam_int_encoding == INTEGER_ENCODING_IDENTITY and sam_lengths:
                 encoded_sam_lengths += b","
             compressed_sam_data = _compress_string_for_bgfa("".join(sample_ids), sam_str_encoding)
             compressed_samples = encoded_sam_lengths + compressed_sam_data
@@ -2674,7 +2674,7 @@ class BGFAWriter:
             seq_lengths = [len(s.encode("ascii")) for s in seq_ids]
             encoded_seq_lengths = seq_int_encoder(seq_lengths)
             # Add comma delimiter for identity integer encoding
-            if seq_int_encoding == INTEGER_ENCODING_IDENTITY:
+            if seq_int_encoding == INTEGER_ENCODING_IDENTITY and seq_lengths:
                 encoded_seq_lengths += b","
             compressed_seq_data = _compress_string_for_bgfa("".join(seq_ids), seq_str_encoding)
             compressed_seqids = encoded_seq_lengths + compressed_seq_data
