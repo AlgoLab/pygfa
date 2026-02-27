@@ -1,14 +1,10 @@
 # -*- mode: snakemake; -*-
 # Snakemake workflow for single-parameter BGFA benchmarking
-# Tests each section independently with all relevant encodings and block sizes
+# For each option, test all encoding values while keeping others at identity
 #
 # Usage:
 #   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -j 8
 #   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -n  # dry run
-#
-# Output:
-#   - Individual: results/benchmark/section/{short_section}/{dataset}/{encoding}_{block_size}.csv
-#   - Summary: results/benchmark/summary-single-parameter.csv.zstd
 
 import os
 import sys
@@ -26,87 +22,20 @@ def discover_encodings():
     if result.returncode != 0:
         raise Exception(f"Failed to discover encodings: {result.stderr}")
     output = result.stdout.split('\n', 1)[1] if '\n' in result.stdout else result.stdout
-    encodings_data = json.loads(output)
-    first_section = next(iter(encodings_data.keys()))
-    return encodings_data[first_section]
+    return json.loads(output)
 
 
-onstart:
-    global ALL_ENCODINGS
-    ALL_ENCODINGS = discover_encodings()
-    print(f"Discovered {len(ALL_ENCODINGS)} encodings: {ALL_ENCODINGS}")
-
-
-SECTION_SPECIFIC_CONFIG = config.get("section_specific", {})
-ALL_SECTIONS = list(SECTION_SPECIFIC_CONFIG.keys())
-
-SECTION_SHORT_NAMES = {
-    "segment_names_header": "seg_names_h",
-    "segment_names_payload_lengths": "seg_names_pay_len",
-    "segment_names_payload_names": "seg_names_pay_n",
-    "segments_header": "seg_h",
-    "segments_payload_lengths": "seg_pay_len",
-    "segments_payload_strings": "seg_pay_str",
-    "links_header": "links_h",
-    "links_payload_from": "links_pay_from",
-    "links_payload_to": "links_pay_to",
-    "links_payload_cigar_lengths": "links_pay_cigar_len",
-    "links_payload_cigar": "links_pay_cigar",
-    "paths_header": "paths_h",
-    "paths_payload_names": "paths_pay_n",
-    "paths_payload_segment_lengths": "paths_pay_seg_len",
-    "paths_payload_path_ids": "paths_pay_path_id",
-    "paths_payload_cigar_lengths": "paths_pay_cigar_len",
-    "paths_payload_cigar": "paths_pay_cigar",
-    "walks_header": "walks_h",
-    "walks_payload_sample_ids": "walks_pay_samp_id",
-    "walks_payload_hep_indices": "walks_pay_hep_idx",
-    "walks_payload_sequence_ids": "walks_pay_seq_id",
-    "walks_payload_start": "walks_pay_start",
-    "walks_payload_end": "walks_pay_end",
-    "walks_payload_walks": "walks_pay_w",
-}
-
-SECTION_SHORT_TO_FULL = {v: k for k, v in SECTION_SHORT_NAMES.items()}
-
-# Sections that use integer encoding (vs string encoding)
-SECTION_INT_ENCODINGS = {
-    "segment_names_payload_lengths",
-    "segments_payload_lengths",
-    "links_payload_from",
-    "links_payload_to",
-    "links_payload_cigar_lengths",
-    "paths_payload_segment_lengths",
-    "paths_payload_cigar_lengths",
-    "walks_payload_hep_indices",
-    "walks_payload_start",
-    "walks_payload_end",
-}
-
-
-def discover_single_param_datasets(benchmark_type):
-    """Discover GFA files for a specific single-param benchmark type"""
+def discover_datasets():
+    """Discover GFA files with # benchmark: comment"""
     all_files = filter_gfa_files("data", None)
-    matching_files = []
+    datasets = {}
 
     for file_path in all_files:
         comments = extract_header_comments(file_path)
-        benchmark_comments = [c[len("# benchmark:"):].strip() for c in comments if c.startswith("# benchmark:")]
+        has_benchmark = any(c.startswith("# benchmark:") for c in comments)
+        if not has_benchmark:
+            continue
 
-        if benchmark_type in benchmark_comments:
-            matching_files.append(file_path)
-        elif "single_param" in benchmark_comments:
-            matching_files.append(file_path)
-
-    return sorted(set(matching_files))
-
-
-def get_datasets_for_benchmark(benchmark_type):
-    """Convert file paths to dataset name -> path mapping"""
-    files = discover_single_param_datasets(benchmark_type)
-    datasets = {}
-
-    for file_path in files:
         filename = os.path.basename(file_path)
         if filename.endswith(".gfa.gz"):
             dataset_name = filename[:-7]
@@ -124,15 +53,6 @@ def get_datasets_for_benchmark(benchmark_type):
     return datasets
 
 
-SECTION_DATASETS = {}
-for section in ALL_SECTIONS:
-    SECTION_DATASETS[section] = get_datasets_for_benchmark(section)
-
-SECTION_DATASETS_BY_SHORT = {}
-for section, datasets in SECTION_DATASETS.items():
-    short_name = SECTION_SHORT_NAMES.get(section, section)
-    SECTION_DATASETS_BY_SHORT[short_name] = datasets
-
 BLOCK_SIZES = config.get("block_sizes", [
     512, 1024, 2048, 4096, 8192, 16384, 32768,
     65536, 131072, 262144
@@ -140,133 +60,70 @@ BLOCK_SIZES = config.get("block_sizes", [
 
 OUTPUT_DIR = config.get("output_dir", "results/benchmark")
 
-
-def enc_to_flag(enc):
-    return "" if enc == "identity" else enc
-
-
-def get_encodings_for_type(section_type):
-    """Get the list of encodings - uses ALL_ENCODINGS discovered at runtime"""
-    global ALL_ENCODINGS
-    if "ALL_ENCODINGS" not in globals():
-        ALL_ENCODINGS = discover_encodings()
-    return ALL_ENCODINGS
+_CACHED_ENCODINGS = None
+_CACHED_DATASETS = None
 
 
-def get_section_csvs():
-    files = []
-    for section, cfg in SECTION_SPECIFIC_CONFIG.items():
-        datasets = SECTION_DATASETS.get(section, {})
-        short_name = SECTION_SHORT_NAMES.get(section, section)
-        section_type = cfg.get("type", "string")
-        encodings = get_encodings_for_type(section_type)
-        for dataset_name in datasets:
-            for enc in encodings:
-                for block_size in BLOCK_SIZES:
-                    files.append(f"{OUTPUT_DIR}/section/{short_name}/{dataset_name}/{enc}_{block_size}.csv")
-    return files
+def get_cached_data():
+    global _CACHED_ENCODINGS, _CACHED_DATASETS
+    if _CACHED_ENCODINGS is None:
+        _CACHED_ENCODINGS = discover_encodings()
+        _CACHED_DATASETS = discover_datasets()
+    return _CACHED_ENCODINGS, _CACHED_DATASETS
 
 
 def get_all_csv_files():
-    return get_section_csvs()
+    encodings, datasets = get_cached_data()
+    options = list(encodings.keys())
+    files = []
+    for option in options:
+        for encoding in encodings[option]:
+            for dataset in datasets:
+                for block_size in BLOCK_SIZES:
+                    files.append(f"{OUTPUT_DIR}/{option}/{dataset}/{encoding}_{block_size}.csv")
+    return files
 
 
 rule all:
     input:
-        OUTPUT_DIR + "/summary-single-parameter.csv.zstd"
+        OUTPUT_DIR + "/summary.csv.zstd"
 
 
-rule aggregate_single_param_results:
+rule aggregate_results:
     input:
         get_all_csv_files()
     output:
-        OUTPUT_DIR + "/summary-single-parameter.csv.zstd"
+        OUTPUT_DIR + "/summary.csv.zstd"
     shell:
         "(head -n 1 {input[0]} && tail -n +2 -q {input}) | zstd > {output}"
 
 
-rule benchmark_section:
+rule benchmark_option:
     input:
-        gfa=lambda wildcards: SECTION_DATASETS_BY_SHORT[wildcards.section][wildcards.dataset]
+        gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
     output:
-        csv=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}_{block_size}.csv"
+        csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
     params:
-        bgfa=OUTPUT_DIR + "/section/{section}/{dataset}/{encoding}_{block_size}.bgfa",
-        section=lambda wildcards: wildcards.section,
-        full_section=lambda wildcards: SECTION_SHORT_TO_FULL.get(wildcards.section, wildcards.section),
-        encoding=lambda wildcards: wildcards.encoding,
+        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa",
         block_size=lambda wildcards: wildcards.block_size
     run:
-        cfg = SECTION_SPECIFIC_CONFIG.get(params.full_section, {})
-        section_type = cfg.get("type", "string")
+        option = wildcards.option
+        encoding = wildcards.encoding
 
-        if section_type == "integer":
-            int_flag = enc_to_flag(wildcards.encoding)
-            str_flag = ""
-        elif section_type == "string":
-            int_flag = ""
-            str_flag = enc_to_flag(wildcards.encoding)
-        elif section_type == "cigar":
-            int_flag = ""
-            str_flag = enc_to_flag(wildcards.encoding)
-        elif section_type == "walk":
-            int_flag = ""
-            str_flag = enc_to_flag(wildcards.encoding)
-        else:
-            int_flag = ""
-            str_flag = ""
-
-        # Build bgfatools command with section-specific flags
-        section = params.full_section
-        
-        # Map section to bgfatools argument
-        section_arg_map = {
-            "segment_names_header": "--segment-names-header",
-            "segment_names_payload_lengths": "--segment-names-payload-lengths",
-            "segment_names_payload_names": "--segment-names-payload-names",
-            "segments_header": "--segments-header",
-            "segments_payload_lengths": "--segments-payload-lengths",
-            "segments_payload_strings": "--segments-payload-strings",
-            "links_header": "--links-header",
-            "links_payload_from": "--links-payload-from",
-            "links_payload_to": "--links-payload-to",
-            "links_payload_cigar_lengths": "--links-payload-cigar-lengths",
-            "links_payload_cigar": "--links-payload-cigar",
-            "paths_header": "--paths-header",
-            "paths_payload_names": "--paths-payload-names",
-            "paths_payload_segment_lengths": "--paths-payload-segment-lengths",
-            "paths_payload_path_ids": "--paths-payload-path-ids",
-            "paths_payload_cigar_lengths": "--paths-payload-cigar-lengths",
-            "paths_payload_cigar": "--paths-payload-cigar",
-            "walks_header": "--walks-header",
-            "walks_payload_sample_ids": "--walks-payload-sample-ids",
-            "walks_payload_hep_indices": "--walks-payload-hep-indices",
-            "walks_payload_sequence_ids": "--walks-payload-sequence-ids",
-            "walks_payload_start": "--walks-payload-start",
-            "walks_payload_end": "--walks-payload-end",
-            "walks_payload_walks": "--walks-payload-walks",
-        }
-        
-        # Determine if section uses int or str encoding
-        if section in SECTION_INT_ENCODINGS:
-            flag_value = int_flag
-        else:
-            flag_value = str_flag
-        
-        section_arg = section_arg_map.get(section, "")
-        
-        # Build and run bgfatools bgfa command
         bgfa_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "bgfa",
             input.gfa,
             params.bgfa,
             "--block-size", str(params.block_size),
         ]
-        
-        if section_arg and flag_value is not None:
-            bgfa_cmd.extend([section_arg, flag_value])
-        
-        import subprocess
+
+        all_options = get_cached_data()[0].keys()
+        for opt in all_options:
+            if opt == option:
+                bgfa_cmd.extend([f"--{opt}", encoding])
+            else:
+                bgfa_cmd.extend([f"--{opt}", "identity"])
+
         result = subprocess.run(bgfa_cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"ERROR: Encoding failed for {input.gfa}", file=sys.stderr)
@@ -274,15 +131,14 @@ rule benchmark_section:
             print(f"stdout: {result.stdout}", file=sys.stderr)
             print(f"stderr: {result.stderr}", file=sys.stderr)
             raise Exception(f"bgfatools bgfa failed: {result.stderr}")
-        
-        # Run bgfatools measure to get CSV output
+
         measure_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "measure",
             params.bgfa,
             output.csv,
             "--original-gfa", input.gfa,
         ]
-        
+
         measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
         if measure_result.returncode != 0:
             print(f"ERROR: Measurement failed for {params.bgfa}", file=sys.stderr)
