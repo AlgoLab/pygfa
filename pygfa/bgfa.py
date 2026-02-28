@@ -3227,19 +3227,21 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
             offset += 6
-            offset += 16
             compressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
+            uncompressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
             compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
+            uncompressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
 
-            offset += compressed_len_cigar + compressed_len_name
+            offset += compressed_len_name + compressed_len_cigar
             block_end = offset
 
-            total_compressed = compressed_len_cigar + compressed_len_name
-            ratio = total_compressed / total_compressed if total_compressed > 0 else 0
+            total_compressed = compressed_len_name + compressed_len_cigar
+            total_uncompressed = uncompressed_len_name + uncompressed_len_cigar
+            ratio = total_compressed / total_uncompressed if total_uncompressed > 0 else 0
 
             row = create_base_row()
             row["block_type"] = "paths"
@@ -3250,7 +3252,7 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
             row["size_bytes"] = block_end - block_start
             row["compression_ratio"] = f"{ratio:.4f}"
             row["compressed_size"] = total_compressed
-            row["uncompressed_size"] = total_compressed
+            row["uncompressed_size"] = total_uncompressed
             rows.append(row)
 
         elif section_id == 5:
