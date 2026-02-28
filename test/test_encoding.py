@@ -1,5 +1,6 @@
 import unittest
 import sys
+import pytest
 
 sys.path.insert(0, "../")
 
@@ -72,8 +73,14 @@ class TestIntegerListEncoding(unittest.TestCase):
         result = compress_integer_list_none([])
         self.assertEqual(result, b"")
 
+    @pytest.mark.limit_memory(10 * 1024 * 1024)  # 10 MB limit
     def test_compress_integer_list_delta(self):
         """Test delta encoding."""
+        import time
+
+        start_time = time.time()
+        timeout = 5.0  # 5 seconds
+
         # Test sequential numbers
         result = compress_integer_list_delta([10, 20, 30, 40])
         self.assertIsInstance(result, bytes)
@@ -85,6 +92,9 @@ class TestIntegerListEncoding(unittest.TestCase):
         # Test single number
         result = compress_integer_list_delta([42])
         self.assertIsInstance(result, bytes)
+
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, timeout, f"Test took {elapsed:.2f}s, exceeded {timeout}s threshold")
 
     def test_compress_integer_list_elias_gamma(self):
         """Test Elias gamma encoding."""

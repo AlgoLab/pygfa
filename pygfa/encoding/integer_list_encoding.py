@@ -37,8 +37,22 @@ def compress_integer_list_delta(int_list: Iterable[int], _size: int = 0) -> byte
     int_list = list(int_list)
     if not int_list:
         return b""
-    deltas = [int_list[0]] + [int_list[i] - int_list[i - 1] for i in range(1, len(int_list))]
-    return compress_integer_list_varint(deltas)
+
+    out = bytearray()
+    prev = 0
+    for val in int_list:
+        delta = val - prev
+        v = delta
+        while True:
+            byte = v & 0x7F
+            v >>= 7
+            if v == 0:
+                out.append(byte)
+                break
+            else:
+                out.append(byte | 0x80)
+        prev = val
+    return bytes(out)
 
 
 def compress_integer_list_elias_gamma(int_list: Iterable[int], _size: int = 0) -> bytes:
