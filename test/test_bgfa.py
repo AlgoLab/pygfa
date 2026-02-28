@@ -113,7 +113,7 @@ _ALL_GFA_FILES.extend(glob.glob("data/*.gfa"))
 def get_encoding_name(encoding_code):
     """Get a human-readable name for an encoding code."""
     int_names = {
-        0x00: "identity",
+        0x00: "none",
         0x01: "varint",
         0x02: "fixed16",
         0x03: "delta",
@@ -127,7 +127,7 @@ def get_encoding_name(encoding_code):
         0x0B: "fixed64",
     }
     str_names = {
-        0x00: "identity",
+        0x00: "none",
         0x01: "zstd",
         0x02: "gzip",
         0x03: "lzma",

@@ -1997,6 +1997,7 @@ class GFA:
         # Mapping from string method names to integer encoding codes
         _INT_NAME_TO_CODE = {
             "": INTEGER_ENCODING_IDENTITY,
+            "none": INTEGER_ENCODING_IDENTITY,
             "varint": INTEGER_ENCODING_VARINT,
             "fixed16": INTEGER_ENCODING_FIXED16,
             "fixed32": INTEGER_ENCODING_FIXED32,
@@ -2011,6 +2012,7 @@ class GFA:
         }
         _STR_NAME_TO_CODE = {
             "": STRING_ENCODING_IDENTITY,
+            "none": STRING_ENCODING_IDENTITY,
             "zstd": STRING_ENCODING_ZSTD,
             "zstd_dict": STRING_ENCODING_ZSTD_DICT,
             "gzip": STRING_ENCODING_GZIP,
@@ -2019,14 +2021,14 @@ class GFA:
         }
 
         def _resolve_int(name):
-            if name is None or name == "":
+            if name is None or name == "" or name == "none":
                 return INTEGER_ENCODING_IDENTITY
             if isinstance(name, int):
                 return name
             return _INT_NAME_TO_CODE.get(str(name), INTEGER_ENCODING_IDENTITY)
 
         def _resolve_str(name):
-            if name is None or name == "":
+            if name is None or name == "" or name == "none":
                 return STRING_ENCODING_IDENTITY
             if isinstance(name, int):
                 return name

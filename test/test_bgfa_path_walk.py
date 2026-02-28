@@ -18,8 +18,8 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         """Set up test fixtures."""
         self.reader = ReaderBGFA()
 
-    def test_decompress_string_list_identity(self):
-        """Test string list decompression with identity encoding."""
+    def test_decompress_string_list_none(self):
+        """Test string list decompression with none encoding."""
         # Create test data: null-terminated strings
         test_strings = ["path1", "path2", "path3"]
         test_data = b"".join([s.encode("ascii") + b"\0" for s in test_strings])
@@ -58,7 +58,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         test_names = ["path1", "path2"]
         test_cigars = ["100M", "50M"]
 
-        # Create compressed data (identity encoding)
+        # Create compressed data (none encoding)
         names_data = b"".join([s.encode("ascii") + b"\0" for s in test_names])
         cigars_data = b"".join([s.encode("ascii") + b"\0" for s in test_cigars])
 
@@ -113,7 +113,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         test_sequences = ["seq1", "seq2"]
         test_walks = ["walk1", "walk2"]
 
-        # Create compressed data (identity encoding)
+        # Create compressed data (none encoding)
         samples_data = b"".join([s.encode("ascii") + b"\0" for s in test_samples])
         sequences_data = b"".join([s.encode("ascii") + b"\0" for s in test_sequences])
         walks_data = b"".join([s.encode("ascii") + b"\0" for s in test_walks])

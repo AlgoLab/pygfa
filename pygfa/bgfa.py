@@ -76,7 +76,8 @@ __all__ = [
     "INTEGER_ENCODING_FIXED32",
     "INTEGER_ENCODING_FIXED64",
     "INTEGER_ENCODING_GOLOMB",
-    "INTEGER_ENCODING_IDENTITY",
+    "INTEGER_ENCODING_NONE",
+    "INTEGER_ENCODING_IDENTITY",  # Backwards compatibility
     "INTEGER_ENCODING_RICE",
     "INTEGER_ENCODING_STREAMVBYTE",
     "INTEGER_ENCODING_VARINT",
@@ -85,11 +86,13 @@ __all__ = [
     "STRING_ENCODING_BWT_HUFFMAN",
     "STRING_ENCODING_GZIP",
     "STRING_ENCODING_HUFFMAN",
-    "STRING_ENCODING_IDENTITY",
+    "STRING_ENCODING_NONE",
+    "STRING_ENCODING_IDENTITY",  # Backwards compatibility
     "STRING_ENCODING_LZMA",
     "STRING_ENCODING_ZSTD",
     "STRING_ENCODING_ZSTD_DICT",
-    "WALK_DECOMP_IDENTITY",
+    "WALK_DECOMP_NONE",
+    "WALK_DECOMP_IDENTITY",  # Backwards compatibility
     "WALK_DECOMP_ORIENTATION_NUMID",
     "WALK_DECOMP_ORIENTATION_STRID",
     "SECTION_ID_SEGMENT_NAMES",
@@ -102,6 +105,8 @@ __all__ = [
     "make_compression_code",
     "read_bgfa",
     "to_bgfa",
+    "decompress_string_identity",  # Backwards compatibility
+    "decode_integer_list_identity",  # Backwards compatibility
 ]
 
 
@@ -118,7 +123,7 @@ SECTION_ID_WALKS = 5
 # =============================================================================
 
 
-def decompress_string_identity(data: bytes, lengths: list[int]) -> list[bytes]:
+def decompress_string_none(data: bytes, lengths: list[int]) -> list[bytes]:
     """Extract strings from concatenated payload using lengths.
 
     :param data: Concatenated string data (uncompressed)
@@ -145,7 +150,7 @@ def decompress_string_zstd(data: bytes, lengths: list[int]) -> list[bytes]:
     import compression.zstd as z
 
     decompressed = z.decompress(data)
-    return decompress_string_identity(decompressed, lengths)
+    return decompress_string_none(decompressed, lengths)
 
 
 def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
@@ -168,7 +173,7 @@ def decompress_string_gzip(data: bytes, lengths: list[int]) -> list[bytes]:
     :return: List of extracted byte strings
     """
     decompressed = gzip.decompress(data)
-    return decompress_string_identity(decompressed, lengths)
+    return decompress_string_none(decompressed, lengths)
 
 
 def decompress_string_lzma(data: bytes, lengths: list[int]) -> list[bytes]:
@@ -179,7 +184,7 @@ def decompress_string_lzma(data: bytes, lengths: list[int]) -> list[bytes]:
     :return: List of extracted byte strings
     """
     decompressed = lzma.decompress(data)
-    return decompress_string_identity(decompressed, lengths)
+    return decompress_string_none(decompressed, lengths)
 
 
 def decompress_string_huffman(data: bytes, lengths: list[int]) -> list[bytes]:
@@ -248,10 +253,10 @@ def decompress_string_huffman(data: bytes, lengths: list[int]) -> list[bytes]:
             current_bits = []
 
     # Split decoded data into strings using provided lengths
-    return decompress_string_identity(bytes(decoded_data), lengths)
+    return decompress_string_none(bytes(decoded_data), lengths)
 
 
-def decode_integer_list_identity(data: bytes, count: int) -> tuple[list[int], int]:
+def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
     """Decode identity-encoded integer list (comma-separated ASCII).
 
     :param data: Encoded data
@@ -666,7 +671,7 @@ logger = logging.getLogger(__name__)
 # Example: 0x0102 means varint (0x01) for integers, gzip (0x02) for strings
 
 # Integer list encoding strategies (high byte)
-INTEGER_ENCODING_IDENTITY = 0x00
+INTEGER_ENCODING_NONE = 0x00
 INTEGER_ENCODING_VARINT = 0x01
 INTEGER_ENCODING_FIXED16 = 0x02
 INTEGER_ENCODING_DELTA = 0x03
@@ -680,7 +685,7 @@ INTEGER_ENCODING_FIXED32 = 0x0A
 INTEGER_ENCODING_FIXED64 = 0x0B
 
 # String encoding strategies (low byte)
-STRING_ENCODING_IDENTITY = 0x00
+STRING_ENCODING_NONE = 0x00
 STRING_ENCODING_ZSTD = 0x01
 STRING_ENCODING_GZIP = 0x02
 STRING_ENCODING_LZMA = 0x03
@@ -695,7 +700,7 @@ STRING_ENCODING_ZSTD_DICT = 0x0B
 
 # Mapping from integer encoding codes to compression functions
 INTEGER_ENCODERS = {
-    INTEGER_ENCODING_IDENTITY: compress_integer_list_none,
+    INTEGER_ENCODING_NONE: compress_integer_list_none,
     INTEGER_ENCODING_VARINT: compress_integer_list_varint,
     INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, size=16),
     INTEGER_ENCODING_DELTA: compress_integer_list_delta,
@@ -711,7 +716,7 @@ INTEGER_ENCODERS = {
 
 # Mapping from string encoding codes to compression functions
 STRING_ENCODERS = {
-    STRING_ENCODING_IDENTITY: compress_string_none,
+    STRING_ENCODING_NONE: compress_string_none,
     STRING_ENCODING_ZSTD: compress_string_zstd,
     STRING_ENCODING_GZIP: compress_string_gzip,
     STRING_ENCODING_LZMA: compress_string_lzma,
@@ -727,7 +732,7 @@ STRING_ENCODERS = {
 
 # Mapping from integer encoding codes to decompression functions
 INTEGER_DECODERS = {
-    INTEGER_ENCODING_IDENTITY: decode_integer_list_identity,
+    INTEGER_ENCODING_NONE: decode_integer_list_none,
     INTEGER_ENCODING_VARINT: decode_integer_list_varint,
     INTEGER_ENCODING_FIXED16: decode_integer_list_fixed16,
     INTEGER_ENCODING_DELTA: decode_integer_list_delta,
@@ -743,7 +748,7 @@ INTEGER_DECODERS = {
 
 # Mapping from string encoding codes to decompression functions
 STRING_DECODERS = {
-    STRING_ENCODING_IDENTITY: decompress_string_identity,
+    STRING_ENCODING_NONE: decompress_string_none,
     STRING_ENCODING_ZSTD: decompress_string_zstd,
     STRING_ENCODING_GZIP: decompress_string_gzip,
     STRING_ENCODING_LZMA: decompress_string_lzma,
@@ -785,7 +790,7 @@ def get_integer_decoder(code: int):
     :return: The decompression function for integers
     """
     int_code = (code >> 8) & 0xFF
-    return INTEGER_DECODERS.get(int_code, decode_integer_list_identity)
+    return INTEGER_DECODERS.get(int_code, decode_integer_list_none)
 
 
 def get_string_decoder(code: int):
@@ -795,7 +800,7 @@ def get_string_decoder(code: int):
     :return: The decompression function for strings
     """
     str_code = code & 0xFF
-    return STRING_DECODERS.get(str_code, decompress_string_identity)
+    return STRING_DECODERS.get(str_code, decompress_string_none)
 
 
 def make_compression_code(int_encoding: int, str_encoding: int) -> int:
@@ -881,7 +886,7 @@ def _compress_string_for_bgfa(concatenated: str, str_encoding: int) -> bytes:
     :param str_encoding: String encoding strategy code (low byte of compression code)
     :return: Compressed bytes
     """
-    if str_encoding == STRING_ENCODING_IDENTITY:
+    if str_encoding == STRING_ENCODING_NONE:
         return concatenated.encode("ascii")
     elif str_encoding == STRING_ENCODING_HUFFMAN:
         return _compress_huffman_payload(concatenated)
@@ -893,7 +898,7 @@ def _compress_string_for_bgfa(concatenated: str, str_encoding: int) -> bytes:
 
 
 # Walks/paths decomposition strategy constants (high byte of compression_paths/compression_walks)
-WALK_DECOMP_IDENTITY = 0x00
+WALK_DECOMP_NONE = 0x00
 WALK_DECOMP_ORIENTATION_STRID = 0x01
 WALK_DECOMP_ORIENTATION_NUMID = 0x02
 
@@ -1010,7 +1015,7 @@ def _encode_walks_payload(
             all_seg_names.append(seg_name)
             all_seg_ids.append(seg_id)
 
-    if decomp_mode == WALK_DECOMP_IDENTITY:
+    if decomp_mode == WALK_DECOMP_NONE:
         # Identity: per-walk count (uint64) + orientation byte + segment_id (uint64)
         parts = []
         idx = 0
@@ -1689,7 +1694,7 @@ class ReaderBGFA:
 
         str_encoding = compression_type & 0xFF
 
-        if str_encoding == STRING_ENCODING_IDENTITY:
+        if str_encoding == STRING_ENCODING_NONE:
             strings = []
             pos = 0
             while pos < len(compressed_data):
@@ -2197,7 +2202,7 @@ class BGFAWriter:
             lengths = [len(name.encode("ascii")) for name in to_write]
             encoded_lengths = int_encoder(lengths)
             # Add comma delimiter for identity integer encoding to separate from compressed names
-            if int_encoding == INTEGER_ENCODING_IDENTITY and lengths:
+            if int_encoding == INTEGER_ENCODING_NONE and lengths:
                 encoded_lengths += b","
 
             concatenated = "".join(to_write)
@@ -2304,7 +2309,7 @@ class BGFAWriter:
             int_encoder = get_integer_encoder(compression_code)
             encoded_ids = int_encoder(segment_ids)
             # Add comma delimiter for identity integer encoding to separate from lengths
-            if int_encoding == INTEGER_ENCODING_IDENTITY and encoded_ids:
+            if int_encoding == INTEGER_ENCODING_NONE and encoded_ids:
                 encoded_ids += b","
             encoded_lengths = int_encoder(sequence_lengths)
             compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
@@ -2412,7 +2417,7 @@ class BGFAWriter:
 
             encoded_from = fromto_int_encoder(from_ids)
             # Add comma delimiter for identity integer encoding to separate from to_ids
-            if fromto_int_encoding == INTEGER_ENCODING_IDENTITY and encoded_from:
+            if fromto_int_encoding == INTEGER_ENCODING_NONE and encoded_from:
                 encoded_from += b","
             encoded_to = fromto_int_encoder(to_ids)
             cigar_lengths = [len(c.encode("ascii")) for c in cigars]
@@ -2509,7 +2514,7 @@ class BGFAWriter:
             name_lengths = [len(name.encode("ascii")) for name in path_names]
             encoded_name_lengths = names_int_encoder(name_lengths)
             # Add comma delimiter for identity integer encoding
-            if names_int_encoding == INTEGER_ENCODING_IDENTITY and name_lengths:
+            if names_int_encoding == INTEGER_ENCODING_NONE and name_lengths:
                 encoded_name_lengths += b","
             compressed_name_data = _compress_string_for_bgfa("".join(path_names), names_str_encoding)
             compressed_names = encoded_name_lengths + compressed_name_data
@@ -2536,7 +2541,7 @@ class BGFAWriter:
             cigar_lengths = [len(c.encode("ascii")) for c in all_cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
             # Add comma delimiter for identity integer encoding
-            if cigars_int_encoding == INTEGER_ENCODING_IDENTITY and cigar_lengths:
+            if cigars_int_encoding == INTEGER_ENCODING_NONE and cigar_lengths:
                 encoded_cigar_lengths += b","
             compressed_cigar_data = _compress_string_for_bgfa("".join(all_cigars), cigars_str_encoding)
             compressed_cigars = encoded_cigar_lengths + compressed_cigar_data
@@ -2649,7 +2654,7 @@ class BGFAWriter:
             sam_lengths = [len(s.encode("ascii")) for s in sample_ids]
             encoded_sam_lengths = sam_int_encoder(sam_lengths)
             # Add comma delimiter for identity integer encoding
-            if sam_int_encoding == INTEGER_ENCODING_IDENTITY and sam_lengths:
+            if sam_int_encoding == INTEGER_ENCODING_NONE and sam_lengths:
                 encoded_sam_lengths += b","
             compressed_sam_data = _compress_string_for_bgfa("".join(sample_ids), sam_str_encoding)
             compressed_samples = encoded_sam_lengths + compressed_sam_data
@@ -2674,7 +2679,7 @@ class BGFAWriter:
             seq_lengths = [len(s.encode("ascii")) for s in seq_ids]
             encoded_seq_lengths = seq_int_encoder(seq_lengths)
             # Add comma delimiter for identity integer encoding
-            if seq_int_encoding == INTEGER_ENCODING_IDENTITY and seq_lengths:
+            if seq_int_encoding == INTEGER_ENCODING_NONE and seq_lengths:
                 encoded_seq_lengths += b","
             compressed_seq_data = _compress_string_for_bgfa("".join(seq_ids), seq_str_encoding)
             compressed_seqids = encoded_seq_lengths + compressed_seq_data
@@ -2880,25 +2885,25 @@ def to_bgfa(
     gfa_graph: GFA,
     file=None,
     block_size: int = 1024,
-    segment_names_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    segment_names_str_encoding: int = STRING_ENCODING_IDENTITY,
-    segments_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    segments_str_encoding: int = STRING_ENCODING_IDENTITY,
-    links_fromto_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    links_cigars_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    links_cigars_str_encoding: int = STRING_ENCODING_IDENTITY,
-    paths_names_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    paths_names_str_encoding: int = STRING_ENCODING_IDENTITY,
+    segment_names_int_encoding: int = INTEGER_ENCODING_NONE,
+    segment_names_str_encoding: int = STRING_ENCODING_NONE,
+    segments_int_encoding: int = INTEGER_ENCODING_NONE,
+    segments_str_encoding: int = STRING_ENCODING_NONE,
+    links_fromto_int_encoding: int = INTEGER_ENCODING_NONE,
+    links_cigars_int_encoding: int = INTEGER_ENCODING_NONE,
+    links_cigars_str_encoding: int = STRING_ENCODING_NONE,
+    paths_names_int_encoding: int = INTEGER_ENCODING_NONE,
+    paths_names_str_encoding: int = STRING_ENCODING_NONE,
     paths_paths_compression: int = 0x0000,
-    paths_cigars_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    paths_cigars_str_encoding: int = STRING_ENCODING_IDENTITY,
-    walks_sample_ids_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    walks_sample_ids_str_encoding: int = STRING_ENCODING_IDENTITY,
-    walks_hap_indices_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    walks_seq_ids_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    walks_seq_ids_str_encoding: int = STRING_ENCODING_IDENTITY,
-    walks_start_int_encoding: int = INTEGER_ENCODING_IDENTITY,
-    walks_end_int_encoding: int = INTEGER_ENCODING_IDENTITY,
+    paths_cigars_int_encoding: int = INTEGER_ENCODING_NONE,
+    paths_cigars_str_encoding: int = STRING_ENCODING_NONE,
+    walks_sample_ids_int_encoding: int = INTEGER_ENCODING_NONE,
+    walks_sample_ids_str_encoding: int = STRING_ENCODING_NONE,
+    walks_hap_indices_int_encoding: int = INTEGER_ENCODING_NONE,
+    walks_seq_ids_int_encoding: int = INTEGER_ENCODING_NONE,
+    walks_seq_ids_str_encoding: int = STRING_ENCODING_NONE,
+    walks_start_int_encoding: int = INTEGER_ENCODING_NONE,
+    walks_end_int_encoding: int = INTEGER_ENCODING_NONE,
     walks_walks_compression: int = 0x0000,
     verbose: bool = False,
     debug: bool = False,
@@ -2938,7 +2943,7 @@ def to_bgfa(
     compression_options = {
         "segment_names_compression_code": make_compression_code(segment_names_int_encoding, segment_names_str_encoding),
         "segments_compression_code": make_compression_code(segments_int_encoding, segments_str_encoding),
-        "links_fromto_compression_code": make_compression_code(links_fromto_int_encoding, STRING_ENCODING_IDENTITY),
+        "links_fromto_compression_code": make_compression_code(links_fromto_int_encoding, STRING_ENCODING_NONE),
         "links_cigars_compression_code": make_compression_code(links_cigars_int_encoding, links_cigars_str_encoding),
         "paths_names_compression_code": make_compression_code(paths_names_int_encoding, paths_names_str_encoding),
         "paths_paths_compression_code": paths_paths_compression,
@@ -2947,11 +2952,11 @@ def to_bgfa(
             walks_sample_ids_int_encoding, walks_sample_ids_str_encoding
         ),
         "walks_hap_indices_compression_code": make_compression_code(
-            walks_hap_indices_int_encoding, STRING_ENCODING_IDENTITY
+            walks_hap_indices_int_encoding, STRING_ENCODING_NONE
         ),
         "walks_seq_ids_compression_code": make_compression_code(walks_seq_ids_int_encoding, walks_seq_ids_str_encoding),
-        "walks_start_compression_code": make_compression_code(walks_start_int_encoding, STRING_ENCODING_IDENTITY),
-        "walks_end_compression_code": make_compression_code(walks_end_int_encoding, STRING_ENCODING_IDENTITY),
+        "walks_start_compression_code": make_compression_code(walks_start_int_encoding, STRING_ENCODING_NONE),
+        "walks_end_compression_code": make_compression_code(walks_end_int_encoding, STRING_ENCODING_NONE),
         "walks_walks_compression_code": walks_walks_compression,
     }
     bgfa = BGFAWriter(gfa_graph, block_size, compression_options)
@@ -3288,3 +3293,19 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
         writer.writerows(rows)
 
     return rows
+
+
+# Backwards compatibility aliases
+INTEGER_ENCODING_IDENTITY = INTEGER_ENCODING_NONE
+STRING_ENCODING_IDENTITY = STRING_ENCODING_NONE
+WALK_DECOMP_IDENTITY = WALK_DECOMP_NONE
+
+
+def decompress_string_identity(data: bytes, lengths: list[int]) -> list[bytes]:
+    """Backwards compatibility alias for decompress_string_none."""
+    return decompress_string_none(data, lengths)
+
+
+def decode_integer_list_identity(data: bytes, count: int) -> tuple[list[int], int]:
+    """Backwards compatibility alias for decode_integer_list_none."""
+    return decode_integer_list_none(data, count)
