@@ -370,7 +370,7 @@ def decode_integer_list_fixed64(data: bytes, count: int) -> tuple[list[int], int
 
 
 def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
-    """Decode delta-encoded integer list (deltas stored as varint).
+    """Decode delta-encoded integer list (deltas stored as zigzag-encoded varint).
 
     :param data: Encoded data
     :param count: Expected number of integers (-1 for all available)
@@ -380,10 +380,19 @@ def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
     if not deltas:
         return [], consumed
 
+    # Convert from zigzag encoding to signed integers
+    signed_deltas = []
+    for v in deltas:
+        if (v & 1) == 0:
+            delta = v >> 1
+        else:
+            delta = -(v >> 1) - 1
+        signed_deltas.append(delta)
+
     # Reconstruct original values from deltas
-    result = [deltas[0]]
-    for i in range(1, len(deltas)):
-        result.append(result[-1] + deltas[i])
+    result = [signed_deltas[0]]
+    for i in range(1, len(signed_deltas)):
+        result.append(result[-1] + signed_deltas[i])
 
     return result, consumed
 
