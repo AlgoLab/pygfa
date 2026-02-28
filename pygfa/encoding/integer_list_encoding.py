@@ -42,7 +42,10 @@ def compress_integer_list_delta(int_list: Iterable[int], _size: int = 0) -> byte
     prev = 0
     for val in int_list:
         delta = val - prev
-        v = delta
+        if delta >= 0:
+            v = delta << 1
+        else:
+            v = ((-delta - 1) << 1) | 1
         while True:
             byte = v & 0x7F
             v >>= 7
