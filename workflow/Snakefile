@@ -21,8 +21,28 @@ def discover_encodings():
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise Exception(f"Failed to discover encodings: {result.stderr}")
-    output = result.stdout.split('\n', 1)[1] if '\n' in result.stdout else result.stdout
-    return json.loads(output)
+    raw_encodings = json.loads(result.stdout)
+    
+    encoding_map = {
+        "two_bit_dna": "2bit",
+        "elias_gamma": "gamma",
+        "elias_omega": "omega",
+        "simple_8b": "simple8b",
+        "identity": "none",
+    }
+    
+    encodings = {}
+    for option, methods in raw_encodings.items():
+        normalized = []
+        seen = set()
+        for m in methods:
+            mapped = encoding_map.get(m, m)
+            if mapped and mapped not in seen:
+                normalized.append(mapped)
+                seen.add(mapped)
+        encodings[option] = normalized
+    
+    return encodings
 
 
 def discover_datasets():
@@ -78,8 +98,8 @@ def get_all_csv_files():
     files = []
     for option in options:
         for encoding in encodings[option]:
-            for dataset in datasets:
-                for block_size in BLOCK_SIZES:
+            for block_size in BLOCK_SIZES:
+                for dataset in datasets:
                     files.append(f"{OUTPUT_DIR}/{option}/{dataset}/{encoding}_{block_size}.csv")
     return files
 
@@ -120,9 +140,9 @@ rule benchmark_option:
         all_options = get_cached_data()[0].keys()
         for opt in all_options:
             if opt == option:
-                bgfa_cmd.extend([f"--{opt}", encoding])
+                bgfa_cmd.extend([f"--{opt.replace('_', '-')}", encoding])
             else:
-                bgfa_cmd.extend([f"--{opt}", "identity"])
+                bgfa_cmd.extend([f"--{opt.replace('_', '-')}", "none"])
 
         result = subprocess.run(bgfa_cmd, capture_output=True, text=True)
         if result.returncode != 0:

@@ -122,7 +122,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field                    | Description                                             | Type     |
 |--------------------------|---------------------------------------------------------|----------|
-| `section_id`             | Section type (4 = paths)                               | `uint8`  |
+| `section_id`             | Section type (4 = paths)                                | `uint8`  |
 | `record_num`             | number of record in the block <= block_size             | `uint16` |
 | `compression_path`_names | Encoding strategy for the path names                    | `uint16` |
 | `compression_paths`      | Encoding strategy for the paths as list of segments ids | `uint16` |
@@ -152,7 +152,7 @@ Only the last block can have fewer than `block_size` objects.
 
 | Field                   | Description                                       | Type     |
 |-------------------------|---------------------------------------------------|----------|
-| `section_id`            | Section type (5 = walks)                         | `uint8`  |
+| `section_id`            | Section type (5 = walks)                          | `uint8`  |
 | `record_num`            | number of record in the block <= block_size       | `uint16` |
 | `compression_samples`   | Encoding strategy for the sample IDs              | `uint16` |
 | `compression_hep`       | Encoding strategy for the haplotype indices       | `uint16` |
@@ -188,8 +188,8 @@ We use question marks `??` to represent that all values of the byte can be used.
 
 | Code     | Strategy       | Type     |
 |----------|----------------|----------|
-| `0x00??` | Identity       | `uints`  |
-| `0x??00` | Identity       | `string` |
+| `0x00??` | none       | `uints`  |
+| `0x??00` | none       | `string` |
 | `0x01??` | varint         | `uints`  |
 | `0x02??` | fixed16        | `uints`  |
 | `0x03??` | delta          | `uints`  |
@@ -299,10 +299,10 @@ Run-Length Encoding efficiently compresses sequences with repeated characters (h
 
 #### Dictionary Encoding (0x??0A)
 
-Dictionary encoding is optimized for repetitive string data by replacing repeated strings with short references to a dictionary. In the BGFA framework, the single-string encoder uses identity mode for compatibility, while the list-based encoder provides full dictionary compression.
+Dictionary encoding is optimized for repetitive string data by replacing repeated strings with short references to a dictionary. In the BGFA framework, the single-string encoder uses none mode for compatibility, while the list-based encoder provides full dictionary compression.
 
 **Single-String Mode (BGFA Framework):**
-For compatibility with the BGFA block-based encoding where strings are processed individually, this mode uses identity encoding (no transformation).
+For compatibility with the BGFA block-based encoding where strings are processed individually, this mode uses none encoding (no transformation).
 
 **List Mode (Standalone Use):**
 The full dictionary implementation (`compress_string_list_dictionary` in `pygfa/encoding/string_encoding.py`) provides:
@@ -390,7 +390,7 @@ each component.
 
 | Code       | Strategy                         |
 |------------|----------------------------------|
-| `0x00??????` | Identity                         |
+| `0x00??????` | none                         |
 | `0x01??????` | numOperations+lengths+operations |
 | `0x02??????` | string                           |
 
@@ -423,7 +423,7 @@ each component.
 
 | Code       | Strategy          |
 |------------|-------------------|
-| `0x00??????` | Identity          |
+| `0x00??????` | none          |
 | `0x01??????` | orientation+strid |
 | `0x02??????` | orientation+numid |
 
