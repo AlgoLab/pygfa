@@ -404,7 +404,7 @@ if __name__ == "__main__":
         temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
         logfile = temp_log.name
         temp_log.close()
-        print(f"Logging to temporary file: {logfile}")
+        print(f"Logging to temporary file: {logfile}", file=sys.stderr)
 
     # Clear any existing handlers
     logging.getLogger().handlers.clear()
