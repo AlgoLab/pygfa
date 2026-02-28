@@ -5,19 +5,18 @@ from collections.abc import Iterable
 
 
 def compress_integer_list_varint(int_list: Iterable[int], _size: int = 0) -> bytes:
-    encoded_bytes = b""
+    out = []
     for integer in int_list:
         value = integer
         while True:
             byte = value & 0x7F
             value >>= 7
             if value == 0:
-                encoded_bytes += bytes([byte])
+                out.append(byte)
                 break
             else:
-                byte |= 0x80
-                encoded_bytes += bytes([byte])
-    return encoded_bytes
+                out.append(byte | 0x80)
+    return bytes(out)
 
 
 def compress_integer_list_fixed(int_list: Iterable[int], size: int = 32) -> bytes:
