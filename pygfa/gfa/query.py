@@ -689,6 +689,7 @@ class GFAParserMixin(BaseGFA):
 
         _INT_NAME_TO_CODE = {
             "": INTEGER_ENCODING_IDENTITY,
+            "none": INTEGER_ENCODING_IDENTITY,
             "varint": INTEGER_ENCODING_VARINT,
             "fixed16": INTEGER_ENCODING_FIXED16,
             "fixed32": INTEGER_ENCODING_FIXED32,
@@ -703,6 +704,7 @@ class GFAParserMixin(BaseGFA):
         }
         _STR_NAME_TO_CODE = {
             "": STRING_ENCODING_IDENTITY,
+            "none": STRING_ENCODING_IDENTITY,
             "zstd": STRING_ENCODING_ZSTD,
             "gzip": STRING_ENCODING_GZIP,
             "lzma": STRING_ENCODING_LZMA,
@@ -710,14 +712,14 @@ class GFAParserMixin(BaseGFA):
         }
 
         def _resolve_int(name):
-            if name is None or name == "":
+            if name is None or name == "" or name == "none":
                 return INTEGER_ENCODING_IDENTITY
             if isinstance(name, int):
                 return name
             return _INT_NAME_TO_CODE.get(str(name), INTEGER_ENCODING_IDENTITY)
 
         def _resolve_str(name):
-            if name is None or name == "":
+            if name is None or name == "" or name == "none":
                 return STRING_ENCODING_IDENTITY
             if isinstance(name, int):
                 return name

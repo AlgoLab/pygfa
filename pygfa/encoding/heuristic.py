@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration constants
 HEURISTIC_SAMPLE_SIZE = 1000  # Number of records to sample for analysis
-HEURISTIC_FALLBACK_INT = IntegerEncoding.IDENTITY  # Default fallback for integers
-HEURISTIC_FALLBACK_STR = StringEncoding.IDENTITY  # Default fallback for strings
+HEURISTIC_FALLBACK_INT = IntegerEncoding.NONE  # Default fallback for integers
+HEURISTIC_FALLBACK_STR = StringEncoding.NONE  # Default fallback for strings
 
 
 def is_sequential(data: List[int]) -> bool:
@@ -177,11 +177,11 @@ def select_encoding(sample_data: bytes, data_type: str) -> tuple[IntegerEncoding
             int_sample.append(val)
 
         int_enc = select_integer_encoding(int_sample)
-        return int_enc, StringEncoding.IDENTITY
+        return int_enc, StringEncoding.NONE
 
     elif data_type == "strings":
         str_enc = select_string_encoding(sample_data[: HEURISTIC_SAMPLE_SIZE * 100])
-        return IntegerEncoding.IDENTITY, str_enc
+        return IntegerEncoding.NONE, str_enc
 
     else:
         logger.warning(f"Unknown data type: {data_type}, using fallback")

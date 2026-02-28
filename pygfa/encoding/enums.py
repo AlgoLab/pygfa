@@ -15,7 +15,8 @@ class IntegerEncoding(IntEnum):
     The high byte (0x??00) of a compression code represents the integer encoding.
     """
 
-    IDENTITY = 0x00
+    NONE = 0x00
+    IDENTITY = NONE  # Alias for backwards compatibility
     VARINT = 0x01
     FIXED16 = 0x02
     DELTA = 0x03
@@ -44,7 +45,8 @@ class StringEncoding(IntEnum):
     The low byte (0x00??) of a compression code represents the string encoding.
     """
 
-    IDENTITY = 0x00
+    NONE = 0x00
+    IDENTITY = NONE  # Alias for backwards compatibility
     ZSTD = 0x01
     GZIP = 0x02
     LZMA = 0x03
@@ -67,7 +69,8 @@ class WalkDecomposition(IntEnum):
     These strategies determine how walk data is decomposed for compression.
     """
 
-    IDENTITY = 0x00
+    NONE = 0x00
+    IDENTITY = NONE  # Alias for backwards compatibility
     ORIENTATION_STRID = 0x01
     ORIENTATION_NUMID = 0x02
 
@@ -78,7 +81,7 @@ class CigarDecomposition(IntEnum):
     These strategies determine how CIGAR strings are decomposed for compression.
     """
 
-    IDENTITY = 0x00
+    NONE = 0x00
     NUM_OPERATIONS = 0x01
     STRING = 0x02
 

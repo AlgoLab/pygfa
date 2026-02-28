@@ -349,12 +349,12 @@ class TestBlockSizes:
 # ---------------------------------------------------------------------------
 
 INT_ENCODINGS = [
-    ("identity", 0x00),
+    ("none", 0x00),
     ("varint", 0x01),
     ("delta", 0x03),
 ]
 STR_ENCODINGS = [
-    ("identity", 0x00),
+    ("none", 0x00),
     ("zstd", 0x01),
     ("gzip", 0x02),
 ]
