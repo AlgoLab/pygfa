@@ -38,6 +38,7 @@ from pygfa.encoding import (
     compress_string_bwt_huffman,
     compress_string_gzip,
     compress_string_list,
+    compress_string_list_huffman,
     compress_string_lzma,
     compress_string_none,
     compress_string_zstd,
@@ -63,6 +64,18 @@ from pygfa.encoding.dictionary_encoding import (
     compress_string_dictionary,
     decompress_string_dictionary,
 )
+from pygfa.encoding.lz4_codec import (
+    compress_string_lz4,
+    decompress_string_lz4,
+)
+from pygfa.encoding.brotli_codec import (
+    compress_string_brotli,
+    decompress_string_brotli,
+)
+from pygfa.encoding.ppm_coding import (
+    compress_string_ppm,
+    decompress_string_ppm,
+)
 from pygfa.encoding.string_encoding import _build_codes, _build_huffman_tree
 from pygfa.gfa import GFA
 from pygfa.graph_element import edge as ge
@@ -84,11 +97,14 @@ __all__ = [
     "INTEGER_ENCODING_VBYTE",
     "STRING_ENCODING_ARITHMETIC",
     "STRING_ENCODING_BWT_HUFFMAN",
+    "STRING_ENCODING_BROTLI",
     "STRING_ENCODING_GZIP",
     "STRING_ENCODING_HUFFMAN",
+    "STRING_ENCODING_LZ4",
     "STRING_ENCODING_NONE",
     "STRING_ENCODING_IDENTITY",  # Backwards compatibility
     "STRING_ENCODING_LZMA",
+    "STRING_ENCODING_PPM",
     "STRING_ENCODING_ZSTD",
     "STRING_ENCODING_ZSTD_DICT",
     "WALK_DECOMP_NONE",
@@ -706,6 +722,9 @@ STRING_ENCODING_RLE = 0x08
 STRING_ENCODING_CIGAR = 0x09
 STRING_ENCODING_DICTIONARY = 0x0A
 STRING_ENCODING_ZSTD_DICT = 0x0B
+STRING_ENCODING_LZ4 = 0x0C
+STRING_ENCODING_BROTLI = 0x0D
+STRING_ENCODING_PPM = 0x0E
 
 # Mapping from integer encoding codes to compression functions
 INTEGER_ENCODERS = {
@@ -729,7 +748,7 @@ STRING_ENCODERS = {
     STRING_ENCODING_ZSTD: compress_string_zstd,
     STRING_ENCODING_GZIP: compress_string_gzip,
     STRING_ENCODING_LZMA: compress_string_lzma,
-    STRING_ENCODING_HUFFMAN: None,  # Huffman requires special handling (list-based)
+    STRING_ENCODING_HUFFMAN: compress_string_list_huffman,
     STRING_ENCODING_2BIT_DNA: compress_string_2bit_dna,
     STRING_ENCODING_ARITHMETIC: compress_string_arithmetic,
     STRING_ENCODING_BWT_HUFFMAN: compress_string_bwt_huffman,
@@ -737,6 +756,9 @@ STRING_ENCODERS = {
     STRING_ENCODING_CIGAR: compress_string_cigar,
     STRING_ENCODING_DICTIONARY: compress_string_dictionary,
     STRING_ENCODING_ZSTD_DICT: compress_string_zstd_dict,
+    STRING_ENCODING_LZ4: compress_string_lz4,
+    STRING_ENCODING_BROTLI: compress_string_brotli,
+    STRING_ENCODING_PPM: compress_string_ppm,
 }
 
 # Mapping from integer encoding codes to decompression functions
@@ -769,6 +791,9 @@ STRING_DECODERS = {
     STRING_ENCODING_CIGAR: decompress_string_cigar,
     STRING_ENCODING_DICTIONARY: decompress_string_dictionary,
     STRING_ENCODING_ZSTD_DICT: decompress_string_zstd_dict,
+    STRING_ENCODING_LZ4: decompress_string_lz4,
+    STRING_ENCODING_BROTLI: decompress_string_brotli,
+    STRING_ENCODING_PPM: decompress_string_ppm,
 }
 
 
@@ -1751,29 +1776,24 @@ class ReaderBGFA:
         offset += 2
         compression_path_names = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
         offset += 2
+        compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        uncompressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        compression_paths = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        offset += 2
+        compressed_paths_len = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
+        uncompressed_paths_len = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
         compression_cigars = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
         offset += 2
         compressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        offset += 8  # Skip uncompressed_len_cigar
-        compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        offset += 8  # Skip uncompressed_len_name
 
-        # Extract compressed payloads - order: cigars first, then names
-        if compressed_len_cigar > 0:
-            compressed_cigars = bgfa_data[offset : offset + compressed_len_cigar]
-            offset += compressed_len_cigar
-
-            # Decompress cigar strings
-            try:
-                cigar_strings = self._decompress_string_list(compressed_cigars, compression_cigars, record_num)
-            except Exception as e:
-                logger.warning(f"Failed to decompress cigar strings: {e}")
-                cigar_strings = []
-        else:
-            cigar_strings = []
-
+        # Extract compressed payloads - order: names, paths, cigars
         if compressed_len_name > 0:
             compressed_names = bgfa_data[offset : offset + compressed_len_name]
             offset += compressed_len_name
@@ -1786,6 +1806,22 @@ class ReaderBGFA:
                 path_names = []
         else:
             path_names = []
+
+        # Skip paths for now - they require walks decoding
+        offset += compressed_paths_len
+
+        if compressed_len_cigar > 0:
+            compressed_cigars = bgfa_data[offset : offset + compressed_len_cigar]
+            offset += compressed_len_cigar
+
+            # Decompress cigar strings
+            try:
+                cigar_strings = self._decompress_string_list(compressed_cigars, compression_cigars, record_num)
+            except Exception as e:
+                logger.warning(f"Failed to decompress cigar strings: {e}")
+                cigar_strings = []
+        else:
+            cigar_strings = []
 
         # Parse paths data (stored as walks - sequence of oriented segment IDs)
         paths = []
@@ -2409,8 +2445,9 @@ class BGFAWriter:
             for cigar in cigars:
                 payload_parts.append(cigar.encode("ascii") + b"\x00")
             payload = b"".join(payload_parts)
-            uncompressed_len = len(payload)
-            compressed_len = len(payload)
+            compressed_fromto_len = len(payload)
+            compressed_len_cigar = 0
+            uncompressed_len_cigar = 0
         else:
             # Non-identity: format matching reader's _parse_links_block
             # 1. Encoded from IDs
@@ -2441,22 +2478,28 @@ class BGFAWriter:
                 + encoded_cigar_lengths
                 + compressed_cigars_data
             )
-            uncompressed_len = sum(cigar_lengths)
-            compressed_len = len(payload)
+            uncompressed_len_cigar = sum(cigar_lengths)
+            compressed_len_cigar = len(compressed_cigars_data)
+            compressed_fromto_len = len(encoded_from) + len(encoded_to) + len(from_orn_bytes) + len(to_orn_bytes)
 
-        logger.debug(f"Links block payload: compressed_len={compressed_len}, uncompressed_len={uncompressed_len}")
+        logger.debug(
+            f"Links block payload: fromto_len={compressed_fromto_len}, "
+            f"cigars={compressed_len_cigar}/{uncompressed_len_cigar}"
+        )
 
-        # Write header according to spec: section_id (uint8), record_num, compression_fromto, compression_cigars,
-        # compressed_len, uncompressed_len
+        # Write header according to spec:
+        # section_id, record_num, compression_fromto, compressed_fromto_len,
+        # compression_cigars, compressed_cigars_len, uncompressed_cigars_len
         buffer.write(struct.pack("<B", SECTION_ID_LINKS))
         buffer.write(struct.pack("<H", record_num))
         buffer.write(struct.pack("<H", compression_fromto))
+        buffer.write(struct.pack("<Q", compressed_fromto_len))
         buffer.write(struct.pack("<H", compression_cigars))
-        buffer.write(struct.pack("<Q", compressed_len))
-        buffer.write(struct.pack("<Q", uncompressed_len))
+        buffer.write(struct.pack("<Q", compressed_len_cigar))
+        buffer.write(struct.pack("<Q", uncompressed_len_cigar))
         buffer.write(payload)
 
-        bytes_written = 1 + 2 + 2 + 2 + 8 + 8 + compressed_len
+        bytes_written = 1 + 2 + 2 + 8 + 2 + 8 + 8 + compressed_fromto_len + compressed_len_cigar
         logger.info(f"Links block written: {bytes_written} bytes")
 
     def _write_paths_block(
@@ -2532,6 +2575,8 @@ class BGFAWriter:
 
         # Paths payload (segment IDs with orientations) using walks/paths decomposition
         paths_payload = _encode_walks_payload(path_segments, self._segment_map, compression_paths)
+        compressed_paths_len = len(paths_payload)
+        uncompressed_paths_len = compressed_paths_len  # Already represents the path data size
 
         # Build CIGAR payload
         all_cigars = []
@@ -2559,27 +2604,47 @@ class BGFAWriter:
 
         logger.debug(
             f"Paths block: names={compressed_len_name}/{uncompressed_len_name} bytes, "
+            f"paths={compressed_paths_len}/{uncompressed_paths_len} bytes, "
             f"cigars={compressed_len_cigar}/{uncompressed_len_cigar} bytes"
         )
 
-        # Write header according to spec: section_id (uint8), record_num, compression fields, length fields
+        # Write header according to spec:
+        # section_id, record_num,
+        # compression_path_names, compressed_path_names_len, uncompressed_path_names_len,
+        # compression_paths, compressed_paths_len, uncompressed_paths_len,
+        # compression_cigars, compressed_len_cigar, uncompressed_len_cigar
         buffer.write(struct.pack("<B", SECTION_ID_PATHS))
         buffer.write(struct.pack("<H", record_num))
         buffer.write(struct.pack("<H", compression_path_names))
+        buffer.write(struct.pack("<Q", compressed_len_name))
+        buffer.write(struct.pack("<Q", uncompressed_len_name))
         buffer.write(struct.pack("<H", compression_paths))
+        buffer.write(struct.pack("<Q", compressed_paths_len))
+        buffer.write(struct.pack("<Q", uncompressed_paths_len))
         buffer.write(struct.pack("<H", compression_cigars))
         buffer.write(struct.pack("<Q", compressed_len_cigar))
         buffer.write(struct.pack("<Q", uncompressed_len_cigar))
-        buffer.write(struct.pack("<Q", compressed_len_name))
-        buffer.write(struct.pack("<Q", uncompressed_len_name))
 
-        # Write payloads
+        # Write payloads (order: names, paths, cigars)
         buffer.write(compressed_names)
         buffer.write(paths_payload)
         buffer.write(compressed_cigars)
 
         bytes_written = (
-            1 + 2 + 2 + 2 + 2 + 8 + 8 + 8 + 8 + compressed_len_name + len(paths_payload) + compressed_len_cigar
+            1
+            + 2
+            + 2
+            + 8
+            + 8
+            + 2
+            + 8
+            + 8
+            + 2
+            + 8
+            + 8
+            + compressed_len_name
+            + compressed_paths_len
+            + compressed_len_cigar
         )
         logger.info(f"Paths block written: {bytes_written} bytes")
 
@@ -2714,24 +2779,32 @@ class BGFAWriter:
         uncompressed_len_walk = len(compressed_walks)
         compressed_len_walk = len(compressed_walks)
 
+        # Calculate compressed lengths for hep and positions
+        compressed_hep_len = len(compressed_haps)
+        uncompressed_hep_len = len(compressed_haps)  # Same as compressed for integer data
+        compressed_positions_len = len(compressed_starts) + len(compressed_ends)
+
         logger.debug(
             f"Walks block: samples={compressed_len_sam}/{uncompressed_len_sam}, "
-            f"seqs={compressed_len_seq}/{uncompressed_len_seq}, "
-            f"walks={compressed_len_walk}/{uncompressed_len_walk} bytes"
+            f"hep={compressed_hep_len}, seqs={compressed_len_seq}/{uncompressed_len_seq}, "
+            f"positions={compressed_positions_len}, walks={compressed_len_walk}/{uncompressed_len_walk} bytes"
         )
 
-        # Write header according to spec: section_id (uint8), record_num, 5 compression codes, 6 length fields
+        # Write header according to spec:
+        # section_id, record_num, compression codes, length fields
         buffer.write(struct.pack("<B", SECTION_ID_WALKS))
         buffer.write(struct.pack("<H", record_num))
         buffer.write(struct.pack("<H", compression_sample_ids))
-        buffer.write(struct.pack("<H", compression_hap_indices))
-        buffer.write(struct.pack("<H", compression_seq_ids))
-        buffer.write(struct.pack("<H", compression_start))  # shared for start/end positions
-        buffer.write(struct.pack("<H", compression_walks))
         buffer.write(struct.pack("<Q", compressed_len_sam))
         buffer.write(struct.pack("<Q", uncompressed_len_sam))
+        buffer.write(struct.pack("<H", compression_hap_indices))
+        buffer.write(struct.pack("<Q", compressed_hep_len))
+        buffer.write(struct.pack("<H", compression_seq_ids))
         buffer.write(struct.pack("<Q", compressed_len_seq))
         buffer.write(struct.pack("<Q", uncompressed_len_seq))
+        buffer.write(struct.pack("<H", compression_start))  # positions compression
+        buffer.write(struct.pack("<Q", compressed_positions_len))
+        buffer.write(struct.pack("<H", compression_walks))
         buffer.write(struct.pack("<Q", compressed_len_walk))
         buffer.write(struct.pack("<Q", uncompressed_len_walk))
 
@@ -2746,13 +2819,23 @@ class BGFAWriter:
         bytes_written = (
             1
             + 2
-            + 5 * 2  # record_num + 5 compression codes
-            + 6 * 8  # 6 length fields
+            + 2  # compression_sample_ids
+            + 8
+            + 8
+            + 2  # compression_hap_indices
+            + 8
+            + 2  # compression_seq_ids
+            + 8
+            + 8
+            + 2  # compression_positions
+            + 8
+            + 2  # compression_walks
+            + 8
+            + 8
             + compressed_len_sam
-            + len(compressed_haps)
+            + compressed_hep_len
             + compressed_len_seq
-            + len(compressed_starts)
-            + len(compressed_ends)
+            + compressed_positions_len
             + compressed_len_walk
         )
         logger.info(f"Walks block written: {bytes_written} bytes")

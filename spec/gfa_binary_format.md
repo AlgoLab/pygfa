@@ -216,7 +216,11 @@ We use question marks `??` to represent that all values of the byte can be used.
 | `0x??08` | RLE            | `string` |
 | `0x??09` | CIGAR-specific | `string` |
 | `0x??0A` | Dictionary     | `string` |
-  
+| `0x??0B` | ZSTD Dict      | `string` |
+| `0x??0C` | LZ4            | `string` |
+| `0x??0D` | Brotli         | `string` |
+| `0x??0E` | PPM            | `string` |
+
 ### Encoding strings
 
 The first byte determines how we encode the list of lengths of the strings, the
