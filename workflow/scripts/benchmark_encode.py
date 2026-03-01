@@ -108,9 +108,7 @@ def main():
         "bin/bgfatools",
         "measure",
         bgfa_path,
-        csv_file,
-        "--original-gfa",
-        gfa_path,
+        csv_file + ".tmp",
     ]
 
     measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
@@ -121,6 +119,16 @@ def main():
         print(f"stdout: {measure_result.stdout}", file=sys.stderr)
         print(f"stderr: {measure_result.stderr}", file=sys.stderr)
         sys.exit(1)
+
+    with open(csv_file + ".tmp", "r") as f_in:
+        with open(csv_file, "w") as f_out:
+            for line in f_in:
+                if line.startswith("filename,"):
+                    f_out.write("original_gfa," + line)
+                else:
+                    f_out.write(gfa_path + "," + line)
+
+    os.remove(csv_file + ".tmp")
 
     print(f"Successfully encoded {gfa_path} -> {bgfa_path}")
     print(f"Block statistics written to {csv_file}")

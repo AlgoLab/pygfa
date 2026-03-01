@@ -159,11 +159,12 @@ rule measure_bgfa:
     output:
         csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
     run:
+        temp_csv = "/tmp/measure_temp.csv"
+
         measure_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "measure",
             input.bgfa,
-            output.csv,
-            "--original-gfa", input.gfa,
+            temp_csv,
         ]
 
         measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
@@ -173,3 +174,14 @@ rule measure_bgfa:
             print(f"stdout: {measure_result.stdout}", file=sys.stderr)
             print(f"stderr: {measure_result.stderr}", file=sys.stderr)
             raise Exception(f"bgfatools measure failed: {measure_result.stderr}")
+
+        gfa_path = input.gfa
+        with open(temp_csv, "r") as f_in:
+            with open(output.csv, "w") as f_out:
+                for line in f_in:
+                    if line.startswith("filename,"):
+                        f_out.write("original_gfa," + line)
+                    else:
+                        f_out.write(gfa_path + "," + line)
+
+        os.remove(temp_csv)

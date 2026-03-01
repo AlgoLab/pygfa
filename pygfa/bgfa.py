@@ -3033,12 +3033,11 @@ def get_str_encoding_name(code: int) -> str:
     return STR_ENCODING_NAMES.get(code, f"0x{code:02x}")
 
 
-def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> list[dict]:
+def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
     """Analyze BGFA file structure and output block statistics to CSV.
 
     :param input_file: Path to input BGFA file
     :param output_file: Path to output CSV file
-    :param original_gfa: Path to original GFA file
     """
     import csv
     import struct
@@ -3049,11 +3048,9 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
     rows = []
     offset = 0
     filename = os.path.basename(input_file)
-    original_gfa_path = original_gfa if original_gfa else ""
 
     def create_base_row():
         row = {
-            "original_gfa": original_gfa_path,
             "filename": filename,
             "block_type": "",
             "record_count": 0,
@@ -3082,7 +3079,6 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
 
     rows.append(
         {
-            "original_gfa": original_gfa_path,
             "filename": filename,
             "block_type": "header",
             "record_count": "",
@@ -3346,7 +3342,6 @@ def measure_bgfa(input_file: str, output_file: str, original_gfa: str = "") -> l
             break
 
     fieldnames = [
-        "original_gfa",
         "filename",
         "block_type",
         "record_count",
