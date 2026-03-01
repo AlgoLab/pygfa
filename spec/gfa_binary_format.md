@@ -22,10 +22,12 @@ A C string is an ASCII string terminated by `\0`
 
 ### File Header Section
 
-| Field        | Description                                                  | Type       |
-|--------------|--------------------------------------------------------------|------------|
-| `version`    | Format version                                               | `uint16`   |
-| `header`     | gfa header text                                              | `C string` |
+| Field          | Description                          | Type       |
+|----------------|--------------------------------------|------------|
+| `magic_number` | Magic number for bgfa files = "AFGB" | `uint32`   |
+| `version`      | Format version                       | `uint16`   |
+| `header_len`   | length of the header string          | `uint16`   |
+| `header`       | gfa header text                      | `C string` |
 
 The file header does not store `block_size`. The reader must know the block size
 separately (e.g., via configuration or default value of 1024).
@@ -193,8 +195,8 @@ We use question marks `??` to represent that all values of the byte can be used.
 
 | Code     | Strategy       | Type     |
 |----------|----------------|----------|
-| `0x00??` | none       | `uints`  |
-| `0x??00` | none       | `string` |
+| `0x00??` | none           | `uints`  |
+| `0x??00` | none           | `string` |
 | `0x01??` | varint         | `uints`  |
 | `0x02??` | fixed16        | `uints`  |
 | `0x03??` | delta          | `uints`  |

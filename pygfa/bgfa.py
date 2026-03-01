@@ -1178,6 +1178,14 @@ class ReaderBGFA:
 
         gfa = GFA()
 
+        # Validate magic number (AFGB = 0x41464742)
+        if len(bgfa_data) < 4:
+            raise ValueError("BGFA file is too short to contain magic number")
+
+        magic_number = struct.unpack_from("<I", bgfa_data, 0)[0]
+        if magic_number != 0x41464742:  # "AFGB" in hex
+            raise ValueError(f"Invalid magic number: expected 0x41464742 (AFGB), got 0x{magic_number:08x}")
+
         # Parse header
         header = self._parse_header(bgfa_data)
         # Store header information in the GFA object
@@ -1305,18 +1313,29 @@ class ReaderBGFA:
         """
         offset = 0
 
+        # Skip magic number (already validated in read method)
+        offset += 4
+
         # Read version (uint16)
         version = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
 
-        # Skip reserved space (previously block_size + S_len, L_len, P_len, W_len)
-        offset += 34
+        # Read header_len (uint16)
+        header_len = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
 
-        # Read header text (C string)
-        header_text = ""
-        while offset < len(bgfa_data) and bgfa_data[offset] != 0:
-            header_text += chr(bgfa_data[offset])
-            offset += 1
+        # Read header text (C string of length header_len)
+        if offset + header_len > len(bgfa_data):
+            raise ValueError(
+                f"Header text is incomplete: expected {header_len} bytes, got {len(bgfa_data) - offset} bytes"
+            )
+
+        header_text = bgfa_data[offset : offset + header_len].decode("ascii")
+        offset += header_len
+
+        # Validate null terminator
+        if offset >= len(bgfa_data) or bgfa_data[offset] != 0:
+            raise ValueError(f"Header string missing null terminator at offset {offset}")
         offset += 1  # Skip null terminator
 
         return {
@@ -2160,9 +2179,12 @@ class BGFAWriter:
         return result
 
     def _compute_header_size(self):
-        """Estimate header size."""
-        # Version (2) + block_size (2) + counts (4*8) + header text (variable)
-        return 2 + 2 + 32  # Base size, actual text will add more
+        """Estimate header size.
+
+        :return: Estimated header size in bytes
+        """
+        # Magic number (4) + version (2) + header_len (2) + header text (10) + null terminator (1)
+        return 4 + 2 + 2 + 10 + 1
 
     def _compute_segments_size(self):
         """Estimate segments data size."""
@@ -2186,16 +2208,30 @@ class BGFAWriter:
         buffer,
         block_size,
     ):
-        """Write BGFA header in binary format."""
+        """Write BGFA header in binary format.
+
+        :param buffer: BytesIO buffer to write to
+        :param block_size: Block size for calculations
+        """
+        # Write magic number (AFGB = 0x41464742)
+        buffer.write(struct.pack("<I", 0x41464742))
+
         # Write version (uint16)
         buffer.write(struct.pack("<H", 1))
-        # Write reserved space (previously block_size + S_len, L_len, P_len, W_len)
-        buffer.write(b"\x00" * 34)
 
-        # Write header text (C string)
+        # Write header_len (uint16) - length of "H\tVN:Z:1.0" = 10
         header_text = "H\tVN:Z:1.0"
+        buffer.write(struct.pack("<H", len(header_text)))
+
+        # Write header text
         buffer.write(header_text.encode("ascii"))
-        buffer.write(b"\x00")  # null terminator
+
+        # Write null terminator
+        buffer.write(b"\x00")
+
+        # Calculate header size for reference
+        header_size = 4 + 2 + 2 + len(header_text) + 1
+        return header_size
 
     def header(self, block_size: int = 1024) -> bytes:
         """Create placeholder header with zeros."""
