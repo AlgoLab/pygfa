@@ -40,13 +40,13 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field               | Description                                 | Type     |
-|---------------------|---------------------------------------------|----------|
-| `section_id`        | Section type (1 = segment names)            | `uint8`  |
-| `record_num`        | number of record in the block <= block_size | `uint16` |
-| `compression_names` | Encoding strategy for the names             | `uint16` |
-| `compressed_len`    | length of compressed names field            | `uint64` |
-| `uncompressed_len`  | length of uncompressed names field          | `uint64` |
+| Field                    | Description                                 | Type     |
+|--------------------------|---------------------------------------------|----------|
+| `section_id`             | Section type (1 = segment names)            | `uint8`  |
+| `record_num`             | number of record in the block <= block_size | `uint16` |
+| `compression_names`      | Encoding strategy for the names             | `uint16` |
+| `compressed_names_len`   | length of compressed names field            | `uint64` |
+| `uncompressed_names_len` | length of uncompressed names field          | `uint64` |
 
 #### Payload
 
@@ -66,13 +66,13 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field              | Description                                    | Type     |
-|--------------------|------------------------------------------------|----------|
-| `section_id`       | Section type (2 = segments)                    | `uint8`  |
-| `record_num`       | number of record in the block < = block_size   | `uint16` |
-| `compression_str`  | Encoding strategy for the segment sequences    | `uint16` |
-| `compressed_len`   | length of compressed segment_sequences field   | `uint64` |
-| `uncompressed_len` | length of uncompressed segment_sequences field | `uint64` |
+| Field                  | Description                                    | Type     |
+|------------------------|------------------------------------------------|----------|
+| `section_id`           | Section type (2 = segments)                    | `uint8`  |
+| `record_num`           | number of record in the block < = block_size   | `uint16` |
+| `compression_str`      | Encoding strategy for the segment sequences    | `uint16` |
+| `compressed_str_len`   | length of compressed segment_sequences field   | `uint64` |
+| `uncompressed_str_len` | length of uncompressed segment_sequences field | `uint64` |
 
 #### Payload
 
@@ -91,14 +91,15 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                | Description                                  | Type     |
-|----------------------|----------------------------------------------|----------|
-| `section_id`         | Section type (3 = links)                     | `uint8`  |
-| `record_num`         | number of record in the block <= block_size  | `uint16` |
-| `compression_fromto` | Encoding strategy for the from and to fields | `uint16` |
-| `compression_cigars` | Encoding strategy for the cigar strings      | `uint16` |
-| `compressed_len`     | length of compressed concatenated cigars     | `uint64` |
-| `uncompressed_len`   | length of uncompressed concatenated cigars   | `uint64` |
+| Field                     | Description                                  | Type     |
+|---------------------------|----------------------------------------------|----------|
+| `section_id`              | Section type (3 = links)                     | `uint8`  |
+| `record_num`              | number of record in the block <= block_size  | `uint16` |
+| `compression_fromto`      | Encoding strategy for the from and to fields | `uint16` |
+| `compressed_fromto_len`   | length of compressed from and to fields      | `uint64` |
+| `compression_cigars`      | Encoding strategy for the cigar strings      | `uint16` |
+| `compressed_cigars_len`   | length of compressed concatenated cigars     | `uint64` |
+| `uncompressed_cigars_len` | length of uncompressed concatenated cigars   | `uint64` |
 
 #### Payload
 
@@ -120,17 +121,19 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                    | Description                                             | Type     |
-|--------------------------|---------------------------------------------------------|----------|
-| `section_id`             | Section type (4 = paths)                                | `uint8`  |
-| `record_num`             | number of record in the block <= block_size             | `uint16` |
-| `compression_path`_names | Encoding strategy for the path names                    | `uint16` |
-| `compression_paths`      | Encoding strategy for the paths as list of segments ids | `uint16` |
-| `compression_cigars`     | Encoding strategy for the cigar strings                 | `uint16` |
-| `compressed_len_cigar`   | length of compressed concatenated cigars                | `uint64` |
-| `uncompressed_len_cigar` | length of uncompressed concatenated cigars              | `uint64` |
-| `compressed_len_name`    | length of compressed concatenated path_name             | `uint64` |
-| `uncompressed_len_name`  | length of uncompressed concatenated path_name           | `uint64` |
+| Field                         | Description                                             | Type     |
+|-------------------------------|---------------------------------------------------------|----------|
+| `section_id`                  | Section type (4 = paths)                                | `uint8`  |
+| `record_num`                  | number of record in the block <= block_size             | `uint16` |
+| `compression_path_names`      | Encoding strategy for the path names                    | `uint16` |
+| `compressed_path_names_len`   | length of compressed concatenated path_name             | `uint64` |
+| `uncompressed_path_names_len` | length of uncompressed concatenated path_name           | `uint64` |
+| `compression_paths`           | Encoding strategy for the paths as list of segments ids | `uint16` |
+| `compressed_paths_len`        | length of compressed concatenated path_name             | `uint64` |
+| `uncompressed_paths_len`      | length of uncompressed concatenated path_name           | `uint64` |
+| `compression_cigars`          | Encoding strategy for the cigar strings                 | `uint16` |
+| `compressed_len_cigar`        | length of compressed concatenated cigars                | `uint64` |
+| `uncompressed_len_cigar`      | length of uncompressed concatenated cigars              | `uint64` |
 
 #### Payload
 
@@ -150,21 +153,23 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                   | Description                                       | Type     |
-|-------------------------|---------------------------------------------------|----------|
-| `section_id`            | Section type (5 = walks)                          | `uint8`  |
-| `record_num`            | number of record in the block <= block_size       | `uint16` |
-| `compression_samples`   | Encoding strategy for the sample IDs              | `uint16` |
-| `compression_hep`       | Encoding strategy for the haplotype indices       | `uint16` |
-| `compression_sequence`  | Encoding strategy for the sequence IDs            | `uint16` |
-| `compression_positions` | Encoding strategy for the start and end positions | `uint16` |
-| `compression_walks`     | Encoding strategy for the walks                   | `uint16` |
-| `compressed_len_sam`    | length of compressed concatenated sample_id       | `uint64` |
-| `uncompressed_len_sam`  | length of uncompressed concatenated sample_id     | `uint64` |
-| `compressed_len_seq`    | length of compressed concatenated seq_id          | `uint64` |
-| `uncompressed_len_nseq` | length of uncompressed concatenated seq_id        | `uint64` |
-| `compressed_len_walk`   | length of compressed concatenated walks           | `uint64` |
-| `uncompressed_len_walk` | length of uncompressed concatenated walks         | `uint64` |
+| Field                       | Description                                       | Type     |
+|-----------------------------|---------------------------------------------------|----------|
+| `section_id`                | Section type (5 = walks)                          | `uint8`  |
+| `record_num`                | number of record in the block <= block_size       | `uint16` |
+| `compression_samples`       | Encoding strategy for the sample IDs              | `uint16` |
+| `compressed_samples_len`    | length of compressed concatenated sample_id       | `uint64` |
+| `uncompressed_samples_len`  | length of uncompressed concatenated sample_id     | `uint64` |
+| `compression_hep`           | Encoding strategy for the haplotype indices       | `uint16` |
+| `compressed_hep_len`        | length of compressed haplotype indices            | `uint64` |
+| `compression_sequence`      | Encoding strategy for the sequence IDs            | `uint16` |
+| `compressed_sequence_len`   | length of compressed sequence IDs                 | `uint64` |
+| `uncompressed_sequence_len` | length of uncompressed sequence IDs               | `uint64` |
+| `compression_positions`     | Encoding strategy for the start and end positions | `uint16` |
+| `compressed_positions_len`  | length of compressed start and end positions      | `uint64` |
+| `compression_walks`         | Encoding strategy for the walks                   | `uint16` |
+| `compressed_walk_len`       | length of compressed concatenated walks           | `uint64` |
+| `uncompressed_walk_len`     | length of uncompressed concatenated walks         | `uint64` |
 
 #### Payload
 
