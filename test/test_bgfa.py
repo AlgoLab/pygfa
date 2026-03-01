@@ -218,12 +218,17 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
         # Create compression options with specified encoding strategies
         block_size = 1024
         compression_options = {
-            "names": compression_code,
-            "sequences": compression_code,
-            "from_to": compression_code,
-            "cigars": compression_code,
-            "walks": compression_code,
-            "paths": compression_code,
+            "links_fromto_int_encoding": int_encoding,
+            "links_cigars_int_encoding": int_encoding,
+            "links_cigars_str_encoding": str_encoding,
+            "segment_names_int_encoding": int_encoding,
+            "segment_names_str_encoding": str_encoding,
+            "segments_int_encoding": int_encoding,
+            "segments_str_encoding": str_encoding,
+            "paths_names_int_encoding": int_encoding,
+            "paths_names_str_encoding": str_encoding,
+            "paths_cigars_int_encoding": int_encoding,
+            "paths_cigars_str_encoding": str_encoding,
         }
         g.to_bgfa(bgfa_path, block_size, compression_options, verbose=False, debug=False, logfile=None)
         # Check if file was created and is non-empty
