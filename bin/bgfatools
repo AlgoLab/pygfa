@@ -231,9 +231,6 @@ def parse_cli_options():
     )
     measure_parser.add_argument("input_file", help="Path to input BGFA file")
     measure_parser.add_argument("output_file", help="Path to output CSV file")
-    measure_parser.add_argument(
-        "--original-gfa", type=str, help="Path to original GFA file (for reference in output)"
-    )
 
     # show-full-encodings subcommand
     subparsers.add_parser(
@@ -489,8 +486,7 @@ if __name__ == "__main__":
     elif options.get("command") == "measure":
         try:
             logger.info("Measuring BGFA file: %s", options.get("input_file"))
-            original_gfa = options.get("original_gfa", "")
-            measure_bgfa(options.get("input_file"), options.get("output_file"), original_gfa)
+            measure_bgfa(options.get("input_file"), options.get("output_file"))
             logger.info("Measure command completed successfully")
         except Exception as e:
             logger.error("Error during measurement: %s", e, exc_info=True)
