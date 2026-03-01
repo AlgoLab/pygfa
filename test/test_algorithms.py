@@ -1,6 +1,4 @@
 import unittest
-import sys
-import unittest
 from typing import Any
 
 from unittest.mock import Mock

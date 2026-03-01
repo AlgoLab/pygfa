@@ -9,7 +9,6 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-from pygfa.exceptions import FileFormatError
 from pygfa.gfa import GFA
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 

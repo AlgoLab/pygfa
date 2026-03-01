@@ -12,7 +12,6 @@ import logging
 from typing import Any
 
 import networkx as nx
-from typing_extensions import Self
 
 from pygfa.exceptions import GFAError
 from pygfa.graph_element import edge as ge
@@ -294,7 +293,6 @@ class GFAElementsMixin(BaseGFA):
         # Handle string input by parsing it
         if isinstance(subgraph, str):
             from pygfa.graph_element.parser import path
-            from pygfa.graph_element.parser.line import Line
 
             if subgraph[0] == "P":
                 subgraph = sg.Subgraph.from_line(path.Path.from_string(subgraph))

@@ -965,7 +965,6 @@ def _pack_orientation_bits_uint64(orientations: list[int]) -> bytes:
     :param orientations: List of orientation values (0 = "+", 1 = "-")
     :return: Packed bytes (multiple of 8)
     """
-    import math
 
     n = len(orientations)
     num_uint64 = max(1, math.ceil(n / 64)) if n > 0 else 0
@@ -987,7 +986,6 @@ def _unpack_orientation_bits_uint64(data: bytes, count: int) -> tuple[list[int],
     :param count: Number of orientation bits to extract
     :return: (list of 0/1 values, number of bytes consumed)
     """
-    import math
 
     num_uint64 = max(1, math.ceil(count / 64)) if count > 0 else 0
     consumed = num_uint64 * 8
@@ -1192,9 +1190,6 @@ class ReaderBGFA:
             raise ValueError(
                 f"BGFA file is too short: {len(bgfa_data)} bytes, expected at least {header['header_size']}"
             )
-
-        # Default block size (used for reference only, section_id determines block type now)
-        block_size = 1024
 
         # Parse blocks in any order using section_id
         # First pass: collect all segment names (needed for segment/links/paths parsing)
@@ -1870,13 +1865,16 @@ class ReaderBGFA:
         offset += 10  # Skip 5 compression code fields (each uint16)
         compressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        offset += 8  # Skip uncompressed_len_sam
+        uncompressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
         compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        offset += 8  # Skip uncompressed_len_seq
+        uncompressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
         compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        offset += 8  # Skip uncompressed_len_walk
+        uncompressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        offset += 8
 
         # Extract and decompress payloads
         if compressed_len_sam > 0:
