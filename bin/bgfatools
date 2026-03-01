@@ -68,152 +68,152 @@ def parse_cli_options():
     # Compression method options for each component
     compression_group = bgfa_parser.add_argument_group("Compression Options")
     compression_group.add_argument(
-        "--segment-names-header",
+        "--compress-segment-names",
         type=str,
         default="",
-        help="Compression method for segment names header (default: '')"
+        help="Compression method for segment names"
         + string_encoding_str,
     )
     compression_group.add_argument(
-        "--segment-names-payload-lengths",
+        "--compress-segment-names-lens",
         type=str,
         default="",
-        help="Compression method for segment names payload lengths (default: '')",
+        help="Compression method for segment name lengths",
     )
     compression_group.add_argument(
-        "--segment-names-payload-names",
+        "--compress-segment-names-names",
         type=str,
         default="",
-        help="Compression method for segment names payload names (default: '')"
+        help="Compression method for segment name values"
         + string_encoding_str,
     )
     compression_group.add_argument(
-        "--segments-header",
+        "--compress-segments",
         type=str,
         default="",
-        help="Compression method for segments header (default: '')"
+        help="Compression method for segments"
         + string_encoding_str,
     )
     compression_group.add_argument(
-        "--segments-payload-lengths",
+        "--compress-segments-lens",
         type=str,
         default="",
-        help="Compression method for segments payload lengths (default: '')",
+        help="Compression method for segment lengths",
     )
     compression_group.add_argument(
-        "--segments-payload-strings",
+        "--compress-segments-seq",
         type=str,
         default="",
-        help="Compression method for segments payload strings (default: '')"
+        help="Compression method for segment sequences"
         + string_encoding_str,
     )
     compression_group.add_argument(
-        "--links-header",
+        "--compress-links",
         type=str,
         default="",
-        help="Compression method for links header (default: '')",
+        help="Compression method for links",
     )
     compression_group.add_argument(
-        "--links-payload-from",
+        "--compress-links-from",
         type=str,
         default="",
-        help="Compression method for links payload from (default: '')",
+        help="Compression method for links source",
     )
     compression_group.add_argument(
-        "--links-payload-to",
+        "--compress-links-to",
         type=str,
         default="",
-        help="Compression method for links payload to (default: '')",
+        help="Compression method for links destination",
     )
     compression_group.add_argument(
-        "--links-payload-cigar-lengths",
+        "--compress-links-cigar-lens",
         type=str,
         default="",
-        help="Compression method for links payload cigar lengths (default: '')",
+        help="Compression method for links CIGAR lengths",
     )
     compression_group.add_argument(
-        "--links-payload-cigar",
+        "--compress-links-cigar",
         type=str,
         default="",
-        help="Compression method for links payload cigar (default: '')",
+        help="Compression method for links CIGAR",
     )
     compression_group.add_argument(
-        "--paths-header",
+        "--compress-paths",
         type=str,
         default="",
-        help="Compression method for paths header (default: '')",
+        help="Compression method for paths",
     )
     compression_group.add_argument(
-        "--paths-payload-names",
+        "--compress-paths-names",
         type=str,
         default="",
-        help="Compression method for paths payload names (default: '')",
+        help="Compression method for path names",
     )
     compression_group.add_argument(
-        "--paths-payload-segment-lengths",
+        "--compress-paths-seg-lens",
         type=str,
         default="",
-        help="Compression method for paths payload segment lengths (default: '')",
+        help="Compression method for path segment lengths",
     )
     compression_group.add_argument(
-        "--paths-payload-path-ids",
+        "--compress-paths-ids",
         type=str,
         default="",
-        help=f"Compression method for paths payload path ids (default: ''), possible values: {'/'.join(STRING_ENCODINGS.keys())}",
+        help=f"Compression method for path ids (default: ''), possible values: {'/'.join(STRING_ENCODINGS.keys())}",
     )
     compression_group.add_argument(
-        "--paths-payload-cigar-lengths",
+        "--compress-paths-cigar-lens",
         type=str,
         default="",
-        help="Compression method for paths payload cigar lengths (default: '')",
+        help="Compression method for path CIGAR lengths",
     )
     compression_group.add_argument(
-        "--paths-payload-cigar",
+        "--compress-paths-cigar",
         type=str,
         default="",
-        help="Compression method for paths payload cigar (default: '')",
+        help="Compression method for path CIGAR",
     )
     compression_group.add_argument(
-        "--walks-header",
+        "--compress-walks",
         type=str,
         default="",
-        help="Compression method for walks header (default: '')",
+        help="Compression method for walks",
     )
     compression_group.add_argument(
-        "--walks-payload-sample-ids",
+        "--compress-walks-samples",
         type=str,
         default="",
-        help="Compression method for walks payload sample ids (default: '')",
+        help="Compression method for walk sample IDs",
     )
     compression_group.add_argument(
-        "--walks-payload-hep-indices",
+        "--compress-walks-heps",
         type=str,
         default="",
-        help="Compression method for walks payload hep indices (default: '')",
+        help="Compression method for walk HEP indices",
     )
     compression_group.add_argument(
-        "--walks-payload-sequence-ids",
+        "--compress-walks-seqs",
         type=str,
         default="",
-        help="Compression method for walks payload sequence ids (default: '')",
+        help="Compression method for walk sequence IDs",
     )
     compression_group.add_argument(
-        "--walks-payload-start",
+        "--compress-walks-start",
         type=str,
         default="",
-        help="Compression method for walks payload start (default: '')",
+        help="Compression method for walk start positions",
     )
     compression_group.add_argument(
-        "--walks-payload-end",
+        "--compress-walks-end",
         type=str,
         default="",
-        help="Compression method for walks payload end (default: '')",
+        help="Compression method for walk end positions",
     )
     compression_group.add_argument(
-        "--walks-payload-walks",
+        "--compress-walks-data",
         type=str,
         default="",
-        help="Compression method for walks payload walks (default: '')",
+        help="Compression method for walk data",
     )
 
     # cat subcommand
@@ -305,30 +305,30 @@ def parse_cli_options():
 
     # Extract compression options (they have specific names)
     comp_prefixes = [
-        "segment_names_header",
-        "segment_names_payload_lengths",
-        "segment_names_payload_names",
-        "segments_header",
-        "segments_payload_lengths",
-        "segments_payload_strings",
-        "links_header",
-        "links_payload_from",
-        "links_payload_to",
-        "links_payload_cigar_lengths",
-        "links_payload_cigar",
-        "paths_header",
-        "paths_payload_names",
-        "paths_payload_segment_lengths",
-        "paths_payload_path_ids",
-        "paths_payload_cigar_lengths",
-        "paths_payload_cigar",
-        "walks_header",
-        "walks_payload_sample_ids",
-        "walks_payload_hep_indices",
-        "walks_payload_sequence_ids",
-        "walks_payload_start",
-        "walks_payload_end",
-        "walks_payload_walks",
+        "compress-segment-names",
+        "compress-segment-names-lens",
+        "compress-segment-names-names",
+        "compress-segments",
+        "compress-segments-lens",
+        "compress-segments-seq",
+        "compress-links",
+        "compress-links-from",
+        "compress-links-to",
+        "compress-links-cigar-lens",
+        "compress-links-cigar",
+        "compress-paths",
+        "compress-paths-names",
+        "compress-paths-seg-lens",
+        "compress-paths-ids",
+        "compress-paths-cigar-lens",
+        "compress-paths-cigar",
+        "compress-walks",
+        "compress-walks-samples",
+        "compress-walks-heps",
+        "compress-walks-seqs",
+        "compress-walks-start",
+        "compress-walks-end",
+        "compress-walks-data",
     ]
 
     for prefix in comp_prefixes:
