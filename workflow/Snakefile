@@ -118,13 +118,12 @@ rule aggregate_results:
         "(head -n 1 {input[0]} && tail -n +2 -q {input}) | zstd > {output}"
 
 
-rule benchmark_option:
+rule generate_bgfa:
     input:
         gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
     output:
-        csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
+        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa"
     params:
-        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa",
         block_size=lambda wildcards: wildcards.block_size
     run:
         option = wildcards.option
@@ -133,7 +132,7 @@ rule benchmark_option:
         bgfa_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "bgfa",
             input.gfa,
-            params.bgfa,
+            output.bgfa,
             "--block-size", str(params.block_size),
         ]
 
@@ -152,16 +151,24 @@ rule benchmark_option:
             print(f"stderr: {result.stderr}", file=sys.stderr)
             raise Exception(f"bgfatools bgfa failed: {result.stderr}")
 
+
+rule measure_bgfa:
+    input:
+        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa",
+        gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
+    output:
+        csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
+    run:
         measure_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "measure",
-            params.bgfa,
+            input.bgfa,
             output.csv,
             "--original-gfa", input.gfa,
         ]
 
         measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
         if measure_result.returncode != 0:
-            print(f"ERROR: Measurement failed for {params.bgfa}", file=sys.stderr)
+            print(f"ERROR: Measurement failed for {input.bgfa}", file=sys.stderr)
             print(f"Command: {' '.join(measure_cmd)}", file=sys.stderr)
             print(f"stdout: {measure_result.stdout}", file=sys.stderr)
             print(f"stderr: {measure_result.stderr}", file=sys.stderr)
