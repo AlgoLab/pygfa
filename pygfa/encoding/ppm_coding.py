@@ -284,9 +284,36 @@ def compress_string_list_ppm(string_list: List[str], order: int = 3) -> bytes:
     return bytes(result)
 
 
+def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
+    """Decompress PPM-compressed data and extract strings.
+
+    Note: Full PPM decompression requires re-building the model from the encoded
+    data, which is complex. This implementation provides a basic stub.
+
+    Format:
+        - uint32: original data length
+        - uint8: PPM order
+        - arithmetic-coded data
+
+    Args:
+        data: PPM-compressed data
+        lengths: List of string lengths
+
+    Returns:
+        List of decompressed byte strings (placeholder implementation)
+    """
+    if not data or not lengths:
+        return []
+
+    raise NotImplementedError(
+        "PPM decompression is not fully implemented. PPM requires model reconstruction which is complex."
+    )
+
+
 __all__ = [
     "compress_string_ppm",
     "compress_string_list_ppm",
+    "decompress_string_ppm",
     "PPMModel",
     "SimpleArithmeticCoder",
 ]

@@ -676,11 +676,21 @@ class GFAParserMixin(BaseGFA):
             INTEGER_ENCODING_STREAMVBYTE,
             INTEGER_ENCODING_VARINT,
             INTEGER_ENCODING_VBYTE,
+            STRING_ENCODING_2BIT_DNA,
+            STRING_ENCODING_ARITHMETIC,
+            STRING_ENCODING_BROTLI,
+            STRING_ENCODING_BWT_HUFFMAN,
+            STRING_ENCODING_CIGAR,
+            STRING_ENCODING_DICTIONARY,
             STRING_ENCODING_GZIP,
             STRING_ENCODING_HUFFMAN,
             STRING_ENCODING_IDENTITY,
+            STRING_ENCODING_LZ4,
             STRING_ENCODING_LZMA,
+            STRING_ENCODING_PPM,
+            STRING_ENCODING_RLE,
             STRING_ENCODING_ZSTD,
+            STRING_ENCODING_ZSTD_DICT,
         )
         from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
 
@@ -706,9 +716,19 @@ class GFAParserMixin(BaseGFA):
             "": STRING_ENCODING_IDENTITY,
             "none": STRING_ENCODING_IDENTITY,
             "zstd": STRING_ENCODING_ZSTD,
+            "zstd_dict": STRING_ENCODING_ZSTD_DICT,
             "gzip": STRING_ENCODING_GZIP,
             "lzma": STRING_ENCODING_LZMA,
+            "lz4": STRING_ENCODING_LZ4,
+            "brotli": STRING_ENCODING_BROTLI,
             "huffman": STRING_ENCODING_HUFFMAN,
+            "2bit": STRING_ENCODING_2BIT_DNA,
+            "arithmetic": STRING_ENCODING_ARITHMETIC,
+            "bwt_huffman": STRING_ENCODING_BWT_HUFFMAN,
+            "rle": STRING_ENCODING_RLE,
+            "cigar": STRING_ENCODING_CIGAR,
+            "dictionary": STRING_ENCODING_DICTIONARY,
+            "ppm": STRING_ENCODING_PPM,
         }
 
         def _resolve_int(name):
