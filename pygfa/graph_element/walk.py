@@ -7,7 +7,7 @@ Walks are introduced in GFA 1.1 and represent haplotype paths.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List
 
 from pygfa.exceptions import InvalidWalkError
 
@@ -81,7 +81,6 @@ class Walk:
         Returns:
             New Walk instance
         """
-        from pygfa.graph_element.parser import line as line_module
 
         if not hasattr(line, "fields"):
             raise InvalidWalkError("Line object must have 'fields' attribute")

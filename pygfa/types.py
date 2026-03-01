@@ -7,7 +7,6 @@ Uses Python 3.14+ type annotation features.
 from __future__ import annotations
 
 from typing import Any, Optional, Protocol, TypeVar, Union
-from collections.abc import Iterator
 
 # Type variables
 T = TypeVar("T")

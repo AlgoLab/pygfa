@@ -16,12 +16,11 @@ import lark
 import networkx as nx
 from networkx.classes.function import all_neighbors as nx_all_neighbors
 
-from pygfa.exceptions import GFAError, InvalidSearchParameters
+from pygfa.exceptions import GFAError
 from pygfa.gfa.base import BaseGFA, Element
 from pygfa.graph_element import edge as ge
 from pygfa.graph_element import node
 from pygfa.graph_element import subgraph as sg
-from pygfa.graph_element.parser import segment
 from pygfa.utils.file_opener import open_gfa_file
 
 GRAPH_LOGGER = logging.getLogger(__name__)
