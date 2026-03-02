@@ -1797,19 +1797,19 @@ class ReaderBGFA:
         offset += 2
         compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        compression_paths = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
         offset += 2
         compressed_paths_len = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_paths_len = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compression_cigars = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
         offset += 2
         compressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
 
         # Extract compressed payloads - order: names, paths, cigars
@@ -1889,15 +1889,15 @@ class ReaderBGFA:
         offset += 10  # Skip 5 compression code fields (each uint16)
         compressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
         compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
-        uncompressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
         offset += 8
 
         # Extract and decompress payloads
@@ -2826,7 +2826,7 @@ class BGFAWriter:
 
         # Calculate compressed lengths for hep and positions
         compressed_hep_len = len(compressed_haps)
-        uncompressed_hep_len = len(compressed_haps)  # Same as compressed for integer data
+        len(compressed_haps)  # Same as compressed for integer data
         compressed_positions_len = len(compressed_starts) + len(compressed_ends)
 
         logger.debug(
