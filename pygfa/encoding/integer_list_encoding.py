@@ -69,23 +69,34 @@ def compress_integer_list_elias_gamma(int_list: Iterable[int], _size: int = 0) -
 
 
 def compress_integer_list_elias_omega(int_list: Iterable[int], _size: int = 0) -> bytes:
-    out = []
+    out = bytearray()
     for n in int_list:
-        if n == 0:
-            out.append(b"\x01")
+        # Elias omega encoding for non-negative integers.
+        # We encode n+1 so that 0 can be represented.
+        m = n + 1
+        if m == 1:
+            # n=0: encode as single 0x01 byte (bit 1)
+            out.append(1)
             continue
-        bits = [1]
-        while n > 1:
-            bits.append(n & 1)
-            n >>= 1
-        bits.reverse()
-        out.append(bytes([0x80] * (len(bits) - 1) + bits))
-    return b"".join(out)
+
+        # Get binary representation of m (MSB first)
+        bits = []
+        temp = m
+        while temp:
+            bits.insert(0, temp & 1)
+            temp >>= 1
+
+        # Prepend (len(bits)-1) copies of 0x80
+        out.extend([0x80] * (len(bits) - 1))
+        # Append bits as bytes (0 or 1)
+        out.extend(bits)
+
+    return bytes(out)
 
 
 def _golomb_encode(n: int, b: int) -> bytes:
     quotient, remainder = divmod(n, b)
-    return b"\x80" * quotient + bytes([remainder | (1 if quotient else 0)])
+    return b"\x80" * quotient + bytes([remainder])
 
 
 def compress_integer_list_golomb(int_list: Iterable[int], _size: int = 0) -> bytes:
@@ -102,7 +113,8 @@ def compress_integer_list_rice(int_list: Iterable[int], size: int = 4) -> bytes:
     out = [bytes([k])]
     for n in int_list:
         quotient, remainder = divmod(n, b)
-        out.append(b"\x80" * quotient + bytes([remainder | (1 if quotient else 0)]))
+        # Leading 0x80 bytes for quotient, then remainder byte
+        out.append(b"\x80" * quotient + bytes([remainder]))
     return b"".join(out)
 
 
