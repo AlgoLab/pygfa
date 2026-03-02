@@ -37,7 +37,7 @@ class TestCanonicalGFA(TestToolsBase):
             # Should not crash and should show help
             self.assertEqual(result.returncode, 0)
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("canonical_gfa.py not available or timeout")
+            self.fail("canonical_gfa.py not available or timeout")
 
 
 class TestPrettifyGFA(TestToolsBase):
@@ -66,7 +66,7 @@ class TestPrettifyGFA(TestToolsBase):
                 os.unlink(temp_file)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("prettify_gfa.py not available or timeout")
+            self.fail("prettify_gfa.py not available or timeout")
 
     def test_prettify_gfa_missing_file(self):
         """Test prettify GFA with missing file."""
@@ -79,7 +79,7 @@ class TestPrettifyGFA(TestToolsBase):
             self.assertNotEqual(result.returncode, 0)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("prettify_gfa.py not available or timeout")
+            self.fail("prettify_gfa.py not available or timeout")
 
 
 class TestSameGFA(TestToolsBase):
@@ -96,9 +96,8 @@ class TestSameGFA(TestToolsBase):
             self.assertTrue("usage:" in result.stderr.lower() or "usage:" in result.stdout)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("same_gfa.py not available or timeout")
+            self.fail("same_gfa.py not available or timeout")
 
-    @unittest.skip("Graph comparison now includes edge metadata - needs update")
     def test_same_gfa_basic_comparison(self):
         """Test basic GFA comparison."""
         try:
@@ -127,7 +126,7 @@ class TestSameGFA(TestToolsBase):
                     os.unlink(temp_file)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("same_gfa.py not available or timeout")
+            self.fail("same_gfa.py not available or timeout")
 
     def test_same_gfa_different_files(self):
         """Test comparison of different GFA files."""
@@ -158,7 +157,7 @@ class TestSameGFA(TestToolsBase):
                     os.unlink(temp_file)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("same_gfa.py not available or timeout")
+            self.fail("same_gfa.py not available or timeout")
 
 
 class TestToolsIntegration(TestToolsBase):
@@ -196,7 +195,7 @@ class TestToolsIntegration(TestToolsBase):
                 os.unlink(temp_file)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("Tools not available for testing")
+            self.fail("Tools not available for testing")
 
     def test_tool_large_file_handling(self):
         """Test tool behavior with larger GFA files."""
@@ -229,7 +228,7 @@ class TestToolsIntegration(TestToolsBase):
                 os.unlink(temp_file)
 
         except (subprocess.TimeoutExpired, FileNotFoundError):
-            self.skipTest("Tool timeout or not available")
+            self.fail("Tool timeout or not available")
 
 
 class TestToolAvailability(TestToolsBase):
@@ -258,7 +257,7 @@ class TestToolAvailability(TestToolsBase):
                             or "def" in content
                         )
         except Exception:
-            self.skipTest("Could not verify tool executability")
+            self.fail("Could not verify tool executability")
 
 
 if __name__ == "__main__":

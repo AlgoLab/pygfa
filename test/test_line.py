@@ -41,7 +41,6 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(fv.UnknownDataTypeError):
             fv.is_valid("3", "a custom datatype")
 
-    @unittest.skip("API changed: Field type validation refactored")
     def test_field_type(self):
         """Use FieldTestHelper to check how different field data types
         are managed.
@@ -132,7 +131,6 @@ class TestLine(unittest.TestCase):
 
         # GFA2 field tests removed - these constants no longer exist in field_validator
 
-    @unittest.skip("API changed: OptField validation behavior updated")
     def test_OptField(self):
         # test only with valid data
         optf = line.OptField("aa", "test", "Z")
@@ -176,7 +174,6 @@ class TestLine(unittest.TestCase):
         # with self.assertRaises(line.InvalidLineError):
         #     line.Field("aaaaaaa", "test")
 
-    @unittest.skip("API changed: Validation moved to different layer")
     def test_invalid_line(self):
         line_obj = line.Line("S")
         with self.assertRaises(line.InvalidLineError):
@@ -186,7 +183,6 @@ class TestLine(unittest.TestCase):
         with self.assertRaises(line.InvalidLineError):
             line_obj.add_field(line.Field("a", "test"))
 
-    @unittest.skip("API changed: Field validation behavior updated")
     def test_is_field(self):
         f = line.Field("aa", "test")
         self.assertTrue(line.is_field(f))
@@ -201,7 +197,6 @@ class TestLine(unittest.TestCase):
         wrong_field = "I am a wrong field"
         self.assertFalse(line.is_field(wrong_field))
 
-    @unittest.skip("API changed: Line field handling refactored")
     def test_line(self):
         line_ = line.Line("H")
         line_.add_field(line.Field("VN", "Z:1.0"))
@@ -253,7 +248,6 @@ class TestLine(unittest.TestCase):
 
         # GFA2 SegmentV2 tests removed - no longer supported
 
-    @unittest.skip("API changed: Field validation behavior updated")
     def test_Link(self):
         link_obj = link.Link.from_string("L\tfrom_id\t+\tto_id\t-\t100M")
         self.assertEqual(link_obj.type, "L")
@@ -280,7 +274,6 @@ class TestLine(unittest.TestCase):
         self.assertEqual(c.fields["overlap"].value, "5M")
         self.assertTrue(containment.Containment.is_valid(c))
 
-    @unittest.skip("API changed: CIGAR format handling updated")
     def test_Path(self):
         p = path.Path.from_string("P\tpath_id\tn1+,n2-\t100M")
         self.assertEqual(p.type, "P")

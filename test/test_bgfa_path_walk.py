@@ -32,7 +32,6 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         result = self.reader._decompress_string_list(b"", 0x0000, 0)
         self.assertEqual(result, [])
 
-    @unittest.skip("Internal BGFA API has changed - needs update")
     def test_parse_paths_blocks_empty(self):
         """Test parsing empty paths blocks."""
         # Create minimal paths block header with no data
@@ -51,7 +50,6 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         self.assertEqual(paths, [])
         self.assertEqual(bytes_read, 38)  # Expected: 38 bytes (2+2+2+8+8+8+8)
 
-    @unittest.skip("Internal BGFA API has changed - needs update")
     def test_parse_paths_blocks_with_data(self):
         """Test parsing paths blocks with actual data."""
         # Create test data
@@ -86,7 +84,6 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         self.assertEqual(paths[1]["cigar"], "50M")
         self.assertEqual(bytes_read, len(bgfa_data))
 
-    @unittest.skip("Internal BGFA API has changed - needs update")
     def test_parse_walks_blocks_empty(self):
         """Test parsing empty walks blocks."""
         # Create minimal walks block header with no data
@@ -105,7 +102,6 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         self.assertEqual(walks, [])
         self.assertEqual(bytes_read, 50)  # Expected: 50 bytes (2+8+8+8+8+8+8)
 
-    @unittest.skip("Internal BGFA API has changed - needs update")
     def test_parse_walks_blocks_with_data(self):
         """Test parsing walks blocks with actual data."""
         # Create test data
