@@ -21,7 +21,7 @@ class TestPPrint(unittest.TestCase):
         """
         # Check if this test should run for this GFA file
         if not should_run_test_for_gfa("read_gfa", gfa_filename):
-            self.skipTest(f"No '# test: read_gfa' comment found in {gfa_filename}")
+            self.fail(f"No '# test: read_gfa' comment found in {gfa_filename}")
 
         # Create a GFA graph from a file
         graph = gfa.GFA.from_gfa(gfa_filename)
@@ -62,14 +62,12 @@ class TestPPrint(unittest.TestCase):
             # Remove temporary file only on success
             os.unlink(temp_filename)
 
-    @unittest.skip("Pretty-print format changed - needs expected file update")
     def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""
         self._test_pprint_output_matches_expected_file(
             "data/example_1.gfa", "results/test/read_gfa/expected/example_1.txt"
         )
 
-    @unittest.skip("Pretty-print format changed - needs expected file update")
     def test_pprint_output_matches_expected_file_2(self):
         """Test that pprint output matches expected file content."""
         self._test_pprint_output_matches_expected_file(
@@ -89,7 +87,7 @@ class TestPPrint(unittest.TestCase):
 
         # Skip if gzipped file doesn't exist
         if not os.path.exists(gzipped_file):
-            self.skipTest(f"Gzipped file {gzipped_file} not found")
+            self.fail(f"Gzipped file {gzipped_file} not found")
 
         # Read both uncompressed and gzipped versions
         graph_uncompressed = gfa.GFA.from_gfa(gfa_file)
@@ -106,7 +104,7 @@ class TestPPrint(unittest.TestCase):
 
         # Skip if zstd file doesn't exist
         if not os.path.exists(zstd_file):
-            self.skipTest(f"Zstd file {zstd_file} not found")
+            self.fail(f"Zstd file {zstd_file} not found")
 
         # Read both uncompressed and zstd-compressed versions
         graph_uncompressed = gfa.GFA.from_gfa(gfa_file)
@@ -123,7 +121,7 @@ class TestPPrint(unittest.TestCase):
 
         # Skip if xz file doesn't exist
         if not os.path.exists(xz_file):
-            self.skipTest(f"XZ file {xz_file} not found")
+            self.fail(f"XZ file {xz_file} not found")
 
         # Read both uncompressed and xz-compressed versions
         graph_uncompressed = gfa.GFA.from_gfa(gfa_file)

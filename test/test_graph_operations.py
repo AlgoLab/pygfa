@@ -45,7 +45,6 @@ class TestCompressionOperations(TestGraphOperationsBase):
         result = tuple_to_string(("node2", "-"))
         self.assertEqual(result, "node2|-")
 
-    @unittest.skip("Edge representation changed - needs expected output update")
     def test_reverse_and_complement(self):
         """Test reverse complement of DNA sequences."""
         # Test standard bases
@@ -60,7 +59,6 @@ class TestCompressionOperations(TestGraphOperationsBase):
         result = reverse_and_complement("aTcG")
         self.assertEqual(result, "CGAT")
 
-    @unittest.skip("Edge representation changed - needs expected output update")
     def test_reverse_strand(self):
         """Test strand reversal."""
         self.assertEqual(reverse_strand("+"), "-")
@@ -86,7 +84,6 @@ class TestOverlapConsistency(TestGraphOperationsBase):
         result = overlap_reverse_complement("*")
         self.assertEqual(result, "*")
 
-    @unittest.skip("Edge field expectations changed")
     def test_real_overlap(self):
         """Test real overlap calculation."""
         # Test perfect match
@@ -107,7 +104,6 @@ class TestOverlapConsistency(TestGraphOperationsBase):
         result = real_overlap("ATCG", "")
         self.assertEqual(result, 0)
 
-    @unittest.skip("Edge field expectations changed")
     def test_fasta_reader(self):
         """Test FASTA file reading."""
         # Create a temporary FASTA file
@@ -155,7 +151,6 @@ class TestGraphOperationsIntegration(TestGraphOperationsBase):
         self.assertEqual(reverse_strand("+"), "-")
         self.assertEqual(reverse_strand("-"), "+")
 
-    @unittest.skip("Integration test needs update for new edge fields")
     def test_overlap_analysis_workflow(self):
         """Test overlap analysis workflow."""
         seq1 = "ATCGGGG"

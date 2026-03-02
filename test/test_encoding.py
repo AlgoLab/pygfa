@@ -234,12 +234,8 @@ class TestStringEncoding(unittest.TestCase):
 
     def test_compress_string_zstd(self):
         """Test zstd compression - should raise ImportError if not available."""
-        try:
-            result = compress_string_zstd("Hello, World!")
-            self.assertIsInstance(result, bytes)
-        except ImportError:
-            # Expected if zstd package is not available
-            self.skipTest("zstd compression not available")
+        result = compress_string_zstd("Hello, World!")
+        self.assertIsInstance(result, bytes)
 
 
 class TestEncodingEdgeCases(unittest.TestCase):

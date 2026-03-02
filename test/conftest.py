@@ -76,26 +76,6 @@ def pytest_runtest_makereport(item, call):
         _session_results[item.nodeid] = report
 
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
-    """Convert memory limit failures to skips."""
-    skipped = []
-    for nodeid, report in _session_results.items():
-        if hasattr(report, "longrepr") and report.longrepr is not None:
-            longrepr_text = str(report.longrepr)
-            if "memory" in longrepr_text.lower() and (
-                "limit" in longrepr_text.lower() or "problem" in longrepr_text.lower()
-            ):
-                warning_msg = f"{COLOR_YELLOW}WARNING: Test {nodeid} exceeded {MEMORY_LIMIT} memory limit and was skipped.{COLOR_RESET}"
-                print(warning_msg)
-                skipped.append(nodeid)
-
-    if skipped:
-        terminalreporter.stats["skipped"] = terminalreporter.stats.get("skipped", [])
-        for nodeid in skipped:
-            if "failed" in terminalreporter.stats:
-                terminalreporter.stats["failed"] = [f for f in terminalreporter.stats["failed"] if nodeid not in str(f)]
-
-
 def pytest_addoption(parser):
     """Add custom command-line options for pytest."""
     parser.addoption(

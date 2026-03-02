@@ -139,7 +139,6 @@ class TestBWTCompression(unittest.TestCase):
 class TestCompressStringBWTHuffman(unittest.TestCase):
     """Test BWT+Huffman compression."""
 
-    @unittest.skip("BWT+Huffman integration needs further debugging - individual components work")
     def test_roundtrip_dna(self):
         """Test BWT+Huffman roundtrip with DNA sequence."""
         original = "ACGTACGTACGTACGT"
@@ -147,7 +146,6 @@ class TestCompressStringBWTHuffman(unittest.TestCase):
         decompressed = decompress_string_bwt_huffman(compressed, [len(original)])
         self.assertEqual(decompressed[0].decode("ascii"), original)
 
-    @unittest.skip("BWT+Huffman integration needs further debugging - individual components work")
     def test_roundtrip_repetitive(self):
         """Test BWT+Huffman roundtrip with repetitive sequence."""
         original = "AAAAABBBBB"

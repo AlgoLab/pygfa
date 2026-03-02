@@ -304,7 +304,6 @@ class TestGraphElement(unittest.TestCase):
         self.assertTrue(subgraph_dict["elements"] == sb.elements)
         self.assertTrue(subgraph_dict["ab"] == sb.opt_fields["ab"])
 
-    @unittest.skip("Validation behavior changed - needs test update")
     def test_node_from_segment(self):
         seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         node_ = node.Node.from_line(seg)
