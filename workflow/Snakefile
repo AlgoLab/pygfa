@@ -159,7 +159,9 @@ rule measure_bgfa:
     output:
         csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
     run:
-        temp_csv = "/tmp/measure_temp.csv"
+        import tempfile, os
+        fd, temp_csv = tempfile.mkstemp(suffix=".csv", dir=OUTPUT_DIR, prefix="measure_")
+        os.close(fd)
 
         measure_cmd = [
             "pixi", "run", "python", "bin/bgfatools", "measure",

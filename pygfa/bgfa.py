@@ -1126,11 +1126,11 @@ class ReaderBGFA:
                 try:
                     # Try to use results directory if available
                     output_mgr = OutputManager()
-                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"))
+                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"), prefix="bgfa_log_")
                     logfile = str(temp_log)
                 except Exception:
                     # Fallback to system temp directory
-                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
+                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log", prefix="bgfa_log_")
                     logfile = temp_log.name
                     temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
@@ -1996,11 +1996,11 @@ class BGFAWriter:
                 try:
                     # Try to use results directory if available
                     output_mgr = OutputManager()
-                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"))
+                    temp_log = output_mgr.create_temp_file(".log", output_mgr.get_test_dir("bgfa"), prefix="bgfa_log_")
                     logfile = str(temp_log)
                 except Exception:
                     # Fallback to system temp directory
-                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log")
+                    temp_log = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log", prefix="bgfa_log_")
                     logfile = temp_log.name
                     temp_log.close()
                 print(f"Logging to temporary file: {logfile}")
@@ -3406,62 +3406,89 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
         elif section_id == 5:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
+
             compression_samples = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
+            compressed_len_sam = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len_sam = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
             compression_hep = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
-            compression_sequence = struct.unpack_from("<H", bgfa_data, offset)[0]
+            compressed_hep_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
+            compression_seq_ids = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
-            compression_start = struct.unpack_from("<H", bgfa_data, offset)[0]
+            compressed_len_seq = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len_seq = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
+            compression_positions = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
-            compression_end = struct.unpack_from("<H", bgfa_data, offset)[0]
-            offset += 2
+            compressed_positions_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+
             compression_walks = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
+            compressed_len_walk = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len_walk = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
 
-            offset += 48
-
-            block_end = offset + 100
-
-            samples_int_encoding = (compression_samples >> 8) & 0xFF
-            hep_int_encoding = (compression_hep >> 8) & 0xFF
-            seq_int_encoding = (compression_sequence >> 8) & 0xFF
-            seq_str_encoding = compression_sequence & 0xFF
-            start_int_encoding = (compression_start >> 8) & 0xFF
-            end_int_encoding = (compression_end >> 8) & 0xFF
-            walks_int_encoding = (compression_walks >> 8) & 0xFF
-
-            samples_int_encoding_name = get_int_encoding_name(samples_int_encoding)
-            hep_int_encoding_name = get_int_encoding_name(hep_int_encoding)
-            seq_int_encoding_name = get_int_encoding_name(seq_int_encoding)
-            seq_str_encoding_name = get_str_encoding_name(seq_str_encoding)
-            start_int_encoding_name = get_int_encoding_name(start_int_encoding)
-            end_int_encoding_name = get_int_encoding_name(end_int_encoding)
-            walks_int_encoding_name = get_int_encoding_name(walks_int_encoding)
+            total_compressed = (
+                compressed_len_sam
+                + compressed_hep_len
+                + compressed_len_seq
+                + compressed_positions_len
+                + compressed_len_walk
+            )
+            offset += total_compressed
+            block_end = offset
 
             encoding_methods = []
-            if samples_int_encoding != 0:
-                encoding_methods.append(samples_int_encoding_name)
-            if hep_int_encoding != 0:
-                encoding_methods.append(hep_int_encoding_name)
-            if seq_int_encoding != 0:
-                encoding_methods.append(seq_int_encoding_name)
-            if seq_str_encoding != 0:
-                encoding_methods.append(seq_str_encoding_name)
-            if start_int_encoding != 0:
-                encoding_methods.append(start_int_encoding_name)
-            if end_int_encoding != 0:
-                encoding_methods.append(end_int_encoding_name)
-            if walks_int_encoding != 0:
-                encoding_methods.append(walks_int_encoding_name)
+
+            if compression_samples != 0:
+                int_enc = (compression_samples >> 8) & 0xFF
+                str_enc = compression_samples & 0xFF
+                if int_enc != 0:
+                    encoding_methods.append(get_int_encoding_name(int_enc))
+                if str_enc != 0:
+                    encoding_methods.append(get_str_encoding_name(str_enc))
+
+            if compression_hep != 0:
+                int_enc = (compression_hep >> 8) & 0xFF
+                if int_enc != 0:
+                    encoding_methods.append(get_int_encoding_name(int_enc))
+
+            if compression_seq_ids != 0:
+                int_enc = (compression_seq_ids >> 8) & 0xFF
+                str_enc = compression_seq_ids & 0xFF
+                if int_enc != 0:
+                    encoding_methods.append(get_int_encoding_name(int_enc))
+                if str_enc != 0:
+                    encoding_methods.append(get_str_encoding_name(str_enc))
+
+            if compression_positions != 0:
+                int_enc = (compression_positions >> 8) & 0xFF
+                if int_enc != 0:
+                    encoding_methods.append(get_int_encoding_name(int_enc))
+
+            if compression_walks != 0:
+                int_enc = (compression_walks >> 8) & 0xFF
+                if int_enc != 0:
+                    encoding_methods.append(get_int_encoding_name(int_enc))
 
             if encoding_methods:
                 row = create_base_row()
                 row["block_type"] = "walks"
                 row["record_count"] = record_num
-                row["size_bytes"] = 0
-                row["compressed_size"] = 0
-                row["uncompressed_size"] = 0
+                row["size_bytes"] = block_end - block_start
+                total_uncompressed = uncompressed_len_sam + uncompressed_len_seq + uncompressed_len_walk
+                row["compressed_size"] = total_compressed
+                row["uncompressed_size"] = total_uncompressed
                 row["option"] = "walks_payload"
                 row["value"] = "+".join(encoding_methods)
                 rows.append(row)

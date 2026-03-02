@@ -73,12 +73,13 @@ class OutputManager:
             except (FileNotFoundError, PermissionError):
                 pass
 
-    def create_temp_file(self, suffix: str, directory: Optional[Path] = None) -> Path:
+    def create_temp_file(self, suffix: str, directory: Optional[Path] = None, prefix: str = "tmp") -> Path:
         """Create temporary file in appropriate directory.
 
         Args:
             suffix: File suffix
             directory: Directory for temp file (default: system temp dir)
+            prefix: Prefix for temporary filename (default: "tmp")
 
         Returns:
             Path to created temporary file
@@ -86,6 +87,6 @@ class OutputManager:
         if directory is None:
             directory = Path(tempfile.gettempdir())
 
-        fd, path = tempfile.mkstemp(suffix=suffix, dir=str(directory))
+        fd, path = tempfile.mkstemp(suffix=suffix, prefix=prefix, dir=str(directory))
         os.close(fd)
         return Path(path)
