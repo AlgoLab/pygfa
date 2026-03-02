@@ -276,12 +276,34 @@ def test_gfa_to_bgfa_to_gfa_regression(gfa_file_path, int_encoding, str_encoding
 
         output_dir = str(test_output_dir)
         os.makedirs(output_dir, exist_ok=True)
+
+        # Calculate node differences
+        g_nodes = set(g.nodes())
+        h_nodes = set(h.nodes())
+        missing_nodes = g_nodes - h_nodes  # nodes in g but not in h
+        extra_nodes = h_nodes - g_nodes  # nodes in h but not in g
+
+        # Write pprint outputs
         with open(f"{output_dir}/g_pprint_{encoding_name}.txt", "w") as f:
             f.write(g_pprint)
         with open(f"{output_dir}/h_pprint_{encoding_name}.txt", "w") as f:
             f.write(h_pprint)
+
+        # Build reproduction command
+        repro_cmd = (
+            "pixi run python -m pytest "
+            '"test/test_bgfa.py::test_gfa_to_bgfa_to_gfa_regression'
+            f"[{gfa_file_path}-{int_encoding}-{str_encoding}]"
+            '" -v -s --gfa-file '
+            f"{gfa_file_path}"
+        )
+
         assert False, (
-            f"Graph elements count mismatch with encoding {encoding_name}: nodes {len(g.nodes())} vs {len(h.nodes())}, edges {len(g.edges())} vs {len(h.edges())}"
+            f"Graph elements count mismatch with encoding {encoding_name}: "
+            f"nodes {len(g.nodes())} vs {len(h.nodes())}, edges {len(g.edges())} vs {len(h.edges())}\n"
+            f"Missing nodes in h (in g but not h): {missing_nodes}\n"
+            f"Extra nodes in h (in h but not g): {extra_nodes}\n"
+            f"To reproduce: {repro_cmd}"
         )
     else:
         print(f"Basic graph structure matches with encoding {encoding_name}")
