@@ -136,12 +136,42 @@ rule generate_bgfa:
             "--block-size", str(params.block_size),
         ]
 
+        # Mapping from encoding option names to CLI argument suffixes
+        ENCODING_CLI_MAP = {
+            "segment_names_header": "segment-names",
+            "segment_names_payload_lengths": "segment-names-lens",
+            "segment_names_payload_names": "segment-names-names",
+            "segments_header": "segments",
+            "segments_payload_lengths": "segments-lens",
+            "segments_payload_strings": "segments-seq",
+            "links_header": "links",
+            "links_payload_from": "links-from",
+            "links_payload_to": "links-to",
+            "links_payload_cigar_lengths": "links-cigar-lens",
+            "links_payload_cigar": "links-cigar",
+            "paths_header": "paths",
+            "paths_payload_names": "paths-names",
+            "paths_payload_segment_lengths": "paths-seg-lens",
+            "paths_payload_path_ids": "paths-ids",
+            "paths_payload_cigar_lengths": "paths-cigar-lens",
+            "paths_payload_cigar": "paths-cigar",
+            "walks_header": "walks",
+            "walks_payload_sample_ids": "walks-samples",
+            "walks_payload_hep_indices": "walks-heps",
+            "walks_payload_sequence_ids": "walks-seqs",
+            "walks_payload_start": "walks-start",
+            "walks_payload_end": "walks-end",
+            "walks_payload_walks": "walks-data",
+        }
+        
         all_options = get_cached_data()[0].keys()
         for opt in all_options:
+            cli_suffix = ENCODING_CLI_MAP[opt]
+            cli_opt = f"--compress-{cli_suffix}"
             if opt == option:
-                bgfa_cmd.extend([f"--{opt.replace('_', '-')}", encoding])
+                bgfa_cmd.extend([cli_opt, encoding])
             else:
-                bgfa_cmd.extend([f"--{opt.replace('_', '-')}", "none"])
+                bgfa_cmd.extend([cli_opt, "none"])
 
         result = subprocess.run(bgfa_cmd, capture_output=True, text=True)
         if result.returncode != 0:
