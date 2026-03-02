@@ -24,7 +24,7 @@ A C string is an ASCII string terminated by `\0`
 
 | Field          | Description                          | Type       |
 |----------------|--------------------------------------|------------|
-| `magic_number` | Magic number for bgfa files = "AFGB" | `uint32`   |
+| `magic_number` | Magic number for bgfa files = "AFGB" (0x42474641) | `uint32`   |
 | `version`      | Format version                       | `uint16`   |
 | `header_len`   | length of the header string          | `uint16`   |
 | `header`       | gfa header text                      | `C string` |

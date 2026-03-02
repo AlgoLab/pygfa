@@ -1179,13 +1179,15 @@ class ReaderBGFA:
 
         gfa = GFA()
 
-        # Validate magic number (AFGB = 0x41464742)
+        # Validate magic number (AFGB = 0x42474641; accept also legacy BGFA = 0x41464742)
         if len(bgfa_data) < 4:
             raise ValueError("BGFA file is too short to contain magic number")
 
         magic_number = struct.unpack_from("<I", bgfa_data, 0)[0]
-        if magic_number != 0x41464742:  # "AFGB" in hex
-            raise ValueError(f"Invalid magic number: expected 0x41464742 (AFGB), got 0x{magic_number:08x}")
+        if magic_number not in (0x42474641, 0x41464742):
+            raise ValueError(
+                f"Invalid magic number: expected 0x42474641 (AFGB) or 0x41464742 (legacy BGFA), got 0x{magic_number:08x}"
+            )
 
         # Parse header
         header = self._parse_header(bgfa_data)
@@ -2218,8 +2220,8 @@ class BGFAWriter:
         :param buffer: BytesIO buffer to write to
         :param block_size: Block size for calculations
         """
-        # Write magic number (AFGB = 0x41464742)
-        buffer.write(struct.pack("<I", 0x41464742))
+        # Write magic number (AFGB = 0x42474641)
+        buffer.write(struct.pack("<I", 0x42474641))
 
         # Write version (uint16)
         buffer.write(struct.pack("<H", 1))
@@ -3192,17 +3194,23 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
 
     header_start = 0
 
-    version = struct.unpack_from("<H", bgfa_data, offset)[0]
-    offset += 2
+    # Validate magic number (accept both AFGB=0x42474641 and legacy BGFA=0x41464742)
+    magic = struct.unpack_from("<I", bgfa_data, 0)[0]
+    if magic not in (0x42474641, 0x41464742):
+        raise ValueError(
+            f"Invalid BGFA file: magic number 0x{magic:08x} != expected 0x42474641 (AFGB) or 0x41464742 (legacy BGFA)"
+        )
 
-    offset += 34
+    # Read version (uint16 at offset 4)
+    version = struct.unpack_from("<H", bgfa_data, 4)[0]
 
-    header_text = ""
-    while offset < len(bgfa_data) and bgfa_data[offset] != 0:
-        header_text += chr(bgfa_data[offset])
-        offset += 1
-    offset += 1
+    # Read header length (uint16 at offset 6)
+    header_len = struct.unpack_from("<H", bgfa_data, 6)[0]
 
+    # The header text is at offset 8 for header_len bytes.
+    # The null terminator is at offset 8 + header_len.
+    # The first section starts after the null terminator.
+    offset = 8 + header_len + 1  # after the null terminator
     header_end = offset
 
     rows.append(
@@ -3217,6 +3225,35 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             "value": str(version),
         }
     )
+
+    # Read version (uint16 at offset 4)
+    version = struct.unpack_from("<H", bgfa_data, 4)[0]
+
+    # Read header length (uint16 at offset 6)
+    header_len = struct.unpack_from("<H", bgfa_data, 6)[0]
+
+    # Read header text (at offset 8) - not needed for measurement
+
+    # The header is a C string: text followed by null terminator.
+    # header_len is the length of the text (without null).
+    # The null terminator is at offset 8 + header_len.
+    # The first section starts after the null terminator.
+    header_end = 8 + header_len + 1
+    offset = header_end
+
+    rows.append(
+        {
+            "filename": filename,
+            "block_type": "header",
+            "record_count": "",
+            "size_bytes": header_end - header_start,
+            "compressed_size": header_end - header_start,
+            "uncompressed_size": header_end - header_start,
+            "option": "version",
+            "value": str(version),
+        }
+    )
+    # Also add a row for the header text itself? Maybe not needed.
 
     while offset < len(bgfa_data):
         if offset + 1 > len(bgfa_data):
@@ -3255,16 +3292,15 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             if str_encoding != 0:
                 encoding_methods.append(str_encoding_name)
 
-            if encoding_methods:
-                row = create_base_row()
-                row["block_type"] = "segment_names"
-                row["record_count"] = record_num
-                row["size_bytes"] = block_end - block_start
-                row["compressed_size"] = compressed_len
-                row["uncompressed_size"] = uncompressed_len
-                row["option"] = "segment_names_payload"
-                row["value"] = "+".join(encoding_methods)
-                rows.append(row)
+            row = create_base_row()
+            row["block_type"] = "segment_names"
+            row["record_count"] = record_num
+            row["size_bytes"] = block_end - block_start
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            row["option"] = "segment_names_payload"
+            row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
+            rows.append(row)
 
         elif section_id == 2:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
@@ -3291,16 +3327,15 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             if str_encoding != 0:
                 encoding_methods.append(str_encoding_name)
 
-            if encoding_methods:
-                row = create_base_row()
-                row["block_type"] = "segments"
-                row["record_count"] = record_num
-                row["size_bytes"] = block_end - block_start
-                row["compressed_size"] = compressed_len
-                row["uncompressed_size"] = uncompressed_len
-                row["option"] = "segments_payload"
-                row["value"] = "+".join(encoding_methods)
-                rows.append(row)
+            row = create_base_row()
+            row["block_type"] = "segments"
+            row["record_count"] = record_num
+            row["size_bytes"] = block_end - block_start
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            row["option"] = "segments_payload"
+            row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
+            rows.append(row)
 
         elif section_id == 3:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
@@ -3333,16 +3368,15 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             if cigars_str_encoding != 0:
                 encoding_methods.append(cigars_str_encoding_name)
 
-            if encoding_methods:
-                row = create_base_row()
-                row["block_type"] = "links"
-                row["record_count"] = record_num
-                row["size_bytes"] = block_end - block_start
-                row["compressed_size"] = compressed_len
-                row["uncompressed_size"] = uncompressed_len
-                row["option"] = "links_payload"
-                row["value"] = "+".join(encoding_methods)
-                rows.append(row)
+            row = create_base_row()
+            row["block_type"] = "links"
+            row["record_count"] = record_num
+            row["size_bytes"] = block_end - block_start
+            row["compressed_size"] = compressed_len
+            row["uncompressed_size"] = uncompressed_len
+            row["option"] = "links_payload"
+            row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
+            rows.append(row)
 
         elif section_id == 4:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
@@ -3392,16 +3426,15 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             if cigars_str_encoding != 0:
                 encoding_methods.append(cigars_str_encoding_name)
 
-            if encoding_methods:
-                row = create_base_row()
-                row["block_type"] = "paths"
-                row["record_count"] = record_num
-                row["size_bytes"] = block_end - block_start
-                row["compressed_size"] = total_compressed
-                row["uncompressed_size"] = total_uncompressed
-                row["option"] = "paths_payload"
-                row["value"] = "+".join(encoding_methods)
-                rows.append(row)
+            row = create_base_row()
+            row["block_type"] = "paths"
+            row["record_count"] = record_num
+            row["size_bytes"] = block_end - block_start
+            row["compressed_size"] = total_compressed
+            row["uncompressed_size"] = total_uncompressed
+            row["option"] = "paths_payload"
+            row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
+            rows.append(row)
 
         elif section_id == 5:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
@@ -3481,17 +3514,16 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
                 if int_enc != 0:
                     encoding_methods.append(get_int_encoding_name(int_enc))
 
-            if encoding_methods:
-                row = create_base_row()
-                row["block_type"] = "walks"
-                row["record_count"] = record_num
-                row["size_bytes"] = block_end - block_start
-                total_uncompressed = uncompressed_len_sam + uncompressed_len_seq + uncompressed_len_walk
-                row["compressed_size"] = total_compressed
-                row["uncompressed_size"] = total_uncompressed
-                row["option"] = "walks_payload"
-                row["value"] = "+".join(encoding_methods)
-                rows.append(row)
+            row = create_base_row()
+            row["block_type"] = "walks"
+            row["record_count"] = record_num
+            row["size_bytes"] = block_end - block_start
+            total_uncompressed = uncompressed_len_sam + uncompressed_len_seq + uncompressed_len_walk
+            row["compressed_size"] = total_compressed
+            row["uncompressed_size"] = total_uncompressed
+            row["option"] = "walks_payload"
+            row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
+            rows.append(row)
 
         else:
             break
