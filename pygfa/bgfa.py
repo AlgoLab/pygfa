@@ -1590,18 +1590,21 @@ class ReaderBGFA:
         offset += 2
         compression_fromto = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
+        compressed_fromto_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
         compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        compressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        uncompressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
 
-        # Read link data
-        link_data = bgfa_data[offset : offset + compressed_len]
-        offset += compressed_len
+        # Read link data - the payload contains from_ids + to_ids + orientation bits + cigar lengths + compressed cigars
+        total_payload_len = compressed_fromto_len + compressed_cigars_len
+        link_data = bgfa_data[offset : offset + total_payload_len]
+        offset += total_payload_len
 
-        # Extract encoding strategies (currently unused but reserved for future use)
+        # Extract encoding strategies (for potential future use)
         _ = (compression_fromto >> 8) & 0xFF  # fromto_int_encoding
         _ = (compression_cigars >> 8) & 0xFF  # cigars_int_encoding
         _ = compression_cigars & 0xFF  # cigars_str_encoding
@@ -1610,7 +1613,8 @@ class ReaderBGFA:
             f"Parsing links block: record_num={record_num}, "
             f"compression_fromto={compression_fromto:#06x}, "
             f"compression_cigars={compression_cigars:#06x}, "
-            f"compressed_len={compressed_len}, uncompressed_len={uncompressed_len}"
+            f"compressed_fromto_len={compressed_fromto_len}, "
+            f"compressed_cigars_len={compressed_cigars_len}, uncompressed_cigars_len={uncompressed_cigars_len}"
         )
 
         # Identity encoding (both 0x0000): column-wise layout
@@ -2514,7 +2518,13 @@ class BGFAWriter:
             )
             uncompressed_len_cigar = sum(cigar_lengths)
             compressed_len_cigar = len(compressed_cigars_data)
-            compressed_fromto_len = len(encoded_from) + len(encoded_to) + len(from_orn_bytes) + len(to_orn_bytes)
+            compressed_fromto_len = (
+                len(encoded_from)
+                + len(encoded_to)
+                + len(from_orn_bytes)
+                + len(to_orn_bytes)
+                + len(encoded_cigar_lengths)
+            )
 
         logger.debug(
             f"Links block payload: fromto_len={compressed_fromto_len}, "
