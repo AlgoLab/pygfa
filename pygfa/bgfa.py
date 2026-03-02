@@ -487,7 +487,8 @@ def decode_integer_list_elias_omega(data: bytes, count: int) -> tuple[list[int],
         for b in remaining:
             value = (value << 1) | (b & 1)
 
-        result.append(value)
+        # Elias omega encodes n+1, so decode to n-1
+        result.append(value - 1)
 
     return result, pos
 
