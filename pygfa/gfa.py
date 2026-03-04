@@ -2062,26 +2062,37 @@ class GFA:
                 if value is not None:
                     kwargs[key] = value
         else:
-            # Legacy-style: map old keys to new parameters
+            # Legacy-style: map old keys and CLI keys to new parameters
+            # Handle both underscores and dashes, and both names
+            def get_opt(keys):
+                for k in keys:
+                    v = compression_options.get(k)
+                    if v is not None:
+                        return v
+                    v = compression_options.get(k.replace("_", "-"))
+                    if v is not None:
+                        return v
+                return None
+
             kwargs = {
-                "segment_names_int_encoding": _resolve_int(compression_options.get("segment_names_payload_lengths")),
-                "segment_names_str_encoding": _resolve_str(compression_options.get("segment_names_payload_names")),
-                "segments_int_encoding": _resolve_int(compression_options.get("segments_payload_lengths")),
-                "segments_str_encoding": _resolve_str(compression_options.get("segments_payload_strings")),
-                "links_fromto_int_encoding": _resolve_int(compression_options.get("links_payload_from")),
-                "links_cigars_int_encoding": _resolve_int(compression_options.get("links_payload_cigar_lengths")),
-                "links_cigars_str_encoding": _resolve_str(compression_options.get("links_payload_cigar")),
-                "paths_names_int_encoding": _resolve_int(compression_options.get("paths_payload_names")),
-                "paths_names_str_encoding": _resolve_str(compression_options.get("paths_payload_names")),
-                "paths_cigars_int_encoding": _resolve_int(compression_options.get("paths_payload_cigar_lengths")),
-                "paths_cigars_str_encoding": _resolve_str(compression_options.get("paths_payload_cigar")),
-                "walks_sample_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sample_ids")),
-                "walks_sample_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sample_ids")),
-                "walks_hap_indices_int_encoding": _resolve_int(compression_options.get("walks_payload_hep_indices")),
-                "walks_seq_ids_int_encoding": _resolve_int(compression_options.get("walks_payload_sequence_ids")),
-                "walks_seq_ids_str_encoding": _resolve_str(compression_options.get("walks_payload_sequence_ids")),
-                "walks_start_int_encoding": _resolve_int(compression_options.get("walks_payload_start")),
-                "walks_end_int_encoding": _resolve_int(compression_options.get("walks_payload_end")),
+                "segment_names_int_encoding": _resolve_int(get_opt(["segment_names_payload_lengths", "compress_segment_names_lens"])),
+                "segment_names_str_encoding": _resolve_str(get_opt(["segment_names_payload_names", "compress_segment_names_names", "compress_segment_names"])),
+                "segments_int_encoding": _resolve_int(get_opt(["segments_payload_lengths", "compress_segments_lens"])),
+                "segments_str_encoding": _resolve_str(get_opt(["segments_payload_strings", "compress_segments_seq", "compress_segments"])),
+                "links_fromto_int_encoding": _resolve_int(get_opt(["links_payload_from", "compress_links_from", "compress_links"])),
+                "links_cigars_int_encoding": _resolve_int(get_opt(["links_payload_cigar_lengths", "compress_links_cigar_lens"])),
+                "links_cigars_str_encoding": _resolve_str(get_opt(["links_payload_cigar", "compress_links_cigar"])),
+                "paths_names_int_encoding": _resolve_int(get_opt(["paths_payload_names", "compress_paths_names"])),
+                "paths_names_str_encoding": _resolve_str(get_opt(["paths_payload_names", "compress_paths_names"])),
+                "paths_cigars_int_encoding": _resolve_int(get_opt(["paths_payload_cigar_lengths", "compress_paths_cigar_lens"])),
+                "paths_cigars_str_encoding": _resolve_str(get_opt(["paths_payload_cigar", "compress_paths_cigar"])),
+                "walks_sample_ids_int_encoding": _resolve_int(get_opt(["walks_payload_sample_ids", "compress_walks_samples"])),
+                "walks_sample_ids_str_encoding": _resolve_str(get_opt(["walks_payload_sample_ids", "compress_walks_samples"])),
+                "walks_hap_indices_int_encoding": _resolve_int(get_opt(["walks_payload_hep_indices", "compress_walks_heps"])),
+                "walks_seq_ids_int_encoding": _resolve_int(get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])),
+                "walks_seq_ids_str_encoding": _resolve_str(get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])),
+                "walks_start_int_encoding": _resolve_int(get_opt(["walks_payload_start", "compress_walks_start"])),
+                "walks_end_int_encoding": _resolve_int(get_opt(["walks_payload_end", "compress_walks_end"])),
             }
 
         return bgfa_to_bgfa(
