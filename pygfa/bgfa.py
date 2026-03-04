@@ -1793,25 +1793,25 @@ class ReaderBGFA:
         if section_id != SECTION_ID_PATHS:
             raise ValueError(f"Expected section_id={SECTION_ID_PATHS}, got {section_id}")
 
-        record_num = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        compression_path_names = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        compression_path_names = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        compressed_len_name = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        compression_paths = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        compressed_paths_len = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        compressed_paths_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_paths_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        compression_cigars = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        compressed_len_cigar = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        compressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
 
         # Extract compressed payloads - order: names, paths, cigars
@@ -1886,20 +1886,37 @@ class ReaderBGFA:
         if section_id != SECTION_ID_WALKS:
             raise ValueError(f"Expected section_id={SECTION_ID_WALKS}, got {section_id}")
 
-        record_num = int.from_bytes(bgfa_data[offset : offset + 2], byteorder="little", signed=False)
+        record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
         offset += 2
-        offset += 10  # Skip 5 compression code fields (each uint16)
-        compressed_len_sam = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        compression_sample_ids = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len_sam = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_len_sam = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        compressed_len_seq = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+
+        compression_hap_indices = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_hep_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+
+        compression_seq_ids = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len_seq = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        compressed_len_walk = int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+        uncompressed_len_seq = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
-        int.from_bytes(bgfa_data[offset : offset + 8], byteorder="little", signed=False)
+
+        compression_start = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_positions_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+
+        compression_walks = struct.unpack_from("<H", bgfa_data, offset)[0]
+        offset += 2
+        compressed_len_walk = struct.unpack_from("<Q", bgfa_data, offset)[0]
+        offset += 8
+        uncompressed_len_walk = struct.unpack_from("<Q", bgfa_data, offset)[0]
         offset += 8
 
         # Extract and decompress payloads
@@ -1907,19 +1924,25 @@ class ReaderBGFA:
             compressed_sam = bgfa_data[offset : offset + compressed_len_sam]
             offset += compressed_len_sam
             sample_ids = self._decompress_string_list(
-                compressed_sam, 0x0000, record_num
-            )  # Sample IDs are typically identity encoded
+                compressed_sam, compression_sample_ids, record_num
+            )
         else:
             sample_ids = []
+
+        # Skip hep indices for now
+        offset += compressed_hep_len
 
         if compressed_len_seq > 0:
             compressed_seq = bgfa_data[offset : offset + compressed_len_seq]
             offset += compressed_len_seq
             sequence_ids = self._decompress_string_list(
-                compressed_seq, 0x0000, record_num
-            )  # Sequence IDs are typically identity encoded
+                compressed_seq, compression_seq_ids, record_num
+            )
         else:
             sequence_ids = []
+
+        # Skip positions
+        offset += compressed_positions_len
 
         if compressed_len_walk > 0:
             compressed_walks = bgfa_data[offset : offset + compressed_len_walk]
@@ -1928,7 +1951,7 @@ class ReaderBGFA:
             # For now, treat walk data as simple sequence data
             # TODO: Implement proper walk decoding (segment IDs + orientations)
             try:
-                walks_data = self._decompress_string_list(compressed_walks, 0x0000, record_num)
+                walks_data = self._decompress_string_list(compressed_walks, compression_walks, record_num)
             except Exception as e:
                 logger.warning(f"Failed to decompress walks data: {e}")
                 walks_data = []
@@ -2295,7 +2318,7 @@ class BGFAWriter:
             compressed_names = _compress_string_for_bgfa(concatenated, str_encoding)
 
             payload = encoded_lengths + compressed_names
-            uncompressed_len = sum(lengths)
+            uncompressed_len = sum(lengths) + (record_num * 8) # sum of string lengths + 8 bytes per length (uint64)
             compressed_len = len(payload)
 
         logger.debug(
@@ -2401,7 +2424,11 @@ class BGFAWriter:
             compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
             compressed_opt_fields = _compress_string_for_bgfa("".join(opt_fields_strings), str_encoding)
             payload = encoded_ids + encoded_lengths + compressed_sequences + compressed_opt_fields
-            uncompressed_len = sum(sequence_lengths) + sum(len(opt_str) for opt_str in opt_fields_strings)
+            uncompressed_len = (
+                sum(sequence_lengths)
+                + sum(len(opt_str) for opt_str in opt_fields_strings)
+                + (record_num * 8 * 2)  # IDs and lengths (8 bytes each uint64)
+            )
             compressed_len = len(payload)
 
         logger.debug(
@@ -3357,11 +3384,11 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             offset += 2
             compression_fromto = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
-            compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
-            offset += 2
             # Read 3 uint64 fields per spec: compressed_fromto_len, compressed_cigars_len, uncompressed_cigars_len
             compressed_fromto_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
+            compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
+            offset += 2
             compressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
             uncompressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
@@ -3406,24 +3433,28 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             offset += 2
             compression_names = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
+            compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
             compression_paths = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
+            compressed_len_path = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_len_path = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
             compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
             compressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
             uncompressed_len_cigar = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
-            compressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
-            offset += 8
-            uncompressed_len_name = struct.unpack_from("<Q", bgfa_data, offset)[0]
-            offset += 8
 
-            offset += compressed_len_name + compressed_len_cigar
+            offset += compressed_len_name + compressed_len_path + compressed_len_cigar
             block_end = offset
 
-            total_compressed = compressed_len_name + compressed_len_cigar
-            total_uncompressed = uncompressed_len_name + uncompressed_len_cigar
+            total_compressed = compressed_len_name + compressed_len_path + compressed_len_cigar
+            total_uncompressed = uncompressed_len_name + uncompressed_len_path + uncompressed_len_cigar
 
             names_int_encoding = (compression_names >> 8) & 0xFF
             names_str_encoding = compression_names & 0xFF
