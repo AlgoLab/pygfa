@@ -3255,6 +3255,9 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
     )
     # Also add a row for the header text itself? Maybe not needed.
 
+    # Track the last section_id to detect invalid sequences
+    last_section_id = 0
+
     while offset < len(bgfa_data):
         if offset + 1 > len(bgfa_data):
             break
@@ -3263,6 +3266,18 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
 
         section_id = struct.unpack_from("<B", bgfa_data, offset)[0]
         offset += 1
+
+        # Valid section IDs are 0-5 (0 = end of sections)
+        # Section IDs should be in increasing order (1->2->3->4->5->0)
+        if section_id > 5 or section_id <= last_section_id:
+            # Invalid section ID or out of order - we've likely reached the end of valid data
+            break
+
+        last_section_id = section_id
+
+        if section_id == 0:
+            # End of sections
+            break
 
         if section_id == 1:
             record_num = struct.unpack_from("<H", bgfa_data, offset)[0]
@@ -3344,12 +3359,16 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             offset += 2
             compression_cigars = struct.unpack_from("<H", bgfa_data, offset)[0]
             offset += 2
-            compressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            # Read 3 uint64 fields per spec: compressed_fromto_len, compressed_cigars_len, uncompressed_cigars_len
+            compressed_fromto_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
-            uncompressed_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            compressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
+            offset += 8
+            uncompressed_cigars_len = struct.unpack_from("<Q", bgfa_data, offset)[0]
             offset += 8
 
-            offset += compressed_len
+            # Skip the payload: from/to part + cigars part
+            offset += compressed_fromto_len + compressed_cigars_len
             block_end = offset
 
             fromto_int_encoding = (compression_fromto >> 8) & 0xFF
@@ -3368,12 +3387,16 @@ def measure_bgfa(input_file: str, output_file: str) -> list[dict]:
             if cigars_str_encoding != 0:
                 encoding_methods.append(cigars_str_encoding_name)
 
+            # Calculate total sizes: from/to part + cigars part
+            total_compressed = compressed_fromto_len + compressed_cigars_len
+            total_uncompressed = compressed_fromto_len + uncompressed_cigars_len
+
             row = create_base_row()
             row["block_type"] = "links"
             row["record_count"] = record_num
             row["size_bytes"] = block_end - block_start
-            row["compressed_size"] = compressed_len
-            row["uncompressed_size"] = uncompressed_len
+            row["compressed_size"] = total_compressed
+            row["uncompressed_size"] = total_uncompressed
             row["option"] = "links_payload"
             row["value"] = "+".join(encoding_methods) if encoding_methods else "none"
             rows.append(row)
