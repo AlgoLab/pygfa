@@ -36,6 +36,8 @@ def discover_encodings():
         normalized = []
         seen = set()
         for m in methods:
+            if m == "bwt_huffman":
+                continue
             mapped = encoding_map.get(m, m)
             if mapped and mapped not in seen:
                 normalized.append(mapped)
