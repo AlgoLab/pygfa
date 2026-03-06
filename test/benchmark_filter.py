@@ -125,7 +125,9 @@ def filter_gfa_files(data_dir: str, benchmark_name: Optional[str] = None) -> Lis
 
     for gfa_file in gfa_files:
         comments = extract_header_comments(gfa_file)
-        benchmark_comments = [c for c in comments if c.startswith("# benchmark:")]
+        benchmark_comments = [
+            c for c in comments if c.strip().startswith("# benchmark:")
+        ]
 
         if not benchmark_comments:
             continue
@@ -153,7 +155,9 @@ def filter_gfa_files(data_dir: str, benchmark_name: Optional[str] = None) -> Lis
     return sorted(matching_files)
 
 
-def generate_dataset_config(data_dir: str, benchmark_name: Optional[str] = None) -> Dict[str, str]:
+def generate_dataset_config(
+    data_dir: str, benchmark_name: Optional[str] = None
+) -> Dict[str, str]:
     """
     Generate Snakemake dataset configuration from filtered GFA files.
 
@@ -227,22 +231,41 @@ Examples:
         """,
     )
 
-    parser.add_argument("--data-dir", "-d", default="data", help="Directory containing GFA files (default: data)")
-
     parser.add_argument(
-        "--benchmark-name", "-n", default=None, help="Filter by benchmark name. If omitted, list all benchmark files."
+        "--data-dir",
+        "-d",
+        default="data",
+        help="Directory containing GFA files (default: data)",
     )
 
-    parser.add_argument("--list", "-l", action="store_true", help="List matching GFA file paths")
+    parser.add_argument(
+        "--benchmark-name",
+        "-n",
+        default=None,
+        help="Filter by benchmark name. If omitted, list all benchmark files.",
+    )
 
-    parser.add_argument("--config", "-c", action="store_true", help="Generate Snakemake configuration dictionary")
+    parser.add_argument(
+        "--list", "-l", action="store_true", help="List matching GFA file paths"
+    )
 
-    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed information")
+    parser.add_argument(
+        "--config",
+        "-c",
+        action="store_true",
+        help="Generate Snakemake configuration dictionary",
+    )
+
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed information"
+    )
 
     args = parser.parse_args()
 
     if not os.path.isdir(args.data_dir):
-        print(f"Error: Data directory '{args.data_dir}' does not exist", file=sys.stderr)
+        print(
+            f"Error: Data directory '{args.data_dir}' does not exist", file=sys.stderr
+        )
         sys.exit(1)
 
     # Handle empty string for unnamed benchmarks
@@ -280,7 +303,9 @@ Examples:
 
             if args.verbose:
                 comments = extract_header_comments(file_path)
-                benchmark_comments = [c for c in comments if c.startswith("# benchmark:")]
+                benchmark_comments = [
+                    c for c in comments if c.strip().startswith("# benchmark:")
+                ]
                 for comment in benchmark_comments:
                     print(f"    {comment}")
 

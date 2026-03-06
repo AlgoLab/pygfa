@@ -49,7 +49,7 @@ def discover_encodings():
 
 def discover_datasets():
     """Discover GFA files with # benchmark: comment"""
-    all_files = filter_gfa_files("data", None)
+    all_files = filter_gfa_files(".", None)
     datasets = {}
 
     for file_path in all_files:
