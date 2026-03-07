@@ -48,6 +48,7 @@ import os
 import argparse
 from typing import List, Dict, Optional
 import sys
+import re
 
 
 def extract_header_comments(gfa_path: str) -> List[str]:
@@ -125,9 +126,7 @@ def filter_gfa_files(data_dir: str, benchmark_name: Optional[str] = None) -> Lis
 
     for gfa_file in gfa_files:
         comments = extract_header_comments(gfa_file)
-        benchmark_comments = [
-            c for c in comments if c.strip().startswith("# benchmark:")
-        ]
+        benchmark_comments = [c for c in comments if re.match(r"^#\s*benchmark:", c)]
 
         if not benchmark_comments:
             continue

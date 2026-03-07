@@ -10,6 +10,7 @@ import os
 import sys
 import subprocess
 import json
+import re
 
 sys.path.insert(0, "test")
 from benchmark_filter import filter_gfa_files, extract_header_comments
@@ -54,7 +55,7 @@ def discover_datasets():
 
     for file_path in all_files:
         comments = extract_header_comments(file_path)
-        has_benchmark = any(c.startswith("# benchmark:") for c in comments)
+        has_benchmark = any(re.match(r"^#\s*benchmark:", c) for c in comments)
         if not has_benchmark:
             continue
 
@@ -70,7 +71,7 @@ def discover_datasets():
             parent_dir = os.path.basename(os.path.dirname(file_path))
             dataset_name = f"{parent_dir}_{dataset_name}"
 
-        datasets[dataset_name] = file_path
+        datasets[dataset_name] = os.path.relpath(file_path, ".")
 
     return datasets
 
