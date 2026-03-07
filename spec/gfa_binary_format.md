@@ -222,26 +222,22 @@ We use question marks `??` to represent that all values of the byte can be used.
 | `0x??0C` | LZ4            | `string` |
 | `0x??0D` | Brotli         | `string` |
 | `0x??0E` | PPM            | `string` |
+| `0x??F4` | Superstring + Huffman        | `string` |
++ -bit DNa      | `String` |
+First Byte Determines How We Encode The List Of Lengths Of The Strings, The
+How We Encode The Concatenation Of The Strings.
+ Implies That We Use The Varint Me2027-28thod To Encode The Lengths ()
+Method To Encode The Concatenation Of The String.
+-  - `-  int32`: original data length
+## Coding (0x??06)
+an adaptive model 
+(0x??06)
 
-### Encoding strings
-
-The first byte determines how we encode the list of lengths of the strings, the
-second byte how we encode the concatenation of the strings.
-
-Therefore `0x0102` implies that we use the varint method to encode the lengths
-and the gzip method to encode the concatenation of the string.
-
-#### Arithmetic Coding (0x??06)
-
-Arithmetic `coding uses an adaptive model that updates symbol frequencies as it encodes. The format is:
-- `uint32`: original data length
+Arithmetic `coding uses an adaptive model 
 - `bytes`: encoded bitstream
+frequency 1) and adapts as it processes each byte. This provides good compression for sequences with non-uniform symbol distributions.
 
-The encoder starts with a uniform distribution (all symbols have frequency 1) and adapts as it processes each byte. This provides good compression for sequences with non-uniform symbol distributions.
-
-#### BWT + Huffman Coding (0x??07)
-
-BWT (Burrows-Wheeler Transform) + Huffman coding provides excellent compression for repetitive sequences like DNA. The pipeline is:
+Wheeler Transform) + Huffman coding provides excellent compression for repetitive sequences like DNA. The pipeline is:
 1. Apply Burrows-Wheeler Transform in configurable blocks (default 64KB)
 2. Apply Move-to-Front transform
 3. Encode with Huffman coding
@@ -336,28 +332,10 @@ The full dictionary implementation (`compress_string_list_dictionary` in `pygfa/
 - Path names with structural patterns
 - Any string list with high repetition
 
-### Expected Impact on File Sizes
-
-The new encoding methods provide substantial compression improvements for typical pangenome data:
-
-| Encoding       | Target Data  | Typical % of File | Expected Reduction | Overall Impact |
-|----------------|--------------|-------------------|--------------------|----------------|
-| 2-bit DNA      | Sequences    | 70-80%            | 75%                | **50-60%**     |
-| RLE            | Homopolymers | Variable          | 30-50%             | 10-15%         |
-| CIGAR-specific | Alignments   | 5-10%             | 40-60%             | 2-5%           |
-| Dictionary     | Sample IDs   | 5-10%             | 60-90%             | 3-7%           |
-
-**Estimated Total File Size Reduction: 60-75%** for typical pangenome GFA files.
-
-**Encoding Combinations:**
-Encodings can be stacked for additional compression. For example:
-- Segment sequences: 2-bit DNA + RLE (encode as 2-bit first, then apply RLE to packed data)
-- Mixed approach: Different blocks can use different encodings based on data characteristics
-
 
 ### CIGAR-Specific Encoding (0x??09)
 
-CIGAR (Compact Idiosyncratic Gapped Alignment Report) strings represent sequence alignments with alternating numbers and operation letters. This encoding exploits the structure of CIGAR strings to achieve better compression than general-purpose methods.
+CIGAR strings represent sequence alignments with alternating numbers and operation letters. This encoding exploits the structure of CIGAR strings to achieve better compression than general-purpose methods.
 
 **CIGAR Operations:**
 ```
