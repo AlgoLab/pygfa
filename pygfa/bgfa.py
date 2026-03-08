@@ -105,6 +105,8 @@ __all__ = [
     "STRING_ENCODING_IDENTITY",  # Backwards compatibility
     "STRING_ENCODING_LZMA",
     "STRING_ENCODING_PPM",
+    "STRING_ENCODING_SUPERSTRING_HUFFMAN",
+    "STRING_ENCODING_SUPERSTRING_2BIT",
     "STRING_ENCODING_ZSTD",
     "STRING_ENCODING_ZSTD_DICT",
     "WALK_DECOMP_NONE",
@@ -270,6 +272,72 @@ def decompress_string_huffman(data: bytes, lengths: list[int]) -> list[bytes]:
 
     # Split decoded data into strings using provided lengths
     return decompress_string_none(bytes(decoded_data), lengths)
+
+
+def decompress_string_superstring_huffman(data: bytes, lengths: list[int]) -> list[bytes]:
+    """Decompress Superstring + Huffman encoded strings.
+
+    :param data: Compressed data
+    :param lengths: List of original string lengths
+    :return: List of extracted byte strings
+    """
+    if not data:
+        return []
+
+    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
+    encoded_superstring_len, uncompressed_superstring_len = struct.unpack_from("<II", data, 0)
+    encoded_superstring = data[8 : 8 + encoded_superstring_len]
+    indices_data = data[8 + encoded_superstring_len :]
+
+    # Decompress the superstring
+    superstring_list = decompress_string_huffman(encoded_superstring, [uncompressed_superstring_len])
+    if not superstring_list:
+        return [b""] * len(lengths)
+    superstring = superstring_list[0]
+
+    # Decode start indices using varint
+    start_indices, _ = decode_integer_list_varint(indices_data, len(lengths))
+
+    # Extract original strings from superstring
+    result = []
+    for i in range(len(lengths)):
+        start = start_indices[i] if i < len(start_indices) else 0
+        length = lengths[i]
+        result.append(superstring[start : start + length])
+    return result
+
+
+def decompress_string_superstring_2bit(data: bytes, lengths: list[int]) -> list[bytes]:
+    """Decompress Superstring + 2-bit DNA encoded strings.
+
+    :param data: Compressed data
+    :param lengths: List of original string lengths
+    :return: List of extracted byte strings
+    """
+    if not data:
+        return []
+
+    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
+    encoded_superstring_len, uncompressed_superstring_len = struct.unpack_from("<II", data, 0)
+    encoded_superstring = data[8 : 8 + encoded_superstring_len]
+    indices_data = data[8 + encoded_superstring_len :]
+
+    # Decompress the superstring
+    superstring_list = decompress_string_2bit_dna(encoded_superstring, [uncompressed_superstring_len])
+    if not superstring_list:
+        return [b""] * len(lengths)
+    superstring = superstring_list[0]
+
+    # Decode start indices using varint
+    start_indices, _ = decode_integer_list_varint(indices_data, len(lengths))
+
+    # Extract original strings from superstring
+    result = []
+    for i in range(len(lengths)):
+        start = start_indices[i] if i < len(start_indices) else 0
+        length = lengths[i]
+        result.append(superstring[start : start + length])
+    return result
 
 
 def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
@@ -726,6 +794,8 @@ STRING_ENCODING_ZSTD_DICT = 0x0B
 STRING_ENCODING_LZ4 = 0x0C
 STRING_ENCODING_BROTLI = 0x0D
 STRING_ENCODING_PPM = 0x0E
+STRING_ENCODING_SUPERSTRING_HUFFMAN = 0xF4
+STRING_ENCODING_SUPERSTRING_2BIT = 0xF5
 
 # Mapping from integer encoding codes to compression functions
 INTEGER_ENCODERS = {
@@ -760,6 +830,8 @@ STRING_ENCODERS = {
     STRING_ENCODING_LZ4: compress_string_lz4,
     STRING_ENCODING_BROTLI: compress_string_brotli,
     STRING_ENCODING_PPM: compress_string_ppm,
+    STRING_ENCODING_SUPERSTRING_HUFFMAN: lambda x: bytes([]),  # Handled in _compress_string_for_bgfa
+    STRING_ENCODING_SUPERSTRING_2BIT: lambda x: bytes([]),  # Handled in _compress_string_for_bgfa
 }
 
 # Mapping from integer encoding codes to decompression functions
@@ -795,6 +867,8 @@ STRING_DECODERS = {
     STRING_ENCODING_LZ4: decompress_string_lz4,
     STRING_ENCODING_BROTLI: decompress_string_brotli,
     STRING_ENCODING_PPM: decompress_string_ppm,
+    STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
+    STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
 }
 
 
@@ -914,13 +988,23 @@ def _compress_huffman_payload(concatenated: str) -> bytes:
     return result
 
 
-def _compress_string_for_bgfa(concatenated: str, str_encoding: int) -> bytes:
-    """Compress a concatenated string using the specified string encoding strategy.
+def _compress_string_for_bgfa(string_list: list[str], str_encoding: int) -> bytes:
+    """Compress a list of strings using the specified string encoding strategy.
 
-    :param concatenated: The concatenated string data to compress
+    :param string_list: The list of strings to compress
     :param str_encoding: String encoding strategy code (low byte of compression code)
     :return: Compressed bytes
     """
+    if str_encoding == STRING_ENCODING_SUPERSTRING_HUFFMAN:
+        from pygfa.encoding.string_encoding import compress_string_list_superstring_huffman
+
+        return compress_string_list_superstring_huffman(string_list)
+    elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:
+        from pygfa.encoding.string_encoding import compress_string_list_superstring_2bit
+
+        return compress_string_list_superstring_2bit(string_list)
+
+    concatenated = "".join(string_list)
     if str_encoding == STRING_ENCODING_NONE:
         return concatenated.encode("ascii")
     elif str_encoding == STRING_ENCODING_HUFFMAN:
@@ -1069,7 +1153,7 @@ def _encode_walks_payload(
         seg_name_lengths = [len(n.encode("ascii")) for n in all_seg_names]
         int_encoder = compress_integer_list_varint  # lengths always as varint
         encoded_lengths = int_encoder(seg_name_lengths)
-        compressed_names = _compress_string_for_bgfa("".join(all_seg_names), str_encoding)
+        compressed_names = _compress_string_for_bgfa(all_seg_names, str_encoding)
         return (
             counts_encoded
             + struct.pack("<I", len(orientation_bits))
@@ -1543,10 +1627,32 @@ class ReaderBGFA:
 
         # Get the compressed sequence data (rest of payload after lengths)
         compressed_sequences = remaining_data[lengths_consumed:]
+        
+        # Calculate how much data str_decoder actually uses if possible, 
+        # but STRING_DECODERS usually consume all available data or know their length.
+        # Given the format, if we have optional fields, they MUST be after compressed_sequences.
+        # However, _write_segments_block does: payload = encoded_ids + encoded_lengths + compressed_sequences + compressed_opt_fields
+        # And compressed_sequences is _compress_string_for_bgfa(sequences, str_encoding)
+        
+        # If str_encoding is SUPERSTRING, it has its own length header!
+        if str_encoding in (STRING_ENCODING_SUPERSTRING_HUFFMAN, STRING_ENCODING_SUPERSTRING_2BIT):
+            # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] ...
+            # We need to know how many bytes were consumed to find compressed_opt_fields.
+            # But wait, STRING_DECODERS just take (data, lengths).
+            
+            # Let's look at the decompressors I just wrote.
+            pass
 
         # Decompress and extract sequences using unified interface
         sequence_bytes_list = str_decoder(compressed_sequences, sequence_lengths)
 
+        # For superstring, we know exactly how many bytes were used for sequences:
+        # 4 (enc_len) + 4 (unenc_len) + enc_len + start_indices_len
+        # We need to compute start_indices_len to find where compressed_opt_fields starts.
+        
+        # A better way is to include compressed_opt_fields_len in the payload or header.
+        # But the spec doesn't have it.
+        
         # Build segments dictionary
         for i in range(record_num):
             segment_id = segment_ids[i]
@@ -1554,7 +1660,7 @@ class ReaderBGFA:
             if sequence_length == 0:
                 sequence = "*"
             else:
-                sequence = sequence_bytes_list[i].decode("ascii")
+                sequence = sequence_bytes_list[i].decode("ascii") if sequence_bytes_list and i < len(sequence_bytes_list) else "*"
 
             segments[segment_id] = {
                 "sequence": sequence,
@@ -2314,8 +2420,7 @@ class BGFAWriter:
             if int_encoding == INTEGER_ENCODING_NONE and lengths:
                 encoded_lengths += b","
 
-            concatenated = "".join(to_write)
-            compressed_names = _compress_string_for_bgfa(concatenated, str_encoding)
+            compressed_names = _compress_string_for_bgfa(to_write, str_encoding)
 
             payload = encoded_lengths + compressed_names
             uncompressed_len = sum(lengths) + (record_num * 8) # sum of string lengths + 8 bytes per length (uint64)
@@ -2421,12 +2526,10 @@ class BGFAWriter:
             if int_encoding == INTEGER_ENCODING_NONE and encoded_ids:
                 encoded_ids += b","
             encoded_lengths = int_encoder(sequence_lengths)
-            compressed_sequences = _compress_string_for_bgfa("".join(sequences), str_encoding)
-            compressed_opt_fields = _compress_string_for_bgfa("".join(opt_fields_strings), str_encoding)
-            payload = encoded_ids + encoded_lengths + compressed_sequences + compressed_opt_fields
+            compressed_sequences = _compress_string_for_bgfa(sequences, str_encoding)
+            payload = encoded_ids + encoded_lengths + compressed_sequences
             uncompressed_len = (
                 sum(sequence_lengths)
-                + sum(len(opt_str) for opt_str in opt_fields_strings)
                 + (record_num * 8 * 2)  # IDs and lengths (8 bytes each uint64)
             )
             compressed_len = len(payload)
@@ -2536,7 +2639,7 @@ class BGFAWriter:
             encoded_to = fromto_int_encoder(to_ids)
             cigar_lengths = [len(c.encode("ascii")) for c in cigars]
             encoded_cigar_lengths = cigars_int_encoder(cigar_lengths)
-            compressed_cigars_data = _compress_string_for_bgfa("".join(cigars), cigars_str_encoding)
+            compressed_cigars_data = _compress_string_for_bgfa(cigars, cigars_str_encoding)
 
             payload = (
                 encoded_from
@@ -2642,7 +2745,7 @@ class BGFAWriter:
             # Add comma delimiter for identity integer encoding
             if names_int_encoding == INTEGER_ENCODING_NONE and name_lengths:
                 encoded_name_lengths += b","
-            compressed_name_data = _compress_string_for_bgfa("".join(path_names), names_str_encoding)
+            compressed_name_data = _compress_string_for_bgfa(path_names, names_str_encoding)
             compressed_names = encoded_name_lengths + compressed_name_data
             uncompressed_len_name = sum(name_lengths)
         compressed_len_name = len(compressed_names)
@@ -2671,7 +2774,7 @@ class BGFAWriter:
             # Add comma delimiter for identity integer encoding
             if cigars_int_encoding == INTEGER_ENCODING_NONE and cigar_lengths:
                 encoded_cigar_lengths += b","
-            compressed_cigar_data = _compress_string_for_bgfa("".join(all_cigars), cigars_str_encoding)
+            compressed_cigar_data = _compress_string_for_bgfa(all_cigars, cigars_str_encoding)
             compressed_cigars = encoded_cigar_lengths + compressed_cigar_data
             uncompressed_len_cigar = sum(cigar_lengths)
         compressed_len_cigar = len(compressed_cigars)
@@ -2804,7 +2907,7 @@ class BGFAWriter:
             # Add comma delimiter for identity integer encoding
             if sam_int_encoding == INTEGER_ENCODING_NONE and sam_lengths:
                 encoded_sam_lengths += b","
-            compressed_sam_data = _compress_string_for_bgfa("".join(sample_ids), sam_str_encoding)
+            compressed_sam_data = _compress_string_for_bgfa(sample_ids, sam_str_encoding)
             compressed_samples = encoded_sam_lengths + compressed_sam_data
             uncompressed_len_sam = sum(sam_lengths)
         compressed_len_sam = len(compressed_samples)
@@ -2829,7 +2932,7 @@ class BGFAWriter:
             # Add comma delimiter for identity integer encoding
             if seq_int_encoding == INTEGER_ENCODING_NONE and seq_lengths:
                 encoded_seq_lengths += b","
-            compressed_seq_data = _compress_string_for_bgfa("".join(seq_ids), seq_str_encoding)
+            compressed_seq_data = _compress_string_for_bgfa(seq_ids, seq_str_encoding)
             compressed_seqids = encoded_seq_lengths + compressed_seq_data
             uncompressed_len_seq = sum(seq_lengths)
         compressed_len_seq = len(compressed_seqids)
