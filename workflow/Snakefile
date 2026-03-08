@@ -118,7 +118,7 @@ rule aggregate_results:
     output:
         OUTPUT_DIR + "/summary.csv.zstd"
     shell:
-        "(head -n 1 {input[0]} && tail -n +2 -q {input}) | zstd > {output}"
+        "(head -n 1 {input[0]} && tail -n +2 -q {input}) | pixi run zstd > {output}"
 
 
 rule generate_bgfa:
