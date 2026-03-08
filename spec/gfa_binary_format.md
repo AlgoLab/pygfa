@@ -220,7 +220,7 @@ We use question marks `??` to represent that all values of the byte can be used.
 | `0x??02` | Concatenation + gzip        | `string` |
 | `0x??03` | Concatenation + lzma        | `string` |
 | `0x??04` | Concatenation + Huffman     | `string` |
-| `0x??05` | Concatenation + 2-bit      | `string` |
+| `0x??05` | Concatenation + 2-bit       | `string` |
 | `0x??06` | Concatenation + Arithmetic  | `string` |
 | `0x??07` | Concatenation + BWT+Huffman | `string` |
 | `0x??08` | Concatenation + RLE         | `string` |
