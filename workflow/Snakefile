@@ -113,7 +113,7 @@ rule all:
     output:
         OUTPUT_DIR + "/summary.csv"
     shell:
-        "head -n 1 {input[0]} && tail -n +2 -q {input}"
+        "head -n 1 {input[0]} && tail -n +2 -q {input} > {output}"
 
 
 rule generate_bgfa:
