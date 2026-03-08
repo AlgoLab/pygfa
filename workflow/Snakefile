@@ -109,16 +109,11 @@ def get_all_csv_files():
 
 rule all:
     input:
-        OUTPUT_DIR + "/summary.csv.zstd"
-
-
-rule aggregate_results:
-    input:
         get_all_csv_files()
     output:
-        OUTPUT_DIR + "/summary.csv.zstd"
+        OUTPUT_DIR + "/summary.csv"
     shell:
-        "(head -n 1 {input[0]} && tail -n +2 -q {input}) | pixi run zstd > {output}"
+        "head -n 1 {input[0]} && tail -n +2 -q {input}"
 
 
 rule generate_bgfa:
