@@ -342,3 +342,146 @@ def compress_string_list_huffman(
         + lengths
         + bytes(result)
     )
+
+
+def overlap(a: bytes, b: bytes) -> int:
+    """Compute the maximum overlap between suffix of a and prefix of b.
+
+    :param a: First byte sequence
+    :param b: Second byte sequence
+    :return: Length of maximum overlap
+    """
+    max_len = min(len(a), len(b))
+    for i in range(max_len, 0, -1):
+        if a.endswith(b[:i]):
+            return i
+    return 0
+
+
+def greedy_scs(strings: list[bytes]) -> bytes:
+    """Compute a common superstring using the greedy algorithm.
+
+    :param strings: List of byte sequences
+    :return: A common superstring (not necessarily the shortest)
+    """
+    if not strings:
+        return b""
+
+    # Work on a copy of unique non-empty strings
+    candidates = list(set(s for s in strings if s))
+    if not candidates:
+        return b""
+
+    while len(candidates) > 1:
+        max_overlap = -1
+        best_pair = (0, 1)
+
+        for i in range(len(candidates)):
+            for j in range(len(candidates)):
+                if i == j:
+                    continue
+                ov = overlap(candidates[i], candidates[j])
+                if ov > max_overlap:
+                    max_overlap = ov
+                    best_pair = (i, j)
+
+        i, j = best_pair
+        # Merge i and j
+        merged = candidates[i] + candidates[j][max_overlap:]
+
+        # Remove old strings and add merged one
+        if i > j:
+            candidates.pop(i)
+            candidates.pop(j)
+        else:
+            candidates.pop(j)
+            candidates.pop(i)
+        candidates.append(merged)
+
+    return candidates[0]
+
+
+def compress_string_list_superstring_huffman(
+    string_list: list[str],
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
+) -> bytes:
+    """Compress a list of strings using superstring + Huffman encoding.
+
+    :param string_list: List of strings to compress
+    :param compress_integer_list: Integer list compression function
+    :return: Compressed bytes
+    """
+    if not string_list:
+        return b""
+
+    if compress_integer_list is None:
+        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
+        compress_integer_list = compress_integer_list_varint
+
+    strings = [s.encode("ascii") for s in string_list]
+    superstring = greedy_scs(strings)
+
+    # Validate that it is indeed a superstring
+    for s in strings:
+        if s not in superstring:
+            raise ValueError(f"Greedy SCS failed: '{s.decode('ascii')}' not in superstring")
+
+    start_indices = [superstring.find(s) for s in strings]
+
+    # Encode superstring using Huffman
+    from pygfa.bgfa import _compress_huffman_payload
+
+    encoded_superstring = _compress_huffman_payload(superstring.decode("ascii"))
+
+    indices_bytes = compress_integer_list(start_indices)
+
+    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
+    return (
+        struct.pack("<II", len(encoded_superstring), len(superstring))
+        + encoded_superstring
+        + indices_bytes
+    )
+
+
+def compress_string_list_superstring_2bit(
+    string_list: list[str],
+    compress_integer_list: Callable[[list[int]], bytes] | None = None,
+) -> bytes:
+    """Compress a list of DNA sequences using superstring + 2-bit encoding.
+
+    :param string_list: List of strings to compress
+    :param compress_integer_list: Integer list compression function
+    :return: Compressed bytes
+    """
+    if not string_list:
+        return b""
+
+    if compress_integer_list is None:
+        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
+        compress_integer_list = compress_integer_list_varint
+
+    strings = [s.encode("ascii") for s in string_list]
+    superstring = greedy_scs(strings)
+
+    # Validate
+    for s in strings:
+        if s not in superstring:
+            raise ValueError(f"Greedy SCS failed: '{s.decode('ascii')}' not in superstring")
+
+    start_indices = [superstring.find(s) for s in strings]
+
+    # Encode superstring using 2-bit DNA
+    from pygfa.encoding.dna_encoding import compress_string_2bit_dna
+
+    encoded_superstring = compress_string_2bit_dna(superstring.decode("ascii"))
+
+    indices_bytes = compress_integer_list(start_indices)
+
+    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
+    return (
+        struct.pack("<II", len(encoded_superstring), len(superstring))
+        + encoded_superstring
+        + indices_bytes
+    )

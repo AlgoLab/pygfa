@@ -146,7 +146,7 @@ Only the last block can have fewer than `block_size` objects.
 | `cigar_strings` | The list of CIGAR strings                              | `cigar strings` |
 
 
-### Walk Block
+### Walks Block
 
 Each block consists of a header and a payload.
 Since there are `W_len` segments, there will be exactly `ceiling(W_len /
@@ -184,60 +184,67 @@ Only the last block can have fewer than `block_size` objects.
 | `end_positions`   | optional end positions                                 | `uints`   |
 | `walks`           | Walks, each walk is a sequence of oriented segment IDs | `walks`   |
 
-## Encoding strategies
+## Strings Encoding strategies
 
-The code of each strategy consists of two bytes. Except for some special case,
-the first byte encodes the strategy for a sequence of uints and the second byte
-the strategy for a string.
+When we have to encode a list of strings (the `strings` type), we choose the encoding strategies with a code consists of
+two bytes. 
+The first byte encodes the strategy for a sequence of uints, which are usually the lengths of the strings to encode
+and/or the starting and ending position of the strings within a superstring (which might be the concatenation of all
+strings, without the terminator character `\0`).
+The second byte represents the strategy for encoding the superstring/concatenation.
+
+What numbers are actually stored depends on the encoding used for the string. 
+More precisely, the concatenation requires to store the lengths of the strings, the superstring requires to store the
+initial and final position of the string within the superstring.
+
 For example the code 0x0102 is used for the method 0x01 for the lengths and the
 method 0x02 for the strings.
 We use question marks `??` to represent that all values of the byte can be used.
 
-| Code     | Strategy       | Type     |
-|----------|----------------|----------|
-| `0x00??` | none           | `uints`  |
-| `0x??00` | none           | `string` |
-| `0x01??` | varint         | `uints`  |
-| `0x02??` | fixed16        | `uints`  |
-| `0x03??` | delta          | `uints`  |
-| `0x04??` | elias gamma    | `uints`  |
-| `0x05??` | elias omega    | `uints`  |
-| `0x06??` | golomb         | `uints`  |
-| `0x07??` | rice           | `uints`  |
-| `0x08??` | streamvbyte    | `uints`  |
-| `0x09??` | vbyte          | `uints`  |
-| `0x0A??` | fixed32        | `uints`  |
-| `0x0B??` | fixed64        | `uints`  |
-| `0x??01` | zstd           | `string` |
-| `0x??02` | gzip           | `string` |
-| `0x??03` | lzma           | `string` |
-| `0x??04` | Huffman        | `string` |
-| `0x??05` | 2-bit DNA      | `string` |
-| `0x??06` | Arithmetic     | `string` |
-| `0x??07` | BWT+Huffman    | `string` |
-| `0x??08` | RLE            | `string` |
-| `0x??09` | CIGAR-specific | `string` |
-| `0x??0A` | Dictionary     | `string` |
-| `0x??0B` | ZSTD Dict      | `string` |
-| `0x??0C` | LZ4            | `string` |
-| `0x??0D` | Brotli         | `string` |
-| `0x??0E` | PPM            | `string` |
-| `0x??F4` | Superstring + Huffman        | `string` |
-+ -bit DNa      | `String` |
-First Byte Determines How We Encode The List Of Lengths Of The Strings, The
-How We Encode The Concatenation Of The Strings.
- Implies That We Use The Varint Me2027-28thod To Encode The Lengths ()
-Method To Encode The Concatenation Of The String.
--  - `-  int32`: original data length
-## Coding (0x??06)
-an adaptive model 
-(0x??06)
+| Code     | Strategy                    | Type     |
+|----------|-----------------------------|----------|
+| `0x00??` | none                        | `uints`  |
+| `0x??00` | Concatenation + none        | `string` |
+| `0x01??` | varint                      | `uints`  |
+| `0x02??` | fixed16                     | `uints`  |
+| `0x03??` | delta                       | `uints`  |
+| `0x04??` | elias gamma                 | `uints`  |
+| `0x05??` | elias omega                 | `uints`  |
+| `0x06??` | golomb                      | `uints`  |
+| `0x07??` | rice                        | `uints`  |
+| `0x08??` | streamvbyte                 | `uints`  |
+| `0x09??` | vbyte                       | `uints`  |
+| `0x0A??` | fixed32                     | `uints`  |
+| `0x0B??` | fixed64                     | `uints`  |
+| `0x??01` | Concatenation + zstd        | `string` |
+| `0x??02` | Concatenation + gzip        | `string` |
+| `0x??03` | Concatenation + lzma        | `string` |
+| `0x??04` | Concatenation + Huffman     | `string` |
+| `0x??05` | Concatenation + 2-bit      | `string` |
+| `0x??06` | Concatenation + Arithmetic  | `string` |
+| `0x??07` | Concatenation + BWT+Huffman | `string` |
+| `0x??08` | Concatenation + RLE         | `string` |
+| `0x??0A` | Concatenation + Dictionary  | `string` |
+| `0x??0B` | Concatenation + ZSTD Dict   | `string` |
+| `0x??0C` | Concatenation + LZ4         | `string` |
+| `0x??0D` | Concatenation + Brotli      | `string` |
+| `0x??0E` | Concatenation + PPM         | `string` |
+| `0x??F0` | Superstring + none          | `string` |
+| `0x??F4` | Superstring + Huffman       | `string` |
+| `0x??F5` | Superstring + 2-bit DNa     | `String` |
 
-Arithmetic `coding uses an adaptive model 
-- `bytes`: encoded bitstream
-frequency 1) and adapts as it processes each byte. This provides good compression for sequences with non-uniform symbol distributions.
 
-Wheeler Transform) + Huffman coding provides excellent compression for repetitive sequences like DNA. The pipeline is:
+*  Concatenation means that the strings are concatenated after removing the `\0` character that ends them, then they are
+   concatenated. What follows the + sign is an encoding/compression method applied on the concatenation.
+*  Superstring means that we compute a superstring with a heuristic method of the input strings after removing the `\0`
+   character that ends them. What follows the + sign is an encoding/compression method applied on the concatenation.
+
+## Arithmetic Coding (0x??06)
+
+
+## BWT + Huffman encoding
+
+Burrow-Wheeler Transform) + Huffman coding provides excellent compression for repetitive sequences like DNA. The pipeline is:
 1. Apply Burrows-Wheeler Transform in configurable blocks (default 64KB)
 2. Apply Move-to-Front transform
 3. Encode with Huffman coding
@@ -267,7 +274,7 @@ The format is:
   - bit 0: has_exceptions (1 if exception table present)
   - bits 1-7: reserved
 - packed_bases: 4 nucleotides per byte (2 bits each)
-- If has_exceptions flag is set:
+- If has_exceptionConcatenation + s flag is set:
   - varint: exception count
   - varint list: exception positions
   - bytes: exception characters (one byte per exception)
