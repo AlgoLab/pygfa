@@ -63,158 +63,23 @@ def parse_cli_options():
         "--config", "-c", type=str, help="Path to TOML configuration file"
     )
 
-    string_encoding_str = f" possible values: {'/'.join(STRING_ENCODINGS.keys())[:-1]}"
+    # Strategy options for every component
+    strategy_group = bgfa_parser.add_argument_group("Strategy Options (Format: int-str, e.g. varint-huffman)")
+    strategy_group.add_argument("--names-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--seq-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--links-fromto-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--links-cigars-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--paths-names-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--paths-paths-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--paths-cigars-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-sample-ids-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-hap-indices-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-seq-ids-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-start-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-end-enc", type=str, default="varint-none")
+    strategy_group.add_argument("--walks-walks-enc", type=str, default="varint-none")
 
-    # Compression method options for each component
-    compression_group = bgfa_parser.add_argument_group("Compression Options")
-    compression_group.add_argument(
-        "--compress-segment-names",
-        type=str,
-        default="",
-        help="Compression method for segment names"
-        + string_encoding_str,
-    )
-    compression_group.add_argument(
-        "--compress-segment-names-lens",
-        type=str,
-        default="",
-        help="Compression method for segment name lengths",
-    )
-    compression_group.add_argument(
-        "--compress-segment-names-names",
-        type=str,
-        default="",
-        help="Compression method for segment name values"
-        + string_encoding_str,
-    )
-    compression_group.add_argument(
-        "--compress-segments",
-        type=str,
-        default="",
-        help="Compression method for segments"
-        + string_encoding_str,
-    )
-    compression_group.add_argument(
-        "--compress-segments-lens",
-        type=str,
-        default="",
-        help="Compression method for segment lengths",
-    )
-    compression_group.add_argument(
-        "--compress-segments-seq",
-        type=str,
-        default="",
-        help="Compression method for segment sequences"
-        + string_encoding_str,
-    )
-    compression_group.add_argument(
-        "--compress-links",
-        type=str,
-        default="",
-        help="Compression method for links",
-    )
-    compression_group.add_argument(
-        "--compress-links-from",
-        type=str,
-        default="",
-        help="Compression method for links source",
-    )
-    compression_group.add_argument(
-        "--compress-links-to",
-        type=str,
-        default="",
-        help="Compression method for links destination",
-    )
-    compression_group.add_argument(
-        "--compress-links-cigar-lens",
-        type=str,
-        default="",
-        help="Compression method for links CIGAR lengths",
-    )
-    compression_group.add_argument(
-        "--compress-links-cigar",
-        type=str,
-        default="",
-        help="Compression method for links CIGAR",
-    )
-    compression_group.add_argument(
-        "--compress-paths",
-        type=str,
-        default="",
-        help="Compression method for paths",
-    )
-    compression_group.add_argument(
-        "--compress-paths-names",
-        type=str,
-        default="",
-        help="Compression method for path names",
-    )
-    compression_group.add_argument(
-        "--compress-paths-seg-lens",
-        type=str,
-        default="",
-        help="Compression method for path segment lengths",
-    )
-    compression_group.add_argument(
-        "--compress-paths-ids",
-        type=str,
-        default="",
-        help=f"Compression method for path ids (default: ''), possible values: {'/'.join(STRING_ENCODINGS.keys())}",
-    )
-    compression_group.add_argument(
-        "--compress-paths-cigar-lens",
-        type=str,
-        default="",
-        help="Compression method for path CIGAR lengths",
-    )
-    compression_group.add_argument(
-        "--compress-paths-cigar",
-        type=str,
-        default="",
-        help="Compression method for path CIGAR",
-    )
-    compression_group.add_argument(
-        "--compress-walks",
-        type=str,
-        default="",
-        help="Compression method for walks",
-    )
-    compression_group.add_argument(
-        "--compress-walks-samples",
-        type=str,
-        default="",
-        help="Compression method for walk sample IDs",
-    )
-    compression_group.add_argument(
-        "--compress-walks-heps",
-        type=str,
-        default="",
-        help="Compression method for walk HEP indices",
-    )
-    compression_group.add_argument(
-        "--compress-walks-seqs",
-        type=str,
-        default="",
-        help="Compression method for walk sequence IDs",
-    )
-    compression_group.add_argument(
-        "--compress-walks-start",
-        type=str,
-        default="",
-        help="Compression method for walk start positions",
-    )
-    compression_group.add_argument(
-        "--compress-walks-end",
-        type=str,
-        default="",
-        help="Compression method for walk end positions",
-    )
-    compression_group.add_argument(
-        "--compress-walks-data",
-        type=str,
-        default="",
-        help="Compression method for walk data",
-    )
+    # cat subcommand
 
     # cat subcommand
     cat_parser = subparsers.add_parser(
@@ -429,12 +294,6 @@ if __name__ == "__main__":
 
     if options.get("command") == "bgfa":
         try:
-            # Build compression options dictionary
-            comp_dict = {}
-            # Add all compression methods to the options
-            for key, value in compression_options.items():
-                comp_dict[key] = value
-
             # Read GFA file
             logger.info("Reading GFA file from %s", options.get("input_file"))
             g = GFA.from_gfa(options.get("input_file"))
@@ -444,11 +303,24 @@ if __name__ == "__main__":
             verbose_mode = options.get("verbose", False) or options.get("debug", False)
             g.to_bgfa(
                 options.get("output_file"),
-                options.get("block_size", 1024),
-                comp_dict,
+                block_size=options.get("block_size", 1024),
                 verbose=verbose_mode,
                 debug=options.get("debug", False),
                 logfile=options.get("logfile"),
+                # New granular strategy options
+                names_enc=args.names_enc,
+                seq_enc=args.seq_enc,
+                links_fromto_enc=args.links_fromto_enc,
+                links_cigars_enc=args.links_cigars_enc,
+                paths_names_enc=args.paths_names_enc,
+                paths_paths_enc=args.paths_paths_enc,
+                paths_cigars_enc=args.paths_cigars_enc,
+                walks_sample_ids_enc=args.walks_sample_ids_enc,
+                walks_hap_indices_enc=args.walks_hap_indices_enc,
+                walks_seq_ids_enc=args.walks_seq_ids_enc,
+                walks_start_enc=args.walks_start_enc,
+                walks_end_enc=args.walks_end_enc,
+                walks_walks_enc=args.walks_walks_enc,
             )
 
             if options.get("verbose"):

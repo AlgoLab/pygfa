@@ -47,6 +47,15 @@ from pygfa.encoding.string_encoding import (
     compress_string_list_huffman as compress_string_list_huffman,
 )
 from pygfa.encoding.string_encoding import (
+    compress_string_list_superstring_huffman as compress_string_list_superstring_huffman,
+)
+from pygfa.encoding.string_encoding import (
+    compress_string_list_superstring_2bit as compress_string_list_superstring_2bit,
+)
+from pygfa.encoding.string_encoding import (
+    compress_string_list_superstring_none as compress_string_list_superstring_none,
+)
+from pygfa.encoding.string_encoding import (
     compress_string_lzma as compress_string_lzma,
 )
 from pygfa.encoding.string_encoding import (
@@ -257,6 +266,9 @@ STRING_ENCODINGS: dict[str, str] = {
     "arithmetic": "compress_string_arithmetic",
     "bwt_huffman": "compress_string_bwt_huffman",
     "ppm": "compress_string_ppm",
+    "superstring_none": "compress_string_list_superstring_none",
+    "superstring_huffman": "compress_string_list_superstring_huffman",
+    "superstring_2bit": "compress_string_list_superstring_2bit",
     "": "compress_string_none",
 }
 

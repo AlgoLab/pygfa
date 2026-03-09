@@ -146,15 +146,15 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         output_dir = tempfile.mkdtemp(dir="results/test")
 
         with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:
-            # Create BGFA header (new format: no block_size)
+            # Create BGFA header (new format: magic + version + header_len + text + null)
+            magic = 0x42474641 # BGFA
             version = 1
-            header_text = "test_header\0"
+            header_text = "test_header"
+            header_len = len(header_text)
 
-            # Write file header: version + reserved (34 bytes) + header_text
-            tmp_file.write(struct.pack("<H", version))
-            tmp_file.write(b"\x00" * 34)  # reserved space
-            tmp_file.write(header_text.encode("ascii"))
-
+            # Write file header
+            tmp_file.write(struct.pack("<IHH", magic, version, header_len))
+            tmp_file.write(header_text.encode("ascii") + b"\0")
             # Add segment names block with section_id (empty - record_num = 0 indicates no more blocks)
             seg_names_header = struct.pack(
                 "<BHHQQ",

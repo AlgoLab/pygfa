@@ -1941,11 +1941,51 @@ class GFA:
         self,
         file=None,
         block_size=1024,
-        compression_options=None,
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
+        # Granular options
+        names_enc: str = "varint-none",
+        seq_enc: str = "varint-none",
+        links_fromto_enc: str = "varint-none",
+        links_cigars_enc: str = "varint-none",
+        paths_names_enc: str = "varint-none",
+        paths_paths_enc: str = "varint-none",
+        paths_cigars_enc: str = "varint-none",
+        walks_sample_ids_enc: str = "varint-none",
+        walks_hap_indices_enc: str = "varint-none",
+        walks_seq_ids_enc: str = "varint-none",
+        walks_start_enc: str = "varint-none",
+        walks_end_enc: str = "varint-none",
+        walks_walks_enc: str = "varint-none",
+        **kwargs
     ) -> bytes:
+        """Convert this GFA graph to BGFA binary format and write to file.
+        """
+        from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+
+        return bgfa_to_bgfa(
+            self,
+            file=file,
+            block_size=block_size,
+            names_enc=names_enc,
+            seq_enc=seq_enc,
+            links_fromto_enc=links_fromto_enc,
+            links_cigars_enc=links_cigars_enc,
+            paths_names_enc=paths_names_enc,
+            paths_paths_enc=paths_paths_enc,
+            paths_cigars_enc=paths_cigars_enc,
+            walks_sample_ids_enc=walks_sample_ids_enc,
+            walks_hap_indices_enc=walks_hap_indices_enc,
+            walks_seq_ids_enc=walks_seq_ids_enc,
+            walks_start_enc=walks_start_enc,
+            walks_end_enc=walks_end_enc,
+            walks_walks_enc=walks_walks_enc,
+            verbose=verbose,
+            debug=debug,
+            logfile=logfile,
+            **kwargs
+        )
         """Convert this GFA graph to BGFA binary format and write to file.
 
         :param file: Output file path or file object (optional)
