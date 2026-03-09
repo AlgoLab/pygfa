@@ -46,9 +46,10 @@ class TestBGFAHeaderValidation(unittest.TestCase):
         # Corrupt the magic number by changing first byte
         corrupted_data = b"\x00" + header_data[1:]
 
-        # Since _parse_header doesn't validate magic number, this should pass
-        header = self.reader._parse_header(corrupted_data)
-        self.assertEqual(header["version"], 1)
+        # _parse_header should now validate magic number
+        with self.assertRaises(ValueError) as context:
+            self.reader._parse_header(corrupted_data)
+        self.assertIn("Invalid magic number", str(context.exception))
 
     def test_missing_null_terminator(self):
         """Test header missing null terminator."""
@@ -78,7 +79,7 @@ class TestBGFAHeaderValidation(unittest.TestCase):
 
         header = self.reader._parse_header(header_data)
         self.assertEqual(header["header_text"], "")
-        self.assertEqual(header["header_size"], 7)  # magic + version + header_len + null terminator
+        self.assertEqual(header["header_size"], 9)  # magic(4) + version(2) + header_len(2) + null terminator(1)
 
     def test_large_header_text(self):
         """Test header with large header text."""
@@ -110,7 +111,7 @@ class TestBGFAHeaderValidation(unittest.TestCase):
         min_header = struct.pack("<I", 0x41464742) + struct.pack("<H", 1) + struct.pack("<H", 0) + b"\x00"
         header = self.reader._parse_header(min_header)
         self.assertEqual(header["header_text"], "")
-        self.assertEqual(header["header_size"], 7)
+        self.assertEqual(header["header_size"], 9)
 
         # Test maximum header length that fits in uint16
         max_text = "A" * 65535

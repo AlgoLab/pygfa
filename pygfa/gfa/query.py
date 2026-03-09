@@ -642,19 +642,16 @@ class GFAParserMixin(BaseGFA):
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
+        **kwargs
     ) -> bytes:
-        """Convert this GFA graph to BGFA binary format and write to file.
-
-        :param file: Output file path or file object (optional)
-        :param block_size: Block size for BGFA format
-        :param compression_options: Dictionary of compression options. Accepts either:
-            - New-style keys matching bgfa.to_bgfa parameters
-            - Legacy keys from bgfatools CLI
-        :param verbose: If True, log detailed information
-        :param debug: If True, log debug information
-        :param logfile: Path to log file
-        :return: BGFA binary data if file is None, otherwise writes to file
+        """Convert this GFA graph to BGFA binary format.
         """
+        from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+        return bgfa_to_bgfa(
+            self, file=file, block_size=block_size,
+            compression_options=compression_options,
+            verbose=verbose, debug=debug, logfile=logfile, **kwargs
+        )
         if verbose or debug:
             import logging
 

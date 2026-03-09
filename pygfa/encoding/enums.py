@@ -61,6 +61,9 @@ class StringEncoding(IntEnum):
     LZ4 = 0x0C
     BROTLI = 0x0D
     PPM = 0x0E
+    SUPERSTRING_NONE = 0xF0
+    SUPERSTRING_HUFFMAN = 0xF4
+    SUPERSTRING_2BIT = 0xF5
 
 
 class WalkDecomposition(IntEnum):

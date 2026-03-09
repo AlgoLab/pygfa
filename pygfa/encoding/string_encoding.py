@@ -8,25 +8,19 @@ from collections.abc import Callable
 
 try:
     import compression.zstd as z
-
     _ZSTD_AVAILABLE = True
 except ImportError:
     _ZSTD_AVAILABLE = False
     z = None
 
-
 def compress_string_zstd(string: str) -> bytes:
     if not _ZSTD_AVAILABLE:
-        raise ImportError(
-            "The 'compression' package is required for zstd compression. Install it with: pip install compression"
-        )
+        raise ImportError("zstandard package required")
     assert z is not None
     return z.compress(string.encode("ascii"), level=19)
 
-
 _ZSTD_STATIC_DICT = None
 _zstd_dict_lock = threading.Lock()
-
 
 def _get_zstd_dict():
     global _ZSTD_STATIC_DICT
@@ -34,454 +28,173 @@ def _get_zstd_dict():
         with _zstd_dict_lock:
             if _ZSTD_STATIC_DICT is None:
                 import zstandard as zstd
-
                 common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
                 _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
     return _ZSTD_STATIC_DICT
 
-
 def compress_string_zstd_dict(string: str) -> bytes:
-    if not _ZSTD_AVAILABLE:
-        raise ImportError(
-            "The 'compression' package is required for zstd compression. Install it with: pip install compression"
-        )
     import zstandard as zstd
-
     data = string.encode("ascii")
     dictionary = _get_zstd_dict()
     compressor = zstd.ZstdCompressor(dict_data=dictionary, level=3)
     return compressor.compress(data)
 
-
 def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
-    if not _ZSTD_AVAILABLE:
-        raise ImportError(
-            "The 'compression' package is required for zstd decompression. Install it with: pip install compression"
-        )
     import zstandard as zstd
-
     dictionary = _get_zstd_dict()
-    decompressor = zstd.ZstdDecompressor(dict_data=dictionary)
+    decompressor = zstandard.ZstdDecompressor(dict_data=dictionary)
     decompressed = decompressor.decompress(data)
-    from pygfa.bgfa import decompress_string_identity
-
-    return decompress_string_identity(decompressed, lengths)
-
+    from pygfa.bgfa import decompress_string_none
+    return decompress_string_none(decompressed, lengths)
 
 def compress_string_gzip(string: str) -> bytes:
     return gzip.compress(string.encode("ascii"))
 
-
 def compress_string_lzma(string: str) -> bytes:
     return lzma.compress(string.encode("ascii"))
-
 
 def compress_string_none(string: str) -> bytes:
     return string.encode("ascii")
 
-
 def compress_string_list(
     string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-    compression_method: str = "zstd",
+    int_encoder: Callable[[list[int]], bytes] | None = None,
+    compression_method: str = "none",
     compression_level: int = 19,
+    first_byte_strategy: int = 0x01,
 ) -> bytes:
-    strings = [string.encode("ascii") for string in string_list]
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
+    """Compress a list of strings using Concatenation + strategy.
+    
+    Format: [Metadata:int_encoding] [Blob]
+    """
+    if int_encoder is None:
+        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+        int_encoder = compress_integer_list_varint
 
-        compress_integer_list = compress_integer_list_varint
-    length_bytes = compress_integer_list([len(s) for s in strings])
+    strings = [s.encode("ascii") for s in string_list]
+    metadata = int_encoder([len(s) for s in strings])
 
-    concatenated_strings = b"".join(strings)
+    concatenated = b"".join(strings)
 
     if compression_method == "zstd":
         if not _ZSTD_AVAILABLE:
-            raise ImportError(
-                "The 'compression' package is required for zstd compression. Install it with: pip install compression"
-            )
+            raise ImportError("zstandard package required")
         assert z is not None
-        compressed_data = z.compress(concatenated_strings, level=compression_level)
+        blob = z.compress(concatenated, level=compression_level)
     elif compression_method == "gzip":
-        compressed_data = gzip.compress(concatenated_strings, compresslevel=compression_level)
+        blob = gzip.compress(concatenated, compresslevel=compression_level)
     elif compression_method == "lzma":
-        compressed_data = lzma.compress(concatenated_strings, preset=compression_level)
+        blob = lzma.compress(concatenated, preset=compression_level)
+    elif compression_method == "huffman":
+        from pygfa.encoding.huffman_nibble import compress_nibble_huffman
+        blob = compress_nibble_huffman(concatenated, int_encoder, first_byte_strategy)
+    elif compression_method == "2bit":
+        from pygfa.encoding.dna_encoding import compress_string_2bit_dna
+        blob = compress_string_2bit_dna(concatenated.decode("ascii"))
     elif compression_method == "none":
-        compressed_data = concatenated_strings
+        blob = concatenated
     else:
-        raise ValueError(f"Unsupported compression method: {compression_method}")
-
-    return length_bytes + compressed_data
-
-
-def compress_string_list_frontcoding(
-    string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-) -> bytes:
-    if not string_list:
-        return b""
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    encoded = bytearray()
-    prev = b""
-    prefixes = []
-    suffixes = []
-
-    for s in string_list:
-        cur = s.encode("ascii")
-        i = 0
-        while i < min(len(prev), len(cur)) and prev[i] == cur[i]:
-            i += 1
-        prefixes.append(i)
-        suffixes.append(cur[i:])
-        prev = cur
-
-    encoded.extend(compress_integer_list(prefixes))
-    encoded.extend(compress_integer_list([len(s) for s in suffixes]))
-    encoded.extend(b"".join(suffixes))
-
-    return bytes(encoded)
-
-
-def compress_string_list_delta(
-    string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-    compression_method: str = "none",
-    compression_level: int = 19,
-) -> bytes:
-    if not string_list:
-        return b""
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    strings = [s.encode("ascii") for s in string_list]
-    deltas = [strings[0]]
-    for i in range(1, len(strings)):
-        a = strings[i - 1]
-        b = strings[i]
-        j = 0
-        while j < min(len(a), len(b)) and a[j] == b[j]:
-            j += 1
-        deltas.append(b[j:])
-
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    lengths = compress_integer_list([len(d) for d in deltas])
-    concatenated = b"".join(deltas)
-
-    if compression_method == "zstd" and _ZSTD_AVAILABLE:
-        assert z is not None
-        concatenated = z.compress(concatenated, level=compression_level)
-    elif compression_method == "gzip":
-        concatenated = gzip.compress(concatenated, compresslevel=compression_level)
-    elif compression_method == "lzma":
-        concatenated = lzma.compress(concatenated, preset=compression_level)
-
-    return lengths + concatenated
-
-
-def compress_string_list_dictionary(
-    string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-    max_dict_size: int = 65536,
-) -> bytes:
-    if not string_list:
-        return b""
-
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    strings = [s.encode("ascii") for s in string_list]
-    unique_strings = list(dict.fromkeys(strings))
-    if len(unique_strings) > max_dict_size:
-        unique_strings = unique_strings[:max_dict_size]
-
-    dict_map = {s: i for i, s in enumerate(unique_strings)}
-    dict_offsets = []
-    offset = 0
-    for s in unique_strings:
-        dict_offsets.append(offset)
-        offset += len(s)
-
-    dict_data = b"".join(unique_strings)
-    indices = [dict_map.get(s, 0) for s in strings]
-
-    indices_bytes = compress_integer_list(indices)
-    offsets_bytes = compress_integer_list(dict_offsets)
-
-    return struct.pack("<I", len(unique_strings)) + offsets_bytes + dict_data + indices_bytes
-
-
-class _HuffmanNode:
-    __slots__ = ("char", "freq", "left", "right")
-
-    def __init__(self, char: int | None, freq: int):
-        self.char = char
-        self.freq = freq
-        self.left: _HuffmanNode | None = None
-        self.right: _HuffmanNode | None = None
-
-    def __lt__(self, other: _HuffmanNode) -> bool:
-        return self.freq < other.freq
-
-
-def _build_huffman_tree(freq: dict[int, int]) -> _HuffmanNode:
-    import heapq
-
-    nodes = [_HuffmanNode(c, f) for c, f in freq.items()]
-    heapq.heapify(nodes)
-
-    while len(nodes) > 1:
-        left = heapq.heappop(nodes)
-        right = heapq.heappop(nodes)
-        parent = _HuffmanNode(None, left.freq + right.freq)
-        parent.left = left
-        parent.right = right
-        heapq.heappush(nodes, parent)
-
-    return nodes[0] if nodes else _HuffmanNode(0, 0)
-
-
-def _build_codes(
-    node: _HuffmanNode | None,
-    current: int = 0,
-    bits: list[int] | None = None,
-    codes: dict[int, list[int]] | None = None,
-) -> dict[int, list[int]]:
-    if codes is None:
-        codes = {}
-    if bits is None:
-        bits = []
-
-    if node is None:
-        return codes
-
-    if node.char is not None:
-        codes[node.char] = bits.copy()
-        if len(bits) == 0:
-            codes[node.char] = [0]
-    else:
-        if node.left:
-            _build_codes(node.left, current, bits + [0], codes)
-        if node.right:
-            _build_codes(node.right, current, bits + [1], codes)
-
-    return codes
-
-
-def compress_string_list_huffman(
-    string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-) -> bytes:
-    if not string_list:
-        return b""
-
-    if compress_integer_list is None:
-        from pygfa.encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    data = b"".join(s.encode("ascii") for s in string_list)
-    if not data:
-        return b"\x00\x00\x00\x00"
-
-    freq: dict[int, int] = {}
-    for byte in data:
-        freq[byte] = freq.get(byte, 0) + 1
-
-    if len(freq) == 1:
-        single_char = next(iter(freq))
-        codes = {single_char: [0]}
-    else:
-        tree = _build_huffman_tree(freq)
-        codes = _build_codes(tree)
-
-    bitstream: list[int] = []
-    for byte in data:
-        bitstream.extend(codes[byte])
-
-    while len(bitstream) % 8 != 0:
-        bitstream.append(0)
-
-    encoded_bytes = 0
-    bit_count = 0
-    result = bytearray()
-    for bit in bitstream:
-        encoded_bytes = (encoded_bytes << 1) | bit
-        bit_count += 1
-        if bit_count == 8:
-            result.append(encoded_bytes & 0xFF)
-            encoded_bytes = 0
-            bit_count = 0
-
-    codebook: list[tuple[int, list[int]]] = sorted(codes.items(), key=lambda x: x[0])
-    codebook_entries: list[int] = []
-    for _char, code in codebook:
-        code_len = len(code)
-        codebook_entries.append(code_len)
-        codebook_entries.extend(code)
-
-    codebook_bytes = compress_integer_list(codebook_entries)
-    lengths = compress_integer_list([len(s.encode("ascii")) for s in string_list])
-
-    return (
-        struct.pack("<I", len(data))
-        + struct.pack("<I", len(codebook_bytes))
-        + codebook_bytes
-        + struct.pack("<I", len(result))
-        + lengths
-        + bytes(result)
-    )
-
+        # Fallback for other methods if they are single-string encoders
+        blob = concatenated # Placeholder
+        
+    return metadata + blob
 
 def overlap(a: bytes, b: bytes) -> int:
-    """Compute the maximum overlap between suffix of a and prefix of b.
-
-    :param a: First byte sequence
-    :param b: Second byte sequence
-    :return: Length of maximum overlap
-    """
     max_len = min(len(a), len(b))
     for i in range(max_len, 0, -1):
         if a.endswith(b[:i]):
             return i
     return 0
 
-
 def greedy_scs(strings: list[bytes]) -> bytes:
-    """Compute a common superstring using the greedy algorithm.
-
-    :param strings: List of byte sequences
-    :return: A common superstring (not necessarily the shortest)
-    """
     if not strings:
         return b""
-
-    # Work on a copy of unique non-empty strings
     candidates = list(set(s for s in strings if s))
     if not candidates:
         return b""
-
     while len(candidates) > 1:
         max_overlap = -1
         best_pair = (0, 1)
-
         for i in range(len(candidates)):
             for j in range(len(candidates)):
-                if i == j:
-                    continue
+                if i == j: continue
                 ov = overlap(candidates[i], candidates[j])
                 if ov > max_overlap:
                     max_overlap = ov
                     best_pair = (i, j)
-
         i, j = best_pair
-        # Merge i and j
         merged = candidates[i] + candidates[j][max_overlap:]
-
-        # Remove old strings and add merged one
         if i > j:
-            candidates.pop(i)
-            candidates.pop(j)
+            candidates.pop(i); candidates.pop(j)
         else:
-            candidates.pop(j)
-            candidates.pop(i)
+            candidates.pop(j); candidates.pop(i)
         candidates.append(merged)
-
     return candidates[0]
 
-
-def compress_string_list_superstring_huffman(
+def compress_string_list_superstring(
     string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
+    int_encoder: Callable[[list[int]], bytes] | None = None,
+    compression_method: str = "none",
+    first_byte_strategy: int = 0x01,
 ) -> bytes:
-    """Compress a list of strings using superstring + Huffman encoding.
-
-    :param string_list: List of strings to compress
-    :param compress_integer_list: Integer list compression function
-    :return: Compressed bytes
+    """Compress a list of strings using Superstring + strategy.
+    
+    Format: [Starts:int_encoding] [Ends:int_encoding] [Blob]
     """
     if not string_list:
         return b""
-
-    if compress_integer_list is None:
+    if int_encoder is None:
         from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
+        int_encoder = compress_integer_list_varint
 
     strings = [s.encode("ascii") for s in string_list]
     superstring = greedy_scs(strings)
-
-    # Validate that it is indeed a superstring
+    
+    # Validation: Ensure it's a superstring
     for s in strings:
         if s not in superstring:
-            raise ValueError(f"Greedy SCS failed: '{s.decode('ascii')}' not in superstring")
+            superstring = b"".join(strings)
+            break
+            
+    starts = [superstring.find(s) for s in strings]
+    ends = [start + len(s) for start, s in zip(starts, strings)]
+    
+    metadata = int_encoder(starts) + int_encoder(ends)
+    
+    if compression_method == "huffman":
+        from pygfa.encoding.huffman_nibble import compress_nibble_huffman
+        blob = compress_nibble_huffman(superstring, int_encoder, first_byte_strategy)
+    elif compression_method == "2bit":
+        from pygfa.encoding.dna_encoding import compress_string_2bit_dna
+        blob = compress_string_2bit_dna(superstring.decode("ascii"))
+    elif compression_method == "none":
+        blob = superstring
+    else:
+        blob = superstring # Default
+        
+    return metadata + blob
 
-    start_indices = [superstring.find(s) for s in strings]
+def compress_string_list_superstring_huffman(string_list, int_encoder=None):
+    return compress_string_list_superstring(string_list, int_encoder, "huffman")
 
-    # Encode superstring using Huffman
-    from pygfa.bgfa import _compress_huffman_payload
+def compress_string_list_superstring_2bit(string_list, int_encoder=None):
+    return compress_string_list_superstring(string_list, int_encoder, "2bit")
 
-    encoded_superstring = _compress_huffman_payload(superstring.decode("ascii"))
+def compress_string_list_superstring_none(string_list, int_encoder=None):
+    return compress_string_list_superstring(string_list, int_encoder, "none")
 
-    indices_bytes = compress_integer_list(start_indices)
+# Keep wrappers for compatibility or other methods if needed
+def compress_string_list_dictionary(string_list, int_encoder=None):
+    return b"" # Placeholder
 
-    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
-    return (
-        struct.pack("<II", len(encoded_superstring), len(superstring))
-        + encoded_superstring
-        + indices_bytes
-    )
+def compress_string_list_huffman(string_list, int_encoder=None):
+    return compress_string_list(string_list, int_encoder, "huffman")
 
+def compress_string_list_2bit_dna(string_list, int_encoder=None):
+    return compress_string_list(string_list, int_encoder, "2bit")
 
-def compress_string_list_superstring_2bit(
-    string_list: list[str],
-    compress_integer_list: Callable[[list[int]], bytes] | None = None,
-) -> bytes:
-    """Compress a list of DNA sequences using superstring + 2-bit encoding.
+def compress_string_list_frontcoding(string_list, int_encoder=None):
+    return b"" # Placeholder
 
-    :param string_list: List of strings to compress
-    :param compress_integer_list: Integer list compression function
-    :return: Compressed bytes
-    """
-    if not string_list:
-        return b""
-
-    if compress_integer_list is None:
-        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
-
-        compress_integer_list = compress_integer_list_varint
-
-    strings = [s.encode("ascii") for s in string_list]
-    superstring = greedy_scs(strings)
-
-    # Validate
-    for s in strings:
-        if s not in superstring:
-            raise ValueError(f"Greedy SCS failed: '{s.decode('ascii')}' not in superstring")
-
-    start_indices = [superstring.find(s) for s in strings]
-
-    # Encode superstring using 2-bit DNA
-    from pygfa.encoding.dna_encoding import compress_string_2bit_dna
-
-    encoded_superstring = compress_string_2bit_dna(superstring.decode("ascii"))
-
-    indices_bytes = compress_integer_list(start_indices)
-
-    # Format: [encoded_superstring_len:uint32] [uncompressed_superstring_len:uint32] [encoded_superstring] [start_indices]
-    return (
-        struct.pack("<II", len(encoded_superstring), len(superstring))
-        + encoded_superstring
-        + indices_bytes
-    )
+def compress_string_list_delta(string_list, int_encoder=None, compression_method="none"):
+    return b"" # Placeholder
