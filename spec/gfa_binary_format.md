@@ -13,8 +13,14 @@ Each block contains a `section_id` field that identifies its type, allowing bloc
 to appear in any order in the file. The writer maintains the original ordering.
 
 Each block has a header and a payload.
+The payloads begin with all integer metadata required for the strategy, followed by the compressed data blob.
+
 
 The `uint16` and `uint64` types are written as little endian.
+
+All bytes data and all data that are encoded with a variable number of bits are packed into bytes. Any remaining bits in
+the final byte of the bitstream are set to 0 (when writing) and MUST be ignored (when reading).
+
 
 ## Conventions
 
@@ -42,13 +48,13 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                    | Description                                 | Type     |
-|--------------------------|---------------------------------------------|----------|
-| `section_id`             | Section type (1 = segment names)            | `uint8`  |
-| `record_num`             | number of record in the block <= block_size | `uint16` |
-| `compression_names`      | Encoding strategy for the names             | `uint16` |
-| `compressed_names_len`   | length of compressed names field            | `uint64` |
-| `uncompressed_names_len` | length of uncompressed names field          | `uint64` |
+| Field                    | Description                                          | Type     |
+|--------------------------|------------------------------------------------------|----------|
+| `section_id`             | Section type (1 = segment names)                     | `uint8`  |
+| `record_num`             | number of record in the block <= block_size          | `uint16` |
+| `compression_names`      | Encoding strategy for the names                      | `uint16` |
+| `compressed_names_len`   | length of compressed names field                     | `uint64` |
+| `uncompressed_names_len` | sum of the lengths of the uncompressed segment names | `uint64` |
 
 #### Payload
 
@@ -68,13 +74,13 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                  | Description                                    | Type     |
-|------------------------|------------------------------------------------|----------|
-| `section_id`           | Section type (2 = segments)                    | `uint8`  |
-| `record_num`           | number of record in the block < = block_size   | `uint16` |
-| `compression_str`      | Encoding strategy for the segment sequences    | `uint16` |
-| `compressed_str_len`   | length of compressed segment_sequences field   | `uint64` |
-| `uncompressed_str_len` | length of uncompressed segment_sequences field | `uint64` |
+| Field                  | Description                                                 | Type     |
+|------------------------|-------------------------------------------------------------|----------|
+| `section_id`           | Section type (2 = segments)                                 | `uint8`  |
+| `record_num`           | number of record in the block < = block_size                | `uint16` |
+| `compression_str`      | Encoding strategy for the segment sequences                 | `uint16` |
+| `compressed_str_len`   | length of compressed segment_sequences field                | `uint64` |
+| `uncompressed_str_len` | sum of the lengths of uncompressed segment_sequences fields | `uint64` |
 
 #### Payload
 
@@ -93,15 +99,15 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                     | Description                                  | Type     |
-|---------------------------|----------------------------------------------|----------|
-| `section_id`              | Section type (3 = links)                     | `uint8`  |
-| `record_num`              | number of record in the block <= block_size  | `uint16` |
-| `compression_fromto`      | Encoding strategy for the from and to fields | `uint16` |
-| `compressed_fromto_len`   | length of compressed from and to fields      | `uint64` |
-| `compression_cigars`      | Encoding strategy for the cigar strings      | `uint16` |
-| `compressed_cigars_len`   | length of compressed concatenated cigars     | `uint64` |
-| `uncompressed_cigars_len` | length of uncompressed concatenated cigars   | `uint64` |
+| Field                     | Description                                            | Type     |
+|---------------------------|--------------------------------------------------------|----------|
+| `section_id`              | Section type (3 = links)                               | `uint8`  |
+| `record_num`              | number of record in the block <= block_size            | `uint16` |
+| `compression_fromto`      | Encoding strategy for the from and to fields           | `uint16` |
+| `compressed_fromto_len`   | length of compressed from and to fields                | `uint64` |
+| `compression_cigars`      | Encoding strategy for the cigar strings                | `uint16` |
+| `compressed_cigars_len`   | length of compressed concatenated cigars               | `uint64` |
+| `uncompressed_cigars_len` | sum of the lengths of uncompressed concatenated cigars | `uint64` |
 
 #### Payload
 
@@ -113,6 +119,7 @@ Only the last block can have fewer than `block_size` objects.
 | `to_orientation`   | orientations of all from segments. 0 is +, 1 is - | `bits`          |
 | `cigar_strings`    | CIGAR strings                                     | `cigar strings` |
 
+Orientation bits are stored with a least significant bit (LSB-first) strategy.
 
 ### Paths Block
 
@@ -123,19 +130,19 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                         | Description                                             | Type     |
-|-------------------------------|---------------------------------------------------------|----------|
-| `section_id`                  | Section type (4 = paths)                                | `uint8`  |
-| `record_num`                  | number of record in the block <= block_size             | `uint16` |
-| `compression_path_names`      | Encoding strategy for the path names                    | `uint16` |
-| `compressed_path_names_len`   | length of compressed concatenated path_name             | `uint64` |
-| `uncompressed_path_names_len` | length of uncompressed concatenated path_name           | `uint64` |
-| `compression_paths`           | Encoding strategy for the paths as list of segments ids | `uint16` |
-| `compressed_paths_len`        | length of compressed concatenated path_name             | `uint64` |
-| `uncompressed_paths_len`      | length of uncompressed concatenated path_name           | `uint64` |
-| `compression_cigars`          | Encoding strategy for the cigar strings                 | `uint16` |
-| `compressed_len_cigar`        | length of compressed concatenated cigars                | `uint64` |
-| `uncompressed_len_cigar`      | length of uncompressed concatenated cigars              | `uint64` |
+| Field                         | Description                                                       | Type     |
+|-------------------------------|-------------------------------------------------------------------|----------|
+| `section_id`                  | Section type (4 = paths)                                          | `uint8`  |
+| `record_num`                  | number of record in the block <= block_size                       | `uint16` |
+| `compression_path_names`      | Encoding strategy for the path names                              | `uint16` |
+| `compressed_path_names_len`   | length of compressed concatenated path_name                       | `uint64` |
+| `uncompressed_path_names_len` | length of uncompressed concatenated path_name                     | `uint64` |
+| `compression_paths`           | Encoding strategy for the paths as list of segments ids           | `uint16` |
+| `compressed_paths_len`        | length of compressed concatenated path_name                       | `uint64` |
+| `uncompressed_paths_len`      | sum of the lengths of uncompressed concatenated path_name strings | `uint64` |
+| `compression_cigars`          | Encoding strategy for the cigar strings                           | `uint16` |
+| `compressed_len_cigar`        | length of compressed concatenated cigars                          | `uint64` |
+| `uncompressed_len_cigar`      | sum of the lengths of uncompressed concatenated cigars strings    | `uint64` |
 
 #### Payload
 
@@ -155,23 +162,23 @@ Only the last block can have fewer than `block_size` objects.
 
 #### Header
 
-| Field                       | Description                                       | Type     |
-|-----------------------------|---------------------------------------------------|----------|
-| `section_id`                | Section type (5 = walks)                          | `uint8`  |
-| `record_num`                | number of record in the block <= block_size       | `uint16` |
-| `compression_samples`       | Encoding strategy for the sample IDs              | `uint16` |
-| `compressed_samples_len`    | length of compressed concatenated sample_id       | `uint64` |
-| `uncompressed_samples_len`  | length of uncompressed concatenated sample_id     | `uint64` |
-| `compression_hep`           | Encoding strategy for the haplotype indices       | `uint16` |
-| `compressed_hep_len`        | length of compressed haplotype indices            | `uint64` |
-| `compression_sequence`      | Encoding strategy for the sequence IDs            | `uint16` |
-| `compressed_sequence_len`   | length of compressed sequence IDs                 | `uint64` |
-| `uncompressed_sequence_len` | length of uncompressed sequence IDs               | `uint64` |
-| `compression_positions`     | Encoding strategy for the start and end positions | `uint16` |
-| `compressed_positions_len`  | length of compressed start and end positions      | `uint64` |
-| `compression_walks`         | Encoding strategy for the walks                   | `uint16` |
-| `compressed_walk_len`       | length of compressed concatenated walks           | `uint64` |
-| `uncompressed_walk_len`     | length of uncompressed concatenated walks         | `uint64` |
+| Field                       | Description                                               | Type     |
+|-----------------------------|-----------------------------------------------------------|----------|
+| `section_id`                | Section type (5 = walks)                                  | `uint8`  |
+| `record_num`                | number of record in the block <= block_size               | `uint16` |
+| `compression_samples`       | Encoding strategy for the sample IDs                      | `uint16` |
+| `compressed_samples_len`    | length of compressed concatenated sample_id               | `uint64` |
+| `uncompressed_samples_len`  | sum of the lengths of uncompressed concatenated sample_id | `uint64` |
+| `compression_hep`           | Encoding strategy for the haplotype indices               | `uint16` |
+| `compressed_hep_len`        | length of compressed haplotype indices                    | `uint64` |
+| `compression_sequence`      | Encoding strategy for the sequence IDs                    | `uint16` |
+| `compressed_sequence_len`   | length of compressed sequence IDs                         | `uint64` |
+| `uncompressed_sequence_len` | sum of the lengths of uncompressed sequence IDs           | `uint64` |
+| `compression_positions`     | Encoding strategy for the start and end positions         | `uint16` |
+| `compressed_positions_len`  | length of compressed start and end positions              | `uint64` |
+| `compression_walks`         | Encoding strategy for the walks                           | `uint16` |
+| `compressed_walk_len`       | length of compressed concatenated walks                   | `uint64` |
+| `uncompressed_walk_len`     | sum of the lengths of uncompressed concatenated walks     | `uint64` |
 
 #### Payload
 
@@ -191,6 +198,7 @@ two bytes.
 The first byte encodes the strategy for a sequence of uints, which are usually the lengths of the strings to encode
 and/or the starting and ending position of the strings within a superstring (which might be the concatenation of all
 strings, without the terminator character `\0`).
+The start and end positions are 0-based, the final position is excluded from the substring, following Python slices conventions.
 The second byte represents the strategy for encoding the superstring/concatenation.
 
 What numbers are actually stored depends on the encoding used for the string. 
@@ -238,8 +246,57 @@ We use question marks `??` to represent that all values of the byte can be used.
    concatenated. What follows the + sign is an encoding/compression method applied on the concatenation.
 *  Superstring means that we compute a superstring with a heuristic method of the input strings after removing the `\0`
    character that ends them. What follows the + sign is an encoding/compression method applied on the concatenation.
+   
+### Payload for encoded `strings`
+
+The payload of the encoded `strings` consists of:
+1.  A list of numbers, encoded according to the first-byte strategy (varint, fixed16, etc).
+This list of numbers is the lengths of the strings if they are concatenated; first all start positions, then all end
+positions of the strings if the encoding is a superstring. The first-byte strategy determines how the list of numbers is
+actually encoded. For the encoding purpose of each string, start and end positions are independent.
+2.  The superstring or the concatenated string.
+
+The `compressed_len` is the total number of bytes needed to store the encoded strings, that is list of numbers and the
+superstring/concatenation.
+The `uncompressed_len` is the length of the original strings.
 
 ## Arithmetic Coding (0x??06)
+
+## Huffman Coding (0x??04 0x??F4)
+
+The Huffnam encoding of a string (be it the concatenation or a superstring) consists of
+
+| Name              | Description            | type    |
+|-------------------|------------------------|---------|
+| `codebook_len`    | Length of the codebook | uint_32 |
+| `codebook`        | Huffman codebook       | bytes   |
+| `huffman_encoded` | The encoded string     | Huffman |
+
+The codebook is a list of 16 integers encoded using the first-byte strategy.
+$L_i$ is the bit-length of the code for nibble value $i$.
+      
+
+1. Nibble-Level Processing
+   * Symbol Extraction: Each byte of the target string (the concatenated string or the superstring) is treated as two 4-bit symbols:
+       1. Symbol A: High nibble (bits 4–7).
+       2. Symbol B: Low nibble (bits 0–3).
+   * Encoding Order: For every byte, Symbol A is encoded first, followed immediately by Symbol B.
+   * Alphabet Size: The codebook always contains 16 entries (representing nibbles 0x0 through 0xF). A bit-length of 0 indicates the nibble is not present.
+
+
+2. Canonical Code Construction
+  The decoder MUST reconstruct the Huffman codes from the 16 lengths using canonical rules:
+   1. Symbols are sorted primarily by bit-length (ascending) and secondarily by value.
+   2. The first code is all 0s for the first non-zero bit-length.
+   3. For subsequent codes: current_code = (prev_code + 1) << (current_len - prev_len).
+
+
+The byte-length of the `huffman_encoded` data is the total `compressed_len` of the field minus the bytes consumed by the
+string metadata, the 4-byte `codebook_len`, and the encoded codebook itself. 
+      
+The decoder MUST decode exactly 2L symbols, where L is the number of characters in the string
+being reconstructed.
+
 
 
 ## BWT + Huffman encoding
@@ -269,12 +326,14 @@ The format is:
 - T (or t) = 11
 - U (or u) = 11 (RNA uracil treated as thymine)
 
+The first nucleotide is stored in the most significant bits (7-6), the second in bits 5-4, and so on.
+
 **Format:**
 - 1 byte: flags
   - bit 0: has_exceptions (1 if exception table present)
   - bits 1-7: reserved
 - packed_bases: 4 nucleotides per byte (2 bits each)
-- If has_exceptionConcatenation + s flag is set:
+- If the `has_exception` flag is set:
   - varint: exception count
   - varint list: exception positions
   - bytes: exception characters (one byte per exception)
