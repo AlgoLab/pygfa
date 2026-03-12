@@ -52,19 +52,12 @@ def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict 
     if compression_options is None:
         compression_options = {}
 
-    # Use results/test directory for temporary files
     import tempfile
     import os
 
-    # Create temporary files in test output directory
-    if test_output_dir is None:
-        test_output_dir = "results/test/bgfa_roundtrip"
-    else:
-        test_output_dir = str(test_output_dir)
-
-    os.makedirs(test_output_dir, exist_ok=True)
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False, dir=test_output_dir) as f:
+    # Use system temp directory with unique names for parallel test safety
+    # tempfile.NamedTemporaryFile with delete=False ensures unique filenames
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
         f.write(gfa_text)
         gfa_path = f.name
 
@@ -86,12 +79,10 @@ def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: 
     if compression_options is None:
         compression_options = {}
 
-    if test_output_dir is None:
-        test_output_dir = "results/test/bgfa_roundtrip"
-    else:
-        test_output_dir = str(test_output_dir)
+    import tempfile
 
-    bgfa_path = tempfile.mktemp(suffix=".bgfa", dir=test_output_dir)
+    # Use system temp directory with unique name for parallel test safety
+    bgfa_path = tempfile.mktemp(suffix=".bgfa")
 
     try:
         g = GFA.from_gfa(gfa_path)

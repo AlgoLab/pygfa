@@ -26,41 +26,44 @@ class TestPPrint(unittest.TestCase):
         # Create a GFA graph from a file
         graph = gfa.GFA.from_gfa(gfa_filename)
 
-        # Write to a temporary file instead of using StringIO
-        test_output_dir = "results/test/read_gfa"
-        os.makedirs(test_output_dir, exist_ok=True)
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt", dir=test_output_dir) as temp_file:
-            temp_filename = temp_file.name
-            original_stdout = sys.stdout
-            sys.stdout = temp_file
+        # Use system temp directory for parallel test safety
+        test_output_dir = tempfile.mkdtemp()
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt", dir=test_output_dir) as temp_file:
+                temp_filename = temp_file.name
+                original_stdout = sys.stdout
+                sys.stdout = temp_file
 
-            try:
-                graph.pprint()
-            finally:
-                sys.stdout = original_stdout
+                try:
+                    graph.pprint()
+                finally:
+                    sys.stdout = original_stdout
 
-        if not os.path.exists(expected_filename):
-            os.makedirs(os.path.dirname(expected_filename), exist_ok=True)
-            shutil.copy(temp_filename, expected_filename)
-        # Use the standard diff program to look for differences
-        result = subprocess.run(
-            ["diff", "-u", expected_filename, temp_filename],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            # Differences found
-            self.fail(
-                f"PPrint output does not match expected file content.\n"
-                f"Expected file: {expected_filename}\n"
-                f"Actual file: {temp_filename}\n"
-                f"Differences:\n{result.stdout}"
+            if not os.path.exists(expected_filename):
+                os.makedirs(os.path.dirname(expected_filename), exist_ok=True)
+                shutil.copy(temp_filename, expected_filename)
+            # Use the standard diff program to look for differences
+            result = subprocess.run(
+                ["diff", "-u", expected_filename, temp_filename],
+                capture_output=True,
+                text=True,
+                check=False,
             )
-        else:
-            # Remove temporary file only on success
-            os.unlink(temp_filename)
+
+            if result.returncode != 0:
+                # Differences found
+                self.fail(
+                    f"PPrint output does not match expected file content.\n"
+                    f"Expected file: {expected_filename}\n"
+                    f"Actual file: {temp_filename}\n"
+                    f"Differences:\n{result.stdout}"
+                )
+            else:
+                # Remove temporary file only on success
+                os.unlink(temp_filename)
+        finally:
+            # Clean up temp directory
+            shutil.rmtree(test_output_dir, ignore_errors=True)
 
     def test_pprint_output_matches_expected_file_1(self):
         """Test that pprint output matches expected file content."""

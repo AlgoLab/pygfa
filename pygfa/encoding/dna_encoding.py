@@ -18,7 +18,8 @@ _DNA_TO_2BIT = {
 }
 
 _2BIT_TO_DNA = [ord("A"), ord("C"), ord("G"), ord("T")]
-_AMBIGUITY_CODES = set(b"NRYKMSWBDHVnrykmsWbdhv-")
+# Ambiguity codes including * (wildcard/no sequence) and - (gap)
+_AMBIGUITY_CODES = set(b"NRYKMSWBDHVnrykmswbdhv-*")
 
 def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], bytes] | None = None) -> bytes:
     """Compress a DNA sequence using 2-bit encoding.
@@ -46,7 +47,8 @@ def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], byt
     packed_bytes = bytearray()
     for i in range(0, len(packed_bits), 4):
         chunk = packed_bits[i : i + 4]
-        while len(chunk) < 4: chunk.append(0b00)
+        while len(chunk) < 4:
+            chunk.append(0b00)
         byte_val = (chunk[0] << 6) | (chunk[1] << 4) | (chunk[2] << 2) | chunk[3]
         packed_bytes.append(byte_val)
 
@@ -80,7 +82,8 @@ def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Cal
             results.append(b"")
             continue
 
-        flags = data[offset]; offset += 1
+        flags = data[offset]
+        offset += 1
         has_exceptions = (flags & 0x01) != 0
 
         packed_byte_count = (length + 3) // 4
@@ -112,7 +115,8 @@ def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Cal
     return results
 
 def compress_string_list_2bit_dna(string_list: list[str], int_encoder: Callable | None = None) -> bytes:
-    if not string_list: return b""
+    if not string_list:
+        return b""
     if int_encoder is None:
         from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
         int_encoder = compress_integer_list_varint
