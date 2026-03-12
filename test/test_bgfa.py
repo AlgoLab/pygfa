@@ -3,7 +3,6 @@
 import itertools
 import os
 import sys
-import tempfile
 import glob
 
 import pytest
@@ -139,9 +138,9 @@ def get_encoding_name(encoding_code):
 
 
 @pytest.fixture(scope="module")
-def temp_dir(test_output_dir):
+def temp_dir(tmp_path_factory):
     """Create a temporary directory for test files."""
-    test_dir = tempfile.mkdtemp(dir=str(test_output_dir))
+    test_dir = tmp_path_factory.mktemp("bgfa_test")
     yield test_dir
     # No cleanup - retain files for debugging
 

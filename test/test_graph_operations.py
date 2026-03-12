@@ -22,10 +22,15 @@ class TestGraphOperationsBase(unittest.TestCase):
     """Base class for graph operation tests with proper temp file handling."""
 
     def setUp(self):
-        """Set up test output directory."""
-        # Create output directory for this test class
-        self.test_output_dir = Path("results/test/graph_operations")
-        self.test_output_dir.mkdir(parents=True, exist_ok=True)
+        """Set up test output directory using system temp for parallel safety."""
+        # Create output directory in system temp for parallel test safety
+        import tempfile
+        self.test_output_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        """Clean up test output directory."""
+        import shutil
+        shutil.rmtree(self.test_output_dir, ignore_errors=True)
 
     def get_temp_file(self, suffix=".tmp"):
         """Create a temporary file in the test output directory."""

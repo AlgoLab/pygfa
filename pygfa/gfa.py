@@ -1881,10 +1881,6 @@ class GFA:
             while not count_edge_compacted == 0:
                 count_edge_compacted = compression_graph_by_nodes(self)
 
-    def overlap_consistency(self, external_file=None):
-        FOLDER, _ = os.path.split(__file__)
-        return check_overlap(self, FOLDER.rstrip("pygfa"), external_file)
-
     def subgraphs_extractor(self, n_source, distance):
         # TODO: Fix this method - extract_subgraph needs to be implemented
         raise NotImplementedError("subgraphs_extractor is not yet implemented")
