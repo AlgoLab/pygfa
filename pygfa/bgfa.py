@@ -23,8 +23,14 @@ except ImportError:
 
 from pygfa.encoding import (
     compress_integer_list_delta,
+    compress_integer_list_elias_gamma,
+    compress_integer_list_elias_omega,
     compress_integer_list_fixed,
+    compress_integer_list_golomb,
     compress_integer_list_none,
+    compress_integer_list_rice,
+    compress_integer_list_streamvbyte,
+    compress_integer_list_vbyte,
     compress_integer_list_varint,
 )
 from pygfa.encoding import (
@@ -59,12 +65,13 @@ from pygfa.gfa import GFA
 # =============================================================================
 
 # Magic number: "BGFA" in little-endian = 0x41464742
+# Note: Spec corrected from "AFGB" (0x42474641) to "BGFA" (0x41464742)
 BGFA_MAGIC = 0x41464742
 BGFA_VERSION = 1
 DEFAULT_BLOCK_SIZE = 1024
 
 # Section IDs
-SECTION_ID_SEGMENT_NAMES = 1
+# Note: Section ID 1 (Segment Names) removed in new spec - merged into Segments block
 SECTION_ID_SEGMENTS = 2
 SECTION_ID_LINKS = 3
 SECTION_ID_PATHS = 4
@@ -300,18 +307,284 @@ def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
     vals, consumed = decode_integer_list_varint(data, count)
     if not vals:
         return [], consumed
-    
+
     # Decode zigzag
     decoded = []
     for v in vals:
         decoded.append((v >> 1) ^ (-(v & 1)))
-    
+
     # Cumulative sum
     result = [decoded[0]]
     for i in range(1, len(decoded)):
         result.append(result[-1] + decoded[i])
-    
+
     return result, consumed
+
+
+def decode_integer_list_elias_gamma(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Elias gamma-encoded integers."""
+    if not data:
+        return [], 0
+
+    result = []
+    bit_pos = 0
+
+    def read_bit() -> int | None:
+        nonlocal bit_pos
+        if bit_pos >= len(data) * 8:
+            return None
+        byte_idx = bit_pos // 8
+        bit_idx = bit_pos % 8
+        bit_pos += 1
+        return (data[byte_idx] >> (7 - bit_idx)) & 1
+
+    def read_bits(n: int) -> int:
+        val = 0
+        for _ in range(n):
+            bit = read_bit()
+            if bit is None:
+                break
+            val = (val << 1) | bit
+        return val
+
+    while count < 0 or len(result) < count:
+        # Count leading 1s (unary part)
+        unary = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            unary += 1
+
+        if unary == 0:
+            # Single 0 means value 0
+            result.append(0)
+        else:
+            # Read (unary) bits for the binary part
+            # The value has (unary+1) bits, with MSB always 1
+            binary_part = read_bits(unary)
+            value = (1 << unary) | binary_part
+            result.append(value - 1)  # Subtract 1 since we encode n+1
+
+        if bit_pos >= len(data) * 8:
+            break
+
+    return result, (bit_pos + 7) // 8
+
+
+def decode_integer_list_elias_omega(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Elias omega-encoded integers."""
+    if not data:
+        return [], 0
+
+    result = []
+    bit_pos = 0
+
+    def read_bit() -> int | None:
+        nonlocal bit_pos
+        if bit_pos >= len(data) * 8:
+            return None
+        byte_idx = bit_pos // 8
+        bit_idx = bit_pos % 8
+        bit_pos += 1
+        return (data[byte_idx] >> (7 - bit_idx)) & 1
+
+    def decode_omega_recursive() -> int:
+        """Recursively decode an omega-encoded value."""
+        bit = read_bit()
+        if bit is None or bit == 0:
+            return 1  # Base case: 0 means value 1
+
+        # Recursively get the length
+        length = decode_omega_recursive()
+        # Read (length-1) bits (MSB is implicit 1)
+        value = 1
+        for _ in range(length - 1):
+            value = (value << 1) | (read_bit() or 0)
+        return value
+
+    while count < 0 or len(result) < count:
+        if bit_pos >= len(data) * 8:
+            break
+        value = decode_omega_recursive()
+        result.append(value - 1)  # Subtract 1 since we encode n+1
+
+    return result, (bit_pos + 7) // 8
+
+
+def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Golomb-encoded integers with parameter b."""
+    if not data or len(data) < 1:
+        return [], 0
+
+    # First byte is the parameter b
+    b = data[0]
+    if b == 0:
+        b = 128  # Default parameter
+
+    result = []
+    pos = 1
+    bits_read = 0
+
+    def read_bit() -> int | None:
+        nonlocal pos, bits_read
+        if pos >= len(data):
+            return None
+        bit = (data[pos] >> (7 - bits_read)) & 1
+        bits_read += 1
+        if bits_read == 8:
+            bits_read = 0
+            pos += 1
+        return bit
+
+    import math
+    bits_for_remainder = math.ceil(math.log2(b)) if b > 1 else 1
+
+    while count < 0 or len(result) < count:
+        # Count quotient (unary)
+        quotient = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            quotient += 1
+
+        if quotient == 0 and pos >= len(data):
+            break
+
+        # Read remainder
+        remainder = 0
+        for _ in range(bits_for_remainder):
+            bit = read_bit()
+            if bit is not None:
+                remainder = (remainder << 1) | bit
+
+        value = quotient * b + remainder
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_rice(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode Rice-encoded integers with parameter k."""
+    if not data or len(data) < 1:
+        return [], 0
+
+    # First byte is the parameter k
+    k = data[0]
+    result = []
+    pos = 1
+    bits_read = 0
+
+    def read_bit() -> int | None:
+        nonlocal pos, bits_read
+        if pos >= len(data):
+            return None
+        bit = (data[pos] >> (7 - bits_read)) & 1
+        bits_read += 1
+        if bits_read == 8:
+            bits_read = 0
+            pos += 1
+        return bit
+
+    while count < 0 or len(result) < count:
+        # Count quotient (unary)
+        quotient = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            quotient += 1
+
+        if quotient == 0 and pos >= len(data):
+            break
+
+        # Read k-bit remainder
+        remainder = 0
+        for _ in range(k):
+            bit = read_bit()
+            if bit is not None:
+                remainder = (remainder << 1) | bit
+
+        value = (quotient << k) | remainder
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode StreamVByte-encoded integers."""
+    if not data or len(data) < 4:
+        return [], 0
+
+    n = struct.unpack_from("<I", data, 0)[0]
+    if n == 0:
+        return [], 4
+
+    # Determine control byte count
+    ctrl_count = (n + 3) // 4
+    data_start = 4 + ctrl_count
+
+    if len(data) < data_start:
+        return [], 0
+
+    result = []
+    ctrl_pos = 4
+    data_pos = data_start
+
+    while len(result) < n and ctrl_pos < data_start and data_pos < len(data):
+        ctrl = data[ctrl_pos]
+        ctrl_pos += 1
+
+        for _ in range(4):
+            if len(result) >= n or data_pos >= len(data):
+                break
+
+            bytes_used = (ctrl & 0x03) + 1
+            ctrl >>= 2
+
+            if data_pos + bytes_used > len(data):
+                break
+
+            val = 0
+            for i in range(bytes_used):
+                val |= data[data_pos + i] << (i * 8)
+            result.append(val)
+            data_pos += bytes_used
+
+    return result, data_pos
+
+
+def decode_integer_list_vbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode VByte-encoded integers."""
+    if not data:
+        return [], 0
+
+    result = []
+    pos = 0
+
+    while count < 0 or len(result) < count:
+        if pos >= len(data):
+            break
+
+        val = 0
+        shift = 0
+        while pos < len(data):
+            byte = data[pos]
+            pos += 1
+            val |= (byte & 0x7F) << shift
+            shift += 7
+            if (byte & 0x80) == 0:
+                break
+        result.append(val)
+
+    return result, pos
 
 
 INTEGER_DECODERS = {
@@ -321,6 +594,12 @@ INTEGER_DECODERS = {
     INTEGER_ENCODING_FIXED32: decode_integer_list_fixed32,
     INTEGER_ENCODING_FIXED64: decode_integer_list_fixed64,
     INTEGER_ENCODING_DELTA: decode_integer_list_delta,
+    INTEGER_ENCODING_ELIAS_GAMMA: decode_integer_list_elias_gamma,
+    INTEGER_ENCODING_ELIAS_OMEGA: decode_integer_list_elias_omega,
+    INTEGER_ENCODING_GOLOMB: decode_integer_list_golomb,
+    INTEGER_ENCODING_RICE: decode_integer_list_rice,
+    INTEGER_ENCODING_STREAMVBYTE: decode_integer_list_streamvbyte,
+    INTEGER_ENCODING_VBYTE: decode_integer_list_vbyte,
 }
 
 
@@ -333,7 +612,7 @@ def get_integer_decoder(code: int) -> Callable:
 def get_integer_encoder(code: int) -> Callable:
     """Get the integer encoder function for a compression code."""
     int_code = (code >> 8) & 0xFF
-    
+
     if int_code == INTEGER_ENCODING_NONE:
         return compress_integer_list_none
     if int_code == INTEGER_ENCODING_VARINT:
@@ -346,7 +625,19 @@ def get_integer_encoder(code: int) -> Callable:
         return lambda x: compress_integer_list_fixed(x, 64)
     if int_code == INTEGER_ENCODING_DELTA:
         return compress_integer_list_delta
-    
+    if int_code == INTEGER_ENCODING_ELIAS_GAMMA:
+        return compress_integer_list_elias_gamma
+    if int_code == INTEGER_ENCODING_ELIAS_OMEGA:
+        return compress_integer_list_elias_omega
+    if int_code == INTEGER_ENCODING_GOLOMB:
+        return compress_integer_list_golomb
+    if int_code == INTEGER_ENCODING_RICE:
+        return compress_integer_list_rice
+    if int_code == INTEGER_ENCODING_STREAMVBYTE:
+        return compress_integer_list_streamvbyte
+    if int_code == INTEGER_ENCODING_VBYTE:
+        return compress_integer_list_vbyte
+
     return compress_integer_list_varint
 
 
@@ -567,72 +858,75 @@ class ReaderBGFA:
             "header_size": 8 + header_len + 1
         }
     
-    def _parse_segment_names_block(self, data: bytes, start_offset: int) -> tuple[list[str], int]:
-        """Parse a segment names block."""
-        offset = start_offset + 1  # Skip section_id
-        
-        record_num = struct.unpack_from("<H", data, offset)[0]
-        offset += 2
-        
-        compression = struct.unpack_from("<H", data, offset)[0]
-        offset += 2
-        
-        compressed_len = struct.unpack_from("<Q", data, offset)[0]
-        offset += 8
-        
-        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_len (not used)
-        offset += 8
-        
-        payload = data[offset:offset + compressed_len]
-        
-        int_decoder = get_integer_decoder(compression)
-        str_decoder = STRING_DECODERS.get(compression & 0xFF, decompress_string_none)
-        
-        names_bytes = str_decoder(payload, record_num, int_decoder)
-        names = [b.decode("ascii") for b in names_bytes]
-        
-        bytes_consumed = (offset + compressed_len) - start_offset
-        return names, bytes_consumed
-    
-    def _parse_segments_block(self, data: bytes, start_offset: int) -> tuple[dict, int]:
+    def _parse_segments_block(self, data: bytes, start_offset: int) -> tuple[dict, list[str], int]:
         """Parse a segments block.
-        
-        Payload layout: [segment_ids encoded][sequences encoded]
+
+        New spec format (Section ID 2 only - segment names merged into segments block):
+        Header:
+        - section_id (1 byte) = 2
+        - record_num (2 bytes)
+        - compression_names (2 bytes) - encoding for segment names
+        - compressed_names_len (8 bytes)
+        - uncompressed_names_len (8 bytes)
+        - compression_str (2 bytes) - encoding for sequences
+        - compressed_str_len (8 bytes)
+        - uncompressed_str_len (8 bytes)
+
+        Payload: [names encoded][sequences encoded]
+
+        :param data: Full BGFA file data
+        :param start_offset: Offset to start of segments block
+        :return: Tuple of (segments dict, names list, bytes consumed)
         """
-        offset = start_offset + 1
-        
+        offset = start_offset + 1  # Skip section_id
+
         record_num = struct.unpack_from("<H", data, offset)[0]
         offset += 2
-        
-        compression = struct.unpack_from("<H", data, offset)[0]
+
+        # Read names encoding
+        comp_names = struct.unpack_from("<H", data, offset)[0]
         offset += 2
-        
-        compressed_len = struct.unpack_from("<Q", data, offset)[0]
+
+        clen_names = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
-        
-        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_len (not used)
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_names_len (not used)
         offset += 8
-        
-        payload = data[offset:offset + compressed_len]
-        
-        int_decoder = get_integer_decoder(compression)
-        str_decoder = STRING_DECODERS.get(compression & 0xFF, decompress_string_none)
-        
-        # Parse segment IDs
-        ids, ids_consumed = int_decoder(payload, record_num)
-        
-        # Parse sequences
-        seqs_bytes = str_decoder(payload[ids_consumed:], record_num, int_decoder)
-        
+
+        # Read sequences encoding
+        comp_str = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        clen_str = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_str_len (not used)
+        offset += 8
+
+        # Parse names payload
+        names_payload = data[offset:offset + clen_names]
+        int_dec_names = get_integer_decoder(comp_names)
+        str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+        names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
+        names = [b.decode("ascii") for b in names_bytes]
+
+        # Parse sequences payload
+        seqs_payload = data[offset + clen_names:offset + clen_names + clen_str]
+        int_dec_str = get_integer_decoder(comp_str)
+        str_dec_str = STRING_DECODERS.get(comp_str & 0xFF, decompress_string_none)
+        seqs_bytes = str_dec_str(seqs_payload, record_num, int_dec_str)
+
+        # Build segments dict with names
         segments = {}
         for i in range(record_num):
-            seq = seqs_bytes[i].decode("ascii") if i < len(seqs_bytes) else "*"
+            name = names[i] if i < len(names) else f"s{i}"
+            seq = seqs_bytes[i].decode("ascii") if i < len(seqs_bytes) and seqs_bytes[i] else "*"
             if not seq:
                 seq = "*"
-            segments[ids[i]] = {"sequence": seq}
-        
-        bytes_consumed = (offset + compressed_len) - start_offset
-        return segments, bytes_consumed
+            segments[i] = {"name": name, "sequence": seq}
+
+        bytes_consumed = (offset + clen_names + clen_str) - start_offset
+        return segments, names, bytes_consumed
     
     def _parse_links_block(self, data: bytes, start_offset: int) -> tuple[list[dict], int]:
         """Parse a links block.
@@ -696,11 +990,331 @@ class ReaderBGFA:
         
         bytes_consumed = (offset + clen_fromto + clen_cigars) - start_offset
         return links, bytes_consumed
-    
-    def read_bgfa(self, file_path: str, verbose: bool = False, debug: bool = False, 
+
+    def _decode_walk(self, walk_data: bytes, record_num: int, walk_compression: int,
+                     int_decoder: Callable, segment_names: list[str]) -> list[list[str]]:
+        """Decode walk data according to 4-byte walk strategy code.
+
+        Walk compression codes (4 bytes):
+        - 0x00??????: none (identity)
+        - 0x01??????: orientation + strid (string IDs)
+        - 0x02??????: orientation + numid (numeric IDs)
+
+        :param walk_data: Raw walk data bytes
+        :param record_num: Number of walk records
+        :param walk_compression: 4-byte walk compression code
+        :param int_decoder: Integer decoder function
+        :param segment_names: List of segment names for ID lookup
+        :return: List of walks, each walk is a list of oriented segment IDs
+        """
+        if record_num == 0:
+            return []
+            
+        if walk_compression == 0:
+            # No walk data - return empty walks
+            return [[] for _ in range(record_num)]
+        
+        walk_byte = (walk_compression >> 24) & 0xFF
+        # bytes 2-4 are for future use, currently ignored
+        # byte 2 would be for orientation bit count (usually 0x00)
+        # bytes 3-4 would be for ID encoding strategy
+
+        if walk_byte == 0x00:
+            # None/identity - walk data is already decoded as strings
+            # This shouldn't happen in practice as walks need orientation
+            raise NotImplementedError("Walk encoding 0x00 (none) not supported")
+        elif walk_byte == 0x01:
+            # orientation + strid: orientation bits + string segment IDs
+            # First decode orientation bits
+            orientations, consumed = unpack_bits_lsb(walk_data, record_num)
+            # Then decode segment ID strings from remaining data
+            # For strid, we need to decode as strings
+            str_enc_code = walk_compression & 0xFFFF
+            str_decoder = STRING_DECODERS.get(str_enc_code & 0xFF, decompress_string_none)
+            int_enc_for_strings = (str_enc_code >> 8) & 0xFF
+            int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
+            
+            # Decode the segment ID strings
+            segment_id_strings, _ = str_decoder(walk_data[consumed:], record_num, int_decoder_for_strings)
+            
+            # Combine orientations with segment IDs
+            walks = []
+            for i in range(record_num):
+                seg_id = segment_id_strings[i].decode('ascii') if i < len(segment_id_strings) else ""
+                orn = "-" if orientations[i] else "+"
+                walks.append(f"{seg_id}{orn}")
+            return walks
+        elif walk_byte == 0x02:
+            # orientation + numid: orientation bits + numeric segment IDs
+            # First decode orientation bits
+            orientations, consumed = unpack_bits_lsb(walk_data, record_num)
+            # Then decode numeric segment IDs
+            int_enc_code = walk_compression & 0xFFFF
+            int_decoder_func = INTEGER_DECODERS.get(int_enc_code & 0xFF, decode_integer_list_varint)
+            segment_ids, _ = int_decoder_func(walk_data[consumed:], record_num)
+            
+            # Combine orientations with segment IDs (convert to names)
+            walks = []
+            for i in range(record_num):
+                seg_idx = segment_ids[i]
+                seg_name = segment_names[seg_idx] if 0 <= seg_idx < len(segment_names) else f"s{seg_idx}"
+                orn = "-" if orientations[i] else "+"
+                walks.append(f"{seg_name}{orn}")
+            return walks
+        else:
+            raise NotImplementedError(f"Walk encoding 0x{walk_byte:02X} not supported")
+
+    def _parse_paths_blocks(self, data: bytes, start_offset: int, segment_names: list[str]) -> tuple[list[dict], int]:
+        """Parse a paths block.
+
+        Paths block header (29 bytes):
+        - section_id (1 byte) = 4
+        - record_num (2 bytes)
+        - compression_path_names (2 bytes)
+        - compression_paths (4 bytes) - walk encoding
+        - compression_cigars (2 bytes)
+        - compressed_len_cigar (8 bytes)
+        - uncompressed_len_cigar (8 bytes)
+        - compressed_len_name (8 bytes)
+        - uncompressed_len_name (8 bytes)
+
+        :param data: Full BGFA file data
+        :param start_offset: Offset to start of paths block
+        :param segment_names: List of segment names for ID lookup
+        :return: Tuple of (list of path dicts, bytes consumed)
+        """
+        offset = start_offset + 1  # Skip section_id
+
+        # Read header fields
+        record_num = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_names = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_paths = struct.unpack_from("<I", data, offset)[0]
+        offset += 4
+
+        comp_cigars = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        clen_cigars = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_cigars_len
+        offset += 8
+
+        clen_names = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_names_len
+        offset += 8
+
+        # Get decoders
+        int_dec_names = get_integer_decoder(comp_names)
+        str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+        int_dec_cigars = get_integer_decoder(comp_cigars)
+        str_dec_cigars = STRING_DECODERS.get(comp_cigars & 0xFF, decompress_string_none)
+
+        # Parse path names
+        names_payload = data[offset:offset + clen_names]
+        path_names = str_dec_names(names_payload, record_num, int_dec_names)
+        offset += clen_names
+
+        # Parse CIGAR strings (overlaps)
+        cigars_payload = data[offset:offset + clen_cigars]
+        cigar_bytes = str_dec_cigars(cigars_payload, record_num, int_dec_cigars)
+        offset += clen_cigars
+
+        # Parse walks (paths) - the walk data follows the cigars
+        # We need to decode the walk for each path
+        # The walk compression is given by comp_paths (4 bytes)
+        # For paths, the walk is encoded as oriented segment IDs
+        walks_start = offset
+        walks = self._decode_walk(data[walks_start:], record_num, comp_paths,
+                                   get_integer_decoder(comp_paths & 0xFF), segment_names)
+
+        # Build paths list
+        paths = []
+        for i in range(record_num):
+            path_name = path_names[i].decode('ascii') if i < len(path_names) else f"path{i}"
+            cigar = cigar_bytes[i].decode('ascii') if i < len(cigar_bytes) else "*"
+            segments = walks[i] if i < len(walks) else []
+
+            paths.append({
+                "path_name": path_name,
+                "segments": segments,
+                "overlaps": [cigar] if cigar != "*" else []
+            })
+
+        bytes_consumed = offset - start_offset
+        return paths, bytes_consumed
+
+    def _parse_walks_blocks(self, data: bytes, start_offset: int, segment_names: list[str]) -> tuple[list[dict], int]:
+        """Parse a walks block.
+
+        Walks block header (51 bytes):
+        - section_id (1 byte) = 5
+        - record_num (2 bytes)
+        - compression_samples (2 bytes)
+        - compression_hep (2 bytes)
+        - compression_sequence (2 bytes)
+        - compression_positions (2 bytes)
+        - compression_walks (4 bytes)
+        - compressed_len_samples (8 bytes)
+        - uncompressed_len_samples (8 bytes)
+        - compressed_len_hep (8 bytes)
+        - uncompressed_len_hep (8 bytes)
+        - compressed_len_sequence (8 bytes)
+        - uncompressed_len_sequence (8 bytes)
+        - compressed_len_positions (8 bytes)
+        - uncompressed_len_positions (8 bytes)
+        - compressed_len_walks (8 bytes)
+        - uncompressed_len_walks (8 bytes)
+
+        :param data: Full BGFA file data
+        :param start_offset: Offset to start of walks block
+        :param segment_names: List of segment names for ID lookup
+        :return: Tuple of (list of walk dicts, bytes consumed)
+        """
+        offset = start_offset + 1  # Skip section_id
+
+        # Read header fields
+        record_num = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_samples = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_hep = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_seq = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_positions = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
+        comp_walks = struct.unpack_from("<I", data, offset)[0]
+        offset += 4
+
+        clen_samples = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_samples_len
+        offset += 8
+
+        clen_hep = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_hep_len
+        offset += 8
+
+        clen_seq = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_seq_len
+        offset += 8
+
+        # New field: positions_present bitmask (uint8)
+        # bit 0 = start_positions present, bit 1 = end_positions present
+        positions_present = data[offset]
+        offset += 1
+
+        clen_positions = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_positions_len
+        offset += 8
+
+        clen_walks = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_walks_len
+        offset += 8
+
+        # Get decoders
+        int_dec_samples = get_integer_decoder(comp_samples)
+        str_dec_samples = STRING_DECODERS.get(comp_samples & 0xFF, decompress_string_none)
+        int_dec_hep = get_integer_decoder(comp_hep)
+        int_dec_seq = get_integer_decoder(comp_seq)
+        str_dec_seq = STRING_DECODERS.get(comp_seq & 0xFF, decompress_string_none)
+        int_dec_positions = get_integer_decoder(comp_positions)
+
+        # Parse sample IDs
+        samples_payload = data[offset:offset + clen_samples]
+        sample_ids = str_dec_samples(samples_payload, record_num, int_dec_samples)
+        offset += clen_samples
+
+        # Parse haplotype indices
+        hep_payload = data[offset:offset + clen_hep]
+        hap_indices, _ = int_dec_hep(hep_payload, record_num)
+        offset += clen_hep
+
+        # Parse sequence IDs
+        seq_payload = data[offset:offset + clen_seq]
+        sequence_ids = str_dec_seq(seq_payload, record_num, int_dec_seq)
+        offset += clen_seq
+
+        # Parse positions (start and/or end based on positions_present bitmask)
+        starts = []
+        ends = []
+        if positions_present > 0:
+            positions_payload = data[offset:offset + clen_positions]
+            # Positions are stored as [all_starts][all_ends]
+            if positions_present & 0x01:  # bit 0: start_positions present
+                starts, consumed1 = int_dec_positions(positions_payload, record_num)
+            if positions_present & 0x02:  # bit 1: end_positions present
+                if starts:
+                    ends, _ = int_dec_positions(positions_payload[consumed1:], record_num)
+                else:
+                    ends, _ = int_dec_positions(positions_payload, record_num)
+            offset += clen_positions
+
+        # Parse walks
+        walks_payload = data[offset:offset + clen_walks]
+        int_dec_walks = get_integer_decoder(comp_walks & 0xFF)
+        walks = self._decode_walk(walks_payload, record_num, comp_walks, int_dec_walks, segment_names)
+        offset += clen_walks
+
+        # Build walks list
+        walks_list = []
+        for i in range(record_num):
+            sample_id = sample_ids[i].decode('ascii') if i < len(sample_ids) else f"sample{i}"
+            hap_idx = hap_indices[i] if i < len(hap_indices) else 0
+            seq_id = sequence_ids[i].decode('ascii') if i < len(sequence_ids) else f"seq{i}"
+            start_pos = starts[i] if i < len(starts) else 0
+            end_pos = ends[i] if i < len(ends) else 0
+            walk_segments = walks[i] if i < len(walks) else []
+
+            walks_list.append({
+                "sample_id": sample_id,
+                "haplotype_index": hap_idx,
+                "sequence_id": seq_id,
+                "start": start_pos,
+                "end": end_pos,
+                "walk": walk_segments
+            })
+
+        bytes_consumed = offset - start_offset
+        return walks_list, bytes_consumed
+
+    def _decompress_string_list(self, payload: bytes, compression_code: int, record_num: int) -> list[bytes]:
+        """Decompress a list of strings using the given compression code.
+
+        :param payload: Compressed string data (metadata + blob)
+        :param compression_code: 2-byte compression code
+        :param record_num: Number of strings
+        :return: List of decompressed strings as bytes
+        """
+        int_decoder = get_integer_decoder(compression_code)
+        str_decoder = STRING_DECODERS.get(compression_code & 0xFF, decompress_string_none)
+        return str_decoder(payload, record_num, int_decoder)
+
+    def read_bgfa(self, file_path: str, verbose: bool = False, debug: bool = False,
                   logfile: str = None, skip_payloads: bool = False) -> GFA:
         """Read a BGFA file and return a GFA object.
-        
+
         :param file_path: Path to BGFA file
         :param verbose: Enable verbose logging
         :param debug: Enable debug logging
@@ -725,13 +1339,14 @@ class ReaderBGFA:
         self._segment_names = []
         segments = {}
         links = []
+        all_paths = []
+        all_walks = []
 
         while offset < len(data):
             section_id = data[offset]
 
-            if section_id == SECTION_ID_SEGMENT_NAMES:
+            if section_id == SECTION_ID_SEGMENTS:
                 if skip_payloads:
-                    # Skip block payload but advance offset correctly
                     try:
                         _, consumed = self._skip_block(data, offset)
                     except ValueError:
@@ -739,19 +1354,8 @@ class ReaderBGFA:
                         break
                     offset += consumed
                 else:
-                    names, consumed = self._parse_segment_names_block(data, offset)
-                    self._segment_names.extend(names)
-                    offset += consumed
-
-            elif section_id == SECTION_ID_SEGMENTS:
-                if skip_payloads:
-                    try:
-                        _, consumed = self._skip_block(data, offset)
-                    except ValueError:
-                        break
-                    offset += consumed
-                else:
-                    segs, consumed = self._parse_segments_block(data, offset)
+                    segs, names, consumed = self._parse_segments_block(data, offset)
+                    self._segment_names = names
                     segments.update(segs)
                     offset += consumed
 
@@ -775,9 +1379,9 @@ class ReaderBGFA:
                         break
                     offset += consumed
                 else:
-                    # TODO: Implement paths parsing
-                    logger.warning("Paths section not yet implemented")
-                    break
+                    paths_data, consumed = self._parse_paths_blocks(data, offset, self._segment_names)
+                    all_paths.extend(paths_data)
+                    offset += consumed
 
             elif section_id == SECTION_ID_WALKS:
                 if skip_payloads:
@@ -787,9 +1391,9 @@ class ReaderBGFA:
                         break
                     offset += consumed
                 else:
-                    # TODO: Implement walks parsing
-                    logger.warning("Walks section not yet implemented")
-                    break
+                    walks_data, consumed = self._parse_walks_blocks(data, offset, self._segment_names)
+                    all_walks.extend(walks_data)
+                    offset += consumed
 
             else:
                 logger.warning(f"Unknown section ID: {section_id}")
@@ -809,15 +1413,11 @@ class ReaderBGFA:
 
         # Only add nodes and edges if not skipping payloads
         if not skip_payloads:
-            # Add nodes
-            for name in self._segment_names:
-                gfa.add_node(Node(name, "*"))
-
-            # Add sequences to nodes
+            # Add nodes with sequences directly from segments dict
             for sid, seg_data in segments.items():
-                if sid < len(self._segment_names):
-                    name = self._segment_names[sid]
-                    gfa._graph.nodes[name]["sequence"] = seg_data["sequence"]
+                name = seg_data.get("name", f"s{sid}")
+                seq = seg_data.get("sequence", "*")
+                gfa.add_node(Node(name, seq))
 
             # Add edges
             for link in links:
@@ -833,49 +1433,53 @@ class ReaderBGFA:
                 )
                 gfa.add_edge(edge)
 
+            # Add paths
+            for path_data in all_paths:
+                gfa.add_path(path_data)
+
+            # Add walks
+            for walk_data in all_walks:
+                gfa.add_walk(walk_data)
+
         return gfa
 
     def _skip_block(self, data: bytes, start_offset: int) -> tuple[None, int]:
         """Skip a block by reading its header and advancing offset past the payload.
-        
+
         Block header format varies by section type. This function reads the header
         fields to determine the payload size and skips past it.
-        
+
         :param data: Full BGFA file data
         :param start_offset: Offset to start of block (section_id byte)
         :return: Tuple of (None, bytes_consumed)
         :raises ValueError: If the block header is incomplete or truncated
         """
         offset = start_offset + 1  # Skip section_id
-        
+
         # Check if we have enough data for the minimum header
         if len(data) < offset + 2:
             raise ValueError("BGFA file is too short")
-        
+
         # Read record_num (all blocks have this)
         offset += 2
-        
+
         # Read compression code(s) and length fields - varies by section type
         section_id = data[start_offset]
-        
+
         try:
-            if section_id == SECTION_ID_SEGMENT_NAMES:
-                # Format: [compression][compressed_len][uncompressed_len]
-                if len(data) < offset + 2 + 8 + 8:
+            if section_id == SECTION_ID_SEGMENTS:
+                # New format: [comp_names][clen_names][ulen_names][comp_str][clen_str][ulen_str]
+                if len(data) < offset + 2 + 8 + 8 + 2 + 8 + 8:
                     raise ValueError("BGFA file is too short")
-                offset += 2  # compression
-                compressed_len = struct.unpack_from("<Q", data, offset)[0]
-                offset += 8  # compressed_len
-                offset += 8  # uncompressed_len
-                
-            elif section_id == SECTION_ID_SEGMENTS:
-                # Format: [compression][compressed_len][uncompressed_len]
-                if len(data) < offset + 2 + 8 + 8:
-                    raise ValueError("BGFA file is too short")
-                offset += 2  # compression
-                compressed_len = struct.unpack_from("<Q", data, offset)[0]
-                offset += 8  # compressed_len
-                offset += 8  # uncompressed_len
+                offset += 2  # comp_names
+                clen_names = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8  # clen_names
+                offset += 8  # uncompressed_names_len
+                offset += 2  # comp_str
+                clen_str = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8  # clen_str
+                offset += 8  # uncompressed_str_len
+                compressed_len = clen_names + clen_str
                 
             elif section_id == SECTION_ID_LINKS:
                 # Format: [comp_fromto][clen_fromto][comp_cigars][clen_cigars][uncompressed_cigars_len]
@@ -961,47 +1565,39 @@ class BGFAWriter:
         buf.write(struct.pack("<H", len(header_text)))
         buf.write(header_text)
         buf.write(b"\0")  # Null terminator
-    
-    def _write_segment_names_block(self, buf: io.BytesIO, chunk: list[str], code: int) -> None:
-        """Write a segment names block."""
-        payload = _compress_string_for_bgfa(chunk, code)
-        
-        buf.write(struct.pack("<B", SECTION_ID_SEGMENT_NAMES))
-        buf.write(struct.pack("<H", len(chunk)))
-        buf.write(struct.pack("<H", code))
-        buf.write(struct.pack("<Q", len(payload)))
-        buf.write(struct.pack("<Q", sum(len(n) for n in chunk)))
-        buf.write(payload)
-    
-    def _write_segments_block(self, buf: io.BytesIO, chunk: list[tuple], code: int) -> None:
+
+    def _write_segments_block(self, buf: io.BytesIO, chunk: list[tuple], names_enc: int, seqs_enc: int) -> None:
         """Write a segments block.
-        
+
+        New spec format: Segment names and sequences in single block with separate encodings.
         Chunk is a list of (name, segment_id) tuples.
-        Payload layout: [segment_ids encoded][sequences encoded]
+        Payload layout: [names encoded][sequences encoded]
         """
         nodes_data = dict(self._gfa.nodes(data=True))
-        
-        ids = [sid for name, sid in chunk]
+
+        names = [name for name, sid in chunk]
         seqs = []
         for name, sid in chunk:
             s = nodes_data[name].get("sequence", "*")
             if s is None or s == "":
                 s = "*"
             seqs.append(s)
-        
-        # Encode IDs
-        int_encoder = get_integer_encoder(code)
-        payload_ids = int_encoder(ids)
-        
+
+        # Encode names
+        payload_names = _compress_string_for_bgfa(names, names_enc)
+
         # Encode sequences
-        payload_seqs = _compress_string_for_bgfa(seqs, code)
-        
-        payload = payload_ids + payload_seqs
-        
+        payload_seqs = _compress_string_for_bgfa(seqs, seqs_enc)
+
+        payload = payload_names + payload_seqs
+
         buf.write(struct.pack("<B", SECTION_ID_SEGMENTS))
         buf.write(struct.pack("<H", len(chunk)))
-        buf.write(struct.pack("<H", code))
-        buf.write(struct.pack("<Q", len(payload)))
+        buf.write(struct.pack("<H", names_enc))
+        buf.write(struct.pack("<Q", len(payload_names)))
+        buf.write(struct.pack("<Q", sum(len(n) for n in names)))
+        buf.write(struct.pack("<H", seqs_enc))
+        buf.write(struct.pack("<Q", len(payload_seqs)))
         buf.write(struct.pack("<Q", sum(len(s) if s != "*" else 0 for s in seqs)))
         buf.write(payload)
     
@@ -1046,43 +1642,42 @@ class BGFAWriter:
         buf.write(p_ft + p_cig)
     
     def to_bgfa(self, verbose: bool = False, debug: bool = False, logfile: str = None, **kwargs) -> bytes:
-        """Convert GFA to BGFA format."""
+        """Convert GFA to BGFA format.
+
+        New spec: Single segments block containing both names and sequences.
+        No separate segment names block.
+        """
         # Apply compression options from kwargs
         for k, v in kwargs.items():
             if k.endswith("_enc"):
                 self._comp_options[k] = parse_compression_strategy(v)
-        
+
         buf = io.BytesIO()
-        
+
         # Write header
         self._write_header(buf)
-        
+
         # Build segment map
         names = list(self._gfa.nodes())
         self._segment_map = {n: i for i, n in enumerate(names)}
-        
-        # Write segment names blocks
+
+        # Write single segments block with names and sequences
+        # No block_size chunking in new spec
         names_enc = self._comp_options.get("names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE))
-        for i in range(0, len(names), self._block_size):
-            chunk = names[i:i + self._block_size]
-            self._write_segment_names_block(buf, chunk, names_enc)
-        
-        # Write segments blocks
-        seq_enc = self._comp_options.get("seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA))
-        sorted_segs = sorted(self._segment_map.items(), key=lambda x: x[1])
-        for i in range(0, len(sorted_segs), self._block_size):
-            chunk = sorted_segs[i:i + self._block_size]
-            self._write_segments_block(buf, chunk, seq_enc)
-        
+        seqs_enc = self._comp_options.get("seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA))
+
+        sorted_segs = [(name, i) for i, name in enumerate(names)]
+        self._write_segments_block(buf, sorted_segs, names_enc, seqs_enc)
+
         # Write links blocks
         edges = list(self._gfa.edges(data=True, keys=True))
         links_ft_enc = self._comp_options.get("links_fromto_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE))
         links_cig_enc = self._comp_options.get("links_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR))
-        
+
         for i in range(0, len(edges), self._block_size):
             chunk = edges[i:i + self._block_size]
             self._write_links_block(buf, chunk, links_ft_enc, links_cig_enc)
-        
+
         return buf.getvalue()
 
 
