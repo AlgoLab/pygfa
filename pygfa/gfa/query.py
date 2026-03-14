@@ -313,7 +313,7 @@ class GFAParserMixin(BaseGFA):
             logger.debug(f"Adding edge: {link_data['from_node']} -> {link_data['to_node']}")
             self.add_edge(
                 ge.Edge(
-                    None,  # eid
+                    link_data.get("ID"),  # eid
                     link_data["from_node"],
                     link_data["from_orn"],
                     link_data["to_node"],
@@ -378,7 +378,7 @@ class GFAParserMixin(BaseGFA):
             logger.debug(f"Adding containment edge: {containment_data['from_node']} -> {containment_data['to_node']}")
             self.add_edge(
                 ge.Edge(
-                    None,  # eid
+                    containment_data.get("ID"),  # eid
                     containment_data["from_node"],
                     containment_data["from_orn"],
                     containment_data["to_node"],
@@ -642,15 +642,20 @@ class GFAParserMixin(BaseGFA):
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
-        **kwargs
+        **kwargs,
     ) -> bytes:
-        """Convert this GFA graph to BGFA binary format.
-        """
+        """Convert this GFA graph to BGFA binary format."""
         from pygfa.bgfa import to_bgfa as bgfa_to_bgfa
+
         return bgfa_to_bgfa(
-            self, file=file, block_size=block_size,
+            self,
+            file=file,
+            block_size=block_size,
             compression_options=compression_options,
-            verbose=verbose, debug=debug, logfile=logfile, **kwargs
+            verbose=verbose,
+            debug=debug,
+            logfile=logfile,
+            **kwargs,
         )
         if verbose or debug:
             import logging
@@ -762,22 +767,44 @@ class GFAParserMixin(BaseGFA):
                 return None
 
             kwargs = {
-                "segment_names_int_encoding": _resolve_int(get_opt(["segment_names_payload_lengths", "compress_segment_names_lens"])),
-                "segment_names_str_encoding": _resolve_str(get_opt(["segment_names_payload_names", "compress_segment_names_names", "compress_segment_names"])),
+                "segment_names_int_encoding": _resolve_int(
+                    get_opt(["segment_names_payload_lengths", "compress_segment_names_lens"])
+                ),
+                "segment_names_str_encoding": _resolve_str(
+                    get_opt(["segment_names_payload_names", "compress_segment_names_names", "compress_segment_names"])
+                ),
                 "segments_int_encoding": _resolve_int(get_opt(["segments_payload_lengths", "compress_segments_lens"])),
-                "segments_str_encoding": _resolve_str(get_opt(["segments_payload_strings", "compress_segments_seq", "compress_segments"])),
-                "links_fromto_int_encoding": _resolve_int(get_opt(["links_payload_from", "compress_links_from", "compress_links"])),
-                "links_cigars_int_encoding": _resolve_int(get_opt(["links_payload_cigar_lengths", "compress_links_cigar_lens"])),
+                "segments_str_encoding": _resolve_str(
+                    get_opt(["segments_payload_strings", "compress_segments_seq", "compress_segments"])
+                ),
+                "links_fromto_int_encoding": _resolve_int(
+                    get_opt(["links_payload_from", "compress_links_from", "compress_links"])
+                ),
+                "links_cigars_int_encoding": _resolve_int(
+                    get_opt(["links_payload_cigar_lengths", "compress_links_cigar_lens"])
+                ),
                 "links_cigars_str_encoding": _resolve_str(get_opt(["links_payload_cigar", "compress_links_cigar"])),
                 "paths_names_int_encoding": _resolve_int(get_opt(["paths_payload_names", "compress_paths_names"])),
                 "paths_names_str_encoding": _resolve_str(get_opt(["paths_payload_names", "compress_paths_names"])),
-                "paths_cigars_int_encoding": _resolve_int(get_opt(["paths_payload_cigar_lengths", "compress_paths_cigar_lens"])),
+                "paths_cigars_int_encoding": _resolve_int(
+                    get_opt(["paths_payload_cigar_lengths", "compress_paths_cigar_lens"])
+                ),
                 "paths_cigars_str_encoding": _resolve_str(get_opt(["paths_payload_cigar", "compress_paths_cigar"])),
-                "walks_sample_ids_int_encoding": _resolve_int(get_opt(["walks_payload_sample_ids", "compress_walks_samples"])),
-                "walks_sample_ids_str_encoding": _resolve_str(get_opt(["walks_payload_sample_ids", "compress_walks_samples"])),
-                "walks_hap_indices_int_encoding": _resolve_int(get_opt(["walks_payload_hep_indices", "compress_walks_heps"])),
-                "walks_seq_ids_int_encoding": _resolve_int(get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])),
-                "walks_seq_ids_str_encoding": _resolve_str(get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])),
+                "walks_sample_ids_int_encoding": _resolve_int(
+                    get_opt(["walks_payload_sample_ids", "compress_walks_samples"])
+                ),
+                "walks_sample_ids_str_encoding": _resolve_str(
+                    get_opt(["walks_payload_sample_ids", "compress_walks_samples"])
+                ),
+                "walks_hap_indices_int_encoding": _resolve_int(
+                    get_opt(["walks_payload_hep_indices", "compress_walks_heps"])
+                ),
+                "walks_seq_ids_int_encoding": _resolve_int(
+                    get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])
+                ),
+                "walks_seq_ids_str_encoding": _resolve_str(
+                    get_opt(["walks_payload_sequence_ids", "compress_walks_seqs"])
+                ),
                 "walks_start_int_encoding": _resolve_int(get_opt(["walks_payload_start", "compress_walks_start"])),
                 "walks_end_int_encoding": _resolve_int(get_opt(["walks_payload_end", "compress_walks_end"])),
             }

@@ -50,8 +50,7 @@ class TestCompression(unittest.TestCase):
         if not should_run_test_for_gfa("compression", gfa_file):
             raise unittest.SkipTest(f"No '# test: compression' comment found in {gfa_file}")
 
-        cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(gfa_file)
+        cls.graph = pygfa.gfa.GFA.from_gfa(gfa_file)
 
     def test_compression(self):
         before_node = [

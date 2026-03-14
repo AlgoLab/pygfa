@@ -19,6 +19,10 @@ from pygfa.graph_element import node
 from pygfa.graph_element import subgraph as sg
 from pygfa.graph_element.parser import containment, link, path, segment
 from pygfa.gfa.base import BaseGFA
+from pygfa.graph_operations.compression import (
+    compression_graph_by_edges,
+    compression_graph_by_nodes,
+)
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
@@ -505,3 +509,19 @@ class GFAElementsMixin(BaseGFA):
         elif identifier in self._walks:
             return self._walks[identifier]
         return None
+
+    def compression(self, type_compression: str = "by_nodes") -> None:
+        """Compact the graph by merging degree-2 nodes.
+
+        Iteratively finds nodes with exactly one outgoing edge whose
+        target has exactly one incoming edge, merges them, and removes
+        the consumed node. Repeats until no more compressions are possible.
+
+        :param type_compression: Either "by_nodes" (default) or "by_edges".
+        """
+        if type_compression == "by_edges":
+            compression_graph_by_edges(self)
+        else:
+            count_edge_compacted = compression_graph_by_nodes(self)
+            while count_edge_compacted != 0:
+                count_edge_compacted = compression_graph_by_nodes(self)
