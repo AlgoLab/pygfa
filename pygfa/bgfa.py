@@ -15,6 +15,7 @@ from collections.abc import Callable
 
 try:
     import compression.zstd as z
+
     _ZSTD_AVAILABLE = True
 except ImportError:
     _ZSTD_AVAILABLE = False
@@ -129,6 +130,7 @@ logger = logging.getLogger(__name__)
 # Utility Functions
 # =============================================================================
 
+
 def make_compression_code(int_enc: int, str_enc: int) -> int:
     """Create a 2-byte compression code from integer and string encodings."""
     return ((int_enc & 0xFF) << 8) | (str_enc & 0xFF)
@@ -153,47 +155,48 @@ def split_4byte_code(code: int) -> tuple[int, int, int, int]:
 # Bits Packing/Unpacking (LSB-first within uint64 words)
 # =============================================================================
 
+
 def pack_bits_lsb(bits: list[int]) -> bytes:
     """Pack a list of bits into bytes using LSB-first strategy within uint64 words.
-    
+
     Bit at index i is stored at position (i % 64) within word (i // 64).
     Unused bits in the final word are set to 0.
-    
+
     :param bits: List of 0/1 values
     :return: Packed bytes (multiple of 8 bytes)
     """
     n = len(bits)
     if n == 0:
         return b""
-    
+
     num_uint64 = math.ceil(n / 64)
     result = bytearray()
-    
+
     for word_idx in range(num_uint64):
         val = 0
         for bit_idx in range(64):
             idx = word_idx * 64 + bit_idx
             if idx < n and bits[idx]:
-                val |= (1 << bit_idx)  # LSB-first
+                val |= 1 << bit_idx  # LSB-first
         result.extend(struct.pack("<Q", val))
-    
+
     return bytes(result)
 
 
 def unpack_bits_lsb(data: bytes, count: int) -> tuple[list[int], int]:
     """Unpack bits from LSB-first packed uint64 words.
-    
+
     :param data: Packed bytes
     :param count: Number of bits to extract
     :return: Tuple of (list of bits, bytes consumed)
     """
     if count == 0:
         return [], 0
-    
+
     n = math.ceil(count / 64)
     bytes_consumed = n * 8
     result = []
-    
+
     for word_idx in range(n):
         if word_idx * 8 + 8 > len(data):
             break
@@ -202,7 +205,7 @@ def unpack_bits_lsb(data: bytes, count: int) -> tuple[list[int], int]:
             if len(result) >= count:
                 break
             result.append((val >> bit_idx) & 1)
-    
+
     return result, bytes_consumed
 
 
@@ -210,12 +213,13 @@ def unpack_bits_lsb(data: bytes, count: int) -> tuple[list[int], int]:
 # Integer Decoders
 # =============================================================================
 
+
 def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
     """Decode comma-separated integers."""
     result = []
     pos = 0
     current = bytearray()
-    
+
     while pos < len(data):
         byte = data[pos]
         if byte == ord(","):
@@ -230,10 +234,10 @@ def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
             pos += 1
         else:
             break
-    
+
     if current:
         result.append(int(current.decode("ascii")))
-    
+
     return result, pos
 
 
@@ -241,7 +245,7 @@ def decode_integer_list_varint(data: bytes, count: int) -> tuple[list[int], int]
     """Decode varint-encoded integers."""
     result = []
     pos = 0
-    
+
     while pos < len(data) and (count < 0 or len(result) < count):
         value = 0
         shift = 0
@@ -253,7 +257,7 @@ def decode_integer_list_varint(data: bytes, count: int) -> tuple[list[int], int]
             if (byte & 0x80) == 0:
                 break
         result.append(value)
-    
+
     return result, pos
 
 
@@ -262,13 +266,13 @@ def decode_integer_list_fixed16(data: bytes, count: int) -> tuple[list[int], int
     n = len(data) // 2 if count < 0 else count
     result = []
     pos = 0
-    
+
     for _ in range(n):
         if pos + 2 > len(data):
             break
         result.append(struct.unpack_from("<H", data, pos)[0])
         pos += 2
-    
+
     return result, pos
 
 
@@ -277,13 +281,13 @@ def decode_integer_list_fixed32(data: bytes, count: int) -> tuple[list[int], int
     n = len(data) // 4 if count < 0 else count
     result = []
     pos = 0
-    
+
     for _ in range(n):
         if pos + 4 > len(data):
             break
         result.append(struct.unpack_from("<I", data, pos)[0])
         pos += 4
-    
+
     return result, pos
 
 
@@ -292,13 +296,13 @@ def decode_integer_list_fixed64(data: bytes, count: int) -> tuple[list[int], int
     n = len(data) // 8 if count < 0 else count
     result = []
     pos = 0
-    
+
     for _ in range(n):
         if pos + 8 > len(data):
             break
         result.append(struct.unpack_from("<Q", data, pos)[0])
         pos += 8
-    
+
     return result, pos
 
 
@@ -440,6 +444,7 @@ def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]
         return bit
 
     import math
+
     bits_for_remainder = math.ceil(math.log2(b)) if b > 1 else 1
 
     while count < 0 or len(result) < count:
@@ -645,12 +650,13 @@ def get_integer_encoder(code: int) -> Callable:
 # String Decompression Functions
 # =============================================================================
 
+
 def decompress_string_none_from_blob(blob: bytes, lengths: list[int]) -> list[bytes]:
     """Extract strings from a blob given their lengths."""
     result = []
     pos = 0
     for length in lengths:
-        result.append(blob[pos:pos + length])
+        result.append(blob[pos : pos + length])
         pos += length
     return result
 
@@ -689,6 +695,7 @@ def decompress_string_huffman(payload: bytes, record_num: int, int_decoder: Call
     """Decode nibble-huffman encoded strings."""
     lengths, consumed = int_decoder(payload, record_num)
     from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
     num_nibbles = sum(lengths) * 2
     decompressed = decompress_nibble_huffman(payload[consumed:], int_decoder, num_nibbles)
     return decompress_string_none_from_blob(decompressed, lengths)
@@ -716,7 +723,7 @@ def decompress_string_superstring_none(payload: bytes, record_num: int, int_deco
     """Decode superstring with no compression."""
     starts, consumed1 = int_decoder(payload, record_num)
     ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    blob = payload[consumed1 + consumed2:]
+    blob = payload[consumed1 + consumed2 :]
     return [blob[s:e] for s, e in zip(starts, ends)]
 
 
@@ -724,9 +731,10 @@ def decompress_string_superstring_huffman(payload: bytes, record_num: int, int_d
     """Decode superstring with Huffman compression."""
     starts, consumed1 = int_decoder(payload, record_num)
     ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    remaining = payload[consumed1 + consumed2:]
+    remaining = payload[consumed1 + consumed2 :]
     super_len = max(ends) if ends else 0
     from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
     superstring = decompress_nibble_huffman(remaining, int_decoder, super_len * 2)
     return [superstring[s:e] for s, e in zip(starts, ends)]
 
@@ -735,7 +743,7 @@ def decompress_string_superstring_2bit(payload: bytes, record_num: int, int_deco
     """Decode superstring with 2-bit DNA compression."""
     starts, consumed1 = int_decoder(payload, record_num)
     ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    remaining = payload[consumed1 + consumed2:]
+    remaining = payload[consumed1 + consumed2 :]
     super_len = max(ends) if ends else 0
     superstring_list = decompress_string_2bit_dna(remaining, [super_len])
     superstring = superstring_list[0] if superstring_list else b""
@@ -749,15 +757,15 @@ STRING_DECODERS = {
     STRING_ENCODING_LZMA: decompress_string_lzma,
     STRING_ENCODING_HUFFMAN: decompress_string_huffman,
     STRING_ENCODING_2BIT_DNA: decompress_string_2bit_dna_strings,
-    STRING_ENCODING_ARITHMETIC: lambda p, rn, id: decompress_string_arithmetic(p, [0]*rn),
-    STRING_ENCODING_BWT_HUFFMAN: lambda p, rn, id: decompress_string_bwt_huffman(p, [0]*rn),
-    STRING_ENCODING_RLE: lambda p, rn, id: decompress_string_rle(p, [0]*rn),
+    STRING_ENCODING_ARITHMETIC: lambda p, rn, id: decompress_string_arithmetic(p, [0] * rn),
+    STRING_ENCODING_BWT_HUFFMAN: lambda p, rn, id: decompress_string_bwt_huffman(p, [0] * rn),
+    STRING_ENCODING_RLE: lambda p, rn, id: decompress_string_rle(p, [0] * rn),
     STRING_ENCODING_CIGAR: lambda p, rn, id: _decompress_string_cigar_with_metadata(p, rn, id),
-    STRING_ENCODING_DICTIONARY: lambda p, rn, id: decompress_string_dictionary(p, [0]*rn),
+    STRING_ENCODING_DICTIONARY: lambda p, rn, id: decompress_string_dictionary(p, [0] * rn),
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
-    STRING_ENCODING_LZ4: lambda p, rn, id: decompress_string_lz4(p, [0]*rn),
-    STRING_ENCODING_BROTLI: lambda p, rn, id: decompress_string_brotli(p, [0]*rn),
-    STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0]*rn),
+    STRING_ENCODING_LZ4: lambda p, rn, id: decompress_string_lz4(p, [0] * rn),
+    STRING_ENCODING_BROTLI: lambda p, rn, id: decompress_string_brotli(p, [0] * rn),
+    STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn),
     STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
     STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
     STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
@@ -768,16 +776,15 @@ STRING_DECODERS = {
 # String Compression Helper
 # =============================================================================
 
+
 def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> bytes:
     """Compress a list of strings using the specified compression code."""
     str_encoding = compression_code & 0xFF
     int_encoding = (compression_code >> 8) & 0xFF
     int_encoder = get_integer_encoder(compression_code)
-    
-    from pygfa.encoding.string_encoding import (
-        compress_string_list, compress_string_list_superstring
-    )
-    
+
+    from pygfa.encoding.string_encoding import compress_string_list, compress_string_list_superstring
+
     # Superstring encodings (0xF0+)
     if str_encoding >= 0xF0:
         method = "none"
@@ -785,10 +792,8 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
             method = "huffman"
         elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:
             method = "2bit"
-        return compress_string_list_superstring(
-            string_list, int_encoder, method, first_byte_strategy=int_encoding
-        )
-    
+        return compress_string_list_superstring(string_list, int_encoder, method, first_byte_strategy=int_encoding)
+
     # Concatenation encodings
     method_map = {
         STRING_ENCODING_NONE: "none",
@@ -812,13 +817,14 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
 # BGFA Reader
 # =============================================================================
 
+
 class ReaderBGFA:
     """BGFA file reader."""
-    
+
     def __init__(self):
         self._segment_names = []
         self._segment_map = {}  # name -> id
-    
+
     def _parse_header(self, data: bytes) -> dict:
         """Parse the BGFA file header.
 
@@ -848,16 +854,16 @@ class ReaderBGFA:
         if data[8 + header_len] != 0:
             raise ValueError("missing null terminator")
 
-        header_text = data[8:8+header_len].decode("ascii")
+        header_text = data[8 : 8 + header_len].decode("ascii")
 
         return {
             "magic": magic,
             "version": version,
             "header": header_text,
             "header_text": header_text,  # Alias for backward compatibility
-            "header_size": 8 + header_len + 1
+            "header_size": 8 + header_len + 1,
         }
-    
+
     def _parse_segments_block(self, data: bytes, start_offset: int) -> tuple[dict, list[str], int]:
         """Parse a segments block.
 
@@ -904,14 +910,14 @@ class ReaderBGFA:
         offset += 8
 
         # Parse names payload
-        names_payload = data[offset:offset + clen_names]
+        names_payload = data[offset : offset + clen_names]
         int_dec_names = get_integer_decoder(comp_names)
         str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
         names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
         names = [b.decode("ascii") for b in names_bytes]
 
         # Parse sequences payload
-        seqs_payload = data[offset + clen_names:offset + clen_names + clen_str]
+        seqs_payload = data[offset + clen_names : offset + clen_names + clen_str]
         int_dec_str = get_integer_decoder(comp_str)
         str_dec_str = STRING_DECODERS.get(comp_str & 0xFF, decompress_string_none)
         seqs_bytes = str_dec_str(seqs_payload, record_num, int_dec_str)
@@ -927,48 +933,48 @@ class ReaderBGFA:
 
         bytes_consumed = (offset + clen_names + clen_str) - start_offset
         return segments, names, bytes_consumed
-    
+
     def _parse_links_block(self, data: bytes, start_offset: int) -> tuple[list[dict], int]:
         """Parse a links block.
-        
+
         Payload layout: [from_ids][to_ids][from_orientation][to_orientation][cigar_strings]
         """
         offset = start_offset + 1
-        
+
         record_num = struct.unpack_from("<H", data, offset)[0]
         offset += 2
-        
+
         comp_fromto = struct.unpack_from("<H", data, offset)[0]
         offset += 2
-        
+
         clen_fromto = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
-        
+
         comp_cigars = struct.unpack_from("<H", data, offset)[0]
         offset += 2
-        
+
         clen_cigars = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
-        
+
         _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_cigars_len (not used)
         offset += 8
-        
+
         # Parse fromto payload: [from_ids][to_ids][from_orientation][to_orientation]
-        fromto_payload = data[offset:offset + clen_fromto]
+        fromto_payload = data[offset : offset + clen_fromto]
         int_dec_fromto = get_integer_decoder(comp_fromto)
-        
+
         from_ids, c1 = int_dec_fromto(fromto_payload, record_num)
         to_ids, c2 = int_dec_fromto(fromto_payload[c1:], record_num)
-        
-        f_orns, c3 = unpack_bits_lsb(fromto_payload[c1 + c2:], record_num)
-        t_orns, c4 = unpack_bits_lsb(fromto_payload[c1 + c2 + c3:], record_num)
-        
+
+        f_orns, c3 = unpack_bits_lsb(fromto_payload[c1 + c2 :], record_num)
+        t_orns, c4 = unpack_bits_lsb(fromto_payload[c1 + c2 + c3 :], record_num)
+
         # Parse cigar strings
-        cigar_payload = data[offset + clen_fromto:offset + clen_fromto + clen_cigars]
+        cigar_payload = data[offset + clen_fromto : offset + clen_fromto + clen_cigars]
         int_dec_cigars = get_integer_decoder(comp_cigars)
         str_dec_cigars = STRING_DECODERS.get(comp_cigars & 0xFF, decompress_string_none)
         cigars_bytes = str_dec_cigars(cigar_payload, record_num, int_dec_cigars)
-        
+
         # Build links list
         # Note: Links use 1-based segment IDs (0 is reserved for "no connection")
         links = []
@@ -976,23 +982,26 @@ class ReaderBGFA:
             # Convert 1-based IDs to 0-based for lookup
             from_idx = from_ids[i] - 1
             to_idx = to_ids[i] - 1
-            
+
             from_name = self._segment_names[from_idx] if 0 <= from_idx < len(self._segment_names) else f"s{from_ids[i]}"
             to_name = self._segment_names[to_idx] if 0 <= to_idx < len(self._segment_names) else f"s{to_ids[i]}"
-            
-            links.append({
-                "from_node": from_name,
-                "to_node": to_name,
-                "from_orn": "-" if f_orns[i] else "+",
-                "to_orn": "-" if t_orns[i] else "+",
-                "alignment": cigars_bytes[i].decode("ascii") if i < len(cigars_bytes) else "*"
-            })
-        
+
+            links.append(
+                {
+                    "from_node": from_name,
+                    "to_node": to_name,
+                    "from_orn": "-" if f_orns[i] else "+",
+                    "to_orn": "-" if t_orns[i] else "+",
+                    "alignment": cigars_bytes[i].decode("ascii") if i < len(cigars_bytes) else "*",
+                }
+            )
+
         bytes_consumed = (offset + clen_fromto + clen_cigars) - start_offset
         return links, bytes_consumed
 
-    def _decode_walk(self, walk_data: bytes, record_num: int, walk_compression: int,
-                     int_decoder: Callable, segment_names: list[str]) -> list[list[str]]:
+    def _decode_walk(
+        self, walk_data: bytes, record_num: int, walk_compression: int, int_decoder: Callable, segment_names: list[str]
+    ) -> list[list[str]]:
         """Decode walk data according to 4-byte walk strategy code.
 
         Walk compression codes (4 bytes):
@@ -1009,11 +1018,11 @@ class ReaderBGFA:
         """
         if record_num == 0:
             return []
-            
+
         if walk_compression == 0:
             # No walk data - return empty walks
             return [[] for _ in range(record_num)]
-        
+
         walk_byte = (walk_compression >> 24) & 0xFF
         # bytes 2-4 are for future use, currently ignored
         # byte 2 would be for orientation bit count (usually 0x00)
@@ -1033,14 +1042,14 @@ class ReaderBGFA:
             str_decoder = STRING_DECODERS.get(str_enc_code & 0xFF, decompress_string_none)
             int_enc_for_strings = (str_enc_code >> 8) & 0xFF
             int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
-            
+
             # Decode the segment ID strings
             segment_id_strings, _ = str_decoder(walk_data[consumed:], record_num, int_decoder_for_strings)
-            
+
             # Combine orientations with segment IDs
             walks = []
             for i in range(record_num):
-                seg_id = segment_id_strings[i].decode('ascii') if i < len(segment_id_strings) else ""
+                seg_id = segment_id_strings[i].decode("ascii") if i < len(segment_id_strings) else ""
                 orn = "-" if orientations[i] else "+"
                 walks.append(f"{seg_id}{orn}")
             return walks
@@ -1052,7 +1061,7 @@ class ReaderBGFA:
             int_enc_code = walk_compression & 0xFFFF
             int_decoder_func = INTEGER_DECODERS.get(int_enc_code & 0xFF, decode_integer_list_varint)
             segment_ids, _ = int_decoder_func(walk_data[consumed:], record_num)
-            
+
             # Combine orientations with segment IDs (convert to names)
             walks = []
             for i in range(record_num):
@@ -1117,12 +1126,12 @@ class ReaderBGFA:
         str_dec_cigars = STRING_DECODERS.get(comp_cigars & 0xFF, decompress_string_none)
 
         # Parse path names
-        names_payload = data[offset:offset + clen_names]
+        names_payload = data[offset : offset + clen_names]
         path_names = str_dec_names(names_payload, record_num, int_dec_names)
         offset += clen_names
 
         # Parse CIGAR strings (overlaps)
-        cigars_payload = data[offset:offset + clen_cigars]
+        cigars_payload = data[offset : offset + clen_cigars]
         cigar_bytes = str_dec_cigars(cigars_payload, record_num, int_dec_cigars)
         offset += clen_cigars
 
@@ -1131,21 +1140,18 @@ class ReaderBGFA:
         # The walk compression is given by comp_paths (4 bytes)
         # For paths, the walk is encoded as oriented segment IDs
         walks_start = offset
-        walks = self._decode_walk(data[walks_start:], record_num, comp_paths,
-                                   get_integer_decoder(comp_paths & 0xFF), segment_names)
+        walks = self._decode_walk(
+            data[walks_start:], record_num, comp_paths, get_integer_decoder(comp_paths & 0xFF), segment_names
+        )
 
         # Build paths list
         paths = []
         for i in range(record_num):
-            path_name = path_names[i].decode('ascii') if i < len(path_names) else f"path{i}"
-            cigar = cigar_bytes[i].decode('ascii') if i < len(cigar_bytes) else "*"
+            path_name = path_names[i].decode("ascii") if i < len(path_names) else f"path{i}"
+            cigar = cigar_bytes[i].decode("ascii") if i < len(cigar_bytes) else "*"
             segments = walks[i] if i < len(walks) else []
 
-            paths.append({
-                "path_name": path_name,
-                "segments": segments,
-                "overlaps": [cigar] if cigar != "*" else []
-            })
+            paths.append({"path_name": path_name, "segments": segments, "overlaps": [cigar] if cigar != "*" else []})
 
         bytes_consumed = offset - start_offset
         return paths, bytes_consumed
@@ -1153,7 +1159,7 @@ class ReaderBGFA:
     def _parse_walks_blocks(self, data: bytes, start_offset: int, segment_names: list[str]) -> tuple[list[dict], int]:
         """Parse a walks block.
 
-        Walks block header (51 bytes):
+        Walks block header (99 bytes):
         - section_id (1 byte) = 5
         - record_num (2 bytes)
         - compression_samples (2 bytes)
@@ -1216,11 +1222,6 @@ class ReaderBGFA:
         _ = struct.unpack_from("<Q", data, offset)[0]  # uncompressed_seq_len
         offset += 8
 
-        # New field: positions_present bitmask (uint8)
-        # bit 0 = start_positions present, bit 1 = end_positions present
-        positions_present = data[offset]
-        offset += 1
-
         clen_positions = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
 
@@ -1242,37 +1243,28 @@ class ReaderBGFA:
         int_dec_positions = get_integer_decoder(comp_positions)
 
         # Parse sample IDs
-        samples_payload = data[offset:offset + clen_samples]
+        samples_payload = data[offset : offset + clen_samples]
         sample_ids = str_dec_samples(samples_payload, record_num, int_dec_samples)
         offset += clen_samples
 
         # Parse haplotype indices
-        hep_payload = data[offset:offset + clen_hep]
+        hep_payload = data[offset : offset + clen_hep]
         hap_indices, _ = int_dec_hep(hep_payload, record_num)
         offset += clen_hep
 
         # Parse sequence IDs
-        seq_payload = data[offset:offset + clen_seq]
+        seq_payload = data[offset : offset + clen_seq]
         sequence_ids = str_dec_seq(seq_payload, record_num, int_dec_seq)
         offset += clen_seq
 
-        # Parse positions (start and/or end based on positions_present bitmask)
-        starts = []
-        ends = []
-        if positions_present > 0:
-            positions_payload = data[offset:offset + clen_positions]
-            # Positions are stored as [all_starts][all_ends]
-            if positions_present & 0x01:  # bit 0: start_positions present
-                starts, consumed1 = int_dec_positions(positions_payload, record_num)
-            if positions_present & 0x02:  # bit 1: end_positions present
-                if starts:
-                    ends, _ = int_dec_positions(positions_payload[consumed1:], record_num)
-                else:
-                    ends, _ = int_dec_positions(positions_payload, record_num)
-            offset += clen_positions
+        # Parse positions (always present: start and end)
+        positions_payload = data[offset : offset + clen_positions]
+        starts, consumed1 = int_dec_positions(positions_payload, record_num)
+        ends, _ = int_dec_positions(positions_payload[consumed1:], record_num)
+        offset += clen_positions
 
         # Parse walks
-        walks_payload = data[offset:offset + clen_walks]
+        walks_payload = data[offset : offset + clen_walks]
         int_dec_walks = get_integer_decoder(comp_walks & 0xFF)
         walks = self._decode_walk(walks_payload, record_num, comp_walks, int_dec_walks, segment_names)
         offset += clen_walks
@@ -1280,21 +1272,23 @@ class ReaderBGFA:
         # Build walks list
         walks_list = []
         for i in range(record_num):
-            sample_id = sample_ids[i].decode('ascii') if i < len(sample_ids) else f"sample{i}"
+            sample_id = sample_ids[i].decode("ascii") if i < len(sample_ids) else f"sample{i}"
             hap_idx = hap_indices[i] if i < len(hap_indices) else 0
-            seq_id = sequence_ids[i].decode('ascii') if i < len(sequence_ids) else f"seq{i}"
+            seq_id = sequence_ids[i].decode("ascii") if i < len(sequence_ids) else f"seq{i}"
             start_pos = starts[i] if i < len(starts) else 0
             end_pos = ends[i] if i < len(ends) else 0
             walk_segments = walks[i] if i < len(walks) else []
 
-            walks_list.append({
-                "sample_id": sample_id,
-                "haplotype_index": hap_idx,
-                "sequence_id": seq_id,
-                "start": start_pos,
-                "end": end_pos,
-                "walk": walk_segments
-            })
+            walks_list.append(
+                {
+                    "sample_id": sample_id,
+                    "haplotype_index": hap_idx,
+                    "sequence_id": seq_id,
+                    "start": start_pos,
+                    "end": end_pos,
+                    "walk": walk_segments,
+                }
+            )
 
         bytes_consumed = offset - start_offset
         return walks_list, bytes_consumed
@@ -1311,8 +1305,14 @@ class ReaderBGFA:
         str_decoder = STRING_DECODERS.get(compression_code & 0xFF, decompress_string_none)
         return str_decoder(payload, record_num, int_decoder)
 
-    def read_bgfa(self, file_path: str, verbose: bool = False, debug: bool = False,
-                  logfile: str = None, skip_payloads: bool = False) -> GFA:
+    def read_bgfa(
+        self,
+        file_path: str,
+        verbose: bool = False,
+        debug: bool = False,
+        logfile: str = None,
+        skip_payloads: bool = False,
+    ) -> GFA:
         """Read a BGFA file and return a GFA object.
 
         :param file_path: Path to BGFA file
@@ -1404,12 +1404,9 @@ class ReaderBGFA:
         from pygfa.graph_element.edge import Edge
 
         gfa = GFA()
-        
+
         # Store header info in GFA object
-        gfa._header_info = {
-            "version": header["version"],
-            "header_text": header["header_text"]
-        }
+        gfa._header_info = {"version": header["version"], "header_text": header["header_text"]}
 
         # Only add nodes and edges if not skipping payloads
         if not skip_payloads:
@@ -1429,7 +1426,7 @@ class ReaderBGFA:
                     to_orientation=link["to_orn"],
                     from_positions=(None, None),
                     to_positions=(None, None),
-                    alignment=link["alignment"]
+                    alignment=link["alignment"],
                 )
                 gfa.add_edge(edge)
 
@@ -1480,7 +1477,7 @@ class ReaderBGFA:
                 offset += 8  # clen_str
                 offset += 8  # uncompressed_str_len
                 compressed_len = clen_names + clen_str
-                
+
             elif section_id == SECTION_ID_LINKS:
                 # Format: [comp_fromto][clen_fromto][comp_cigars][clen_cigars][uncompressed_cigars_len]
                 if len(data) < offset + 2 + 8 + 2 + 8 + 8:
@@ -1493,7 +1490,7 @@ class ReaderBGFA:
                 offset += 8  # clen_cigars
                 offset += 8  # uncompressed_cigars_len
                 compressed_len = clen_fromto + clen_cigars
-                
+
             elif section_id == SECTION_ID_PATHS:
                 # Format: [comp_names][clen_names][comp_paths][clen_paths][comp_cigars][clen_cigars]
                 #         [uncompressed_*_len for each field]
@@ -1510,19 +1507,20 @@ class ReaderBGFA:
                 offset += 8  # clen_cigars
                 offset += 8 * 3  # uncompressed_*_len fields
                 compressed_len = clen_names + clen_paths + clen_cigars
-                
+
             elif section_id == SECTION_ID_WALKS:
-                # Format: [comp_*][clen_*] for 6 fields + [uncompressed_*_len] for 6 fields
-                if len(data) < offset + 6 * (2 + 8) + 6 * 8:
+                # Grouped layout: 4 compression codes (2B each) + 1 compression code (4B)
+                # then 5 pairs of (clen, ulen) at 8 bytes each
+                if len(data) < offset + 4 * 2 + 4 + 5 * 16:
                     raise ValueError("BGFA file is too short")
+                offset += 4 * 2 + 4  # all compression codes: 4x uint16 + 1x uint32
                 compressed_len = 0
-                for _ in range(6):
-                    offset += 2  # compression
+                for _ in range(5):
                     clen = struct.unpack_from("<Q", data, offset)[0]
                     offset += 8  # clen
+                    offset += 8  # ulen (skip)
                     compressed_len += clen
-                offset += 8 * 6  # uncompressed_*_len fields
-                
+
             else:
                 # Unknown section - try to skip with minimal info
                 if len(data) < offset + 2 + 8 + 8:
@@ -1533,14 +1531,14 @@ class ReaderBGFA:
                 offset += 8  # uncompressed_len
         except struct.error:
             raise ValueError("BGFA file is too short")
-        
+
         # Check if we have enough data for the payload
         if offset + compressed_len > len(data):
             raise ValueError("BGFA file is too short")
-        
+
         # Skip the payload
         offset += compressed_len
-        
+
         return None, offset - start_offset
 
 
@@ -1548,15 +1546,16 @@ class ReaderBGFA:
 # BGFA Writer
 # =============================================================================
 
+
 class BGFAWriter:
     """BGFA file writer."""
-    
+
     def __init__(self, gfa: GFA, block_size: int = DEFAULT_BLOCK_SIZE, comp_options: dict = None):
         self._gfa = gfa
         self._block_size = block_size
         self._comp_options = comp_options or {}
         self._segment_map = {}
-    
+
     def _write_header(self, buf: io.BytesIO) -> None:
         """Write the BGFA file header."""
         header_text = b"H\tVN:Z:1.0"
@@ -1600,10 +1599,10 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", len(payload_seqs)))
         buf.write(struct.pack("<Q", sum(len(s) if s != "*" else 0 for s in seqs)))
         buf.write(payload)
-    
+
     def _write_links_block(self, buf: io.BytesIO, chunk: list, c_ft: int, c_cig: int) -> None:
         """Write a links block.
-        
+
         Payload layout: [from_ids][to_ids][from_orientation][to_orientation][cigar_strings]
         """
         f_ids = []
@@ -1611,7 +1610,7 @@ class BGFAWriter:
         f_os = []
         t_os = []
         cigs = []
-        
+
         for u, v, k, d in chunk:
             fn = d.get("from_node", u)
             tn = d.get("to_node", v)
@@ -1620,7 +1619,7 @@ class BGFAWriter:
             f_os.append(0 if d.get("from_orn", "+") == "+" else 1)
             t_os.append(0 if d.get("to_orn", "+") == "+" else 1)
             cigs.append(d.get("alignment", "*"))
-        
+
         # Encode from/to IDs and orientations
         int_encoder = get_integer_encoder(c_ft)
         p_from = int_encoder(f_ids)
@@ -1628,10 +1627,10 @@ class BGFAWriter:
         p_f_or = pack_bits_lsb(f_os)
         p_t_or = pack_bits_lsb(t_os)
         p_ft = p_from + p_to + p_f_or + p_t_or
-        
+
         # Encode cigars
         p_cig = _compress_string_for_bgfa(cigs, c_cig)
-        
+
         buf.write(struct.pack("<B", SECTION_ID_LINKS))
         buf.write(struct.pack("<H", len(chunk)))
         buf.write(struct.pack("<H", c_ft))
@@ -1640,7 +1639,7 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", len(p_cig)))
         buf.write(struct.pack("<Q", sum(len(c) for c in cigs)))
         buf.write(p_ft + p_cig)
-    
+
     def to_bgfa(self, verbose: bool = False, debug: bool = False, logfile: str = None, **kwargs) -> bytes:
         """Convert GFA to BGFA format.
 
@@ -1663,19 +1662,27 @@ class BGFAWriter:
 
         # Write single segments block with names and sequences
         # No block_size chunking in new spec
-        names_enc = self._comp_options.get("names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE))
-        seqs_enc = self._comp_options.get("seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA))
+        names_enc = self._comp_options.get(
+            "names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+        )
+        seqs_enc = self._comp_options.get(
+            "seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
+        )
 
         sorted_segs = [(name, i) for i, name in enumerate(names)]
         self._write_segments_block(buf, sorted_segs, names_enc, seqs_enc)
 
         # Write links blocks
         edges = list(self._gfa.edges(data=True, keys=True))
-        links_ft_enc = self._comp_options.get("links_fromto_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE))
-        links_cig_enc = self._comp_options.get("links_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR))
+        links_ft_enc = self._comp_options.get(
+            "links_fromto_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+        )
+        links_cig_enc = self._comp_options.get(
+            "links_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR)
+        )
 
         for i in range(0, len(edges), self._block_size):
-            chunk = edges[i:i + self._block_size]
+            chunk = edges[i : i + self._block_size]
             self._write_links_block(buf, chunk, links_ft_enc, links_cig_enc)
 
         return buf.getvalue()
@@ -1685,33 +1692,35 @@ class BGFAWriter:
 # Public API
 # =============================================================================
 
+
 def parse_compression_strategy(s: str) -> int:
     """Parse a compression strategy string into a code.
-    
+
     Format: "int_encoding-str_encoding" (e.g., "varint-2bit")
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
-    
+
     p = s.lower().replace("_", "").split("-")
-    
+
     i_map = {e.name.lower().replace("_", ""): e.value for e in IntegerEncoding}
     s_map = {e.name.lower().replace("_", ""): e.value for e in StringEncoding}
-    
+
     # Aliases
     i_map["identity"] = 0
     s_map["identity"] = 0
     s_map["2bit"] = 5
-    
+
     int_enc = i_map.get(p[0], INTEGER_ENCODING_VARINT)
     str_enc = s_map.get(p[1] if len(p) > 1 else "none", STRING_ENCODING_NONE)
-    
+
     return make_compression_code(int_enc, str_enc)
 
 
-def to_bgfa(gfa: GFA, file: str = None, block_size: int = DEFAULT_BLOCK_SIZE,
-            compression_options: dict = None, **kwargs) -> bytes:
+def to_bgfa(
+    gfa: GFA, file: str = None, block_size: int = DEFAULT_BLOCK_SIZE, compression_options: dict = None, **kwargs
+) -> bytes:
     """Convert a GFA object to BGFA format.
-    
+
     :param gfa: GFA object to convert
     :param file: Optional output file path
     :param block_size: Block size for chunking
@@ -1720,17 +1729,17 @@ def to_bgfa(gfa: GFA, file: str = None, block_size: int = DEFAULT_BLOCK_SIZE,
     """
     writer = BGFAWriter(gfa, block_size, compression_options)
     result = writer.to_bgfa(**kwargs)
-    
+
     if file:
         with open(file, "wb") as f:
             f.write(result)
-    
+
     return result
 
 
 def read_bgfa(file_path: str, **kwargs) -> GFA:
     """Read a BGFA file and return a GFA object.
-    
+
     :param file_path: Path to BGFA file
     :return: GFA object
     """

@@ -33,13 +33,13 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         # Create a minimal paths block
         test_names = ["path1"]
         test_cigars = ["100M"]
-        
+
         names_data = b"".join([s.encode("ascii") for s in test_names])
         cigars_data = b"".join([s.encode("ascii") for s in test_cigars])
         names_metadata = compress_integer_list_varint([len(s) for s in test_names])
         cigars_metadata = compress_integer_list_varint([len(s) for s in test_cigars])
 
-        # Header format: section_id(B) + record_num(H) + comp_names(H) + comp_paths(I) + 
+        # Header format: section_id(B) + record_num(H) + comp_names(H) + comp_paths(I) +
         #                comp_cigars(H) + clen_cigars(Q) + ulen_cigars(Q) + clen_names(Q) + ulen_names(Q)
         header = struct.pack(
             "<BHHIHQQQQ",
@@ -78,13 +78,12 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         ends_data = compress_integer_list_varint(test_ends)
         positions_data = starts_data + ends_data
 
-        # Header format per new spec (reading order from code):
-        # section_id(B) + record_num(H) + 4x compression(H) + comp_walks(I) + 
-        # 3x (clen(Q) + ulen(Q)) for samples/hep/seq + positions_present(B) +
-        # 2x (clen(Q) + ulen(Q)) for positions/walks
-        # Total: 1+1+4+1+6+1+4 = 18 fields
+        # Header format per spec (grouped layout):
+        # section_id(B) + record_num(H) + 4x compression(H) + comp_walks(I) +
+        # 5x (clen(Q) + ulen(Q)) for samples/hep/seq/positions/walks
+        # Total: 1 + 2 + 12 + 80 = 95 bytes
         header = struct.pack(
-            "<BHHHHHIQQQQQQBQQQQ",
+            "<BHHHHHIQQQQQQQQQQ",
             5,  # section_id
             1,  # record_num
             0x0100,  # compression_samples
@@ -98,14 +97,15 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             len(hep_data),  # ulen_hep
             len(sequences_metadata) + len(sequences_data),  # clen_sequence
             len(sequences_data),  # ulen_sequence
-            0x03,  # positions_present (bit 0=start, bit 1=end)
             len(positions_data),  # clen_positions
             len(positions_data),  # ulen_positions
             0,  # clen_walks
             0,  # ulen_walks
         )
 
-        bgfa_data = header + samples_metadata + samples_data + hep_data + sequences_metadata + sequences_data + positions_data
+        bgfa_data = (
+            header + samples_metadata + samples_data + hep_data + sequences_metadata + sequences_data + positions_data
+        )
         walks, bytes_read = self.reader._parse_walks_blocks(bgfa_data, 0, [])
 
         self.assertEqual(len(walks), 1)
@@ -126,18 +126,22 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
             tmp_file.write(struct.pack("<IHH", magic, version, header_len))
             tmp_file.write(header_text.encode("ascii") + b"\0")
-            
+
             # Write empty segment names block
             tmp_file.write(struct.pack("<BHHQQ", 1, 0, 0x0000, 0, 0))
-            
+
             # Write empty segments block
             tmp_file.write(struct.pack("<BHHQQ", 2, 0, 0x0000, 0, 0))
-            
+
             # Write empty paths block
             tmp_file.write(struct.pack("<BHHIHQQQQ", 4, 0, 0x0000, 0x00000000, 0x0000, 0, 0, 0, 0))
-            
-            # Write empty walks block  
-            tmp_file.write(struct.pack("<BHHHHHIQQQQQQQQQQ", 5, 0, 0x0000, 0x0000, 0x0000, 0x0000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
+            # Write empty walks block
+            tmp_file.write(
+                struct.pack(
+                    "<BHHHHHIQQQQQQQQQQ", 5, 0, 0x0000, 0x0000, 0x0000, 0x0000, 0x00000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                )
+            )
 
             tmp_file_path = tmp_file.name
 
@@ -148,6 +152,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         finally:
             os.unlink(tmp_file_path)
             import shutil
+
             shutil.rmtree(output_dir, ignore_errors=True)
 
     def test_decode_walk_empty(self):

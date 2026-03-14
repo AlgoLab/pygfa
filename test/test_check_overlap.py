@@ -37,8 +37,7 @@ class TestCheckOverlap(unittest.TestCase):
         if not should_run_test_for_gfa("check_overlap", gfa_file):
             raise unittest.SkipTest(f"No '# test: check_overlap' comment found in {gfa_file}")
 
-        cls.graph = pygfa.gfa.GFA()
-        cls.graph.from_gfa(gfa_file)
+        cls.graph = pygfa.gfa.GFA.from_gfa(gfa_file)
 
     def test_no_external_fasta(self):
         edges_no_consistency = []
