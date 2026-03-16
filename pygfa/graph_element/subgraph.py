@@ -4,11 +4,8 @@ import collections
 import copy
 from typing import Any
 
+from pygfa.exceptions import InvalidSubgraphError
 from pygfa.graph_element.parser import line
-
-
-class InvalidSubgraphError(Exception):
-    pass
 
 
 def is_subgraph(obj: Any) -> bool:

@@ -287,11 +287,13 @@ This project will run only on Linux and MacOS systems. Drop any support for Wind
 
 ### Testing
 
-- Tests use `unittest.TestCase`
-- Put tests in `test/` directory with `test_*.py` naming
-- Tests add `../` to `sys.path` for imports
-- Use descriptive test method names: `test_node_creation_with_valid_input`
-- Use `assertRaises` for error cases
+-  After a code change, you MUST NOT run any test. The exception is, if the code change originates from a test failure,
+   run only the failed test and no other tests.
+-  Tests use `unittest.TestCase`
+-  Put tests in `test/` directory with `test_*.py` naming
+-  Tests add `../` to `sys.path` for imports
+-  Use descriptive test method names: `test_node_creation_with_valid_input`
+-  Use `assertRaises` for error cases
 
 ### Logging
 

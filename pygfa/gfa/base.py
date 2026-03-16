@@ -32,25 +32,6 @@ class Element:
     WALK = 4
 
 
-def _index(obj: Any, other: list[Any]) -> tuple[bool, int]:
-    """Given an object O and a list
-    of objects L check that exist an object O'
-    in the list such that O == O'.
-
-    :return True: If O' exists.
-    :return: The position of O' in the list.
-    """
-    found = False
-    index = 0
-    max_len = len(other)
-    while not found and index < max_len:
-        if obj == other[index]:
-            found = True
-        else:
-            index += 1
-    return found, index
-
-
 class BaseGFA:
     """Base GFA class with core data structures.
 

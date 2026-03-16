@@ -1,14 +1,7 @@
 import re
 
+from pygfa.exceptions import InvalidLineError  # noqa: F401 - re-exported for use as line.InvalidLineError
 from pygfa.graph_element.parser import field_validator as fv
-
-
-class InvalidLineError(Exception):
-    """Exception raised when making a Line object from a string.
-    The number of fields gained by splittin the string
-    must be equal to or great than the number of required field
-    ecluding the optional first field indicating the type of the line.
-    """
 
 
 # support for duck typing
