@@ -59,6 +59,13 @@ from pygfa.encoding.brotli_codec import (
 from pygfa.encoding.ppm_coding import (
     decompress_string_ppm,
 )
+from pygfa.encoding.enums import (
+    CigarDecomposition,
+    IntegerEncoding,
+    StringEncoding,
+    WalkDecomposition,
+    make_compression_code,
+)
 from pygfa.gfa import GFA
 
 # =============================================================================
@@ -66,62 +73,58 @@ from pygfa.gfa import GFA
 # =============================================================================
 
 # Magic number: "BGFA" in little-endian = 0x41464742
-# Note: Spec corrected from "AFGB" (0x42474641) to "BGFA" (0x41464742)
 BGFA_MAGIC = 0x41464742
 BGFA_VERSION = 1
 DEFAULT_BLOCK_SIZE = 1024
 
 # Section IDs
-# Note: Section ID 1 (Segment Names) removed in new spec - merged into Segments block
 SECTION_ID_SEGMENTS = 2
 SECTION_ID_LINKS = 3
 SECTION_ID_PATHS = 4
 SECTION_ID_WALKS = 5
 
-# Integer Strategies (High Byte)
-INTEGER_ENCODING_NONE = 0x00
-INTEGER_ENCODING_VARINT = 0x01
-INTEGER_ENCODING_FIXED16 = 0x02
-INTEGER_ENCODING_DELTA = 0x03
-INTEGER_ENCODING_ELIAS_GAMMA = 0x04
-INTEGER_ENCODING_ELIAS_OMEGA = 0x05
-INTEGER_ENCODING_GOLOMB = 0x06
-INTEGER_ENCODING_RICE = 0x07
-INTEGER_ENCODING_STREAMVBYTE = 0x08
-INTEGER_ENCODING_VBYTE = 0x09
-INTEGER_ENCODING_FIXED32 = 0x0A
-INTEGER_ENCODING_FIXED64 = 0x0B
-INTEGER_ENCODING_IDENTITY = INTEGER_ENCODING_NONE
+# Aliases for backward compatibility — values come from encoding.enums
+INTEGER_ENCODING_NONE = IntegerEncoding.NONE
+INTEGER_ENCODING_VARINT = IntegerEncoding.VARINT
+INTEGER_ENCODING_FIXED16 = IntegerEncoding.FIXED16
+INTEGER_ENCODING_FIXED32 = IntegerEncoding.FIXED32
+INTEGER_ENCODING_FIXED64 = IntegerEncoding.FIXED64
+INTEGER_ENCODING_DELTA = IntegerEncoding.DELTA
+INTEGER_ENCODING_ELIAS_GAMMA = IntegerEncoding.ELIAS_GAMMA
+INTEGER_ENCODING_ELIAS_OMEGA = IntegerEncoding.ELIAS_OMEGA
+INTEGER_ENCODING_GOLOMB = IntegerEncoding.GOLOMB
+INTEGER_ENCODING_RICE = IntegerEncoding.RICE
+INTEGER_ENCODING_STREAMVBYTE = IntegerEncoding.STREAMVBYTE
+INTEGER_ENCODING_VBYTE = IntegerEncoding.VBYTE
+INTEGER_ENCODING_IDENTITY = IntegerEncoding.IDENTITY
 
-# String Strategies (Low Byte)
-STRING_ENCODING_NONE = 0x00
-STRING_ENCODING_IDENTITY = STRING_ENCODING_NONE
-STRING_ENCODING_ZSTD = 0x01
-STRING_ENCODING_GZIP = 0x02
-STRING_ENCODING_LZMA = 0x03
-STRING_ENCODING_HUFFMAN = 0x04
-STRING_ENCODING_2BIT_DNA = 0x05
-STRING_ENCODING_ARITHMETIC = 0x06
-STRING_ENCODING_BWT_HUFFMAN = 0x07
-STRING_ENCODING_RLE = 0x08
-STRING_ENCODING_CIGAR = 0x09
-STRING_ENCODING_DICTIONARY = 0x0A
-STRING_ENCODING_ZSTD_DICT = 0x0B
-STRING_ENCODING_LZ4 = 0x0C
-STRING_ENCODING_BROTLI = 0x0D
-STRING_ENCODING_PPM = 0x0E
-STRING_ENCODING_SUPERSTRING_NONE = 0xF0
-STRING_ENCODING_SUPERSTRING_HUFFMAN = 0xF4
-STRING_ENCODING_SUPERSTRING_2BIT = 0xF5
+STRING_ENCODING_NONE = StringEncoding.NONE
+STRING_ENCODING_IDENTITY = StringEncoding.IDENTITY
+STRING_ENCODING_ZSTD = StringEncoding.ZSTD
+STRING_ENCODING_GZIP = StringEncoding.GZIP
+STRING_ENCODING_LZMA = StringEncoding.LZMA
+STRING_ENCODING_HUFFMAN = StringEncoding.HUFFMAN
+STRING_ENCODING_2BIT_DNA = StringEncoding.TWO_BIT_DNA
+STRING_ENCODING_ARITHMETIC = StringEncoding.ARITHMETIC
+STRING_ENCODING_BWT_HUFFMAN = StringEncoding.BWT_HUFFMAN
+STRING_ENCODING_RLE = StringEncoding.RLE
+STRING_ENCODING_CIGAR = StringEncoding.CIGAR
+STRING_ENCODING_DICTIONARY = StringEncoding.DICTIONARY
+STRING_ENCODING_ZSTD_DICT = StringEncoding.ZSTD_DICT
+STRING_ENCODING_LZ4 = StringEncoding.LZ4
+STRING_ENCODING_BROTLI = StringEncoding.BROTLI
+STRING_ENCODING_PPM = StringEncoding.PPM
+STRING_ENCODING_SUPERSTRING_NONE = StringEncoding.SUPERSTRING_NONE
+STRING_ENCODING_SUPERSTRING_HUFFMAN = StringEncoding.SUPERSTRING_HUFFMAN
+STRING_ENCODING_SUPERSTRING_2BIT = StringEncoding.SUPERSTRING_2BIT
 
-# Walk/CIGAR decomposition strategies (for 4-byte codes)
-WALK_DECOMPOSITION_NONE = 0x00
-WALK_DECOMPOSITION_ORIENTATION_STRID = 0x01
-WALK_DECOMPOSITION_ORIENTATION_NUMID = 0x02
+WALK_DECOMPOSITION_NONE = WalkDecomposition.NONE
+WALK_DECOMPOSITION_ORIENTATION_STRID = WalkDecomposition.ORIENTATION_STRID
+WALK_DECOMPOSITION_ORIENTATION_NUMID = WalkDecomposition.ORIENTATION_NUMID
 
-CIGAR_DECOMPOSITION_NONE = 0x00
-CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS = 0x01
-CIGAR_DECOMPOSITION_STRING = 0x02
+CIGAR_DECOMPOSITION_NONE = CigarDecomposition.NONE
+CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS = CigarDecomposition.NUM_OPERATIONS
+CIGAR_DECOMPOSITION_STRING = CigarDecomposition.STRING
 
 logger = logging.getLogger(__name__)
 
@@ -131,19 +134,9 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-def make_compression_code(int_enc: int, str_enc: int) -> int:
-    """Create a 2-byte compression code from integer and string encodings."""
-    return ((int_enc & 0xFF) << 8) | (str_enc & 0xFF)
-
-
 def make_4byte_code(byte1: int, byte2: int, byte3: int, byte4: int) -> int:
     """Create a 4-byte strategy code."""
     return (byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4
-
-
-def split_compression_code(code: int) -> tuple[int, int]:
-    """Split a 2-byte compression code into integer and string encodings."""
-    return (code >> 8) & 0xFF, code & 0xFF
 
 
 def split_4byte_code(code: int) -> tuple[int, int, int, int]:

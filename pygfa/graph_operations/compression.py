@@ -17,11 +17,12 @@ def tuple_to_string(node: tuple[str, str]) -> str:
 
 def reverse_and_complement(string: str) -> str:
     """Given a genomic string
-    :return the reverese&complement of the string: If is specify
-    :return the same string: If is not specify (*)
+    :return the reverse&complement of the string: If is specified
+    :return the same string: If is not specified (*)
     """
     reverse_dict = dict([("A", "T"), ("T", "A"), ("C", "G"), ("G", "C"), ("*", "*")])
-    complement_string = "".join([reverse_dict[c] for c in string])
+    string_upper = string.upper()
+    complement_string = "".join([reverse_dict[c] for c in string_upper])
     return complement_string[::-1]
 
 
@@ -289,9 +290,7 @@ def compression_graph_by_nodes(gfa_):
                         to_node = (to_id, to_orn)
                         new_seq, overlap, orn = compact_sequence(gfa_, from_node, to_node)
                         update_graph(gfa_, from_node[0], to_node[0], new_seq, overlap, orn)
-                        update_dictionaries_by_nodes(
-                            (from_node, to_node), (from_dict, to_dict), orn
-                        )
+                        update_dictionaries_by_nodes((from_node, to_node), (from_dict, to_dict), orn)
                         count_edge_compacted += 1
                 else:
                     edge_no_text += 1

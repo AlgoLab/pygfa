@@ -42,6 +42,12 @@ class InvalidSubgraphError(GFAError):
     pass
 
 
+class InvalidLineError(GFAError):
+    """Raised when a GFA line cannot be parsed or is invalid."""
+
+    pass
+
+
 class InvalidElementError(GFAError):
     """Raised when a graph element is invalid or not found."""
 
@@ -85,6 +91,7 @@ __all__ = [
     "InvalidPathError",
     "InvalidWalkError",
     "InvalidSubgraphError",
+    "InvalidLineError",
     "InvalidElementError",
     "InvalidSearchParameters",
     "InvalidEncodingError",
