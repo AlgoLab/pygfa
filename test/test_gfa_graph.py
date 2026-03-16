@@ -282,17 +282,17 @@ class TestGfaGraph(unittest.TestCase):
         self.assertTrue(isinstance(subgraph_, nx.MultiGraph))
         self.assertTrue(len(subgraph_.nodes()) == 3)
         self.assertTrue(len(subgraph_.edges()) == 2)
-        # Edges have virtual IDs as keys when parsed from string
-        self.assertTrue(subgraph_.get_edge_data("1", "5", "virtual_5") is not None)
-        self.assertTrue(subgraph_.get_edge_data("1", "3", "virtual_2") is not None)
+        # Edges have explicit IDs as keys when parsed from string (not virtual)
+        self.assertTrue(subgraph_.get_edge_data("1", "5", "1_to_5") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") is not None)
         # test copy subgraph
         subgraph_.nodes["3"]["nid"] = 42
         self.assertTrue(subgraph_.nodes["3"] != self.graph.nodes(identifier="3"))
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
-        self.assertTrue(gfa_.edges(identifier="virtual_2") is not None)
-        self.assertTrue(subgraph_.get_edge_data("1", "3", "virtual_2") == gfa_.edges(identifier="virtual_2"))
+        self.assertTrue(gfa_.edges(identifier="1_to_3") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "5"], copy=False)
         subgraph_.nodes["3"]["nid"] = 42
@@ -300,8 +300,8 @@ class TestGfaGraph(unittest.TestCase):
 
         # create a GFA graph using the subgraph as base graph
         gfa_ = gfa.GFA(subgraph_)
-        self.assertTrue(gfa_.edges(identifier="virtual_2") is not None)
-        self.assertTrue(subgraph_.get_edge_data("1", "3", "virtual_2") == gfa_.edges(identifier="virtual_2"))
+        self.assertTrue(gfa_.edges(identifier="1_to_3") is not None)
+        self.assertTrue(subgraph_.get_edge_data("1", "3", "1_to_3") == gfa_.edges(identifier="1_to_3"))
 
         subgraph_ = self.graph.subgraph(["1", "3", "5"], copy=False)
         subgraph_.nodes["3"]["nid"] = 42
