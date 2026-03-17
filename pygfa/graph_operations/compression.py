@@ -20,19 +20,19 @@ def reverse_and_complement(string: str) -> str:
     :return the reverse&complement of the string: If is specified
     :return the same string: If is not specified (*)
     """
-    reverse_dict = dict([("A", "T"), ("T", "A"), ("C", "G"), ("G", "C"), ("*", "*")])
+    reverse_dict = {"A": "T", "T": "A", "C": "G", "G": "C", "*": "*"}
     string_upper = string.upper()
     complement_string = "".join([reverse_dict[c] for c in string_upper])
     return complement_string[::-1]
 
 
-def reverse_strand(strand: str | None) -> str | None:
-    """Given a strand
-    :return the opposite strand: if is specify
-    :return None: if strand is not defined
+def reverse_strand(strand: str) -> str:
+    """Given a strand, return the opposite strand.
+
+    :param strand: "+" or "-"
+    :raises KeyError: If strand is not "+" or "-"
     """
-    dict_inverted = dict([("+", "-"), ("-", "+"), (None, None), ("", None)])
-    return dict_inverted[strand]
+    return {"+": "-", "-": "+"}[strand]
 
 
 def update_graph(gfa_, keep_id: str, remove_id: str, new_seq: str, overlap: int, orn: str) -> None:
@@ -67,6 +67,8 @@ def update_graph(gfa_, keep_id: str, remove_id: str, new_seq: str, overlap: int,
     data_update_edges = gfa_.edges(adj_dict=True)[remove_id]
     for node in data_update_edges:
         for edge_id in data_update_edges[node]:
+            parse_from_positions: tuple = ()
+            parse_to_positions: tuple = ()
             if data_update_edges[node][edge_id]["from_node"] == remove_id:
                 parse_from_node = keep_id
                 parse_from_orn = data_update_edges[node][edge_id]["from_orn"]
@@ -159,6 +161,7 @@ def compact_sequence(gfa_, from_node, to_node):
 
     edges = gfa_._search_edge_by_nodes((from_id, to_id))
     edge = None
+    overlap = 0
     for edge in edges:
         overlap = int(edges[edge]["alignment"].rstrip("M"))
     gfa_.remove_edge(edge)
@@ -280,12 +283,12 @@ def compression_graph_by_nodes(gfa_):
                 to_id, to_orn = to_node[0].split("|")
                 if gfa_.nodes(identifier=from_id) and gfa_.nodes(identifier=to_id):
                     if len(to_dict[to_id][to_orn]) == 1:
-                        if to_dict.get(from_id):
-                            if to_dict.get(from_id).get(reverse_strand(from_orn)):
-                                break
-                        if from_dict.get(to_id):
-                            if from_dict.get(to_id).get(reverse_strand(to_orn)):
-                                break
+                        to_from = to_dict.get(from_id)
+                        if to_from and to_from.get(reverse_strand(from_orn)):
+                            break
+                        from_to = from_dict.get(to_id)
+                        if from_to and from_to.get(reverse_strand(to_orn)):
+                            break
                         from_node = (from_id, from_orn)
                         to_node = (to_id, to_orn)
                         new_seq, overlap, orn = compact_sequence(gfa_, from_node, to_node)

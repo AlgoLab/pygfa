@@ -1,5 +1,4 @@
 import os
-import sys
 import glob
 import re
 import datetime
@@ -114,6 +113,46 @@ def _build_rerun_command(nodeid):
     return "pixi run python -m pytest " + " ".join(quoted) + f" {nodeid}"
 
 
+def _build_other_tests_command(failed_nodeids):
+    """Build the command to run all tests except the failed ones."""
+    if _PYTEST_CONFIG is None or not failed_nodeids:
+        return ""
+
+    args = list(_PYTEST_CONFIG.invocation_params.args)
+    # Remove any -x or --maxfail flags (and their values) so we don't stop on first failure
+    new_args = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in ("-x", "--maxfail"):
+            # Skip this flag and if it's --maxfail with a value, skip the next one too.
+            if arg == "--maxfail":
+                i += 1  # skip the value
+            i += 1
+            continue
+        elif arg.startswith("--maxfail="):
+            # Skip this entire argument
+            i += 1
+            continue
+        else:
+            new_args.append(arg)
+            i += 1
+
+    # Add the deselect flags for each failed nodeid
+    for nodeid in failed_nodeids:
+        new_args.extend(["--deselect", nodeid])
+
+    # Build the command string
+    quoted = []
+    for a in new_args:
+        if " " in a or '"' in a:
+            quoted.append(f'"{a}"')
+        else:
+            quoted.append(a)
+
+    return "pixi run python -m pytest " + " ".join(quoted)
+
+
 def pytest_runtest_logreport(report):
     """Print command with timestamp and result on same line with color coding."""
     if report.when == "call":
@@ -155,3 +194,18 @@ def setup_test_environment():
 def test_output_dir(tmp_path):
     """Provide a temporary directory for test outputs."""
     return tmp_path
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Print command to run all tests except the failed ones."""
+    global _session_results
+
+    # Collect failed test nodeids
+    failed_nodeids = [
+        nodeid for nodeid, report in _session_results.items() if report.when == "call" and report.outcome == "failed"
+    ]
+
+    if failed_nodeids:
+        command = _build_other_tests_command(failed_nodeids)
+        if command:
+            print(f"\n{COLOR_CYAN}{COLOR_BOLD}To run all other tests: {command}{COLOR_RESET}\n")
