@@ -60,9 +60,16 @@ from pygfa.encoding.ppm_coding import (
     decompress_string_ppm,
 )
 from pygfa.encoding.enums import (
+<<<<<<< Updated upstream
     CigarDecomposition,
     IntegerEncoding,
     StringEncoding,
+||||||| Stash base
+=======
+    IntegerEncoding,
+    StringEncoding,
+    CigarDecomposition,
+>>>>>>> Stashed changes
     WalkDecomposition,
     make_compression_code,
 )
@@ -83,7 +90,26 @@ SECTION_ID_LINKS = 3
 SECTION_ID_PATHS = 4
 SECTION_ID_WALKS = 5
 
+<<<<<<< Updated upstream
 # Aliases for backward compatibility — values come from encoding.enums
+||||||| Stash base
+# Integer Strategies (High Byte)
+INTEGER_ENCODING_NONE = 0x00
+INTEGER_ENCODING_VARINT = 0x01
+INTEGER_ENCODING_FIXED16 = 0x02
+INTEGER_ENCODING_DELTA = 0x03
+INTEGER_ENCODING_ELIAS_GAMMA = 0x04
+INTEGER_ENCODING_ELIAS_OMEGA = 0x05
+INTEGER_ENCODING_GOLOMB = 0x06
+INTEGER_ENCODING_RICE = 0x07
+INTEGER_ENCODING_STREAMVBYTE = 0x08
+INTEGER_ENCODING_VBYTE = 0x09
+INTEGER_ENCODING_FIXED32 = 0x0A
+INTEGER_ENCODING_FIXED64 = 0x0B
+INTEGER_ENCODING_IDENTITY = INTEGER_ENCODING_NONE
+=======
+# Aliases for backward compatibility with encoding enums
+>>>>>>> Stashed changes
 INTEGER_ENCODING_NONE = IntegerEncoding.NONE
 INTEGER_ENCODING_VARINT = IntegerEncoding.VARINT
 INTEGER_ENCODING_FIXED16 = IntegerEncoding.FIXED16
@@ -118,6 +144,15 @@ STRING_ENCODING_SUPERSTRING_NONE = StringEncoding.SUPERSTRING_NONE
 STRING_ENCODING_SUPERSTRING_HUFFMAN = StringEncoding.SUPERSTRING_HUFFMAN
 STRING_ENCODING_SUPERSTRING_2BIT = StringEncoding.SUPERSTRING_2BIT
 
+<<<<<<< Updated upstream
+||||||| Stash base
+# Walk/CIGAR decomposition strategies (for 4-byte codes)
+WALK_DECOMPOSITION_NONE = 0x00
+WALK_DECOMPOSITION_ORIENTATION_STRID = 0x01
+WALK_DECOMPOSITION_ORIENTATION_NUMID = 0x02
+=======
+# Walk/CIGAR decomposition strategies (for 4-byte codes)
+>>>>>>> Stashed changes
 WALK_DECOMPOSITION_NONE = WalkDecomposition.NONE
 WALK_DECOMPOSITION_ORIENTATION_STRID = WalkDecomposition.ORIENTATION_STRID
 WALK_DECOMPOSITION_ORIENTATION_NUMID = WalkDecomposition.ORIENTATION_NUMID

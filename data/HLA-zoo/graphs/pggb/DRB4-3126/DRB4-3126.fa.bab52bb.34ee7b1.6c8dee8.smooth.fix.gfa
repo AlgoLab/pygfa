@@ -1,3 +1,4 @@
+# benchmark: single_param
 # test: read_gfa
 # test: bgfa_roundtrip
 # test: bgfa
