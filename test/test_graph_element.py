@@ -121,10 +121,6 @@ class TestGraphElement(unittest.TestCase):
         del bad_node.opt_fields["AA"]
         # self.assertFalse(bad_node == node_)  # Skip due to dataclass equality
 
-        # Create a new BadNode with different ID to test duck typing
-        bad_node2 = BadNode("5", node_.sequence, node_.sequence_length, bad_node.opt_fields)
-        # self.assertFalse(bad_node2 == node_)  # Skip due to dataclass equality
-
         # Create a BadNode without node_id to test is_node failure
         bad_node3 = BadNode("5", node_.sequence, node_.sequence_length, {})
         delattr(bad_node3, "node_id")
