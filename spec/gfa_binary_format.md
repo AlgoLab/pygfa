@@ -159,7 +159,7 @@ The following is the sequence of fields making up the header.
 | `compression_fromto`      | Encoding strategy for the from and to fields (2 bytes) | `uint16` |
 | `compressed_fromto_len`   | length of compressed from/to payload (metadata + blob) | `uint64` |
 | **CIGAR field**           |                                                        |          |
-| `compression_cigars`      | Encoding strategy for the cigar strings (2 bytes)      | `uint16` |
+| `compression_cigars`      | Encoding strategy for the cigar strings (4 bytes)      | `uint32` |
 | `compressed_cigars_len`   | length of compressed cigars payload (metadata + blob)  | `uint64` |
 | `uncompressed_cigars_len` | sum of the lengths of uncompressed cigars              | `uint64` |
 
@@ -204,7 +204,7 @@ The following is the sequence of fields making up the header.
 | `compression_paths`           | Encoding strategy for the paths as list of segment IDs (4 bytes) | `uint32` |
 | `compressed_paths_len`        | length of compressed paths                                       | `uint64` |
 | `uncompressed_paths_len`      | sum of the lengths of uncompressed paths (as segment ID strings) | `uint64` |
-| `compression_cigars`          | Encoding strategy for the cigar strings (2 bytes)                | `uint16` |
+| `compression_cigars`          | Encoding strategy for the cigar strings (4 bytes)                | `uint32` |
 | `compressed_len_cigar`        | length of compressed concatenated cigars                         | `uint64` |
 | `uncompressed_len_cigar`      | sum of the lengths of uncompressed concatenated cigars strings   | `uint64` |
 
@@ -890,7 +890,7 @@ Header:
 02 00          # record_num: 2
 01 00          # compression_fromto: 0x0001 (varint)
 04 00 00 00    # compressed_fromto_len: 4 bytes
-01 00          # compression_cigars: 0x0001 (varint)
+01 00 00 00    # compression_cigars: 0x00000001 (varint, 4 bytes)
 06 00 00 00    # compressed_cigars_len: 6 bytes
 06 00 00 00    # uncompressed_cigars_len: 6 bytes
 ```
@@ -979,7 +979,7 @@ Header:
 02 00          # record_num: 2
 01 00          # compression_fromto: 0x0001 (varint)
 04 00 00 00    # compressed_fromto_len: 4 bytes
-01 00          # compression_cigars: 0x0001 (varint)
+01 00 00 00    # compression_cigars: 0x00000001 (varint, 4 bytes)
 06 00 00 00    # compressed_cigars_len: 6 bytes
 06 00 00 00    # uncompressed_cigars_len: 6 bytes
 ```
@@ -1007,7 +1007,7 @@ Header:
 00 00 00 00    # compression_paths: 0x00000000 (orientation + numid, varint for segment IDs, none for string)
 00 00 00 00    # compressed_paths_len: 0 bytes
 00 00 00 00    # uncompressed_paths_len: 0 bytes
-01 00          # compression_cigars: 0x0001 (varint)
+01 00 00 00    # compression_cigars: 0x00000001 (varint, 4 bytes)
 06 00 00 00    # compressed_len_cigar: 6 bytes
 06 00 00 00    # uncompressed_len_cigar: 6 bytes
 ```

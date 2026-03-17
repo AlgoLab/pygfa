@@ -93,11 +93,11 @@ class TestOverlapConsistency(TestGraphOperationsBase):
         """Test real overlap calculation."""
         # Test perfect match
         result = real_overlap("ATCGG", "GCGAA")
-        self.assertEqual(result, 2)  # "GC" matches
+        self.assertEqual(result, 1)  # "G" matches
 
-        # Test no overlap
+        # Test overlap
         result = real_overlap("ATCG", "GCTA")
-        self.assertEqual(result, 0)
+        self.assertEqual(result, 1)  # "G" matches
 
         # Test partial overlap
         result = real_overlap("ATCGAAA", "AAAGCCC")
@@ -120,7 +120,7 @@ class TestOverlapConsistency(TestGraphOperationsBase):
 
         try:
             # Test reading valid FASTA
-            result = fasta_reader("", os.path.basename(temp_file))
+            result = fasta_reader(os.path.dirname(temp_file) + "/", os.path.basename(temp_file))
             self.assertIsNotNone(result)
             if result:  # Check result is not None
                 self.assertEqual(result["seq1"], "ATCG")
@@ -163,7 +163,7 @@ class TestGraphOperationsIntegration(TestGraphOperationsBase):
 
         # Calculate real overlap
         overlap = real_overlap(seq1, seq2)
-        self.assertEqual(overlap, 4)  # "GGGG" overlaps
+        self.assertEqual(overlap, 3)  # "GGG" overlaps
 
         # Get reverse complement for further analysis
         rc_seq2 = overlap_reverse_complement(seq2)
