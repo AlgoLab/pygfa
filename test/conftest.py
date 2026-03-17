@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import re
 import datetime
@@ -7,6 +8,8 @@ import pytest
 COLOR_GREEN = "\033[92m"
 COLOR_RED = "\033[91m"
 COLOR_YELLOW = "\033[93m"
+COLOR_CYAN = "\033[96m"
+COLOR_BOLD = "\033[1m"
 COLOR_RESET = "\033[0m"
 
 MEMORY_LIMIT = "8GB"
@@ -45,8 +48,13 @@ for _info in LARGE_GFA_FILES.values():
     _TEST_TYPES_WITH_LARGE_FILES.update(_info["tests"])
 
 
+_PYTEST_CONFIG = None
+
+
 def pytest_configure(config):
     """Register the limit_memory marker from pytest-memray."""
+    global _PYTEST_CONFIG
+    _PYTEST_CONFIG = config
     config.addinivalue_line("markers", "limit_memory: limit memory usage to specified amount (pytest-memray)")
 
 
@@ -86,10 +94,30 @@ def pytest_addoption(parser):
     )
 
 
+def _build_rerun_command(nodeid):
+    """Build the full pytest command to rerun a specific test."""
+    if _PYTEST_CONFIG is None:
+        return f"pixi run python -m pytest {nodeid}"
+
+    args = list(_PYTEST_CONFIG.invocation_params.args)
+    # Remove the nodeid if it's already in args (from --lf or similar)
+    clean_args = [a for a in args if a != nodeid]
+
+    # Quote args containing spaces or special chars
+    quoted = []
+    for a in clean_args:
+        if " " in a or '"' in a:
+            quoted.append(f'"{a}"')
+        else:
+            quoted.append(a)
+
+    return "pixi run python -m pytest " + " ".join(quoted) + f" {nodeid}"
+
+
 def pytest_runtest_logreport(report):
     """Print command with timestamp and result on same line with color coding."""
     if report.when == "call":
-        command = f"python -m pytest {report.nodeid}"
+        command = _build_rerun_command(report.nodeid)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if report.passed:
@@ -101,6 +129,7 @@ def pytest_runtest_logreport(report):
             if len(error_msg) > 200:
                 error_msg = error_msg[:197] + "..."
             print(f"{COLOR_RED}[{command}] [{timestamp}] [FAILED] {error_msg}{COLOR_RESET}")
+            print(f"{COLOR_CYAN}{COLOR_BOLD}  To rerun: {command}{COLOR_RESET}")
 
 
 def temp_file_factory(test_output_dir):
