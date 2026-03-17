@@ -115,15 +115,21 @@ class Line:
         if not (is_field(field) or is_optfield(field)):
             raise fv.InvalidFieldError("A valid field must be attached")
 
-        if field.name in self.fields:
-            raise ValueError(f"This field is already been added, field name: '{field.name}'.")
+        key = field.name
+        if key in self.fields:
+            if key in self.REQUIRED_FIELDS:
+                raise ValueError(f"This field is already been added, field name: '{field.name}'.")
+            suffix = 1
+            while f"{key}_{suffix}" in self.fields:
+                suffix += 1
+            key = f"{key}_{suffix}"
 
         if field.name in self.REQUIRED_FIELDS:
-            self._fields[field.name] = field
-        else:  # here we are appending an optfield
+            self._fields[key] = field
+        else:
             if not is_optfield(field):
                 raise fv.InvalidFieldError("Cannot add an invalid OptField.")
-            self._fields[field.name] = field
+            self._fields[key] = field
         return True
 
     def remove_field(self, field):
