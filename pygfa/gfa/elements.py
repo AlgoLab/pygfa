@@ -73,7 +73,7 @@ class GFAElementsMixin(BaseGFA):
         :raises GFAError: If safe=True and node already exists.
         """
         logger = logging.getLogger(__name__)
-        logger.debug(f"add_node(): Adding node with ID: {new_node.nid if hasattr(new_node, 'nid') else 'unknown'}")
+        logger.debug("add_node(): Adding node with ID: %s", new_node.nid if hasattr(new_node, "nid") else "unknown")
 
         if isinstance(new_node, str) and new_node[0] == "S":
             logger.debug("add_node(): Parsing node from string")
@@ -84,10 +84,10 @@ class GFAElementsMixin(BaseGFA):
             raise node.InvalidNodeError("The object given is not a node.")
 
         if safe and new_node.nid in self:
-            logger.debug(f"add_node(): Node {new_node.nid} already exists (safe mode)")
+            logger.debug("add_node(): Node %s already exists (safe mode)", new_node.nid)
             raise GFAError("An element with the same id already exists.")
 
-        logger.debug(f"add_node(): Adding node {new_node.nid} to graph")
+        logger.debug("add_node(): Adding node %s to graph", new_node.nid)
         self._graph.add_node(
             new_node.nid,
             nid=new_node.nid,
@@ -159,7 +159,7 @@ class GFAElementsMixin(BaseGFA):
         logger.debug("add_edge(): Adding edge")
 
         if isinstance(new_edge, str):
-            logger.debug(f"add_edge(): Parsing edge from string: {new_edge[:50]}...")
+            logger.debug("add_edge(): Parsing edge from string: %s...", new_edge[:50])
             if new_edge[0] == "L":
                 new_edge = ge.Edge.from_line(link.Link.from_string(new_edge.strip()))
             elif new_edge[0] == "C":
@@ -179,7 +179,7 @@ class GFAElementsMixin(BaseGFA):
         key = new_edge.eid
         if new_edge.eid is None or new_edge.eid == "*":
             key = f"virtual_{self._get_virtual_id()}"
-            logger.debug(f"add_edge(): Assigned virtual ID: {key}")
+            logger.debug("add_edge(): Assigned virtual ID: %s", key)
 
         if safe:
             logger.debug("add_edge(): Safe mode - checking existence")
@@ -187,13 +187,13 @@ class GFAElementsMixin(BaseGFA):
             node1_exists = new_edge.from_node in self
             node2_exists = new_edge.to_node in self
             if edge_exists:
-                logger.debug(f"add_edge(): Edge {key} already exists")
+                logger.debug("add_edge(): Edge %s already exists", key)
                 raise GFAError("An element with the same id already exists.")
             if not (node1_exists and node2_exists):
-                logger.debug(f"add_edge(): Nodes not found: from={node1_exists}, to={node2_exists}")
+                logger.debug("add_edge(): Nodes not found: from=%s, to=%s", node1_exists, node2_exists)
                 raise GFAError("From/To node are not already in the graph.")
 
-        logger.debug(f"add_edge(): Adding edge {key} from {new_edge.from_node} to {new_edge.to_node}")
+        logger.debug("add_edge(): Adding edge %s from %s to %s", key, new_edge.from_node, new_edge.to_node)
         self._graph.add_edge(
             new_edge.from_node,
             new_edge.to_node,
@@ -212,7 +212,7 @@ class GFAElementsMixin(BaseGFA):
             to_segment_end=new_edge.to_orn,
             **new_edge.opt_fields,
         )
-        logger.debug(f"add_edge(): Edge {key} added successfully")
+        logger.debug("add_edge(): Edge %s added successfully", key)
 
     def remove_edge(self, identifier: str | tuple) -> None:
         """Remove an edge or all edges identified by an id
@@ -315,7 +315,7 @@ class GFAElementsMixin(BaseGFA):
         if safe and key in self:
             raise GFAError("An element with the same id already exists.")
 
-        self._subgraphs[key] = copy.deepcopy(subgraph)
+        self._subgraphs[key] = copy.copy(subgraph)  # Shallow copy is sufficient
 
     def remove_subgraph(self, sub_id: str) -> None:
         """Remove a subgraph from the graph.
@@ -385,18 +385,18 @@ class GFAElementsMixin(BaseGFA):
             raise GFAError("Invalid path data format.")
 
         key = path_data["path_name"]
-        logger.debug(f"add_path(): Path name: {key}")
+        logger.debug("add_path(): Path name: %s", key)
         if key == "*":
             key = f"virtual_{self._get_virtual_id()}"
-            logger.debug(f"add_path(): Assigned virtual key: {key}")
+            logger.debug("add_path(): Assigned virtual key: %s", key)
         if safe and key in self._paths:
-            logger.debug(f"add_path(): Path {key} already exists")
+            logger.debug("add_path(): Path %s already exists", key)
             raise GFAError("A path with the same id already exists.")
 
         # Store the path data
-        logger.debug(f"add_path(): Storing path {key} with {len(path_data.get('segments', []))} segments")
-        self._paths[key] = copy.deepcopy(path_data)
-        logger.debug(f"add_path(): Path {key} added successfully")
+        logger.debug("add_path(): Storing path %s with %s segments", key, len(path_data.get("segments", [])))
+        self._paths[key] = copy.copy(path_data)  # Shallow copy is sufficient
+        logger.debug("add_path(): Path %s added successfully", key)
 
     def remove_path(self, path_id: str) -> None:
         """Remove the path identified by the given id.
@@ -473,14 +473,14 @@ class GFAElementsMixin(BaseGFA):
 
         # Create a unique key for the walk
         key = f"{walk_data['sample_id']}_{walk_data['hapindex']}_{walk_data['seq_id']}"
-        logger.debug(f"add_walk(): Walk key: {key}")
+        logger.debug("add_walk(): Walk key: %s", key)
         if safe and key in self._walks:
-            logger.debug(f"add_walk(): Walk {key} already exists")
+            logger.debug("add_walk(): Walk %s already exists", key)
             raise GFAError("A walk with the same id already exists.")
 
         # Store the walk data
-        logger.debug(f"add_walk(): Storing walk {key}")
-        self._walks[key] = copy.deepcopy(walk_data)
+        logger.debug("add_walk(): Storing walk %s", key)
+        self._walks[key] = copy.copy(walk_data)  # Shallow copy is sufficient
         logger.debug(f"add_walk(): Walk {key} added successfully")
 
     def remove_walk(self, walk_id: str) -> None:

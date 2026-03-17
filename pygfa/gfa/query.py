@@ -173,6 +173,10 @@ class GFAParserMixin(BaseGFA):
     This class provides methods for parsing GFA strings and files.
     """
 
+    # Class-level parser cache
+    _parser = None
+    _grammar = None
+
     def from_string(self, string: str) -> None:
         """Add a GFA string to the graph once it has been
         converted.
@@ -184,14 +188,17 @@ class GFAParserMixin(BaseGFA):
         logger = logging.getLogger(__name__)
         lines = re.split("\n", string)
 
-        # Load the grammar from the gfa.lark file
-        grammar_file = os.path.join(os.path.dirname(__file__), "..", "graph_element", "parser", "gfa.lark")
-        with open(grammar_file) as f:
-            grammar = f.read()
+        # Load the grammar from the gfa.lark file (cached)
+        if self.__class__._grammar is None:
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "graph_element", "parser", "gfa.lark")
+            with open(grammar_file) as f:
+                self.__class__._grammar = f.read()
 
-        # Create the parser
-        parser = lark.Lark(grammar, start="start")
-        logger.debug("Created parser for GFA parsing")
+            # Create the parser
+            self.__class__._parser = lark.Lark(self.__class__._grammar, start="start")
+            logger.debug("Created parser for GFA parsing")
+
+        parser = self.__class__._parser
 
         for i, line_ in enumerate(lines):
             line_ = line_.strip()
@@ -476,16 +483,19 @@ class GFAParserMixin(BaseGFA):
 
         g = cls()
 
-        # Load the grammar from the gfa.lark file
-        grammar_file = os.path.join(os.path.dirname(__file__), "..", "graph_element", "parser", "gfa.lark")
-        logger.debug(f"Loading grammar from: {grammar_file}")
-        with open(grammar_file) as f:
-            grammar = f.read()
-        logger.debug(f"Grammar loaded, size: {len(grammar)} characters")
+        # Load the grammar from the gfa.lark file (cached)
+        if cls._grammar is None:
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "graph_element", "parser", "gfa.lark")
+            logger.debug(f"Loading grammar from: {grammar_file}")
+            with open(grammar_file) as f:
+                cls._grammar = f.read()
+            logger.debug(f"Grammar loaded, size: {len(cls._grammar)} characters")
 
-        # Create the parser
-        parser = lark.Lark(grammar, start="start")
-        logger.debug("Lark parser created")
+            # Create the parser
+            cls._parser = lark.Lark(cls._grammar, start="start")
+            logger.debug("Lark parser created")
+
+        parser = cls._parser
 
         # Read and parse the file line by line
         line_count = 0
@@ -682,7 +692,7 @@ class GFAParserMixin(BaseGFA):
 
         # 2. Segments (sorted by name)
         segments = []
-        logger.debug(f"to_gfa(): Processing {len(list(self.nodes_iter()))} nodes")
+        logger.debug("to_gfa(): Processing %s nodes", len(self.nodes()))
         for node_id, data in self.nodes_iter(data=True):
             line_parts = ["S", node_id, data.get("sequence", "*")]
             # Add optional fields
@@ -699,7 +709,7 @@ class GFAParserMixin(BaseGFA):
 
         # 3. Links (sorted by From, then To)
         links = []
-        logger.debug(f"to_gfa(): Processing {len(list(self.edges_iter()))} edges")
+        logger.debug("to_gfa(): Processing %s edges", len(self.edges()))
         for u, v, _key, data in self.edges_iter(data=True, keys=True):
             from_node = data.get("from_node", u)
             from_orn = data.get("from_orn", "+")
