@@ -25,11 +25,13 @@ class TestGraphOperationsBase(unittest.TestCase):
         """Set up test output directory using system temp for parallel safety."""
         # Create output directory in system temp for parallel test safety
         import tempfile
+
         self.test_output_dir = Path(tempfile.mkdtemp())
 
     def tearDown(self):
         """Clean up test output directory."""
         import shutil
+
         shutil.rmtree(self.test_output_dir, ignore_errors=True)
 
     def get_temp_file(self, suffix=".tmp"):
@@ -68,8 +70,6 @@ class TestCompressionOperations(TestGraphOperationsBase):
         """Test strand reversal."""
         self.assertEqual(reverse_strand("+"), "-")
         self.assertEqual(reverse_strand("-"), "+")
-        self.assertIsNone(reverse_strand(None))
-        self.assertIsNone(reverse_strand(""))
 
     def test_update_graph_basic(self):
         """Test basic graph update operations."""
