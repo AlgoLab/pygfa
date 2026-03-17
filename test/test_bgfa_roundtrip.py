@@ -52,9 +52,6 @@ def _roundtrip(gfa_text: str, block_size: int = 1024, compression_options: dict 
     if compression_options is None:
         compression_options = {}
 
-    import tempfile
-    import os
-
     # Use system temp directory with unique names for parallel test safety
     # tempfile.NamedTemporaryFile with delete=False ensures unique filenames
     with tempfile.NamedTemporaryFile(mode="w", suffix=".gfa", delete=False) as f:
@@ -78,8 +75,6 @@ def _roundtrip_file(gfa_path: str, block_size: int = 1024, compression_options: 
     """Load a GFA file, convert to BGFA and back, return (original, roundtrip) GFA objects."""
     if compression_options is None:
         compression_options = {}
-
-    import tempfile
 
     # Use system temp directory with unique name for parallel test safety
     bgfa_path = tempfile.mktemp(suffix=".bgfa")

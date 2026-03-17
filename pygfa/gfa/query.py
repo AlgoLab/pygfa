@@ -536,7 +536,7 @@ class GFAParserMixin(BaseGFA):
         return g
 
     @classmethod
-    def from_file(cls, filepath: str, **kwargs) -> "GFA":
+    def from_file(cls, filepath: str, **kwargs) -> "GFA":  # noqa: F821
         """Load a GFA graph from a file, auto-detecting format from extension.
 
         Supports both text GFA (plain, gzip, zstd, xz) and binary BGFA formats.
@@ -564,7 +564,7 @@ class GFAParserMixin(BaseGFA):
         verbose: bool = False,
         debug: bool = False,
         logfile: str = None,
-    ) -> "GFA":
+    ) -> "GFA":  # noqa: F821
         """Read a BGFA file and return the corresponding GFA graph.
 
         :param file_path: Path to the BGFA file
