@@ -61,9 +61,16 @@ from pygfa.encoding.ppm_coding import (
 )
 from pygfa.encoding.enums import (
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     CigarDecomposition,
     IntegerEncoding,
     StringEncoding,
+||||||| Stash base
+=======
+    IntegerEncoding,
+    StringEncoding,
+    CigarDecomposition,
+>>>>>>> Stashed changes
 ||||||| Stash base
 =======
     IntegerEncoding,
@@ -91,7 +98,26 @@ SECTION_ID_PATHS = 4
 SECTION_ID_WALKS = 5
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Aliases for backward compatibility — values come from encoding.enums
+||||||| Stash base
+# Integer Strategies (High Byte)
+INTEGER_ENCODING_NONE = 0x00
+INTEGER_ENCODING_VARINT = 0x01
+INTEGER_ENCODING_FIXED16 = 0x02
+INTEGER_ENCODING_DELTA = 0x03
+INTEGER_ENCODING_ELIAS_GAMMA = 0x04
+INTEGER_ENCODING_ELIAS_OMEGA = 0x05
+INTEGER_ENCODING_GOLOMB = 0x06
+INTEGER_ENCODING_RICE = 0x07
+INTEGER_ENCODING_STREAMVBYTE = 0x08
+INTEGER_ENCODING_VBYTE = 0x09
+INTEGER_ENCODING_FIXED32 = 0x0A
+INTEGER_ENCODING_FIXED64 = 0x0B
+INTEGER_ENCODING_IDENTITY = INTEGER_ENCODING_NONE
+=======
+# Aliases for backward compatibility with encoding enums
+>>>>>>> Stashed changes
 ||||||| Stash base
 # Integer Strategies (High Byte)
 INTEGER_ENCODING_NONE = 0x00
@@ -147,11 +173,18 @@ STRING_ENCODING_SUPERSTRING_2BIT = StringEncoding.SUPERSTRING_2BIT
 <<<<<<< Updated upstream
 ||||||| Stash base
 # Walk/CIGAR decomposition strategies (for 4-byte codes)
+<<<<<<< Updated upstream
 WALK_DECOMPOSITION_NONE = 0x00
 WALK_DECOMPOSITION_ORIENTATION_STRID = 0x01
 WALK_DECOMPOSITION_ORIENTATION_NUMID = 0x02
 =======
 # Walk/CIGAR decomposition strategies (for 4-byte codes)
+>>>>>>> Stashed changes
+||||||| Stash base
+WALK_DECOMPOSITION_NONE = 0x00
+WALK_DECOMPOSITION_ORIENTATION_STRID = 0x01
+WALK_DECOMPOSITION_ORIENTATION_NUMID = 0x02
+=======
 >>>>>>> Stashed changes
 WALK_DECOMPOSITION_NONE = WalkDecomposition.NONE
 WALK_DECOMPOSITION_ORIENTATION_STRID = WalkDecomposition.ORIENTATION_STRID
