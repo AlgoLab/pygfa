@@ -21,6 +21,9 @@ from pygfa.graph_element import subgraph as sg
 
 GRAPH_LOGGER = logging.getLogger(__name__)
 
+# Pre-compiled regex for virtual ID matching
+VIRTUAL_ID_PATTERN = re.compile(r"^virtual_(\d+)$")
+
 
 class Element:
     """Represent the types of graph a GFA graph object can have."""
@@ -166,27 +169,25 @@ class BaseGFA:
     def _find_max_virtual_id(self) -> int:
         """Traverse the graph to find the greatest virtual id value."""
         # nodes cannot have a virtual_id, so don't search inside them
-        virtual_rxp = r"^virtual_(\d+)$"
-        regexp = re.compile(virtual_rxp)
         virtual_keys = [0]
 
         for _from_node, _to_node, key in self.edges_iter(keys=True):
-            match = regexp.fullmatch(key)
+            match = VIRTUAL_ID_PATTERN.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._subgraphs.keys():
-            match = regexp.fullmatch(key)
+            match = VIRTUAL_ID_PATTERN.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._paths.keys():
-            match = regexp.fullmatch(key)
+            match = VIRTUAL_ID_PATTERN.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
 
         for key in self._walks.keys():
-            match = regexp.fullmatch(key)
+            match = VIRTUAL_ID_PATTERN.fullmatch(key)
             if match:
                 virtual_keys.append(int(match.group(1)))
 
@@ -274,17 +275,17 @@ class BaseGFA:
 
         # Subgraph objects don't need to be converted
         if sg.is_subgraph(element):
-            return copy.deepcopy(element)
+            return copy.copy(element)  # Shallow copy is sufficient for subgraphs
 
         # Path objects don't need to be converted
         if isinstance(element, dict) and "path_name" in element:
-            return copy.deepcopy(element)
+            return copy.copy(element)  # Shallow copy is sufficient for paths
 
         # Walk objects don't need to be converted
         if isinstance(element, dict) and "sample_id" in element:
-            return copy.deepcopy(element)
+            return copy.copy(element)  # Shallow copy is sufficient for walks
 
-        tmp_list = copy.deepcopy(element)
+        tmp_list = copy.copy(element)  # Shallow copy is sufficient for dict
         try:
             if "nid" in element:
                 tmp_list.pop("nid")
