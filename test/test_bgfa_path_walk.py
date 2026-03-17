@@ -40,14 +40,14 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         cigars_metadata = compress_integer_list_varint([len(s) for s in test_cigars])
 
         # Header format: section_id(B) + record_num(H) + comp_names(H) + comp_paths(I) +
-        #                comp_cigars(H) + clen_cigars(Q) + ulen_cigars(Q) + clen_names(Q) + ulen_names(Q)
+        #                comp_cigars(I) + clen_cigars(Q) + ulen_cigars(Q) + clen_names(Q) + ulen_names(Q)
         header = struct.pack(
-            "<BHHIHQQQQ",
+            "<BHHIIQQQQ",
             4,  # section_id
             1,  # record_num
             0x0100,  # compression_path_names
             0x00000000,  # compression_paths (empty walks)
-            0x0100,  # compression_cigars
+            0x01000000,  # compression_cigars (4 bytes, varint)
             len(cigars_metadata) + len(cigars_data),
             len(cigars_data),
             len(names_metadata) + len(names_data),

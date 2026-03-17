@@ -46,6 +46,7 @@ from pygfa.encoding.rle_encoding import (
 )
 from pygfa.encoding.cigar_encoding import (
     decompress_string_cigar,
+    decompress_string_cigar_decomposed,
 )
 from pygfa.encoding.dictionary_encoding import (
     decompress_string_dictionary,
@@ -608,6 +609,15 @@ def get_integer_decoder(code: int) -> Callable:
     return INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
 
 
+def get_integer_decoder_from_code(int_code: int) -> Callable:
+    """Get the integer decoder function from a single-byte integer encoding code.
+
+    Unlike get_integer_decoder() which extracts the high byte from a multi-byte
+    code, this takes the integer encoding byte directly.
+    """
+    return INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
+
+
 def get_integer_encoder(code: int) -> Callable:
     """Get the integer encoder function for a compression code."""
     int_code = (code >> 8) & 0xFF
@@ -711,6 +721,54 @@ def _decompress_string_cigar_with_metadata(payload: bytes, record_num: int, int_
     # Then decode the CIGAR blob
     cigar_blob = payload[consumed:]
     return decompress_string_cigar(cigar_blob, lengths)
+
+
+def _ops_string_decoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
+    """Get a bytes-to-bytes decompressor for CIGAR ops string encoding.
+
+    The 4-byte CIGAR decomposition stores packed operations as a raw byte blob
+    that may be compressed with a simple byte-level compressor (gzip, lzma).
+    Unlike STRING_DECODERS which return list[bytes], these return bytes directly.
+    """
+    if byte4 == 0x00:  # NONE
+        return lambda x: x
+    elif byte4 == 0x02:  # GZIP
+        import gzip
+
+        return gzip.decompress
+    elif byte4 == 0x03:  # LZMA
+        import lzma
+
+        return lzma.decompress
+    else:
+        # Fallback: identity for unsupported encodings
+        return lambda x: x
+
+
+def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode CIGAR strings, dispatching on 2-byte vs 4-byte strategy code.
+
+    For 2-byte codes (0x??09): uses standard string encoding with metadata lengths.
+    For 4-byte code 0x01??????: uses numOperations+lengths+operations decomposition.
+    For 4-byte code 0x02??????: treats as plain compressed string.
+    """
+    byte1 = (comp_code >> 24) & 0xFF if comp_code > 0xFFFF else 0
+    if byte1 == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
+        byte2 = (comp_code >> 16) & 0xFF  # int encoding for op counts
+        byte3 = (comp_code >> 8) & 0xFF  # int encoding for lengths
+        byte4 = comp_code & 0xFF  # string encoding for packed ops
+        num_ops_decoder = get_integer_decoder_from_code(byte2)
+        lengths_decoder = get_integer_decoder_from_code(byte3)
+        ops_decoder = _ops_string_decoder_for_code(byte4)
+        return decompress_string_cigar_decomposed(payload, record_num, num_ops_decoder, lengths_decoder, ops_decoder)
+    elif byte1 == CIGAR_DECOMPOSITION_STRING:
+        byte2 = (comp_code >> 16) & 0xFF
+        str_dec = STRING_DECODERS.get(byte2, decompress_string_none)
+        return str_dec(payload, record_num, get_integer_decoder_from_code(0x01))
+    else:
+        int_dec = get_integer_decoder(comp_code)
+        str_dec = STRING_DECODERS.get(comp_code & 0xFF, decompress_string_none)
+        return str_dec(payload, record_num, int_dec)
 
 
 def decompress_string_superstring_none(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
@@ -944,8 +1002,8 @@ class ReaderBGFA:
         clen_fromto = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
 
-        comp_cigars = struct.unpack_from("<H", data, offset)[0]
-        offset += 2
+        comp_cigars = struct.unpack_from("<I", data, offset)[0]
+        offset += 4
 
         clen_cigars = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
@@ -963,11 +1021,11 @@ class ReaderBGFA:
         f_orns, c3 = unpack_bits_lsb(fromto_payload[c1 + c2 :], record_num)
         t_orns, c4 = unpack_bits_lsb(fromto_payload[c1 + c2 + c3 :], record_num)
 
-        # Parse cigar strings
+        # Parse cigar strings (supports both 2-byte and 4-byte CIGAR strategy codes)
         cigar_payload = data[offset + clen_fromto : offset + clen_fromto + clen_cigars]
-        int_dec_cigars = get_integer_decoder(comp_cigars)
-        str_dec_cigars = STRING_DECODERS.get(comp_cigars & 0xFF, decompress_string_none)
-        cigars_bytes = str_dec_cigars(cigar_payload, record_num, int_dec_cigars)
+        cigars_bytes = _decompress_cigar_payload(
+            comp_cigars, cigar_payload, record_num, get_integer_decoder(comp_cigars)
+        )
 
         # Build links list
         # Note: Links use 1-based segment IDs (0 is reserved for "no connection")
@@ -1070,12 +1128,12 @@ class ReaderBGFA:
     def _parse_paths_blocks(self, data: bytes, start_offset: int, segment_names: list[str]) -> tuple[list[dict], int]:
         """Parse a paths block.
 
-        Paths block header (29 bytes):
+        Paths block header (31 bytes):
         - section_id (1 byte) = 4
         - record_num (2 bytes)
         - compression_path_names (2 bytes)
         - compression_paths (4 bytes) - walk encoding
-        - compression_cigars (2 bytes)
+        - compression_cigars (4 bytes)
         - compressed_len_cigar (8 bytes)
         - uncompressed_len_cigar (8 bytes)
         - compressed_len_name (8 bytes)
@@ -1098,8 +1156,8 @@ class ReaderBGFA:
         comp_paths = struct.unpack_from("<I", data, offset)[0]
         offset += 4
 
-        comp_cigars = struct.unpack_from("<H", data, offset)[0]
-        offset += 2
+        comp_cigars = struct.unpack_from("<I", data, offset)[0]
+        offset += 4
 
         clen_cigars = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
@@ -1116,17 +1174,17 @@ class ReaderBGFA:
         # Get decoders
         int_dec_names = get_integer_decoder(comp_names)
         str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
-        int_dec_cigars = get_integer_decoder(comp_cigars)
-        str_dec_cigars = STRING_DECODERS.get(comp_cigars & 0xFF, decompress_string_none)
 
         # Parse path names
         names_payload = data[offset : offset + clen_names]
         path_names = str_dec_names(names_payload, record_num, int_dec_names)
         offset += clen_names
 
-        # Parse CIGAR strings (overlaps)
+        # Parse CIGAR strings (supports both 2-byte and 4-byte CIGAR strategy codes)
         cigars_payload = data[offset : offset + clen_cigars]
-        cigar_bytes = str_dec_cigars(cigars_payload, record_num, int_dec_cigars)
+        cigar_bytes = _decompress_cigar_payload(
+            comp_cigars, cigars_payload, record_num, get_integer_decoder(comp_cigars)
+        )
         offset += clen_cigars
 
         # Parse walks (paths) - the walk data follows the cigars
@@ -1474,12 +1532,12 @@ class ReaderBGFA:
 
             elif section_id == SECTION_ID_LINKS:
                 # Format: [comp_fromto][clen_fromto][comp_cigars][clen_cigars][uncompressed_cigars_len]
-                if len(data) < offset + 2 + 8 + 2 + 8 + 8:
+                if len(data) < offset + 2 + 8 + 4 + 8 + 8:
                     raise ValueError("BGFA file is too short")
                 offset += 2  # comp_fromto
                 clen_fromto = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8  # clen_fromto
-                offset += 2  # comp_cigars
+                offset += 4  # comp_cigars
                 clen_cigars = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8  # clen_cigars
                 offset += 8  # uncompressed_cigars_len
@@ -1488,15 +1546,15 @@ class ReaderBGFA:
             elif section_id == SECTION_ID_PATHS:
                 # Format: [comp_names][clen_names][comp_paths][clen_paths][comp_cigars][clen_cigars]
                 #         [uncompressed_*_len for each field]
-                if len(data) < offset + 2 + 8 + 2 + 8 + 2 + 8 + 8 * 3:
+                if len(data) < offset + 2 + 8 + 4 + 8 + 4 + 8 + 8 * 3:
                     raise ValueError("BGFA file is too short")
                 offset += 2  # comp_names
                 clen_names = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8  # clen_names
-                offset += 2  # comp_paths
+                offset += 4  # comp_paths
                 clen_paths = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8  # clen_paths
-                offset += 2  # comp_cigars
+                offset += 4  # comp_cigars
                 clen_cigars = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8  # clen_cigars
                 offset += 8 * 3  # uncompressed_*_len fields
@@ -1629,7 +1687,7 @@ class BGFAWriter:
         buf.write(struct.pack("<H", len(chunk)))
         buf.write(struct.pack("<H", c_ft))
         buf.write(struct.pack("<Q", len(p_ft)))
-        buf.write(struct.pack("<H", c_cig))
+        buf.write(struct.pack("<I", c_cig))
         buf.write(struct.pack("<Q", len(p_cig)))
         buf.write(struct.pack("<Q", sum(len(c) for c in cigs)))
         buf.write(p_ft + p_cig)
