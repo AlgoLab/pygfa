@@ -31,7 +31,7 @@ def reverse_strand(strand: str | None) -> str | None:
     :return the opposite strand: if is specify
     :return None: if strand is not defined
     """
-    dict_inverted = dict([("+", "-"), ("-", "+"), (None, None)])
+    dict_inverted = dict([("+", "-"), ("-", "+"), (None, None), ("", None)])
     return dict_inverted[strand]
 
 
