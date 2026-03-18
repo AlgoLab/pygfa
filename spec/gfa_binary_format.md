@@ -256,14 +256,14 @@ The following is the sequence of fields making up the header.
 
 The following is the sequence of fields making up the payload layout.
 
-| Field             | Description                                            | Type      |
-|-------------------|--------------------------------------------------------|-----------|
-| `sample_ids`      | Sample IDs                                             | `strings` |
-| `haplotype_indices`| Haplotype indices                                      | `uints`   |
-| `sequence_ids`    | Sequence IDs                                           | `strings` |
-| `start_positions` | Start positions                                        | `uints`   |
-| `end_positions`   | End positions                                          | `uints`   |
-| `walks`           | Walks, each walk is a sequence of oriented segment IDs | `walks`   |
+| Field               | Description                                            | Type      |
+|---------------------|--------------------------------------------------------|-----------|
+| `sample_ids`        | Sample IDs                                             | `strings` |
+| `haplotype_indices` | Haplotype indices                                      | `uints`   |
+| `sequence_ids`      | Sequence IDs                                           | `strings` |
+| `start_positions`   | Start positions                                        | `uints`   |
+| `end_positions`     | End positions                                          | `uints`   |
+| `walks`             | Walks, each walk is a sequence of oriented segment IDs | `walks`   |
 
 Since there are `record_num` records in the block, the block contains `record_num` sample IDs, followed by  `record_num`
 haplotype indices, followed by  `record_num` sequence IDs, followed by  `record_num` start positions, followed by
@@ -516,11 +516,11 @@ The `frequency table size` field indicates the number of pairs in the table. Tot
 
 The Huffman encoding of a string (be it the concatenation or a superstring) consists of:
 
-| Name              | Description                                    | Type    |
-|-------------------|------------------------------------------------|---------|
-| `codebook_len`    | Length of the encoded codebook in bytes       | `uint16` |
-| `codebook`        | 16 little-endian uint16 bit-lengths            | `bytes` |
-| `huffman_encoded` | The encoded string                            | `bits`  |
+| Name              | Description                             | Type     |
+|-------------------|-----------------------------------------|----------|
+| `codebook_len`    | Length of the encoded codebook in bytes | `uint16` |
+| `codebook`        | 16 little-endian uint16 bit-lengths     | `bytes`  |
+| `huffman_encoded` | The encoded string                      | `bits`   |
 
 **Codebook format:**
 The codebook is exactly 32 bytes containing 16 little-endian uint16 values representing the bit-length for each nibble (0x0 through 0xF). Even entries with zero bit-length have a placeholder value of 0 in the codebook.
@@ -737,11 +737,11 @@ CIGAR string "10M2I5D" is encoded as:
 
 For CIGAR strings, we use 4 bytes to encode the strategy. The first byte represents how we decompose the CIGAR strings, the other three bytes specify how we encode each component.
 
-| Code         | Strategy                         |
-|--------------|----------------------------------|
-| `0x00??????` | none (identity)                  |
+| Code         | Strategy                             |
+|--------------|--------------------------------------|
+| `0x00??????` | none (identity)                      |
 | `0x01??????` | numOperations + lengths + operations |
-| `0x02??????` | string (treat as plain string)   |
+| `0x02??????` | string (treat as plain string)       |
 
 ### numOperations + lengths + operations (0x01??????)
 
@@ -776,9 +776,9 @@ We compress the CIGAR strings separated by newlines with the method specified in
 
 For walks and paths, we use 4 bytes to encode the strategy. The first byte represents how we decompose the walk (or the path), the other three bytes specify how we encode each component.
 
-| Code         | Strategy          |
-|--------------|-------------------|
-| `0x00??????` | none (identity)   |
+| Code         | Strategy            |
+|--------------|---------------------|
+| `0x00??????` | none (identity)     |
 | `0x01??????` | orientation + strid |
 | `0x02??????` | orientation + numid |
 
