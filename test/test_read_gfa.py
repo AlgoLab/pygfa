@@ -26,8 +26,9 @@ class TestPPrint(unittest.TestCase):
         # Create a GFA graph from a file
         graph = gfa.GFA.from_gfa(gfa_filename)
 
-        # Use system temp directory for parallel test safety
-        test_output_dir = tempfile.mkdtemp()
+        # Use results/test directory for compliance
+        test_output_dir = os.path.join("results", "test", "read_gfa", f"run_{os.getpid()}")
+        os.makedirs(test_output_dir, exist_ok=True)
         try:
             with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt", dir=test_output_dir) as temp_file:
                 temp_filename = temp_file.name

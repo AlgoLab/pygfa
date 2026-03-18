@@ -70,17 +70,8 @@ def pytest_collection_modifyitems(config, items):
                 break
 
 
-_session_results = {}
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    """Catch memory limit failures and convert to skips with warning."""
-    outcome = yield
-    report = outcome.get_result()
-
-    if report.when == "call":
-        _session_results[item.nodeid] = report
+# Global list to store failed tests
+_failed_tests = []
 
 
 def pytest_addoption(parser):
@@ -155,6 +146,10 @@ def _build_other_tests_command(failed_nodeids):
 
 def pytest_runtest_logreport(report):
     """Print command with timestamp and result on same line with color coding."""
+    # Also collect failed tests for terminal summary
+    if report.when == "call" and report.outcome == "failed":
+        _failed_tests.append(report.nodeid)
+
     if report.when == "call":
         command = _build_rerun_command(report.nodeid)
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -168,7 +163,6 @@ def pytest_runtest_logreport(report):
             if len(error_msg) > 200:
                 error_msg = error_msg[:197] + "..."
             print(f"{COLOR_RED}[{command}] [{timestamp}] [FAILED] {error_msg}{COLOR_RESET}")
-            print(f"{COLOR_CYAN}{COLOR_BOLD}  To rerun: {command}{COLOR_RESET}")
 
 
 def temp_file_factory(test_output_dir):
@@ -198,14 +192,17 @@ def test_output_dir(tmp_path):
 
 def pytest_sessionfinish(session, exitstatus):
     """Print command to run all tests except the failed ones."""
-    global _session_results
+    pass  # Moved output to pytest_terminal_summary
 
-    # Collect failed test nodeids
-    failed_nodeids = [
-        nodeid for nodeid, report in _session_results.items() if report.when == "call" and report.outcome == "failed"
-    ]
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Print rerun commands for all failed tests at the very end of output."""
+    global _failed_tests
+
+    failed_nodeids = _failed_tests
 
     if failed_nodeids:
-        command = _build_other_tests_command(failed_nodeids)
-        if command:
-            print(f"\n{COLOR_CYAN}{COLOR_BOLD}To run all other tests: {command}{COLOR_RESET}\n")
+        terminalreporter.section("RERUN COMMANDS FOR FAILED TESTS", sep="=", bold=True, yellow=True)
+        for nodeid in failed_nodeids:
+            command = _build_rerun_command(nodeid)
+            terminalreporter.line(f"  {command}", bold=True, cyan=True)

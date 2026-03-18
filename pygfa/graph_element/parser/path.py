@@ -18,7 +18,7 @@ class Path(line.Line):
     REQUIRED_FIELDS: Dict[str, str] = {
         "path_name": fv.GFA1_NAME,
         "seqs_names": fv.GFA1_NAMES,
-        "overlaps": fv.GFA1_CIGARS,
+        "overlaps": fv.GFA1_CIGAR,
     }
 
     PREDEFINED_OPTFIELDS: Dict[str, str] = {}
@@ -48,7 +48,7 @@ class Path(line.Line):
         sequences_names_sanitized = []
         for label in sequences_names_raw:
             label_sanitized, _ = sanitize_string(label)
-            sequences_names_sanitized.append(fv.validate(label_sanitized, cls.REQUIRED_FIELDS["seqs_names"]))
+            sequences_names_sanitized.append(fv.validate(label_sanitized, fv.GFA1_NAME))
 
         overlaps_raw = fields[2]
         overlaps_sanitized, _ = sanitize_string(overlaps_raw)

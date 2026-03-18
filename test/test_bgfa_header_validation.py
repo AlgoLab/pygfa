@@ -130,7 +130,10 @@ class TestBGFAHeaderValidation(unittest.TestCase):
         # Create a minimal valid BGFA file (only header)
         header_data = self.create_valid_header()
 
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        output_dir = os.path.join("results", "test", "bgfa_header")
+        os.makedirs(output_dir, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as temp_file:
             temp_file.write(header_data)
             temp_file_path = temp_file.name
 
@@ -143,7 +146,7 @@ class TestBGFAHeaderValidation(unittest.TestCase):
 
         # Test with invalid magic number
         corrupted_data = b"\x00" + header_data[1:]
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as temp_file:
             temp_file.write(corrupted_data)
             temp_file_path = temp_file.name
 

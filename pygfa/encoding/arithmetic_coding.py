@@ -138,6 +138,7 @@ def compress_string_bwt_huffman(string: str, block_size: int = 65536) -> bytes:
         burrows_wheeler_transform,
         move_to_front_encode,
     )
+
     # Import the BGFA-compatible Huffman encoder
     from pygfa.bgfa import _compress_huffman_payload
 
@@ -155,9 +156,9 @@ def compress_string_bwt_huffman(string: str, block_size: int = 65536) -> bytes:
     # Convert MTF bytes to string for Huffman encoding
     huffman_data = _compress_huffman_payload(mtf_data.decode("latin-1"))
 
-    # Prepend original length for reconstruction
+    # Prepend MTF data length for Huffman decompression sizing
     result = bytearray()
-    result.extend(struct.pack("<I", len(data)))
+    result.extend(struct.pack("<I", len(mtf_data)))
     result.extend(huffman_data)
 
     return bytes(result)
@@ -173,7 +174,7 @@ def decompress_string_bwt_huffman(data: bytes, lengths: list[int]) -> list[bytes
     :return: List of decompressed byte strings
     """
     from pygfa.encoding.bwt import inverse_bwt, move_to_front_decode
-    from pygfa.bgfa import decompress_string_huffman
+    from pygfa.bgfa import _decompress_huffman_payload
 
     if len(data) < 4:
         raise ValueError("Data too short")
@@ -186,14 +187,10 @@ def decompress_string_bwt_huffman(data: bytes, lengths: list[int]) -> list[bytes
 
     # Decompress Huffman (get back MTF data)
     huffman_data = data[4:]
-    # Huffman decoder expects lengths, but we're decoding a single stream
-    # We'll use a dummy length list and take the first result
-    mtf_strings = decompress_string_huffman(huffman_data, [total_len])
+    mtf_data = _decompress_huffman_payload(huffman_data, total_len)
 
-    if not mtf_strings:
+    if not mtf_data:
         raise ValueError("Huffman decompression failed")
-
-    mtf_data = mtf_strings[0].encode("latin-1")
 
     # Reverse MTF
     bwt_data = move_to_front_decode(mtf_data)

@@ -26,7 +26,8 @@ class TestGraphOperationsBase(unittest.TestCase):
         # Create output directory in system temp for parallel test safety
         import tempfile
 
-        self.test_output_dir = Path(tempfile.mkdtemp())
+        self.test_output_dir = Path("results/test/graph_ops") / f"run_{os.getpid()}"
+        self.test_output_dir.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
         """Clean up test output directory."""
@@ -36,7 +37,7 @@ class TestGraphOperationsBase(unittest.TestCase):
 
     def get_temp_file(self, suffix=".tmp"):
         """Create a temporary file in the test output directory."""
-        fd, path = tempfile.mkstemp(suffix=suffix, dir=str(self.test_output_dir))
+        fd, path = tempfile.mkstemp(suffix=suffix, dir=self.test_output_dir)
         os.close(fd)
         return path
 

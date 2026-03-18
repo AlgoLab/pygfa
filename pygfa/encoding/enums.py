@@ -112,7 +112,9 @@ def make_compression_code(int_encoding: IntegerEncoding, str_encoding: StringEnc
         >>> make_compression_code(IntegerEncoding.VARINT, StringEncoding.ZSTD)
         0x0101
     """
-    return (int_encoding.value << 8) | str_encoding.value
+    int_val = int_encoding.value if hasattr(int_encoding, "value") else int(int_encoding)
+    str_val = str_encoding.value if hasattr(str_encoding, "value") else int(str_encoding)
+    return (int_val << 8) | str_val
 
 
 def split_compression_code(code: int) -> tuple[IntegerEncoding, StringEncoding]:
