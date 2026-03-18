@@ -101,6 +101,9 @@ All commands output to terminal for immediate debugging visibility.
 # Run all tests (verbose, full trace, no capture)
 pixi run python -m pytest test/ -v -s --full-trace --tb=long
 
+# Run all tests, excluding the roundtrip (which are the slowest)
+pixi run python -m pytest test/ --ignore=test/test_bgfa_roundtrip.py -v -s --tb=long -x --full-trace
+
 # Run specific test file with maximum detail
 pixi run python -m pytest test/test_graph_element.py -v -s --full-trace --tb=long
 
