@@ -12,19 +12,20 @@ class TestToolsBase(unittest.TestCase):
     """Base class for tool tests with proper temp file handling."""
 
     def setUp(self):
-        """Set up test output directory using system temp for parallel safety."""
-        # Create output directory in system temp for parallel test safety
-        import tempfile
-        self.test_output_dir = Path(tempfile.mkdtemp())
+        """Set up test output directory using results/test for compliance."""
+        # Create output directory under results/test for compliance
+        self.test_output_dir = Path("results/test/tools") / f"run_{os.getpid()}"
+        self.test_output_dir.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self):
         """Clean up test output directory."""
         import shutil
+
         shutil.rmtree(self.test_output_dir, ignore_errors=True)
 
     def get_temp_file(self, suffix=".tmp"):
         """Create a temporary file in the test output directory."""
-        fd, path = tempfile.mkstemp(suffix=suffix, dir=str(self.test_output_dir))
+        fd, path = tempfile.mkstemp(suffix=suffix, dir=self.test_output_dir)
         os.close(fd)
         return path
 

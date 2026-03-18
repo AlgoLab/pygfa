@@ -201,20 +201,29 @@ class Field:
 
 class OptField(Field):
     """An Optional field of the form `TAG:TYPE:VALUE`, where:
-    TAG match [A-Za-z0-9][A-Za-z0-9]
+    TAG match [A-Za-z][A-Za-z0-9]
     TYPE match [AiZfJHB]
     """
 
     def __init__(self, name, value, field_type):
-        if not re.fullmatch("[A-Za-z0-9]" * 2, name):
-            raise ValueError(f"Invalid optfield name, given '{name}'")
+        if not isinstance(name, str):
+            raise InvalidLineError(f"Optfield name must be a string, got {type(name).__name__}")
+
+        if not isinstance(field_type, str):
+            raise InvalidLineError(f"Optfield type must be a string, got {type(field_type).__name__}")
+
+        if not re.fullmatch("[A-Za-z][A-Za-z0-9]", name):
+            raise InvalidLineError(f"Invalid optfield name, given '{name}'")
 
         if not re.fullmatch("^[ABHJZif]$", field_type):
-            raise ValueError("Invalid type for an optional field.")
+            raise InvalidLineError("Invalid type for an optional field.")
 
         self._name = name
         self._type = field_type
-        self._value = fv.validate(value, field_type)
+        try:
+            self._value = fv.validate(value, field_type)
+        except fv.InvalidFieldError:
+            raise InvalidLineError(f"Invalid optfield value '{value}' for type '{field_type}'")
 
     @property
     def type(self):

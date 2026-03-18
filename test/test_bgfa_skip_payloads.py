@@ -6,6 +6,9 @@ import tempfile
 import os
 import struct
 
+_test_output_dir = os.path.join("results", "test", "bgfa_skip_payloads")
+os.makedirs(_test_output_dir, exist_ok=True)
+
 
 def test_skip_payloads_basic():
     """Test basic skip_payloads functionality with a small BGFA file."""
@@ -15,8 +18,8 @@ def test_skip_payloads_basic():
     n2 = node.Node("seg2", "TTTT", 4)
     g.add_node(n1)
     g.add_node(n2)
-    
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
         # Use the actual writer to create a properly formatted BGFA file
         g.to_bgfa(test_file, block_size=1024, compression_options=None, verbose=False, debug=False, logfile=None)
@@ -49,8 +52,8 @@ def test_skip_payloads_multiple_blocks():
     g = GFA()
     for i in range(6):
         g.add_node(node.Node(f"seg{i}", "ACGT", 4))
-    
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
         # Use small block_size to create multiple blocks
         g.to_bgfa(test_file, block_size=2, compression_options=None, verbose=False, debug=False, logfile=None)
@@ -82,7 +85,7 @@ def test_skip_payloads_multiple_blocks():
 
 def test_skip_payloads_invalid_header():
     """Test skip_payloads with invalid header scenarios."""
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
 
         # Write invalid BGFA (missing magic number)
@@ -119,22 +122,22 @@ def test_skip_payloads_partial_file():
     # Create a valid BGFA file first
     g = GFA()
     g.add_node(node.Node("seg1", "ACGT", 4))
-    
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         complete_file = f.name
         g.to_bgfa(complete_file, block_size=1024, compression_options=None, verbose=False, debug=False, logfile=None)
-    
+
     # Read the complete file and truncate it
     with open(complete_file, "rb") as f:
         data = f.read()
-    
+
     # Truncate in the middle of a block
-    truncated_data = data[:len(data)//2]
-    
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+    truncated_data = data[: len(data) // 2]
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
         f.write(truncated_data)
-    
+
     os.unlink(complete_file)
 
     try:
@@ -144,7 +147,7 @@ def test_skip_payloads_partial_file():
         # by reading header and skipping incomplete blocks
         gfa_skip = reader.read_bgfa(test_file, skip_payloads=True)
         assert len(gfa_skip.nodes()) == 0  # Should have skipped payloads
-        
+
         # Verify header was read correctly (if file has valid header)
         if len(truncated_data) >= 8:  # At least magic + version
             assert gfa_skip._header_info["version"] == 1
@@ -155,7 +158,7 @@ def test_skip_payloads_partial_file():
 
 def test_skip_payloads_empty_file():
     """Test skip_payloads with empty/very small files."""
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
 
         # Empty file
@@ -178,7 +181,7 @@ def test_skip_payloads_empty_file():
 
 def test_skip_payloads_minimal():
     """Test skip_payloads with minimal valid BGFA file."""
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         test_file = f.name
 
         # Write minimal BGFA with only header
@@ -226,7 +229,7 @@ def test_skip_payloads_with_existing_gfa():
     g.add_node(n2)
 
     # Convert to BGFA and back with skip_payloads
-    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
         bgfa_path = f.name
 
         # Write GFA to BGFA with full data

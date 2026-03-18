@@ -705,6 +705,33 @@ def decompress_string_huffman(payload: bytes, record_num: int, int_decoder: Call
     return decompress_string_none_from_blob(decompressed, lengths)
 
 
+def _compress_huffman_payload(data: str) -> bytes:
+    """Compress a string using nibble Huffman encoding.
+
+    This is a BGFA-compatible Huffman compressor used by BWT+Huffman encoding.
+    Uses varint for the codebook length prefix.
+
+    :param data: String to compress (will be encoded as latin-1 bytes)
+    :return: Compressed bytes (codebook_len + codebook + packed data)
+    """
+    from pygfa.encoding.huffman_nibble import compress_nibble_huffman
+
+    raw_bytes = data.encode("latin-1")
+    return compress_nibble_huffman(raw_bytes, compress_integer_list_varint, 0x01)
+
+
+def _decompress_huffman_payload(data: bytes, num_bytes: int) -> bytes:
+    """Decompress nibble Huffman encoded data produced by _compress_huffman_payload.
+
+    :param data: Compressed bytes (codebook_len + codebook + packed data)
+    :param num_bytes: Number of original bytes to decompress
+    :return: Decompressed bytes
+    """
+    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
+    return decompress_nibble_huffman(data, decode_integer_list_varint, num_bytes * 2)
+
+
 def decompress_string_2bit_dna_strings(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
     """Decode 2-bit DNA encoded strings."""
     lengths, consumed = int_decoder(payload, record_num)

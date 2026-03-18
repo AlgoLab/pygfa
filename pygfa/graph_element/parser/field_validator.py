@@ -79,7 +79,7 @@ DATASTRING_VALIDATION_REGEXP = {
     # this behaviour, splitting the labels and checking them one by one
     # with the new lbs regexp beyond.
     #
-    GFA1_NAMES: "^[!-)+-<>-~][!-~]*[+-]$",
+    GFA1_NAMES: "^[!-)+-<>-~][!-~]*([ ][!-)+-<>-~][!-~]*)*[+-]?$",
     GFA1_SEQUENCE: r"^\*$|^[A-Za-z=.]+$",
     # nucleotide sequence(segment sequence)
     #
@@ -149,10 +149,20 @@ def validate(string, datatype):
     elif datatype in (GFA1_CIGARS,):
         return string.split(",")
 
+    elif datatype in (GFA1_NAMES,):
+        names = string.split(" ")
+        if len(names) > 1:
+            for name in names:
+                if name[-1] not in ("+", "-"):
+                    raise InvalidFieldError(
+                        f"Multiple segment names require orientation,\ngiven string: {string}\ndatatype: {datatype}."
+                    )
+        return names
+
     elif datatype in (JSON,):
         return string  # TODO: ask if the json must be manipulated
     else:
-        # 'orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'H', 'B', 'lbs'
+        # 'orn', 'A', 'Z', 'seq', 'lbl', 'cig', 'H', 'B'
         return string
 
 

@@ -28,21 +28,19 @@ def check_isomorphism(gfa1, gfa2):
     :return: True if graphs are isomorphic, False otherwise
     """
     # Check basic graph properties first
-    if gfa1.number_of_nodes() != gfa2.number_of_nodes():
+    if len(gfa1.nodes()) != len(gfa2.nodes()):
         return False
-    if gfa1.number_of_edges() != gfa2.number_of_edges():
+    if len(gfa1.edges()) != len(gfa2.edges()):
         return False
 
     # Use networkx MultiGraphMatcher for isomorphism checking
-    # Match nodes by sequence length (slen)
+    # Match nodes by sequence and sequence length
     # Match edges by alignment and orientation
     matcher = MultiGraphMatcher(
         gfa1._graph,
         gfa2._graph,
-        node_match=categorical_node_match(["slen"], [None]),
-        edge_match=categorical_edge_match(
-            ["from_orn", "to_orn", "alignment"], [None, None, None]
-        ),
+        node_match=categorical_node_match(["sequence", "slen"], [None, None]),
+        edge_match=categorical_edge_match(["from_orn", "to_orn", "alignment"], [None, None, None]),
     )
 
     return matcher.is_isomorphic()
@@ -50,9 +48,9 @@ def check_isomorphism(gfa1, gfa2):
 
 def graphs_equal(gfa1, gfa2):
     """Check if two GFA graphs are equal (direct comparison).
-    
+
     This uses the GFA.__eq__ method which compares graph elements directly.
-    
+
     :param gfa1: First GFA object
     :param gfa2: Second GFA object
     :return: True if graphs are equal, False otherwise
@@ -63,16 +61,14 @@ def graphs_equal(gfa1, gfa2):
 def main():
     """
     Compares two GFA files to determine if they represent the same graph structure.
-    
+
     By default, this checks both direct equality and graph isomorphism, returning
     True if either check passes. This means graphs with different GFA representations
     but identical structure will be considered equal.
 
     Usage: python same_gfa.py [-s|--strict] <file1.gfa> <file2.gfa>
     """
-    parser = argparse.ArgumentParser(
-        description="Compare two GFA files for structural equality."
-    )
+    parser = argparse.ArgumentParser(description="Compare two GFA files for structural equality.")
     parser.add_argument("file1", help="First GFA file")
     parser.add_argument("file2", help="Second GFA file")
     parser.add_argument(
@@ -135,7 +131,7 @@ def main():
             if graphs_equal(gfa1, gfa2):
                 print("Result: The graphs are equal.")
                 sys.exit(0)
-            
+
             print("Direct comparison failed. Checking isomorphism...")
             if check_isomorphism(gfa1, gfa2):
                 print("Result: The graphs are isomorphic (structurally equivalent).")

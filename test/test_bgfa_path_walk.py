@@ -115,7 +115,8 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
     def test_bgfa_reader_integration(self):
         """Test BGFA reader integration with paths and walks sections."""
-        output_dir = tempfile.mkdtemp()
+        output_dir = os.path.join("results", "test", "bgfa_path_walk")
+        os.makedirs(output_dir, exist_ok=True)
 
         with tempfile.NamedTemporaryFile(delete=False, dir=output_dir) as tmp_file:
             # Write BGFA header

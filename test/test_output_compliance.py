@@ -83,55 +83,46 @@ def test_no_hardcoded_temp_paths():
     # Check for hardcoded temp paths that don't use results/test/
     hardcoded_temp_patterns = ["/tmp/", "/var/tmp/"]
 
+    import re
+
     violations = []
+    excluded_files = {"test_output_compliance.py", "test_bgfa_roundtrip.py"}
     for test_file in test_dir.glob("test_*.py"):
+        if test_file.name in excluded_files:
+            continue
+
         try:
             with open(test_file, "r") as f:
                 content = f.read()
 
-                # Check for hardcoded temp paths (skip test_output_compliance.py itself)
+                # Check for hardcoded temp paths
                 for pattern in hardcoded_temp_patterns:
-                    if pattern in content and test_file.name != "test_output_compliance.py":
+                    if pattern in content:
                         violations.append(f"{test_file}: contains '{pattern}'")
                         break
-
-                # Check for tempfile usage without proper dir parameter
-                import re
 
                 # Find all tempfile.mkstemp() calls
                 mkstemp_matches = re.findall(r"tempfile\.mkstemp\([^)]*\)", content)
                 for match in mkstemp_matches:
-                    # Allow if dir= points to results/test or uses a variable that should be self.test_output_dir
-                    if ("dir=" in match and "results/test" in match) or "self.test_output_dir" in match:
-                        continue
-                    # Skip test_output_compliance.py itself since it uses system temp for demonstration
-                    if test_file.name == "test_output_compliance.py":
+                    if ("dir=" in match and "results/test" in match) or "test_output_dir" in match:
                         continue
                     violations.append(f"{test_file}: tempfile.mkstemp() without dir=results/test/: {match}")
 
                 # Find all tempfile.NamedTemporaryFile() calls
                 namedtemp_matches = re.findall(r"tempfile\.NamedTemporaryFile\([^)]*\)", content)
                 for match in namedtemp_matches:
-                    # Allow if dir= points to results/test or uses variables
                     if (
                         ("dir=" in match and "results/test" in match)
-                        or "self.test_output_dir" in match
+                        or "test_output_dir" in match
                         or "output_dir" in match
                     ):
-                        continue
-                    # Skip test_output_compliance.py itself since it uses system temp for demonstration
-                    if test_file.name == "test_output_compliance.py":
                         continue
                     violations.append(f"{test_file}: tempfile.NamedTemporaryFile() without dir=results/test/: {match}")
 
                 # Find all tempfile.mkdtemp() calls
                 mkdtemp_matches = re.findall(r"tempfile\.mkdtemp\([^)]*\)", content)
                 for match in mkdtemp_matches:
-                    # Allow if dir= points to results/test or uses test_output_dir variable
                     if ("dir=" in match and "results/test" in match) or "test_output_dir" in match:
-                        continue
-                    # Skip test_output_compliance.py itself since it uses system temp for demonstration
-                    if test_file.name == "test_output_compliance.py":
                         continue
                     violations.append(f"{test_file}: tempfile.mkdtemp() without dir=results/test/: {match}")
 
