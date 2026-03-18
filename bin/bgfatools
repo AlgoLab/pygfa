@@ -165,6 +165,34 @@ def parse_cli_options():
     if hasattr(args, "output_file"):
         options["output_file"] = args.output_file
 
+    # Extract strategy options for bgfa command
+    if hasattr(args, "names_enc"):
+        options["names_enc"] = args.names_enc
+    if hasattr(args, "seq_enc"):
+        options["seq_enc"] = args.seq_enc
+    if hasattr(args, "links_fromto_enc"):
+        options["links_fromto_enc"] = args.links_fromto_enc
+    if hasattr(args, "links_cigars_enc"):
+        options["links_cigars_enc"] = args.links_cigars_enc
+    if hasattr(args, "paths_names_enc"):
+        options["paths_names_enc"] = args.paths_names_enc
+    if hasattr(args, "paths_paths_enc"):
+        options["paths_paths_enc"] = args.paths_paths_enc
+    if hasattr(args, "paths_cigars_enc"):
+        options["paths_cigars_enc"] = args.paths_cigars_enc
+    if hasattr(args, "walks_sample_ids_enc"):
+        options["walks_sample_ids_enc"] = args.walks_sample_ids_enc
+    if hasattr(args, "walks_hap_indices_enc"):
+        options["walks_hap_indices_enc"] = args.walks_hap_indices_enc
+    if hasattr(args, "walks_seq_ids_enc"):
+        options["walks_seq_ids_enc"] = args.walks_seq_ids_enc
+    if hasattr(args, "walks_start_enc"):
+        options["walks_start_enc"] = args.walks_start_enc
+    if hasattr(args, "walks_end_enc"):
+        options["walks_end_enc"] = args.walks_end_enc
+    if hasattr(args, "walks_walks_enc"):
+        options["walks_walks_enc"] = args.walks_walks_enc
+
     # Extract compression options (they have specific names)
     comp_prefixes = [
         "compress-segment-names",
@@ -308,19 +336,19 @@ if __name__ == "__main__":
                 debug=options.get("debug", False),
                 logfile=options.get("logfile"),
                 # New granular strategy options
-                names_enc=args.names_enc,
-                seq_enc=args.seq_enc,
-                links_fromto_enc=args.links_fromto_enc,
-                links_cigars_enc=args.links_cigars_enc,
-                paths_names_enc=args.paths_names_enc,
-                paths_paths_enc=args.paths_paths_enc,
-                paths_cigars_enc=args.paths_cigars_enc,
-                walks_sample_ids_enc=args.walks_sample_ids_enc,
-                walks_hap_indices_enc=args.walks_hap_indices_enc,
-                walks_seq_ids_enc=args.walks_seq_ids_enc,
-                walks_start_enc=args.walks_start_enc,
-                walks_end_enc=args.walks_end_enc,
-                walks_walks_enc=args.walks_walks_enc,
+                names_enc=options.get("names_enc", "varint-none"),
+                seq_enc=options.get("seq_enc", "varint-none"),
+                links_fromto_enc=options.get("links_fromto_enc", "varint-none"),
+                links_cigars_enc=options.get("links_cigars_enc", "varint-none"),
+                paths_names_enc=options.get("paths_names_enc", "varint-none"),
+                paths_paths_enc=options.get("paths_paths_enc", "varint-none"),
+                paths_cigars_enc=options.get("paths_cigars_enc", "varint-none"),
+                walks_sample_ids_enc=options.get("walks_sample_ids_enc", "varint-none"),
+                walks_hap_indices_enc=options.get("walks_hap_indices_enc", "varint-none"),
+                walks_seq_ids_enc=options.get("walks_seq_ids_enc", "varint-none"),
+                walks_start_enc=options.get("walks_start_enc", "varint-none"),
+                walks_end_enc=options.get("walks_end_enc", "varint-none"),
+                walks_walks_enc=options.get("walks_walks_enc", "varint-none"),
             )
 
             if options.get("verbose"):

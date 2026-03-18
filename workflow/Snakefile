@@ -137,36 +137,35 @@ rule generate_bgfa:
 
         # Mapping from encoding option names to CLI argument suffixes
         ENCODING_CLI_MAP = {
-            "segment_names_header": "segment-names",
-            "segment_names_payload_lengths": "segment-names-lens",
-            "segment_names_payload_names": "segment-names-names",
-            "segments_header": "segments",
-            "segments_payload_lengths": "segments-lens",
-            "segments_payload_strings": "segments-seq",
-            "links_header": "links",
-            "links_payload_from": "links-from",
-            "links_payload_to": "links-to",
-            "links_payload_cigar_lengths": "links-cigar-lens",
-            "links_payload_cigar": "links-cigar",
-            "paths_header": "paths",
-            "paths_payload_names": "paths-names",
-            "paths_payload_segment_lengths": "paths-seg-lens",
-            "paths_payload_path_ids": "paths-ids",
-            "paths_payload_cigar_lengths": "paths-cigar-lens",
-            "paths_payload_cigar": "paths-cigar",
-            "walks_header": "walks",
-            "walks_payload_sample_ids": "walks-samples",
-            "walks_payload_hep_indices": "walks-heps",
-            "walks_payload_sequence_ids": "walks-seqs",
-            "walks_payload_start": "walks-start",
-            "walks_payload_end": "walks-end",
-            "walks_payload_walks": "walks-data",
+            "segment_names_header": "--names-enc",
+            "segment_names_payload_lengths": "--names-enc",
+            "segment_names_payload_names": "--names-enc",
+            "segments_header": "--seq-enc",
+            "segments_payload_lengths": "--seq-enc",
+            "segments_payload_strings": "--seq-enc",
+            "links_header": "--links-fromto-enc",
+            "links_payload_from": "--links-fromto-enc",
+            "links_payload_to": "--links-fromto-enc",
+            "links_payload_cigar_lengths": "--links-cigars-enc",
+            "links_payload_cigar": "--links-cigars-enc",
+            "paths_header": "--paths-names-enc",
+            "paths_payload_names": "--paths-names-enc",
+            "paths_payload_segment_lengths": "--paths-paths-enc",
+            "paths_payload_path_ids": "--paths-paths-enc",
+            "paths_payload_cigar_lengths": "--paths-cigars-enc",
+            "paths_payload_cigar": "--paths-cigars-enc",
+            "walks_header": "--walks-sample-ids-enc",
+            "walks_payload_sample_ids": "--walks-sample-ids-enc",
+            "walks_payload_hep_indices": "--walks-hap-indices-enc",
+            "walks_payload_sequence_ids": "--walks-seq-ids-enc",
+            "walks_payload_start": "--walks-start-enc",
+            "walks_payload_end": "--walks-end-enc",
+            "walks_payload_walks": "--walks-walks-enc",
         }
         
         all_options = get_cached_data()[0].keys()
         for opt in all_options:
-            cli_suffix = ENCODING_CLI_MAP[opt]
-            cli_opt = f"--compress-{cli_suffix}"
+            cli_opt = ENCODING_CLI_MAP[opt]
             if opt == option:
                 bgfa_cmd.extend([cli_opt, encoding])
             else:
