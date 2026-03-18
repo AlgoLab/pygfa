@@ -107,6 +107,48 @@ def get_all_csv_files():
     return files
 
 
+# Mapping from encoding option names to bgfatools CLI flag names
+ENCODING_CLI_MAP = {
+    "segment_names_header": "--names-enc",
+    "segment_names_payload_lengths": "--names-enc",
+    "segment_names_payload_names": "--names-enc",
+    "segments_header": "--seq-enc",
+    "segments_payload_lengths": "--seq-enc",
+    "segments_payload_strings": "--seq-enc",
+    "links_header": "--links-fromto-enc",
+    "links_payload_from": "--links-fromto-enc",
+    "links_payload_to": "--links-fromto-enc",
+    "links_payload_cigar_lengths": "--links-cigars-enc",
+    "links_payload_cigar": "--links-cigars-enc",
+    "paths_header": "--paths-names-enc",
+    "paths_payload_names": "--paths-names-enc",
+    "paths_payload_segment_lengths": "--paths-paths-enc",
+    "paths_payload_path_ids": "--paths-paths-enc",
+    "paths_payload_cigar_lengths": "--paths-cigars-enc",
+    "paths_payload_cigar": "--paths-cigars-enc",
+    "walks_header": "--walks-sample-ids-enc",
+    "walks_payload_sample_ids": "--walks-sample-ids-enc",
+    "walks_payload_hep_indices": "--walks-hap-indices-enc",
+    "walks_payload_sequence_ids": "--walks-seq-ids-enc",
+    "walks_payload_start": "--walks-start-enc",
+    "walks_payload_end": "--walks-end-enc",
+    "walks_payload_walks": "--walks-walks-enc",
+}
+
+
+def _build_compress_flags(option, encoding):
+    """Build shell string of compression flags for bgfatools CLI."""
+    cli_to_options = {}
+    for opt, cli_flag in ENCODING_CLI_MAP.items():
+        cli_to_options.setdefault(cli_flag, []).append(opt)
+
+    flags = []
+    for cli_flag, opts in cli_to_options.items():
+        val = encoding if option in opts else "none"
+        flags.append(f"{cli_flag} {val}")
+    return " ".join(flags)
+
+
 rule all:
     input:
         get_all_csv_files()
@@ -123,61 +165,11 @@ rule generate_bgfa:
     output:
         bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa"
     params:
-        block_size=lambda wildcards: wildcards.block_size
-    run:
-        option = wildcards.option
-        encoding = wildcards.encoding
-
-        bgfa_cmd = [
-            "pixi", "run", "python", "bin/bgfatools", "bgfa",
-            input.gfa,
-            output.bgfa,
-            "--block-size", str(params.block_size),
-        ]
-
-        # Mapping from encoding option names to CLI argument suffixes
-        ENCODING_CLI_MAP = {
-            "segment_names_header": "--names-enc",
-            "segment_names_payload_lengths": "--names-enc",
-            "segment_names_payload_names": "--names-enc",
-            "segments_header": "--seq-enc",
-            "segments_payload_lengths": "--seq-enc",
-            "segments_payload_strings": "--seq-enc",
-            "links_header": "--links-fromto-enc",
-            "links_payload_from": "--links-fromto-enc",
-            "links_payload_to": "--links-fromto-enc",
-            "links_payload_cigar_lengths": "--links-cigars-enc",
-            "links_payload_cigar": "--links-cigars-enc",
-            "paths_header": "--paths-names-enc",
-            "paths_payload_names": "--paths-names-enc",
-            "paths_payload_segment_lengths": "--paths-paths-enc",
-            "paths_payload_path_ids": "--paths-paths-enc",
-            "paths_payload_cigar_lengths": "--paths-cigars-enc",
-            "paths_payload_cigar": "--paths-cigars-enc",
-            "walks_header": "--walks-sample-ids-enc",
-            "walks_payload_sample_ids": "--walks-sample-ids-enc",
-            "walks_payload_hep_indices": "--walks-hap-indices-enc",
-            "walks_payload_sequence_ids": "--walks-seq-ids-enc",
-            "walks_payload_start": "--walks-start-enc",
-            "walks_payload_end": "--walks-end-enc",
-            "walks_payload_walks": "--walks-walks-enc",
-        }
-        
-        all_options = get_cached_data()[0].keys()
-        for opt in all_options:
-            cli_opt = ENCODING_CLI_MAP[opt]
-            if opt == option:
-                bgfa_cmd.extend([cli_opt, encoding])
-            else:
-                bgfa_cmd.extend([cli_opt, "none"])
-
-        result = subprocess.run(bgfa_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"ERROR: Encoding failed for {input.gfa}", file=sys.stderr)
-            print(f"Command: {' '.join(bgfa_cmd)}", file=sys.stderr)
-            print(f"stdout: {result.stdout}", file=sys.stderr)
-            print(f"stderr: {result.stderr}", file=sys.stderr)
-            raise Exception(f"bgfatools bgfa failed: {result.stderr}")
+        compress_flags=lambda wildcards: _build_compress_flags(wildcards.option, wildcards.encoding),
+    shell:
+        "pixi run python bin/bgfatools bgfa {input.gfa} {output.bgfa} "
+        "--block-size {wildcards.block_size} {params.compress_flags} "
+        "2>&1 || {{ echo 'ERROR: Encoding failed for {input.gfa}' >&2; exit 1; }}"
 
 
 rule measure_bgfa:
@@ -186,32 +178,8 @@ rule measure_bgfa:
         gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
     output:
         csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
-    run:
-        import tempfile, os
-        fd, temp_csv = tempfile.mkstemp(suffix=".csv", dir=OUTPUT_DIR, prefix="measure_")
-        os.close(fd)
-
-        measure_cmd = [
-            "pixi", "run", "python", "bin/bgfatools", "measure",
-            input.bgfa,
-            temp_csv,
-        ]
-
-        measure_result = subprocess.run(measure_cmd, capture_output=True, text=True)
-        if measure_result.returncode != 0:
-            print(f"ERROR: Measurement failed for {input.bgfa}", file=sys.stderr)
-            print(f"Command: {' '.join(measure_cmd)}", file=sys.stderr)
-            print(f"stdout: {measure_result.stdout}", file=sys.stderr)
-            print(f"stderr: {measure_result.stderr}", file=sys.stderr)
-            raise Exception(f"bgfatools measure failed: {measure_result.stderr}")
-
-        gfa_path = input.gfa
-        with open(temp_csv, "r") as f_in:
-            with open(output.csv, "w") as f_out:
-                for line in f_in:
-                    if line.startswith("filename,"):
-                        f_out.write("original_gfa," + line)
-                    else:
-                        f_out.write(gfa_path + "," + line)
-
-        os.remove(temp_csv)
+    shell:
+        "tmp=$(mktemp -p {OUTPUT_DIR} measure_XXXXXX.csv) && "
+        "pixi run python bin/bgfatools measure {input.bgfa} \"$tmp\" && "
+        "awk 'NR==1{{print \"original_gfa,\" $0}} NR>1{{print \"{input.gfa},\" $0}}' \"$tmp\" > {output.csv} && "
+        "rm -f \"$tmp\" || {{ echo 'ERROR: Measurement failed for {input.bgfa}' >&2; exit 1; }}"
