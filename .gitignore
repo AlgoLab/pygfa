@@ -118,4 +118,7 @@ docs/superpowers/
 # Pygfa
 .snakemake/
 
+# Git worktrees
+.worktrees/
+
 
