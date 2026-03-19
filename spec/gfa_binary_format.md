@@ -302,59 +302,48 @@ This would be encoded as:
 When we have to encode a list of strings (the `strings` type), we choose the encoding strategy with a code consisting of
 two bytes.
 
-The first byte (high byte) encodes the strategy for a sequence of uints, which are usually the lengths of the strings to encode
-and/or the starting and ending position of the strings within a superstring (which might be the concatenation of all
-strings, without the terminator character `\0`).
+The first byte (high byte) encodes the strategy for a sequence of uints, which are 
+the starting and ending position of the strings within a superstring of all
+strings, without the terminator character `\0`.
 
 The start and end positions are 0-based, the final position is excluded from the substring, following Python slice conventions.
 
-The second byte (low byte) represents the strategy for encoding the superstring/concatenation.
+The second byte (low byte) represents the strategy for encoding the superstring.
 
-What numbers are actually stored depends on the encoding used for the string:
-- **Concatenation**: requires storing the lengths of the strings
-- **Superstring**: requires storing the initial and final position of each string within the superstring
-
-For example, the code 0x0102 is used for method 0x01 (varint) for the lengths and method 0x02 (fixed16) for the strings.
+For example, the code 0x0102 is used for method 0x01 (varint) for the lengths and method 0x02 (gzip) for the superstring.
 
 We use question marks `??` to represent that all values of the byte can be used.
 
-| Code     | Strategy                    | Type     |
-|----------|-----------------------------|----------|
-| `0x00??` | none (identity)             | `uints`  |
-| `0x??00` | Concatenation + none        | `string` |
-| `0x01??` | varint                      | `uints`  |
-| `0x02??` | fixed16                     | `uints`  |
-| `0x03??` | delta                       | `uints`  |
-| `0x04??` | elias gamma                 | `uints`  |
-| `0x05??` | elias omega                 | `uints`  |
-| `0x06??` | golomb                      | `uints`  |
-| `0x07??` | rice                        | `uints`  |
-| `0x08??` | streamvbyte                 | `uints`  |
-| `0x09??` | vbyte                       | `uints`  |
-| `0x0A??` | fixed32                     | `uints`  |
-| `0x0B??` | fixed64                     | `uints`  |
-| `0x??01` | Concatenation + zstd        | `string` |
-| `0x??02` | Concatenation + gzip        | `string` |
-| `0x??03` | Concatenation + lzma        | `string` |
-| `0x??04` | Concatenation + Huffman     | `string` |
-| `0x??05` | Concatenation + 2-bit       | `string` |
-| `0x??06` | Concatenation + Arithmetic  | `string` |
-| `0x??07` | Concatenation + BWT+Huffman | `string` |
-| `0x??08` | Concatenation + RLE         | `string` |
-| `0x??09` | Concatenation + CIGAR       | `string` |
-| `0x??0A` | Concatenation + Dictionary  | `string` |
-| `0x??0B` | Reserved                    |          |
-| `0x??0C` | Concatenation + LZ4         | `string` |
-| `0x??0D` | Concatenation + Brotli      | `string` |
-| `0x??0E` | Concatenation + PPM         | `string` |
-| `0x??F0` | Superstring + none          | `string` |
-| `0x??F4` | Superstring + Huffman       | `string` |
-| `0x??F5` | Superstring + 2-bit DNA     | `string` |
+| Code     | Strategy        | Type     |
+|----------|-----------------|----------|
+| `0x00??` | none (identity) | `uints`  |
+| `0x01??` | varint          | `uints`  |
+| `0x02??` | fixed16         | `uints`  |
+| `0x03??` | delta           | `uints`  |
+| `0x04??` | elias gamma     | `uints`  |
+| `0x05??` | elias omega     | `uints`  |
+| `0x06??` | golomb          | `uints`  |
+| `0x07??` | rice            | `uints`  |
+| `0x08??` | streamvbyte     | `uints`  |
+| `0x09??` | vbyte           | `uints`  |
+| `0x0A??` | fixed32         | `uints`  |
+| `0x0B??` | fixed64         | `uints`  |
+| `0x??00` | none (identity) | `string` |
+| `0x??01` | zstd            | `string` |
+| `0x??02` | gzip            | `string` |
+| `0x??03` | lzma            | `string` |
+| `0x??04` | Huffman         | `string` |
+| `0x??05` | 2-bit           | `string` |
+| `0x??06` | Arithmetic      | `string` |
+| `0x??07` | bzip2           | `string` |
+| `0x??08` | RLE             | `string` |
+| `0x??0A` | Dictionary      | `string` |
+| `0x??0C` | LZ4             | `string` |
+| `0x??0D` | Brotli          | `string` |
+| `0x??0E` | PPM             | `string` |
 
-*  **Concatenation** means that the strings are concatenated after removing the `\0` character that ends them, then they are
-   concatenated. What follows the `+` sign is an encoding/compression method applied on the concatenation.
-*  **Superstring** means that we compute a superstring with a heuristic method of the input strings after removing the `\0`
-   character that ends them. What follows the `+` sign is an encoding/compression method applied on the superstring.
+The superstring is computed with an heuristic that tries to minimize the length of the superstring of all strings, after removing the `\0`
+character that ends them. 
 
 ## Integer Encoding Algorithms
 
