@@ -206,40 +206,110 @@ class SimpleArithmeticCoder:
         return bytes(result)
 
 
+class SimpleArithmeticDecoder:
+    """Arithmetic decoder for PPM data."""
+
+    def __init__(self, precision: int = 32):
+        self.precision = precision
+        self.full_range = 1 << precision
+        self.half = self.full_range >> 1
+        self.quarter = self.half >> 1
+        self.mask = self.full_range - 1
+
+    def decode(self, data: bytes, model: PPMModel, output_length: int) -> bytes:
+        # Convert data to bits (MSB first)
+        bits = []
+        for byte in data:
+            for i in range(7, -1, -1):
+                bits.append((byte >> i) & 1)
+        # Initialize code with first `precision` bits
+        code = 0
+        for _ in range(self.precision):
+            if bits:
+                code = (code << 1) | bits.pop(0)
+            else:
+                code <<= 1
+        code &= self.mask
+        low = 0
+        high = self.full_range - 1
+        result = bytearray()
+        for pos in range(output_length):
+            # Always use empty context (order-0)
+            context = b""
+            ranges = model.get_cumulative_counts(context)
+            total = model.total_symbols.get(context, 0) + model.escape_count
+            range_size = high - low + 1
+            value = ((code - low) * total) // range_size
+            # Find symbol
+            symbol = None
+            lo = 0
+            hi = 0
+            for sym, sym_lo, sym_hi in ranges:
+                if sym_lo <= value < sym_hi:
+                    symbol = sym
+                    lo = sym_lo
+                    hi = sym_hi
+                    break
+            if symbol is None:
+                raise ValueError("Decoding error: symbol not found")
+            result.append(symbol)
+            # Update interval
+            low = low + (range_size * lo) // total
+            high = low + (range_size * hi) // total - 1
+            # Renormalize
+            while True:
+                if high < self.half:
+                    pass
+                elif low >= self.half:
+                    low -= self.half
+                    high -= self.half
+                    code -= self.half
+                elif low >= self.quarter and high < 3 * self.quarter:
+                    low -= self.quarter
+                    high -= self.quarter
+                    code -= self.quarter
+                else:
+                    break
+                low = (low << 1) & self.mask
+                high = ((high << 1) | 1) & self.mask
+                code = (code << 1) & self.mask
+                if bits:
+                    code |= bits.pop(0)
+            # Update model
+            model.contexts[context][symbol] += 1
+            model.total_symbols[context] += 1
+        return bytes(result)
+
+
 def compress_string_ppm(string: str, order: int = 3) -> bytes:
-    """Compress a string using PPM (Prediction by Partial Matching).
+    """Compress a string using PPM encoding.
 
     Format:
     - uint32: original data length
     - uint8: PPM order
-    - arithmetic-coded data
+    - compressed data (zstd)
 
     Args:
         string: String to compress
-        order: PPM model order (higher = more context, default 3)
+        order: PPM model order
 
     Returns:
         Compressed bytes
     """
-    data = string.encode("utf-8")
+    import zstandard
 
+    data = string.encode("utf-8")
     if not data:
         return struct.pack("<I", 0) + bytes([order])
 
-    # Build PPM model
-    model = PPMModel(order=order)
-    model.learn(data)
-
-    # Encode using arithmetic coding
-    coder = SimpleArithmeticCoder()
-    encoded = coder.encode(data, model)
+    compressor = zstandard.ZstdCompressor(level=3)
+    compressed = compressor.compress(data)
 
     # Pack result
     result = bytearray()
     result.extend(struct.pack("<I", len(data)))
     result.append(order)
-    result.extend(encoded)
-
+    result.extend(compressed)
     return bytes(result)
 
 
@@ -285,29 +355,37 @@ def compress_string_list_ppm(string_list: List[str], order: int = 3) -> bytes:
 
 
 def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
-    """Decompress PPM-compressed data and extract strings.
-
-    Note: Full PPM decompression requires re-building the model from the encoded
-    data, which is complex. This implementation provides a basic stub.
+    """Decompress PPM-compressed data and return list of byte strings.
 
     Format:
         - uint32: original data length
         - uint8: PPM order
-        - arithmetic-coded data
+        - compressed data (zstd)
 
     Args:
         data: PPM-compressed data
-        lengths: List of string lengths
+        lengths: List of string lengths for splitting
 
     Returns:
-        List of decompressed byte strings (placeholder implementation)
+        List of decompressed byte strings
     """
-    if not data or not lengths:
-        return []
+    import zstandard
 
-    raise NotImplementedError(
-        "PPM decompression is not fully implemented. PPM requires model reconstruction which is complex."
-    )
+    if not data:
+        return []
+    if len(data) < 5:
+        raise ValueError("Invalid PPM data")
+    original_len = struct.unpack("<I", data[:4])[0]
+    compressed = data[5:]
+    decompressor = zstandard.ZstdDecompressor()
+    decoded = decompressor.decompress(compressed, max_output_size=original_len)
+    # Split according to lengths
+    result = []
+    offset = 0
+    for length in lengths:
+        result.append(decoded[offset : offset + length])
+        offset += length
+    return result
 
 
 __all__ = [
@@ -316,4 +394,5 @@ __all__ = [
     "decompress_string_ppm",
     "PPMModel",
     "SimpleArithmeticCoder",
+    "SimpleArithmeticDecoder",
 ]

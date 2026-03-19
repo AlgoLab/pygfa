@@ -295,6 +295,10 @@ def compress_string_list_superstring(
         blob = compress_string_2bit_dna(superstring.decode("ascii"))
     elif compression_method == "none":
         blob = superstring
+    elif compression_method == "ppm":
+        from pygfa.encoding.ppm_coding import compress_string_ppm
+
+        blob = compress_string_ppm(superstring.decode("ascii"))
     else:
         blob = superstring  # Default
 
@@ -315,6 +319,14 @@ def compress_string_list_superstring_2bit(
 ) -> bytes:
     """Compress using superstring + 2-bit DNA."""
     return compress_string_list_superstring(string_list, int_encoder, "2bit")
+
+
+def compress_string_list_superstring_ppm(
+    string_list: list[str],
+    int_encoder: Callable[[list[int]], bytes] | None = None,
+) -> bytes:
+    """Compress using superstring + PPM."""
+    return compress_string_list_superstring(string_list, int_encoder, "ppm")
 
 
 def compress_string_list_superstring_none(

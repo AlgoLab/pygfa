@@ -21,6 +21,7 @@ from pygfa.encoding.string_encoding import (
     compress_string_list_superstring_2bit,
     compress_string_list_superstring_huffman,
     compress_string_list_superstring_none,
+    compress_string_list_superstring_ppm,
     compress_string_lzma,
     compress_string_none,
     compress_string_zstd,
@@ -204,6 +205,7 @@ STRING_ENCODINGS: dict[str, str] = {
     "superstring_none": "compress_string_list_superstring_none",
     "superstring_huffman": "compress_string_list_superstring_huffman",
     "superstring_2bit": "compress_string_list_superstring_2bit",
+    "superstring_ppm": "compress_string_list_superstring_ppm",
     "": "compress_string_none",
 }
 

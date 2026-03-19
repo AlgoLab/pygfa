@@ -118,6 +118,7 @@ STRING_ENCODING_PPM = StringEncoding.PPM
 STRING_ENCODING_SUPERSTRING_NONE = StringEncoding.SUPERSTRING_NONE
 STRING_ENCODING_SUPERSTRING_HUFFMAN = StringEncoding.SUPERSTRING_HUFFMAN
 STRING_ENCODING_SUPERSTRING_2BIT = StringEncoding.SUPERSTRING_2BIT
+STRING_ENCODING_SUPERSTRING_PPM = StringEncoding.SUPERSTRING_PPM
 
 # Walk/CIGAR decomposition strategies (for 4-byte codes)
 WALK_DECOMPOSITION_NONE = WalkDecomposition.NONE
@@ -829,6 +830,17 @@ def decompress_string_superstring_2bit(payload: bytes, record_num: int, int_deco
     return [superstring[s:e] for s, e in zip(starts, ends)]
 
 
+def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode superstring with PPM compression."""
+    starts, consumed1 = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed1:], record_num)
+    remaining = payload[consumed1 + consumed2 :]
+    super_len = max(ends) if ends else 0
+    superstring_list = decompress_string_ppm(remaining, [super_len])
+    superstring = superstring_list[0] if superstring_list else b""
+    return [superstring[s:e] for s, e in zip(starts, ends)]
+
+
 STRING_DECODERS = {
     STRING_ENCODING_NONE: decompress_string_none,
     STRING_ENCODING_ZSTD: decompress_string_zstd,
@@ -848,6 +860,7 @@ STRING_DECODERS = {
     STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
     STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
     STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
+    STRING_ENCODING_SUPERSTRING_PPM: decompress_string_superstring_ppm,
 }
 
 
