@@ -147,6 +147,11 @@ def _build_compress_flags(option, encoding):
 
 rule all:
     input:
+        OUTPUT_DIR + "/summary.csv"
+
+
+rule generate_summary:
+    input:
         get_all_csv_files()
     output:
         OUTPUT_DIR + "/summary.csv"
@@ -165,7 +170,8 @@ rule generate_bgfa:
     shell:
         "pixi run python bin/bgfatools bgfa {input.gfa} {output.bgfa} "
         "--block-size {wildcards.block_size} {params.compress_flags} "
-        "2>&1 || {{ echo 'ERROR: Encoding failed for {input.gfa}' >&2; exit 1; }}"
+        "2>&1 && rm -f {output.bgfa}.log || "
+        "{{ echo 'ERROR: Encoding failed for {input.gfa}' >&2; exit 1; }}"
 
 
 rule measure_bgfa:
@@ -178,4 +184,5 @@ rule measure_bgfa:
         "tmp=$(mktemp -p {OUTPUT_DIR} measure_XXXXXX.csv) && "
         "pixi run python bin/bgfatools measure {input.bgfa} \"$tmp\" && "
         "awk 'NR==1{{print \"original_gfa,\" $0}} NR>1{{print \"{input.gfa},\" $0}}' \"$tmp\" > {output.csv} && "
-        "rm -f \"$tmp\" || {{ echo 'ERROR: Measurement failed for {input.bgfa}' >&2; exit 1; }}"
+        "rm -f \"$tmp\" {input.bgfa}.log || "
+        "{{ echo 'ERROR: Measurement failed for {input.bgfa}' >&2; exit 1; }}"
