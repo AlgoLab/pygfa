@@ -64,6 +64,7 @@ class StringEncoding(IntEnum):
     SUPERSTRING_NONE = 0xF0
     SUPERSTRING_HUFFMAN = 0xF4
     SUPERSTRING_2BIT = 0xF5
+    SUPERSTRING_PPM = 0xF1
 
 
 class WalkDecomposition(IntEnum):
