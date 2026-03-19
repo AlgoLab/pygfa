@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+G# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -110,6 +110,12 @@ ENV/
 !.pixi/config.toml
 .cecli*
 results/*
+openspec/
+.opencode/
+plans/
+docs/superpowers/
 
 # Pygfa
 .snakemake/
+
+
