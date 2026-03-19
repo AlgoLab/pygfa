@@ -1,3 +1,4 @@
+# test: all_encodings
 # test: read_gfa
 # test: bgfa
 # test: bgfa_roundtrip

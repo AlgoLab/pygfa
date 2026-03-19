@@ -327,3 +327,10 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 - Use `networkx.MultiGraph` as base structure
 - Use lark for parsing GFA line formats
 
+
+## Active Technologies
+- Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library) (001-encoding-cli-options)
+- N/A (file-based, reads GFA/BGFA files from disk) (001-encoding-cli-options)
+
+## Recent Changes
+- 001-encoding-cli-options: Added Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library)
