@@ -380,7 +380,13 @@ if __name__ == "__main__":
     elif options.get("command") == "measure":
         try:
             logger.info("Measuring BGFA file: %s", options.get("input_file"))
-            measure_bgfa(options.get("input_file"), options.get("output_file"))
+            verbose_mode = options.get("verbose", False) or options.get("debug", False)
+            measure_bgfa(
+                options.get("input_file"),
+                options.get("output_file"),
+                verbose=verbose_mode,
+                debug=options.get("debug", False),
+            )
             logger.info("Measure command completed successfully")
         except Exception as e:
             logger.error("Error during measurement: %s", e, exc_info=True)
