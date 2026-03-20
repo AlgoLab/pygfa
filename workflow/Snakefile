@@ -37,8 +37,6 @@ def discover_encodings():
         normalized = []
         seen = set()
         for m in methods:
-            if m == "bwt_huffman" or "cigar" in m.lower():
-                continue
             mapped = encoding_map.get(m, m)
             if mapped and mapped not in seen:
                 normalized.append(mapped)
@@ -118,10 +116,14 @@ ENCODING_CLI_MAP = {
     "links_header": "--links-fromto-enc",
     "links_payload_from": "--links-fromto-enc",
     "links_payload_to": "--links-fromto-enc",
+    "links_payload_cigar_lengths": "--links-cigars-enc",
+    "links_payload_cigar": "--links-cigars-enc",
     "paths_header": "--paths-names-enc",
     "paths_payload_names": "--paths-names-enc",
     "paths_payload_segment_lengths": "--paths-paths-enc",
     "paths_payload_path_ids": "--paths-paths-enc",
+    "paths_payload_cigar_lengths": "--paths-cigars-enc",
+    "paths_payload_cigar": "--paths-cigars-enc",
     "walks_header": "--walks-sample-ids-enc",
     "walks_payload_sample_ids": "--walks-sample-ids-enc",
     "walks_payload_hep_indices": "--walks-hap-indices-enc",

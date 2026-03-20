@@ -61,7 +61,9 @@ def _get_zstd_dict():
             if _ZSTD_STATIC_DICT is None:
                 import zstandard as zstd
 
-                common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
+                common_strings = (
+                    b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT"
+                ) * 1000
                 _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
     return _ZSTD_STATIC_DICT
 
@@ -270,7 +272,10 @@ def compress_string_list_superstring(
         if s not in superstring:
             # Fall back to concatenation
             return compress_string_list(
-                string_list, int_encoder, compression_method, first_byte_strategy=first_byte_strategy
+                string_list,
+                int_encoder,
+                compression_method,
+                first_byte_strategy=first_byte_strategy,
             )
 
     # Find start and end positions
