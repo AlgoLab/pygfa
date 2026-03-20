@@ -30,7 +30,10 @@ def compress_integer_list_fixed(int_list: Iterable[int], size: int = 32) -> byte
 
 
 def compress_integer_list_none(int_list: Iterable[int], _size: int = 32) -> bytes:
-    return b",".join(str(integer).encode("ascii") for integer in int_list)
+    int_list = list(int_list)
+    if not int_list:
+        return b""
+    return b",".join(str(integer).encode("ascii") for integer in int_list) + b","
 
 
 def compress_integer_list_delta(int_list: Iterable[int], _size: int = 0) -> bytes:

@@ -68,7 +68,7 @@ class TestIntegerListEncoding(unittest.TestCase):
     def test_compress_integer_list_none(self):
         """Test no compression (comma-separated) encoding."""
         result = compress_integer_list_none([1, 2, 3, 4])
-        self.assertEqual(result, b"1,2,3,4")
+        self.assertEqual(result, b"1,2,3,4,")
 
         result = compress_integer_list_none([])
         self.assertEqual(result, b"")
