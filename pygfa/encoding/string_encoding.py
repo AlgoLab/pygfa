@@ -92,7 +92,7 @@ def compress_string_list(
     string_list: list[str],
     int_encoder: Callable[[list[int]], bytes] | None = None,
     compression_method: str = "none",
-    compression_level: int = 19,
+    compression_level: int = 6,
     first_byte_strategy: int = 0x01,
 ) -> bytes:
     """Compress a list of strings using Concatenation + strategy.

@@ -1839,7 +1839,278 @@ def read_bgfa(file_path: str, **kwargs) -> GFA:
     return reader.read_bgfa(file_path, **kwargs)
 
 
-def measure_bgfa(input_file: str, output_file: str) -> None:
-    """Measure BGFA file statistics."""
-    # TODO: Implement measurement
-    pass
+def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug: bool = False) -> None:
+    """Measure BGFA file statistics.
+
+    :param input_file: Path to input BGFA file
+    :param output_file: Path to output CSV file
+    :param verbose: Enable verbose logging of everything read from the file
+    :param debug: Enable debug logging
+    """
+    import csv
+
+    with open(input_file, "rb") as f:
+        data = f.read()
+
+    if len(data) < 8:
+        raise ValueError("BGFA file is too short")
+
+    if not data:
+        raise ValueError("Empty file")
+
+    reader = ReaderBGFA()
+
+    # Parse header
+    header = reader._parse_header(data)
+    if verbose:
+        logger.info("=== BGFA File Header ===")
+        logger.info("  Magic number: 0x%08X", header["magic"])
+        logger.info("  Version: %d", header["version"])
+        logger.info("  Header text: %s", header["header_text"])
+        logger.info("  Header size: %d bytes", header["header_size"])
+
+    offset = header["header_size"]
+    reader._segment_names = []
+
+    # Statistics to write to CSV
+    stats = []
+
+    block_index = 0
+    while offset < len(data):
+        section_id = data[offset]
+        block_index += 1
+
+        if section_id == SECTION_ID_SEGMENTS:
+            if verbose:
+                logger.info("")
+                logger.info("=== Block %d: Segments (section_id=%d) ===", block_index, section_id)
+
+            # Read header fields for logging
+            seg_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            comp_names = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            clen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            ulen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            comp_str = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            clen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            ulen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+
+            if verbose:
+                logger.info("  Record count: %d", record_num)
+                logger.info("  Compression names: 0x%04X", comp_names)
+                logger.info("  Compressed names length: %d bytes", clen_names)
+                logger.info("  Uncompressed names length: %d bytes", ulen_names)
+                logger.info("  Compression sequences: 0x%04X", comp_str)
+                logger.info("  Compressed sequences length: %d bytes", clen_str)
+                logger.info("  Uncompressed sequences length: %d bytes", ulen_str)
+
+            segs, names, consumed = reader._parse_segments_block(data, offset)
+            reader._segment_names = names
+
+            if verbose:
+                logger.info("  Segments:")
+                for sid, seg_data in segs.items():
+                    name = seg_data.get("name", f"s{sid}")
+                    seq = seg_data.get("sequence", "*")
+                    logger.info("    [%d] %s: %s", sid, name, seq[:50] + ("..." if len(seq) > 50 else ""))
+
+            stats.append({
+                "block_index": block_index,
+                "section_id": section_id,
+                "section_type": "segments",
+                "record_num": record_num,
+                "compressed_length": clen_names + clen_str,
+                "uncompressed_length": ulen_names + ulen_str,
+            })
+            offset += consumed
+
+        elif section_id == SECTION_ID_LINKS:
+            if verbose:
+                logger.info("")
+                logger.info("=== Block %d: Links (section_id=%d) ===", block_index, section_id)
+
+            # Read header fields for logging
+            lnk_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, lnk_offset)[0]
+            lnk_offset += 2
+            comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
+            lnk_offset += 2
+            clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
+            lnk_offset += 8
+            comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
+            lnk_offset += 4
+            clen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+            lnk_offset += 8
+            ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+
+            if verbose:
+                logger.info("  Record count: %d", record_num)
+                logger.info("  Compression from/to: 0x%04X", comp_fromto)
+                logger.info("  Compressed from/to length: %d bytes", clen_fromto)
+                logger.info("  Compression cigars: 0x%08X", comp_cigars)
+                logger.info("  Compressed cigars length: %d bytes", clen_cigars)
+                logger.info("  Uncompressed cigars length: %d bytes", ulen_cigars)
+
+            lnks, consumed = reader._parse_links_block(data, offset)
+
+            if verbose:
+                logger.info("  Links:")
+                for i, link in enumerate(lnks):
+                    logger.info("    [%d] %s%s -> %s%s  %s", i, link["from_node"], link["from_orn"], link["to_node"], link["to_orn"], link["alignment"])
+
+            stats.append({
+                "block_index": block_index,
+                "section_id": section_id,
+                "section_type": "links",
+                "record_num": record_num,
+                "compressed_length": clen_fromto + clen_cigars,
+                "uncompressed_length": ulen_cigars,
+            })
+            offset += consumed
+
+        elif section_id == SECTION_ID_PATHS:
+            if verbose:
+                logger.info("")
+                logger.info("=== Block %d: Paths (section_id=%d) ===", block_index, section_id)
+
+            # Read header fields for logging
+            path_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, path_offset)[0]
+            path_offset += 2
+            comp_names = struct.unpack_from("<H", data, path_offset)[0]
+            path_offset += 2
+            comp_paths = struct.unpack_from("<I", data, path_offset)[0]
+            path_offset += 4
+            comp_cigars = struct.unpack_from("<I", data, path_offset)[0]
+            path_offset += 4
+            clen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            ulen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            clen_names = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+
+            if verbose:
+                logger.info("  Record count: %d", record_num)
+                logger.info("  Compression path names: 0x%04X", comp_names)
+                logger.info("  Compression paths: 0x%08X", comp_paths)
+                logger.info("  Compression cigars: 0x%08X", comp_cigars)
+                logger.info("  Compressed cigars length: %d bytes", clen_cigars)
+                logger.info("  Uncompressed cigars length: %d bytes", ulen_cigars)
+                logger.info("  Compressed names length: %d bytes", clen_names)
+                logger.info("  Uncompressed names length: %d bytes", ulen_names)
+
+            paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
+
+            if verbose:
+                logger.info("  Paths:")
+                for i, p in enumerate(paths_data):
+                    segments_str = ", ".join(p.get("segments", []))
+                    logger.info("    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", []))
+
+            stats.append({
+                "block_index": block_index,
+                "section_id": section_id,
+                "section_type": "paths",
+                "record_num": record_num,
+                "compressed_length": clen_names + clen_cigars,
+                "uncompressed_length": ulen_names + ulen_cigars,
+            })
+            offset += consumed
+
+        elif section_id == SECTION_ID_WALKS:
+            if verbose:
+                logger.info("")
+                logger.info("=== Block %d: Walks (section_id=%d) ===", block_index, section_id)
+
+            # Read header fields for logging
+            walk_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_samples = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_hep = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_seq = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
+            walk_offset += 4
+
+            clen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+
+            if verbose:
+                logger.info("  Record count: %d", record_num)
+                logger.info("  Compression sample IDs: 0x%04X", comp_samples)
+                logger.info("  Compression haplotype indices: 0x%04X", comp_hep)
+                logger.info("  Compression sequence IDs: 0x%04X", comp_seq)
+                logger.info("  Compression positions: 0x%04X", comp_positions)
+                logger.info("  Compression walks: 0x%08X", comp_walks)
+                logger.info("  Compressed samples length: %d bytes", clen_samples)
+                logger.info("  Compressed hep length: %d bytes", clen_hep)
+                logger.info("  Compressed sequence IDs length: %d bytes", clen_seq)
+                logger.info("  Compressed positions length: %d bytes", clen_positions)
+                logger.info("  Compressed walks length: %d bytes", clen_walks)
+
+            walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
+
+            if verbose:
+                logger.info("  Walks:")
+                for i, w in enumerate(walks_data):
+                    walk_str = ", ".join(w.get("walk", []))
+                    logger.info("    [%d] sample=%s hap=%s seq=%s start=%s end=%s: %s", i, w.get("sample_id", "?"), w.get("haplotype_index", "?"), w.get("sequence_id", "?"), w.get("start", "?"), w.get("end", "?"), walk_str)
+
+            total_compressed = clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
+            total_uncompressed = ulen_samples + ulen_hep + ulen_seq + ulen_positions + ulen_walks
+            stats.append({
+                "block_index": block_index,
+                "section_id": section_id,
+                "section_type": "walks",
+                "record_num": record_num,
+                "compressed_length": total_compressed,
+                "uncompressed_length": total_uncompressed,
+            })
+            offset += consumed
+
+        else:
+            if verbose:
+                logger.warning("Unknown section ID: %d at offset %d - skipping", section_id, offset)
+            break
+
+    if verbose:
+        logger.info("")
+        logger.info("=== Summary ===")
+        logger.info("  Total blocks: %d", block_index)
+        logger.info("  Total segments: %d", len(reader._segment_names))
+
+    # Write CSV
+    with open(output_file, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["block_index", "section_id", "section_type", "record_num", "compressed_length", "uncompressed_length"])
+        writer.writeheader()
+        writer.writerows(stats)
