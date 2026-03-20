@@ -234,6 +234,10 @@ def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
     if current:
         result.append(int(current.decode("ascii")))
 
+    # Skip trailing comma separator (used when concatenated with another integer list)
+    if pos < len(data) and data[pos] == ord(","):
+        pos += 1
+
     return result, pos
 
 
