@@ -14,6 +14,9 @@
 - Q: Should the verification test encoding+decoding roundtrip or just encoding success? → A: Roundtrip (encode → decode → compare with original)
 - Q: What should happen when an encoding is valid but incompatible with a field type? → A: Only test valid combinations (enforce type-checking before execution)
 - Q: Should the verification be a new bgfatools subcommand or a standalone script? → A: Standalone script
+- Q: How should the verification script behave when an encoding roundtrip fails? → A: Exit with non-zero code on first failure (fail-fast)
+- Q: What order should encoding strategies be tested and reported? → A: Sequential by encoding type (group all variants of each encoding together)
+- Q: How should the script handle encodings listed in the enum but missing from the test matrix? → A: Fail-fast with an error message indicating the encoding is missing
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -66,8 +69,9 @@ A user wants a standalone script that iterates through all encoding strategies, 
 **Acceptance Scenarios**:
 
 1. **Given** GFA files from the `/data` directory tagged with `# test: all_encodings`, **When** the verification script is executed, **Then** it produces a human-readable report to stdout listing each encoding strategy with roundtrip success/failure status.
-2. **Given** the verification report, **When** any encoding roundtrip fails, **Then** the report includes the specific error message and the command that was attempted.
-3. **Given** the verification report, **When** all encoding roundtrips pass, **Then** the report clearly indicates 100% success.
+2. **Given** an encoding roundtrip fails, **When** the failure occurs, **Then** the script exits immediately with non-zero exit code (fail-fast).
+3. **Given** the verification report, **When** any encoding roundtrip fails, **Then** the report includes the specific error message and the command that was attempted before exiting.
+4. **Given** all encoding roundtrips pass, **When** the verification completes, **Then** the script exits with zero and reports 100% success.
 
 ---
 
@@ -76,6 +80,8 @@ A user wants a standalone script that iterates through all encoding strategies, 
 - How does the system handle encoding names that exist in the enum but are not implemented as callable functions?
 - What happens when the CLI option format is incorrect (e.g., missing the dash separator in "int-str" format)?
 - How does the system respond when an encoding strategy produces larger output than the input (negative compression)?
+- **Script failure policy**: When an encoding roundtrip fails, the verification script exits immediately with a non-zero exit code (fail-fast mode).
+- **Missing encoding policy**: When an encoding is listed in the enum but not found in the test matrix, the script fails immediately with an error message.
 
 ### Assumptions
 
@@ -93,7 +99,7 @@ A user wants a standalone script that iterates through all encoding strategies, 
 - **FR-005**: When an invalid encoding strategy is specified, the system MUST provide a clear error message listing all valid options.
 - **FR-006**: The system MUST provide a subcommand or mode that lists all available encoding strategies with their descriptions.
 - **FR-007**: The verification process MUST be implemented as a standalone script that tests each encoding strategy independently with a full roundtrip (encode → decode → compare) to isolate failures.
-- **FR-008**: The verification report MUST be output to stdout and include the encoding name, field type, roundtrip success/failure status, and error details for each test.
+- **FR-008**: The verification report MUST be output to stdout and include the encoding name, field type, roundtrip success/failure status, and error details for each test. Encodings are tested and reported in sequential order by encoding type.
 - **FR-009**: The verification MUST enforce type-checking: only test integer encodings on integer fields and string encodings on string fields. Incompatible combinations MUST be excluded from the test matrix.
 - **FR-010**: The verification script MUST only test GFA files from the `/data` directory that are tagged with `# test: all_encodings` in the first 20 lines.
 
@@ -107,7 +113,7 @@ A user wants a standalone script that iterates through all encoding strategies, 
 
 ### Measurable Outcomes
 
-- **SC-001**: All 19 integer encoding strategies defined in IntegerEncoding enum can be successfully roundtripped (encode → decode) via CLI options.
+- **SC-001**: All 20 integer encoding strategies defined in IntegerEncoding enum can be successfully roundtripped (encode → decode) via CLI options.
 - **SC-002**: All 21 string encoding strategies defined in StringEncoding enum can be successfully roundtripped (encode → decode) via CLI options.
 - **SC-003**: The verification report is output to stdout and generated in under 60 seconds for a standard test file with all encoding combinations.
 - **SC-004**: 100% of defined encoding strategies are reachable via documented CLI options.
