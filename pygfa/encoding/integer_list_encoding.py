@@ -489,20 +489,30 @@ _VBYTE_CTRL = bytes(
 
 
 def compress_integer_list_vbyte(int_list: Iterable[int], _size: int = 0) -> bytes:
+    """Compress a list of integers using VByte encoding.
+
+    VByte encoding uses 7 bits per byte for data, with the high bit as a
+    continuation flag. Values < 128 are encoded as single bytes. Larger
+    values use multiple bytes with the high bit set on all but the last.
+
+    :param int_list: List of integers to encode
+    :param _size: Unused parameter (for API compatibility)
+    :return: VByte-encoded bytes
+    """
     out = bytearray()
     for val in int_list:
-        if val < 0x40:
+        if val < 0x80:
             out.append(val)
-        elif val < 0x4000:
-            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
-            out.append(val >> 6)
-        elif val < 0x400000:
-            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
-            out.append(_VBYTE_CTRL[(val >> 8) & 0xFF] | ((val >> 6) & 0x3F))
-            out.append(val >> 14)
         else:
-            out.append(_VBYTE_CTRL[val & 0xFF] | (val & 0x3F))
-            out.append(_VBYTE_CTRL[(val >> 8) & 0xFF] | ((val >> 6) & 0x3F))
-            out.append(_VBYTE_CTRL[(val >> 16) & 0xFF] | ((val >> 14) & 0x3F))
-            out.append(val >> 22)
+            num_bytes = 1
+            temp = val
+            while temp >= 0x80:
+                num_bytes += 1
+                temp >>= 7
+            for i in range(num_bytes):
+                if i < num_bytes - 1:
+                    out.append((val & 0x7F) | 0x80)
+                else:
+                    out.append(val & 0x7F)
+                val >>= 7
     return bytes(out)
