@@ -97,28 +97,83 @@ def compress_integer_list_elias_omega(int_list: Iterable[int], _size: int = 0) -
     return bytes(out)
 
 
-def _golomb_encode(n: int, b: int) -> bytes:
-    quotient, remainder = divmod(n, b)
-    return b"\x80" * quotient + bytes([remainder])
-
-
 def compress_integer_list_golomb(int_list: Iterable[int], _size: int = 0) -> bytes:
+    """Encode integers using Golomb coding (bit-level).
+
+    Format per value n:
+      - quotient q = n // b, written in unary (q ones, then a zero)
+      - remainder r = n % b, written in ceil(log2(b)) bits (MSB first)
+    """
     int_list = list(int_list)
     if not int_list:
         return b""
     b = int(max(1, math.sqrt(max(int_list) / len(int_list)))) or 1
-    return bytes([b]) + b"".join(_golomb_encode(n, b) for n in int_list)
+    bits_for_remainder = math.ceil(math.log2(b)) if b > 1 else 1
+
+    out = bytes([b])
+    bit_buf = 0
+    bit_pos = 0
+
+    def write_bit(bit_val: int) -> None:
+        nonlocal out, bit_buf, bit_pos
+        bit_buf = (bit_buf << 1) | bit_val
+        bit_pos += 1
+        if bit_pos == 8:
+            out += bytes([bit_buf])
+            bit_buf = 0
+            bit_pos = 0
+
+    for n in int_list:
+        quotient, remainder = divmod(n, b)
+        for _ in range(quotient):
+            write_bit(1)
+        write_bit(0)
+        for i in range(bits_for_remainder - 1, -1, -1):
+            write_bit((remainder >> i) & 1)
+
+    if bit_pos > 0:
+        out += bytes([bit_buf << (8 - bit_pos)])
+
+    return out
 
 
 def compress_integer_list_rice(int_list: Iterable[int], size: int = 4) -> bytes:
+    """Encode integers using Rice coding (bit-level).
+
+    Rice coding is Golomb with b as a power of 2: b = 2^k.
+
+    Format per value n:
+      - quotient q = n >> k, written in unary (q ones, then a zero)
+      - remainder r = n & (2^k - 1), written in k bits (MSB first)
+    """
     k = max(0, size)
     b = 1 << k
-    out = [bytes([k])]
+
+    out = bytes([k])
+    bit_buf = 0
+    bit_pos = 0
+
+    def write_bit(bit_val: int) -> None:
+        nonlocal out, bit_buf, bit_pos
+        bit_buf = (bit_buf << 1) | bit_val
+        bit_pos += 1
+        if bit_pos == 8:
+            out += bytes([bit_buf])
+            bit_buf = 0
+            bit_pos = 0
+
     for n in int_list:
         quotient, remainder = divmod(n, b)
-        # Leading 0x80 bytes for quotient, then remainder byte
-        out.append(b"\x80" * quotient + bytes([remainder]))
-    return b"".join(out)
+        for _ in range(quotient):
+            write_bit(1)
+        write_bit(0)
+        for i in range(k - 1, -1, -1):
+            write_bit((remainder >> i) & 1)
+
+    if bit_pos > 0:
+        out += bytes([bit_buf << (8 - bit_pos)])
+
+    return out
 
 
 def compress_integer_list_streamvbyte(int_list: Iterable[int], _size: int = 0) -> bytes:
