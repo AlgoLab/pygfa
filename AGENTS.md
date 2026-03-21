@@ -278,6 +278,7 @@ class Node:
 ### Lint
 
 Always run `pixi run ruff check` and incorporate all its suggestions. The code must be lint clean.
+Always run mypy to check types.
 The exceptions are the suggestions involving snakemake, since we use the global snakemake, not one inside pixi.
 
 ### Specification
