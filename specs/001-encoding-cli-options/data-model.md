@@ -44,6 +44,7 @@ The outcome of testing an encoding strategy on a field.
 1. Type-checking: Only test integer encodings on integer fields, string encodings on string fields
 2. File selection: Only test GFA files tagged with `# test: all_encodings`
 3. Roundtrip: Encode → decode → compare must succeed for PASS status
+4. Fail-fast: Script exits immediately with non-zero code on first FAIL
 
 ## State Transitions
 
@@ -51,4 +52,25 @@ The outcome of testing an encoding strategy on a field.
 [Not Tested] → [Encoding] → [Decoding] → [Comparing] → [PASS/FAIL]
                     ↓              ↓              ↓
                  [FAIL]         [FAIL]         [FAIL]
+                      ↓
+              [Exit with non-zero code]
 ```
+
+## Test Matrix Structure
+
+The script builds a test matrix combining:
+- 20 integer encodings × applicable integer fields
+- 21 string encodings × applicable string fields
+
+Fields are tested in sequential order grouped by encoding type.
+
+## Output Format
+
+Verification report printed to stdout with:
+- Encoding name
+- Field type
+- Status (PASS/FAIL/SKIP)
+- Error message (if FAIL)
+- Total time per encoding
+
+Exit code: 0 for all PASS, non-zero for any FAIL

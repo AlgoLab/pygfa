@@ -102,3 +102,46 @@ From `StringEncoding` enum in `pygfa/encoding/enums.py`:
 **Alternatives considered**:
 - New bgfatools subcommand: Rejected per spec clarification (standalone script)
 - Top-level script: Would not follow project test conventions
+
+## Decision: Fail-Fast Behavior
+
+**Decision**: Exit with non-zero code on first failure
+
+**Rationale**:
+- Enables quick identification of broken encodings
+- Suitable for CI/CD integration
+- Clear signal for automation
+- Matches "fail-fast" expectation for verification tools
+
+**Alternatives considered**:
+- Report mode (continue testing, exit 0): Rejected - user can run multiple times to find all issues
+- Collect-then-fail (test all, then exit non-zero): Rejected - more complex, slower feedback
+
+## Decision: Test Order
+
+**Decision**: Sequential by encoding type (group all variants of each encoding together)
+
+**Rationale**:
+- Easier to spot patterns in output (all variants of one encoding)
+- Logical grouping matches enum organization
+- Easier to understand failure reports
+
+**Alternatives considered**:
+- Random order: Rejected - non-deterministic, harder to debug
+- Field type order: Rejected - less intuitive for encoding verification
+
+## Decision: Missing Encoding Handling
+
+**Decision**: Fail-fast with error message when encoding is in enum but missing from test matrix
+
+**Rationale**:
+- Detects incomplete implementation early
+- Prevents silent gaps in verification
+- Clear signal for developers
+
+## Integer Encoding Count Update
+
+**Note**: The spec mentioned 19 integer encodings, but inspection of the enum shows 20:
+- none, varint, fixed16, fixed32, fixed64, delta, gamma, omega, golomb, rice, streamvbyte, vbyte, pfor_delta, simple8b, group_varint, bit_packing, fibonacci, exp_golomb, byte_packed, masked_vbyte
+
+SC-001 has been updated to reflect the correct count of 20.
