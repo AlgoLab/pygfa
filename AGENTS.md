@@ -331,6 +331,7 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 ## Active Technologies
 - Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library) (001-encoding-cli-options)
 - N/A (file-based, reads GFA/BGFA files from disk) (001-encoding-cli-options)
+- Python >= 3.14 + pygfa (existing library), networkx, lark, biopython, numpy, zstandard, lz4, brotli (001-fix-bgfa-measure-unicode-error)
 
 ## Recent Changes
 - 001-encoding-cli-options: Added Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library)
