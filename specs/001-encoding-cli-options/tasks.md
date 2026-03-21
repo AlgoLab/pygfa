@@ -22,7 +22,7 @@ description: "Task list for encoding strategy CLI verification feature"
 
 **Purpose**: Project initialization and basic structure
 
-- [X] T001 Create test script skeleton in test/test_all_encodings.py
+- [x] T001 Create test script skeleton in test/test_all_encodings.py with argparse for -v/--verbose and -d/--debug flags
 
 ---
 
@@ -32,9 +32,10 @@ description: "Task list for encoding strategy CLI verification feature"
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T002 Implement GFA file discovery function to find files tagged with `# test: all_encodings` in test/test_all_encodings.py
-- [X] T003 [P] Implement encoding enumeration function to load all integer and string encodings from pygfa.encoding in test/test_all_encodings.py
-- [X] T004 [P] Implement field type mapping from SECTION_INT_ENCODINGS and SECTION_STR_ENCODINGS in test/test_all_encodings.py
+- [x] T002 [P] Implement GFA file discovery function to find files tagged with `# test: all_encodings` in first 20 lines in test/test_all_encodings.py
+- [x] T003 [P] Implement encoding enumeration function to load all 20 integer encodings and 21 string encodings from pygfa.encoding in test/test_all_encodings.py
+- [x] T004 [P] Implement field type mapping from section encodings (names_enc, seq_enc, links_fromto_enc, links_cigars_enc, etc.) in test/test_all_encodings.py
+- [x] T005 [P] Implement type-checking function to validate integer encodings only apply to integer fields and string encodings to string fields in test/test_all_encodings.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -42,17 +43,18 @@ description: "Task list for encoding strategy CLI verification feature"
 
 ## Phase 3: User Story 1 - Verify All Integer Encodings via CLI (Priority: P1)
 
-**Goal**: Test all 19 integer encoding strategies via roundtrip on tagged GFA files
+**Goal**: Test all 20 integer encoding strategies via roundtrip on tagged GFA files
 
 **Independent Test**: Run `pixi run python test/test_all_encodings.py --int-only` and verify all integer encodings report PASS
 
 ### Implementation for User Story 1
 
-- [X] T005 [US1] Implement integer encoding roundtrip test function in test/test_all_encodings.py
-- [X] T006 [US1] Implement bgfatools invocation for integer encodings on integer fields in test/test_all_encodings.py
-- [X] T007 [US1] Implement result comparison (decode output matches original) in test/test_all_encodings.py
+- [x] T006 [US1] Implement single_encoding_test function to run GFA → BGFA → GFA roundtrip in test/test_all_encodings.py
+- [x] T007 [US1] Implement bgfatools CLI invocation with --names-enc, --seq-enc, etc. for integer encoding fields in test/test_all_encodings.py
+- [x] T008 [US1] Implement result comparison to verify decoded output matches original GFA in test/test_all_encodings.py
+- [x] T009 [US1] Implement integer encoding test matrix (20 encodings × applicable fields) with sequential order by encoding type in test/test_all_encodings.py
 
-**Checkpoint**: User Story 1 should be fully functional - all 19 integer encodings tested
+**Checkpoint**: User Story 1 should be fully functional - all 20 integer encodings tested
 
 ---
 
@@ -64,9 +66,9 @@ description: "Task list for encoding strategy CLI verification feature"
 
 ### Implementation for User Story 2
 
-- [X] T008 [US2] Implement string encoding roundtrip test function in test/test_all_encodings.py
-- [X] T009 [US2] Implement bgfatools invocation for string encodings on string fields in test/test_all_encodings.py
-- [X] T010 [US2] Integrate string encoding tests with existing result tracking in test/test_all_encodings.py
+- [x] T010 [US2] Implement string encoding test matrix (21 encodings × applicable fields) with sequential order by encoding type in test/test_all_encodings.py
+- [x] T011 [US2] Implement bgfatools CLI invocation with string encoding options (--seq-enc "varint-2bit" format) in test/test_all_encodings.py
+- [x] T012 [US2] Integrate string encoding tests with existing roundtrip and comparison logic in test/test_all_encodings.py
 
 **Checkpoint**: User Stories 1 AND 2 should both work independently
 
@@ -74,15 +76,16 @@ description: "Task list for encoding strategy CLI verification feature"
 
 ## Phase 5: User Story 3 - Automated Verification Script (Priority: P2)
 
-**Goal**: Combine all tests into a single script that outputs a human-readable report to stdout
+**Goal**: Combine all tests into a single script that outputs a human-readable report to stdout with fail-fast behavior
 
 **Independent Test**: Run `pixi run python test/test_all_encodings.py` and verify complete report output
 
 ### Implementation for User Story 3
 
-- [X] T011 [US3] Implement human-readable report output to stdout in test/test_all_encodings.py
-- [X] T012 [US3] Implement summary statistics (pass/fail counts, timing) in test/test_all_encodings.py
-- [X] T013 [US3] Add command-line options for filtering (--int-only, --str-only, --verbose) in test/test_all_encodings.py
+- [x] T013 [US3] Implement human-readable report output to stdout with table format (encoding, field, status, error) in test/test_all_encodings.py
+- [x] T014 [US3] Implement fail-fast behavior: exit immediately with non-zero code on first test failure in test/test_all_encodings.py
+- [x] T015 [US3] Implement summary statistics (total tests, pass/fail counts, timing) at end of report in test/test_all_encodings.py
+- [x] T016 [US3] Implement validation for missing encodings: fail-fast with error if encoding in enum but not in test matrix in test/test_all_encodings.py
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -92,9 +95,9 @@ description: "Task list for encoding strategy CLI verification feature"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [X] T014 Add Google-style docstrings to all public functions in test/test_all_encodings.py
-- [X] T015 Run `pixi run ruff check` and fix any linting issues in test/test_all_encodings.py
-- [X] T016 Verify script completes in under 60 seconds on standard test files
+- [x] T017 Add Google-style docstrings to all public functions in test/test_all_encodings.py
+- [x] T018 Run `pixi run ruff check` and fix any linting issues in test/test_all_encodings.py
+- [ ] T019 Verify script completes in under 60 seconds on standard test files per SC-003 (pending: full test run takes ~2 min for 530 tests)
 
 ---
 
@@ -131,8 +134,9 @@ description: "Task list for encoding strategy CLI verification feature"
 
 ```bash
 # Launch these together:
-Task: "Implement encoding enumeration function in test/test_all_encodings.py"
-Task: "Implement field type mapping in test/test_all_encodings.py"
+Task: "Implement encoding enumeration function to load all 20 integer and 21 string encodings from pygfa.encoding in test/test_all_encodings.py"
+Task: "Implement field type mapping from section encodings in test/test_all_encodings.py"
+Task: "Implement type-checking function for integer/string encoding validation in test/test_all_encodings.py"
 ```
 
 ---
@@ -143,16 +147,16 @@ Task: "Implement field type mapping in test/test_all_encodings.py"
 
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational
-3. Complete Phase 3: User Story 1 (integer encodings)
+3. Complete Phase 3: User Story 1 (integer encodings - 20 total)
 4. **STOP and VALIDATE**: Test integer encodings independently
 5. Commit if ready
 
 ### Incremental Delivery
 
 1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 (integer encodings) → Test independently
-3. Add User Story 2 (string encodings) → Test independently
-4. Add User Story 3 (full report) → Test independently
+2. Add User Story 1 (integer encodings - 20 total) → Test independently
+3. Add User Story 2 (string encodings - 21 total) → Test independently
+4. Add User Story 3 (full report with fail-fast) → Test independently
 5. Polish and lint
 
 ### Parallel Team Strategy
@@ -174,3 +178,5 @@ With multiple developers:
 - Each user story should be independently completable and testable
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
+- Fail-fast behavior: script exits immediately with non-zero code on first failure
+- Test order: sequential by encoding type (group all variants of each encoding together)

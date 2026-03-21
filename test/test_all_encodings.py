@@ -4,6 +4,10 @@
 Tests that every integer and string encoding strategy can be activated
 via the bgfatools CLI and performs a successful roundtrip (encode -> decode).
 
+Tests are run in sequential order by encoding type (grouping all fields for
+each encoding together). Script exits immediately with non-zero code on first
+failure (fail-fast behavior).
+
 Usage:
     pixi run python test/test_all_encodings.py
     pixi run python test/test_all_encodings.py --int-only
@@ -19,7 +23,6 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 
-# Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pygfa.encoding import (
@@ -27,35 +30,34 @@ from pygfa.encoding import (
     STRING_ENCODINGS,
 )
 
-
-SECTION_INT_ENCODINGS = {
-    "segment_names_payload_lengths",
-    "segments_payload_lengths",
-    "links_payload_from",
-    "links_payload_to",
-    "links_payload_cigar_lengths",
-    "paths_payload_segment_lengths",
-    "paths_payload_cigar_lengths",
-    "walks_payload_hep_indices",
-    "walks_payload_start",
-    "walks_payload_end",
+FIELD_TO_CLI_INT = {
+    "segment_names_payload_lengths": "--names-enc",
+    "segments_payload_lengths": "--seq-enc",
+    "links_payload_from": "--links-fromto-enc",
+    "links_payload_to": "--links-fromto-enc",
+    "links_payload_cigar_lengths": "--links-cigars-enc",
+    "paths_payload_segment_lengths": "--paths-paths-enc",
+    "paths_payload_cigar_lengths": "--paths-cigars-enc",
+    "walks_payload_hep_indices": "--walks-hap-indices-enc",
+    "walks_payload_start": "--walks-start-enc",
+    "walks_payload_end": "--walks-end-enc",
 }
 
-SECTION_STR_ENCODINGS = {
-    "segment_names_header",
-    "segment_names_payload_names",
-    "segments_header",
-    "segments_payload_strings",
-    "links_header",
-    "links_payload_cigar",
-    "paths_header",
-    "paths_payload_names",
-    "paths_payload_path_ids",
-    "paths_payload_cigar",
-    "walks_header",
-    "walks_payload_sample_ids",
-    "walks_payload_sequence_ids",
-    "walks_payload_walks",
+FIELD_TO_CLI_STR = {
+    "segment_names_header": "--names-enc",
+    "segment_names_payload_names": "--names-enc",
+    "segments_header": "--seq-enc",
+    "segments_payload_strings": "--seq-enc",
+    "links_header": "--links-fromto-enc",
+    "links_payload_cigar": "--links-cigars-enc",
+    "paths_header": "--paths-names-enc",
+    "paths_payload_names": "--paths-names-enc",
+    "paths_payload_path_ids": "--paths-paths-enc",
+    "paths_payload_cigar": "--paths-cigars-enc",
+    "walks_header": "--walks-sample-ids-enc",
+    "walks_payload_sample_ids": "--walks-sample-ids-enc",
+    "walks_payload_sequence_ids": "--walks-seq-ids-enc",
+    "walks_payload_walks": "--walks-walks-enc",
 }
 
 
@@ -65,7 +67,7 @@ class TestResult:
 
     encoding_name: str
     field_name: str
-    status: str  # PASS, FAIL, SKIP
+    status: str
     error_message: str | None = None
     encode_time_ms: float = 0.0
     decode_time_ms: float = 0.0
@@ -78,6 +80,7 @@ class VerificationReport:
     results: list[TestResult] = field(default_factory=list)
     start_time: float = 0.0
     end_time: float = 0.0
+    first_failure: TestResult | None = None
 
     @property
     def total_time_seconds(self) -> float:
@@ -106,14 +109,7 @@ class VerificationReport:
 
 
 def find_test_gfa_files(data_dir: str = "data") -> list[str]:
-    """Find GFA files tagged with # test: all_encodings.
-
-    Args:
-        data_dir: Directory to search for GFA files.
-
-    Returns:
-        List of paths to GFA files with the all_encodings tag.
-    """
+    """Find GFA files tagged with # test: all_encodings."""
     tagged_files = []
     if not os.path.exists(data_dir):
         return tagged_files
@@ -137,45 +133,30 @@ def find_test_gfa_files(data_dir: str = "data") -> list[str]:
     return sorted(tagged_files)
 
 
-def get_field_cli_option(field_name: str) -> str:
-    """Convert field name to CLI option format.
-
-    Args:
-        field_name: Field name like 'segment_names_header'.
-
-    Returns:
-        CLI option like '--segment-names-header'.
-    """
-    return "--" + field_name.replace("_", "-")
-
-
 def run_roundtrip_test(
     gfa_file: str,
     field_name: str,
     int_enc: str,
     str_enc: str,
+    is_int_test: bool,
     verbose: bool = False,
 ) -> TestResult:
-    """Run a single roundtrip test for an encoding combination.
-
-    Args:
-        gfa_file: Path to input GFA file.
-        field_name: Field to test.
-        int_enc: Integer encoding name.
-        str_enc: String encoding name.
-        verbose: Print verbose output.
-
-    Returns:
-        TestResult with status and timing.
-    """
+    """Run a single roundtrip test for an encoding combination."""
     enc_format = f"{int_enc}-{str_enc}"
-    cli_option = get_field_cli_option(field_name)
+    cli_option = FIELD_TO_CLI_INT.get(field_name) if is_int_test else FIELD_TO_CLI_STR.get(field_name)
+
+    if not cli_option:
+        return TestResult(
+            encoding_name=enc_format,
+            field_name=field_name,
+            status="FAIL",
+            error_message=f"No CLI option mapping for field: {field_name}",
+        )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         bgfa_file = os.path.join(tmpdir, "test.bgfa")
         gfa_output = os.path.join(tmpdir, "test.gfa")
 
-        # Encode
         encode_cmd = [
             "pixi",
             "run",
@@ -202,7 +183,6 @@ def run_roundtrip_test(
                 encode_time_ms=encode_time,
             )
 
-        # Decode
         decode_cmd = [
             "pixi",
             "run",
@@ -229,7 +209,6 @@ def run_roundtrip_test(
                 decode_time_ms=decode_time,
             )
 
-        # Verify output exists and is non-empty
         if not os.path.exists(gfa_output) or os.path.getsize(gfa_output) == 0:
             return TestResult(
                 encoding_name=enc_format,
@@ -249,6 +228,39 @@ def run_roundtrip_test(
         )
 
 
+def validate_encodings_present(
+    int_encodings: list[str],
+    str_encodings: list[str],
+) -> None:
+    """Validate all expected encodings are present in the test matrix."""
+    expected_int = {
+        "none", "varint", "fixed16", "fixed32", "fixed64", "delta",
+        "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte",
+        "pfor_delta", "simple8b", "group_varint", "bit_packing",
+        "fibonacci", "exp_golomb", "byte_packed", "masked_vbyte",
+    }
+    expected_str = {
+        "none", "zstd", "zstd_dict", "gzip", "lzma", "lz4",
+        "brotli", "huffman", "frontcoding", "delta", "dictionary",
+        "rle", "cigar", "2bit", "arithmetic", "bwt_huffman",
+        "ppm", "superstring_none", "superstring_huffman",
+        "superstring_2bit", "superstring_ppm",
+    }
+
+    int_set = set(int_encodings)
+    str_set = set(str_encodings)
+
+    missing_int = expected_int - int_set
+    missing_str = expected_str - str_set
+
+    if missing_int:
+        print(f"ERROR: Missing integer encodings in test matrix: {sorted(missing_int)}", file=sys.stderr)
+        sys.exit(1)
+    if missing_str:
+        print(f"ERROR: Missing string encodings in test matrix: {sorted(missing_str)}", file=sys.stderr)
+        sys.exit(1)
+
+
 def run_verification(
     test_int: bool = True,
     test_str: bool = True,
@@ -256,13 +268,9 @@ def run_verification(
 ) -> VerificationReport:
     """Run verification tests for all encoding strategies.
 
-    Args:
-        test_int: Test integer encodings.
-        test_str: Test string encodings.
-        verbose: Print verbose output.
-
-    Returns:
-        VerificationReport with all results.
+    Tests are executed in sequential order by encoding type (grouping all
+    fields for each encoding together). Script exits immediately with
+    non-zero code on first failure (fail-fast behavior).
     """
     report = VerificationReport()
     report.start_time = time.time()
@@ -276,60 +284,66 @@ def run_verification(
     if verbose:
         print(f"Using test file: {gfa_file}")
 
-    int_encodings = sorted(INTEGER_ENCODINGS.keys())
-    str_encodings = sorted(STRING_ENCODINGS.keys())
+    int_encodings = sorted([e for e in INTEGER_ENCODINGS.keys() if e])
+    str_encodings = sorted([e for e in STRING_ENCODINGS.keys() if e])
 
-    # Remove empty string (alias for none)
-    int_encodings = [e for e in int_encodings if e]
-    str_encodings = [e for e in str_encodings if e]
+    validate_encodings_present(int_encodings, str_encodings)
 
-    # Test integer encodings on integer fields
+    int_fields = sorted(FIELD_TO_CLI_INT.keys())
+    str_fields = sorted(FIELD_TO_CLI_STR.keys())
+
     if test_int:
-        for field_name in sorted(SECTION_INT_ENCODINGS):
-            for int_enc in int_encodings:
+        for int_enc in int_encodings:
+            for field_name in int_fields:
                 if verbose:
                     print(f"Testing: {int_enc}-none on {field_name}...", end=" ")
 
-                result = run_roundtrip_test(gfa_file, field_name, int_enc, "none", verbose)
+                result = run_roundtrip_test(gfa_file, field_name, int_enc, "none", True, verbose)
                 report.results.append(result)
 
                 if verbose:
                     print(result.status)
 
-    # Test string encodings on string fields
+                if result.status == "FAIL":
+                    report.first_failure = result
+                    report.end_time = time.time()
+                    return report
+
     if test_str:
-        for field_name in sorted(SECTION_STR_ENCODINGS):
-            for str_enc in str_encodings:
+        for str_enc in str_encodings:
+            for field_name in str_fields:
                 if verbose:
                     print(f"Testing: none-{str_enc} on {field_name}...", end=" ")
 
-                result = run_roundtrip_test(gfa_file, field_name, "none", str_enc, verbose)
+                result = run_roundtrip_test(gfa_file, field_name, "none", str_enc, False, verbose)
                 report.results.append(result)
 
                 if verbose:
                     print(result.status)
+
+                if result.status == "FAIL":
+                    report.first_failure = result
+                    report.end_time = time.time()
+                    return report
 
     report.end_time = time.time()
     return report
 
 
 def print_report(report: VerificationReport) -> None:
-    """Print a human-readable verification report to stdout.
-
-    Args:
-        report: VerificationReport to print.
-    """
+    """Print a human-readable verification report to stdout."""
     print("=" * 60)
     print("Encoding Strategy Verification Report")
     print("=" * 60)
     print()
 
-    # Group by encoding type
-    int_results = [r for r in report.results if r.field_name in SECTION_INT_ENCODINGS]
-    str_results = [r for r in report.results if r.field_name in SECTION_STR_ENCODINGS]
+    int_fields_set = set(FIELD_TO_CLI_INT.keys())
+    int_results = [r for r in report.results if r.field_name in int_fields_set]
+    str_results = [r for r in report.results if r.field_name not in int_fields_set]
 
     if int_results:
-        print(f"Integer Encodings ({len(set(r.encoding_name for r in int_results))} strategies):")
+        unique_int_encs = sorted(set(r.encoding_name for r in int_results))
+        print(f"Integer Encodings ({len(unique_int_encs)} strategies):")
         print("-" * 40)
         for result in int_results:
             status_marker = "PASS" if result.status == "PASS" else "FAIL"
@@ -340,7 +354,8 @@ def print_report(report: VerificationReport) -> None:
         print()
 
     if str_results:
-        print(f"String Encodings ({len(set(r.encoding_name for r in str_results))} strategies):")
+        unique_str_encs = sorted(set(r.encoding_name for r in str_results))
+        print(f"String Encodings ({len(unique_str_encs)} strategies):")
         print("-" * 40)
         for result in str_results:
             status_marker = "PASS" if result.status == "PASS" else "FAIL"
@@ -350,7 +365,6 @@ def print_report(report: VerificationReport) -> None:
             print(line)
         print()
 
-    # Summary
     print("=" * 60)
     print(f"Summary: {report.passed}/{report.total} tests passed", end="")
     if report.total > 0:
@@ -361,13 +375,28 @@ def print_report(report: VerificationReport) -> None:
     print("=" * 60)
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command line arguments.
+def print_failure_report(report: VerificationReport) -> None:
+    """Print a failure report and exit immediately (fail-fast)."""
+    failure = report.first_failure
+    if not failure:
+        return
 
-    Returns:
-        Parsed arguments.
-    """
-    parser = argparse.ArgumentParser(description="Verify all encoding strategies via roundtrip testing")
+    print("=" * 60, file=sys.stderr)
+    print("ERROR: Verification failed at first failure", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    print(f"Encoding: {failure.encoding_name}", file=sys.stderr)
+    print(f"Field: {failure.field_name}", file=sys.stderr)
+    if failure.error_message:
+        print(f"Error: {failure.error_message}", file=sys.stderr)
+    print(f"Test: {report.passed}/{report.passed + report.failed} passed", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Verify all encoding strategies via roundtrip testing"
+    )
     parser.add_argument(
         "--int-only",
         action="store_true",
@@ -400,10 +429,12 @@ def main() -> None:
         verbose=args.verbose,
     )
 
-    print_report(report)
-
-    if report.failed > 0:
+    if report.first_failure:
+        print_failure_report(report)
         sys.exit(1)
+
+    print_report(report)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
