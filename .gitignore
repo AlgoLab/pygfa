@@ -121,4 +121,5 @@ docs/superpowers/
 # Git worktrees
 .worktrees/
 
-
+node_modules
+bun.lock
