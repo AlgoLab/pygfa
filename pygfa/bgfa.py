@@ -848,6 +848,20 @@ def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decod
     return [superstring[s:e] for s, e in zip(starts, ends)]
 
 
+def decompress_string_ppm_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode PPM-compressed strings.
+
+    The payload format is:
+        - varint-encoded lengths (metadata)
+        - PPM-compressed blob (uint32 length + uint8 order + zstd compressed)
+    """
+    from pygfa.encoding.ppm_coding import decompress_string_ppm
+
+    lengths, consumed = int_decoder(payload, record_num)
+    ppm_blob = payload[consumed:]
+    return decompress_string_ppm(ppm_blob, lengths)
+
+
 STRING_DECODERS = {
     STRING_ENCODING_NONE: decompress_string_none,
     STRING_ENCODING_ZSTD: decompress_string_zstd,
@@ -863,7 +877,7 @@ STRING_DECODERS = {
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
     STRING_ENCODING_LZ4: lambda p, rn, id: decompress_string_lz4(p, [0] * rn),
     STRING_ENCODING_BROTLI: lambda p, rn, id: decompress_string_brotli(p, [0] * rn),
-    STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn),
+    STRING_ENCODING_PPM: decompress_string_ppm_wrapper,
     STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
     STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
     STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
