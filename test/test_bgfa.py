@@ -338,9 +338,32 @@ def test_bgfa_idempotent_2(int_encoding, str_encoding, test_output_dir):
 
 
 @pytest.mark.parametrize("int_encoding,str_encoding", ALL_ENCODING_COMBINATIONS if HAS_PYTEST else [])
-def test_bgfa_idempotent_3(int_encoding, str_encoding, test_output_dir):
+def test_bgfa_idempotent_3(gfa_file_path, int_encoding, str_encoding, test_output_dir):
     """Test that pprint output matches expected file content with all encoding strategies."""
     _idempotent_test_helper("data/example_3.gfa", int_encoding, str_encoding, test_output_dir)
+
+
+def test_vbyte_encoding_measure(tmp_path):
+    """Test that BGFA files with VBYTE encoding can be measured successfully.
+
+    This is a regression test for the bug where VBYTE-encoded BGFA files
+    would fail during measurement with a UnicodeDecodeError because the
+    sequence length encoding was incorrect.
+    """
+    from pygfa.bgfa import measure_bgfa
+
+    gfa = GFA.from_gfa("data/HLA-zoo/graphs/pggb/DRB4-3126/DRB4-3126.fa.bab52bb.34ee7b1.6c8dee8.smooth.fix.gfa")
+
+    bgfa_path = tmp_path / "test_vbyte.bgfa"
+    gfa.to_bgfa(str(bgfa_path), seq_enc="vbyte")
+
+    csv_path = tmp_path / "measure.csv"
+    measure_bgfa(str(bgfa_path), str(csv_path))
+
+    assert csv_path.exists(), "Measure CSV file was not created"
+    content = csv_path.read_text()
+    assert "section_type" in content, "CSV should contain header row"
+    assert "segments" in content, "CSV should contain segments block stats"
 
 
 if __name__ == "__main__":
