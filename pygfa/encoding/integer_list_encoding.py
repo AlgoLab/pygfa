@@ -126,39 +126,49 @@ def compress_integer_list_streamvbyte(int_list: Iterable[int], _size: int = 0) -
     if not int_list:
         return b""
     n = len(int_list)
-    out = bytearray(4 + n * 4 + ((n + 3) // 4) * 4)
+    ctrl_count = (n + 3) // 4
+    byte_widths = []
+    for val in int_list:
+        if val < 0x80:
+            byte_widths.append(1)
+        elif val < 0x4000:
+            byte_widths.append(2)
+        elif val < 0x200000:
+            byte_widths.append(3)
+        else:
+            byte_widths.append(4)
+    total_data = sum(byte_widths)
+    data_start = 4 + ctrl_count
+    out = bytearray(data_start + total_data)
     out[0] = n & 0xFF
     out[1] = (n >> 8) & 0xFF
     out[2] = (n >> 16) & 0xFF
     out[3] = (n >> 24) & 0xFF
-    ctrl_idx = 4
-    data_idx = 4 + ((n + 3) // 4) * 4
+    ctrl_pos = 4
+    data_pos = data_start
     for i, val in enumerate(int_list):
-        if val < 0x80:
-            out[ctrl_idx] = 0
-            out[data_idx] = val
-            data_idx += 1
-        elif val < 0x4000:
-            out[ctrl_idx] = 1
-            out[data_idx] = val & 0xFF
-            out[data_idx + 1] = (val >> 8) & 0xFF
-            data_idx += 2
-        elif val < 0x200000:
-            out[ctrl_idx] = 2
-            out[data_idx] = val & 0xFF
-            out[data_idx + 1] = (val >> 8) & 0xFF
-            out[data_idx + 2] = (val >> 16) & 0xFF
-            data_idx += 3
+        group = i & 3
+        if group == 0:
+            ctrl_pos = 4 + (i >> 2)
+            out[ctrl_pos] = 0
+        bw = byte_widths[i]
+        out[ctrl_pos] |= (bw - 1) << (group * 2)
+        if bw == 1:
+            out[data_pos] = val & 0xFF
+        elif bw == 2:
+            out[data_pos] = val & 0xFF
+            out[data_pos + 1] = (val >> 8) & 0xFF
+        elif bw == 3:
+            out[data_pos] = val & 0xFF
+            out[data_pos + 1] = (val >> 8) & 0xFF
+            out[data_pos + 2] = (val >> 16) & 0xFF
         else:
-            out[ctrl_idx] = 3
-            out[data_idx] = val & 0xFF
-            out[data_idx + 1] = (val >> 8) & 0xFF
-            out[data_idx + 2] = (val >> 16) & 0xFF
-            out[data_idx + 3] = (val >> 24) & 0xFF
-            data_idx += 4
-        if (i & 3) == 3:
-            ctrl_idx += 4
-    return bytes(out[:data_idx])
+            out[data_pos] = val & 0xFF
+            out[data_pos + 1] = (val >> 8) & 0xFF
+            out[data_pos + 2] = (val >> 16) & 0xFF
+            out[data_pos + 3] = (val >> 24) & 0xFF
+        data_pos += bw
+    return bytes(out)
 
 
 _VBYTE_CTRL = bytes(

@@ -537,7 +537,7 @@ def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int],
     data_start = 4 + ctrl_count
 
     if len(data) < data_start:
-        return [], 0
+        return [], 4
 
     result = []
     ctrl_pos = 4
