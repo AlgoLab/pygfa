@@ -10,6 +10,7 @@ import io
 import logging
 import lzma
 import math
+import re
 import struct
 from collections.abc import Callable
 
@@ -443,8 +444,6 @@ def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]
             pos += 1
         return bit
 
-    import math
-
     bits_for_remainder = math.ceil(math.log2(b)) if b > 1 else 1
 
     while count < 0 or len(result) < count:
@@ -471,7 +470,9 @@ def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]
         value = quotient * b + remainder
         result.append(value)
 
-    return result, pos
+    # Total bytes consumed: fully read bytes + 1 if partially through current byte
+    bytes_consumed = pos + (1 if bits_read > 0 else 0)
+    return result, bytes_consumed
 
 
 def decode_integer_list_rice(data: bytes, count: int) -> tuple[list[int], int]:
@@ -520,7 +521,9 @@ def decode_integer_list_rice(data: bytes, count: int) -> tuple[list[int], int]:
         value = (quotient << k) | remainder
         result.append(value)
 
-    return result, pos
+    # Total bytes consumed: fully read bytes + 1 if partially through current byte
+    bytes_consumed = pos + (1 if bits_read > 0 else 0)
+    return result, bytes_consumed
 
 
 def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int], int]:
@@ -1796,7 +1799,7 @@ def parse_compression_strategy(s: str) -> int:
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 
-    p = s.lower().replace("_", "").split("-")
+    p = re.split(r"[-_]", s.lower())
 
     i_map = {e.name.lower().replace("_", ""): e.value for e in IntegerEncoding}
     s_map = {e.name.lower().replace("_", ""): e.value for e in StringEncoding}
