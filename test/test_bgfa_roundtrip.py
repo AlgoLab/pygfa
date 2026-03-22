@@ -15,6 +15,7 @@ if project_root not in sys.path:
 
 from pygfa.gfa import GFA  # noqa: E402  # Needs sys.path setup first
 from test_utils import should_run_test_for_gfa  # noqa: E402  # Needs sys.path setup first
+from pygfa.encoding import INTEGER_ENCODINGS as _ALL_INT_ENCODINGS, STRING_ENCODINGS as _ALL_STR_ENCODINGS  # noqa: E402
 
 # Import pytest with fallback for when it's not available
 try:
@@ -334,6 +335,16 @@ class TestBlockSizes:
 # Encoding parametrized tests for all bgfa_roundtrip files
 # ---------------------------------------------------------------------------
 
+# Identity encoding codes (for setting non-tested encodings to identity)
+INT_IDENTITY_CODE = 0x00  # "none" for integer encodings
+STR_IDENTITY_CODE = 0x00  # "none" for string encodings
+
+# Full list of integer encoding names (excluding empty string alias)
+ALL_INT_ENCODING_NAMES = sorted([name for name in _ALL_INT_ENCODINGS.keys() if name])
+
+# Full list of string encoding names (excluding empty string alias)
+ALL_STR_ENCODING_NAMES = sorted([name for name in _ALL_STR_ENCODINGS.keys() if name])
+
 INT_ENCODINGS = [
     ("none", 0x00),
     ("varint", 0x01),
@@ -385,6 +396,72 @@ def _build_compression_options(int_encoding_name: str, str_encoding_name: str) -
     }
 
 
+def _build_isolated_int_encoding_options(encoding_name: str) -> dict:
+    """Build compression_options dict with one integer encoding set, all others identity.
+    
+    This tests each integer encoding in isolation with all string encodings at identity (none).
+    """
+    encoding_code = 0x00
+    for name, code in INT_ENCODINGS:
+        if name == encoding_name:
+            encoding_code = code
+            break
+    
+    # Set all integer fields to the specified encoding, all string fields to identity
+    return {
+        "segment_names_int_encoding": encoding_code,
+        "segment_names_str_encoding": STR_IDENTITY_CODE,
+        "segments_int_encoding": encoding_code,
+        "segments_str_encoding": STR_IDENTITY_CODE,
+        "links_fromto_int_encoding": encoding_code,
+        "links_cigars_int_encoding": encoding_code,
+        "links_cigars_str_encoding": STR_IDENTITY_CODE,
+        "paths_names_int_encoding": encoding_code,
+        "paths_names_str_encoding": STR_IDENTITY_CODE,
+        "paths_cigars_int_encoding": encoding_code,
+        "paths_cigars_str_encoding": STR_IDENTITY_CODE,
+        "walks_sample_ids_str_encoding": STR_IDENTITY_CODE,
+        "walks_hap_indices_int_encoding": encoding_code,
+        "walks_seq_ids_int_encoding": encoding_code,
+        "walks_seq_ids_str_encoding": STR_IDENTITY_CODE,
+        "walks_start_int_encoding": encoding_code,
+        "walks_end_int_encoding": encoding_code,
+    }
+
+
+def _build_isolated_str_encoding_options(encoding_name: str) -> dict:
+    """Build compression_options dict with one string encoding set, all others identity.
+    
+    This tests each string encoding in isolation with all integer encodings at identity (none).
+    """
+    encoding_code = 0x00
+    for name, code in STR_ENCODINGS:
+        if name == encoding_name:
+            encoding_code = code
+            break
+    
+    # Set all string fields to the specified encoding, all integer fields to identity
+    return {
+        "segment_names_int_encoding": INT_IDENTITY_CODE,
+        "segment_names_str_encoding": encoding_code,
+        "segments_int_encoding": INT_IDENTITY_CODE,
+        "segments_str_encoding": encoding_code,
+        "links_fromto_int_encoding": INT_IDENTITY_CODE,
+        "links_cigars_int_encoding": INT_IDENTITY_CODE,
+        "links_cigars_str_encoding": encoding_code,
+        "paths_names_int_encoding": INT_IDENTITY_CODE,
+        "paths_names_str_encoding": encoding_code,
+        "paths_cigars_int_encoding": INT_IDENTITY_CODE,
+        "paths_cigars_str_encoding": encoding_code,
+        "walks_sample_ids_str_encoding": encoding_code,
+        "walks_hap_indices_int_encoding": INT_IDENTITY_CODE,
+        "walks_seq_ids_int_encoding": INT_IDENTITY_CODE,
+        "walks_seq_ids_str_encoding": encoding_code,
+        "walks_start_int_encoding": INT_IDENTITY_CODE,
+        "walks_end_int_encoding": INT_IDENTITY_CODE,
+    }
+
+
 @pytest.mark.parametrize(
     "gfa_path,int_encoding,str_encoding,block_size", ALL_ENCODING_TEST_PARAMS, ids=_encoding_test_id
 )
@@ -427,6 +504,151 @@ class TestEncodingRoundtrip:
         g_links = _link_set(g)
         h_links = _link_set(h)
         assert g_links == h_links, f"Link mismatch with {int_encoding}/{str_encoding}/{block_size}"
+
+
+# ---------------------------------------------------------------------------
+# Isolated encoding tests - each encoding tested independently with identity
+# ---------------------------------------------------------------------------
+
+def _isolated_int_test_id(params):
+    """Generate test ID for isolated integer encoding tests."""
+    if isinstance(params, (list, tuple)) and len(params) == 3:
+        gfa_path, encoding_name, block_size = params
+        return f"[{gfa_path}]-int-{encoding_name}-{block_size}"
+    return str(params)
+
+
+def _isolated_str_test_id(params):
+    """Generate test ID for isolated string encoding tests."""
+    if isinstance(params, (list, tuple)) and len(params) == 3:
+        gfa_path, encoding_name, block_size = params
+        return f"[{gfa_path}]-str-{encoding_name}-{block_size}"
+    return str(params)
+
+
+# Generate test parameters for isolated integer encoding tests
+ISOLATED_INT_TEST_PARAMS = [
+    (gfa_path, encoding_name, bs)
+    for gfa_path in ALL_BGFA_ROUNDTRIP_FILES
+    for encoding_name in ALL_INT_ENCODING_NAMES
+    for bs in BLOCK_SIZES
+]
+
+# Generate test parameters for isolated string encoding tests
+ISOLATED_STR_TEST_PARAMS = [
+    (gfa_path, encoding_name, bs)
+    for gfa_path in ALL_BGFA_ROUNDTRIP_FILES
+    for encoding_name in ALL_STR_ENCODING_NAMES
+    for bs in BLOCK_SIZES
+]
+
+
+@pytest.mark.parametrize(
+    "gfa_path,encoding_name,block_size", ISOLATED_INT_TEST_PARAMS, ids=_isolated_int_test_id
+)
+class TestIsolatedIntEncodingRoundtrip:
+    """Test each integer encoding independently with all string encodings at identity."""
+
+    def test_int_encoding_roundtrip(self, gfa_path, encoding_name, block_size, test_output_dir):
+        """Test a single integer encoding with all others set to identity."""
+        print(f"\n--- Testing int encoding: {encoding_name} on {gfa_path} (block_size={block_size}) ---")
+        if not os.path.exists(gfa_path):
+            pytest.skip(f"Test file not found: {gfa_path}")
+
+        compression_options = _build_isolated_int_encoding_options(encoding_name)
+        g, h = _roundtrip_file(
+            gfa_path, block_size=block_size, compression_options=compression_options, test_output_dir=test_output_dir
+        )
+
+        # Structural equality check (nodes, sequences, links)
+        # Note: paths are not read back from BGFA (known limitation)
+        assert sorted(g.nodes()) == sorted(h.nodes()), (
+            f"Node mismatch for int encoding '{encoding_name}' on {gfa_path} "
+            f"(block_size={block_size})"
+        )
+
+        g_data = dict(g.nodes_iter(data=True))
+        h_data = dict(h.nodes_iter(data=True))
+        for node_id in g.nodes():
+            assert node_id in h_data, f"Node {node_id} missing after round-trip"
+            g_seq = g_data[node_id].get("sequence", "*")
+            h_seq = h_data[node_id].get("sequence", "*")
+            assert g_seq == h_seq, (
+                f"Sequence mismatch for node {node_id} with int encoding '{encoding_name}': "
+                f"{g_seq!r} vs {h_seq!r}"
+            )
+
+        def _link_set(gfa_obj):
+            links = set()
+            for u, v, key, data in gfa_obj.edges_iter(data=True, keys=True):
+                from_node = data.get("from_node", u)
+                from_orn = data.get("from_orn", "+")
+                to_node = data.get("to_node", v)
+                to_orn = data.get("to_orn", "+")
+                alignment = data.get("alignment", "*")
+                links.add((from_node, from_orn, to_node, to_orn, alignment))
+            return links
+
+        g_links = _link_set(g)
+        h_links = _link_set(h)
+        assert g_links == h_links, (
+            f"Link mismatch for int encoding '{encoding_name}' on {gfa_path} "
+            f"(block_size={block_size}). Missing: {g_links - h_links}, Extra: {h_links - g_links}"
+        )
+
+
+@pytest.mark.parametrize(
+    "gfa_path,encoding_name,block_size", ISOLATED_STR_TEST_PARAMS, ids=_isolated_str_test_id
+)
+class TestIsolatedStrEncodingRoundtrip:
+    """Test each string encoding independently with all integer encodings at identity."""
+
+    def test_str_encoding_roundtrip(self, gfa_path, encoding_name, block_size, test_output_dir):
+        """Test a single string encoding with all others set to identity."""
+        print(f"\n--- Testing str encoding: {encoding_name} on {gfa_path} (block_size={block_size}) ---")
+        if not os.path.exists(gfa_path):
+            pytest.skip(f"Test file not found: {gfa_path}")
+
+        compression_options = _build_isolated_str_encoding_options(encoding_name)
+        g, h = _roundtrip_file(
+            gfa_path, block_size=block_size, compression_options=compression_options, test_output_dir=test_output_dir
+        )
+
+        # Structural equality check (nodes, sequences, links)
+        # Note: paths are not read back from BGFA (known limitation)
+        assert sorted(g.nodes()) == sorted(h.nodes()), (
+            f"Node mismatch for str encoding '{encoding_name}' on {gfa_path} "
+            f"(block_size={block_size})"
+        )
+
+        g_data = dict(g.nodes_iter(data=True))
+        h_data = dict(h.nodes_iter(data=True))
+        for node_id in g.nodes():
+            assert node_id in h_data, f"Node {node_id} missing after round-trip"
+            g_seq = g_data[node_id].get("sequence", "*")
+            h_seq = h_data[node_id].get("sequence", "*")
+            assert g_seq == h_seq, (
+                f"Sequence mismatch for node {node_id} with str encoding '{encoding_name}': "
+                f"{g_seq!r} vs {h_seq!r}"
+            )
+
+        def _link_set(gfa_obj):
+            links = set()
+            for u, v, key, data in gfa_obj.edges_iter(data=True, keys=True):
+                from_node = data.get("from_node", u)
+                from_orn = data.get("from_orn", "+")
+                to_node = data.get("to_node", v)
+                to_orn = data.get("to_orn", "+")
+                alignment = data.get("alignment", "*")
+                links.add((from_node, from_orn, to_node, to_orn, alignment))
+            return links
+
+        g_links = _link_set(g)
+        h_links = _link_set(h)
+        assert g_links == h_links, (
+            f"Link mismatch for str encoding '{encoding_name}' on {gfa_path} "
+            f"(block_size={block_size}). Missing: {g_links - h_links}, Extra: {h_links - g_links}"
+        )
 
 
 if __name__ == "__main__":
