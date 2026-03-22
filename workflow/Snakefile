@@ -149,7 +149,16 @@ def _build_compress_flags(option, encoding):
 
 rule all:
     input:
+        OUTPUT_DIR + "/summary.csv.zst"
+
+
+rule compress_summary:
+    input:
         OUTPUT_DIR + "/summary.csv"
+    output:
+        OUTPUT_DIR + "/summary.csv.zst"
+    shell:
+        "zstd -f {input} -o {output}"
 
 
 rule generate_summary:
