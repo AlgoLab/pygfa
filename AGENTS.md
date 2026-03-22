@@ -334,6 +334,8 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 - Python >= 3.14 + pygfa (existing library), networkx, lark, biopython, numpy, zstandard, lz4, brotli (001-fix-bgfa-measure-unicode-error)
 - Python >= 3.14 + networkx, lark, biopython, numpy, zstandard, lz4, brotli (005-encoding-roundtrip)
 - N/A (file-based testing) (005-encoding-roundtrip)
+- Python >= 3.14 + zstandard, lz4, brotli (006-fix-measure-bgfa-errors)
+- N/A (in-memory file parsing) (006-fix-measure-bgfa-errors)
 
 ## Recent Changes
 - 001-encoding-cli-options: Added Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library)
