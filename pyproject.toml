@@ -16,6 +16,7 @@ version = "0.1.0"
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.2,<10",
+    "pytest-cov>=6.0.0,<7",
     "ruff>=0.8.0,<1",
     "mypy>=1.13.0,<2",
     "coverage>=7.0.0,<8",
@@ -49,6 +50,7 @@ lz4 = ">=4.0.0"
 brotli = ">=1.1.0"
 pytest-xdist = ">=3.8.0,<4"
 pytest-memray = ">=1.8.0,<2"
+pytest-cov = ">=6.0.0,<7"
 
 [tool.ruff]
 line-length = 120
@@ -59,6 +61,31 @@ python_version = "3.14"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+
+[tool.coverage.run]
+source = ["pygfa"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*__pycache__*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.html]
+directory = "results/test/htmlcov"
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
