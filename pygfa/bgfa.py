@@ -1942,7 +1942,7 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                     logger.info("    [%d] %s: %s", sid, name, seq[:50] + ("..." if len(seq) > 50 else ""))
 
             stats.append({
-                "block_index": block_index,
+                "block_index": "segments",
                 "section_id": section_id,
                 "section_type": "segments",
                 "record_num": record_num,
@@ -1986,7 +1986,7 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                     logger.info("    [%d] %s%s -> %s%s  %s", i, link["from_node"], link["from_orn"], link["to_node"], link["to_orn"], link["alignment"])
 
             stats.append({
-                "block_index": block_index,
+                "block_index": "links",
                 "section_id": section_id,
                 "section_type": "links",
                 "record_num": record_num,
@@ -2037,7 +2037,7 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                     logger.info("    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", []))
 
             stats.append({
-                "block_index": block_index,
+                "block_index": "paths",
                 "section_id": section_id,
                 "section_type": "paths",
                 "record_num": record_num,
@@ -2110,7 +2110,7 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
             total_compressed = clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
             total_uncompressed = ulen_samples + ulen_hep + ulen_seq + ulen_positions + ulen_walks
             stats.append({
-                "block_index": block_index,
+                "block_index": "walks",
                 "section_id": section_id,
                 "section_type": "walks",
                 "record_num": record_num,
