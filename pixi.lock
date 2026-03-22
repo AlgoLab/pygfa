@@ -20,6 +20,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.1.4-hbd8a1cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cffi-2.0.0-py314h4a8dc5f_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.13.5-py314h67df5f8_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/elfutils-0.194-h849f50c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
@@ -92,6 +93,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pycparser-2.22-pyh29332c3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.19.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-9.0.2-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-cov-6.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-memray-1.8.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-xdist-3.8.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.14.3-h32b2ec7_100_cp314.conda
@@ -236,6 +238,21 @@ packages:
   - pkg:pypi/colorama?source=hash-mapping
   size: 27011
   timestamp: 1733218222191
+- conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.13.5-py314h67df5f8_0.conda
+  sha256: cf5f98a291c3a5489cb299bae38711d5dc21b88a00df981f3b1528781e18c909
+  md5: 78f547b78ace7541c4f54c4268ac9d2e
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=14
+  - python >=3.14,<3.15.0a0
+  - python_abi 3.14.* *_cp314
+  - tomli
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/coverage?source=compressed-mapping
+  size: 411308
+  timestamp: 1773761119353
 - conda: https://conda.anaconda.org/conda-forge/linux-64/elfutils-0.194-h849f50c_0.conda
   sha256: f71eae7dc8ff9392d225d2d529691b2db16289b7d8009646eeb1adf0caf3937b
   md5: 6da1f998c8ea85ba7692afbb5db72fb9
@@ -1152,7 +1169,7 @@ packages:
 - pypi: ./
   name: pygfa
   version: 0.1.0
-  sha256: c8b6243d3637bd0d92c14e19f6c8e72a7b443a7ca566a87bb2d1216c8e7ad2bc
+  sha256: ce3e638e61ce47bf4cbcbd7331c1a6734b153924d97d4dbfed0494ae8fccf988
   requires_dist:
   - networkx>=3.6.1,<4
   - lark>=1.3.1,<2
@@ -1162,6 +1179,7 @@ packages:
   - lz4>=4.0.0
   - brotli>=1.1.0
   - pytest>=9.0.2,<10 ; extra == 'dev'
+  - pytest-cov>=6.0.0,<7 ; extra == 'dev'
   - ruff>=0.8.0,<1 ; extra == 'dev'
   - mypy>=1.13.0,<2 ; extra == 'dev'
   - coverage>=7.0.0,<8 ; extra == 'dev'
@@ -1198,6 +1216,21 @@ packages:
   - pkg:pypi/pytest?source=hash-mapping
   size: 299581
   timestamp: 1765062031645
+- conda: https://conda.anaconda.org/conda-forge/noarch/pytest-cov-6.3.0-pyhd8ed1ab_0.conda
+  sha256: 5ba3e0955e473234fcc38cb4f0d893135710ec85ccb1dffdd73d9b213e99e8fb
+  md5: 50d191b852fccb4bf9ab7b59b030c99d
+  depends:
+  - coverage >=7.5
+  - pluggy >=1.2
+  - pytest >=6.2.5
+  - python >=3.10
+  - toml
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/pytest-cov?source=hash-mapping
+  size: 28806
+  timestamp: 1757200686993
 - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-memray-1.8.0-pyhd8ed1ab_0.conda
   sha256: 03f9bc063bf51454bfcad859918dbb08673fb848d8d7b12f1b8130fa59fec9fa
   md5: 8ec1201026003252fb9a9c1c67c10ebf
