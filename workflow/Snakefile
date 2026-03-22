@@ -191,9 +191,12 @@ rule measure_bgfa:
         gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
     output:
         csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
+    params:
+        option="{option}",
+        encoding="{encoding}",
     shell:
         "tmp=$(mktemp -p {OUTPUT_DIR} measure_XXXXXX.csv) && "
         "pixi run python bin/bgfatools measure {input.bgfa} \"$tmp\" && "
-        "awk 'NR==1{{print \"original_gfa,\" $0}} NR>1{{print \"{input.gfa},\" $0}}' \"$tmp\" > {output.csv} && "
+        "awk -v gfa=\"{input.gfa}\" -v opt=\"{params.option}\" -v enc=\"{params.encoding}\" 'NR==1{{print \"original_gfa,option,value,\" $0}} NR>1{{print gfa \",\" opt \",\" enc \",\" $0}}' \"$tmp\" > {output.csv} && "
         "rm -f \"$tmp\" {input.bgfa}.log || "
         "{{ echo 'ERROR: Measurement failed for {input.bgfa}' >&2; exit 1; }}"
