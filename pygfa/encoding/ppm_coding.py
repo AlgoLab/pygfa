@@ -375,10 +375,9 @@ def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
         return []
     if len(data) < 5:
         raise ValueError("Invalid PPM data")
-    original_len = struct.unpack("<I", data[:4])[0]
     compressed = data[5:]
     decompressor = zstandard.ZstdDecompressor()
-    decoded = decompressor.decompress(compressed, max_output_size=original_len)
+    decoded = decompressor.decompress(compressed, max_output_size=None)
     # Split according to lengths
     result = []
     offset = 0
