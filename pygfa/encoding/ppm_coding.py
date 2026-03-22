@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import struct
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 
 class PPMModel:
@@ -354,10 +354,18 @@ def compress_string_list_ppm(string_list: List[str], order: int = 3) -> bytes:
     return bytes(result)
 
 
-def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
+def decompress_string_ppm(
+    data: bytes, lengths: list[int], int_decoder: Callable | None = None
+) -> list[bytes]:
     """Decompress PPM-compressed data and return list of byte strings.
 
-    Format:
+    Format when used with int_decoder (BGFA format):
+        - [VARINT-encoded lengths] (decoded by int_decoder)
+        - uint32: original data length (total of all strings)
+        - uint8: PPM order
+        - compressed data (zstd)
+
+    Format when used without int_decoder (standalone PPM):
         - uint32: original data length
         - uint8: PPM order
         - compressed data (zstd)
@@ -365,6 +373,7 @@ def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
     Args:
         data: PPM-compressed data
         lengths: List of string lengths for splitting
+        int_decoder: Optional integer decoder function (data, count) -> (lengths_list, bytes_consumed)
 
     Returns:
         List of decompressed byte strings
@@ -373,16 +382,26 @@ def decompress_string_ppm(data: bytes, lengths: list[int]) -> list[bytes]:
 
     if not data:
         return []
-    if len(data) < 5:
+
+    if int_decoder is not None and lengths and lengths[0] == 0:
+        record_count = len(lengths)
+        actual_lengths, consumed = int_decoder(data, record_count)
+        ppm_header_start = consumed
+    else:
+        actual_lengths = lengths
+        ppm_header_start = 0
+
+    if len(data) < ppm_header_start + 5:
         raise ValueError("Invalid PPM data")
-    original_len = struct.unpack("<I", data[:4])[0]
-    compressed = data[5:]
+
+    zstd_data = data[ppm_header_start + 5 :]
+
     decompressor = zstandard.ZstdDecompressor()
-    decoded = decompressor.decompress(compressed, max_output_size=original_len)
-    # Split according to lengths
+    decoded = decompressor.decompress(zstd_data)
+
     result = []
     offset = 0
-    for length in lengths:
+    for length in actual_lengths:
         result.append(decoded[offset : offset + length])
         offset += length
     return result
