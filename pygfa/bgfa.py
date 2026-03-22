@@ -863,7 +863,7 @@ STRING_DECODERS = {
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
     STRING_ENCODING_LZ4: lambda p, rn, id: decompress_string_lz4(p, [0] * rn),
     STRING_ENCODING_BROTLI: lambda p, rn, id: decompress_string_brotli(p, [0] * rn),
-    STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn),
+    STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn, id),
     STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
     STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
     STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
