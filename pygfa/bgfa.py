@@ -1666,7 +1666,14 @@ class BGFAWriter:
     def __init__(self, gfa: GFA, block_size: int = DEFAULT_BLOCK_SIZE, comp_options: dict = None):
         self._gfa = gfa
         self._block_size = block_size
-        self._comp_options = comp_options or {}
+        # Process string encoding options into integer codes
+        self._comp_options = {}
+        if comp_options:
+            for k, v in comp_options.items():
+                if isinstance(v, str):
+                    self._comp_options[k] = parse_compression_strategy(v)
+                else:
+                    self._comp_options[k] = v
         self._segment_map = {}
 
     def _write_header(self, buf: io.BytesIO) -> None:
@@ -1809,11 +1816,13 @@ class BGFAWriter:
 def parse_compression_strategy(s: str) -> int:
     """Parse a compression strategy string into a code.
 
-    Format: "int_encoding-str_encoding" (e.g., "varint-2bit")
+    Format: "int_encoding-str_encoding" (e.g., "varint-2bit") or
+             "int_encoding+str_encoding" (e.g., "bit_packing+brotli")
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 
-    p = re.split(r"[-_]", s.lower())
+    # Split on hyphen or plus sign only (not underscore, which is part of encoding names)
+    p = re.split(r"[-+]", s.lower())
 
     i_map = {e.name.lower().replace("_", ""): e.value for e in IntegerEncoding}
     s_map = {e.name.lower().replace("_", ""): e.value for e in StringEncoding}
@@ -1823,8 +1832,8 @@ def parse_compression_strategy(s: str) -> int:
     s_map["identity"] = 0
     s_map["2bit"] = 5
 
-    int_enc = i_map.get(p[0], INTEGER_ENCODING_VARINT)
-    str_enc = s_map.get(p[1] if len(p) > 1 else "none", STRING_ENCODING_NONE)
+    int_enc = i_map.get(p[0].replace("_", ""), INTEGER_ENCODING_VARINT)
+    str_enc = s_map.get(p[1].replace("_", "") if len(p) > 1 else "none", STRING_ENCODING_NONE)
 
     return make_compression_code(int_enc, str_enc)
 
