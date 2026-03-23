@@ -120,41 +120,20 @@ from pygfa.encoding.ppm_coding import (
     compress_string_ppm,
 )
 
-COMPRESSION_OPTIONS: dict[str, list[str]] = {
-    "segment_names": [
-        "segment_names_header",
-        "segment_names_payload_lengths",
-        "segment_names_payload_names",
-    ],
-    "segments": [
-        "segments_header",
-        "segments_payload_lengths",
-        "segments_payload_strings",
-    ],
-    "links": [
-        "links_header",
-        "links_payload_from",
-        "links_payload_to",
-        "links_payload_cigar_lengths",
-        "links_payload_cigar",
-    ],
-    "paths": [
-        "paths_header",
-        "paths_payload_names",
-        "paths_payload_segment_lengths",
-        "paths_payload_path_ids",
-        "paths_payload_cigar_lengths",
-        "paths_payload_cigar",
-    ],
-    "walks": [
-        "walks_header",
-        "walks_payload_sample_ids",
-        "walks_payload_hep_indices",
-        "walks_payload_sequence_ids",
-        "walks_payload_start",
-        "walks_payload_end",
-        "walks_payload_walks",
-    ],
+COMPRESSION_OPTIONS: dict[str, str] = {
+    "compression_segment_names": "2byte",
+    "compression_str": "2byte",
+    "compression_from": "1byte_int",
+    "compression_to": "1byte_int",
+    "compression_cigars": "4byte_cigar",
+    "compression_path_names": "2byte",
+    "compression_paths": "4byte_walks",
+    "compression_sample_ids": "2byte",
+    "compression_hep": "2byte",
+    "compression_sequence": "1byte_str",
+    "compression_positions_start": "1byte_int",
+    "compression_positions_end": "1byte_int",
+    "compression_walks": "4byte_walks",
 }
 
 INTEGER_ENCODING_NAMES: list[str] = [e.name.lower() for e in IntegerEncoding]
@@ -211,10 +190,47 @@ STRING_ENCODINGS: dict[str, str] = {
 
 
 def show_full_encodings() -> dict[str, list[str]]:
-    """Return a flat dict mapping each compression option to its valid encoding methods."""
-    all_methods = sorted(INTEGER_ENCODING_NAMES + STRING_ENCODING_NAMES)
+    """Return a dict mapping each compression option to all possible encoding values.
+
+    Option names match the compression fields in the BGFA specification.
+    For 2-byte fields, values are ``int_enc+str_enc`` combinations.
+    For 4-byte CIGAR fields, values are ``decomp+int1+int2+str`` combinations.
+    For 4-byte walks/paths fields, values are ``decomp+int+str`` combinations.
+    For 1-byte integer-only fields, values are integer encoding names.
+    For 1-byte string-only fields, values are string encoding names.
+    """
+    int_names = sorted(
+        n for n in INTEGER_ENCODING_NAMES if n
+    )
+    str_names = sorted(
+        n for n in STRING_ENCODING_NAMES if n
+    )
+
     result: dict[str, list[str]] = {}
-    for options in COMPRESSION_OPTIONS.values():
-        for opt in options:
-            result[opt] = all_methods
+    for option, field_type in COMPRESSION_OPTIONS.items():
+        if field_type == "2byte":
+            result[option] = sorted(
+                f"{ie}+{se}" for ie in int_names for se in str_names
+            )
+        elif field_type == "1byte_int":
+            result[option] = list(int_names)
+        elif field_type == "1byte_str":
+            result[option] = list(str_names)
+        elif field_type == "4byte_cigar":
+            decomp_names = ["none", "numops_lengths_ops", "string"]
+            result[option] = sorted(
+                f"{d}+{ie1}+{ie2}+{se}"
+                for d in decomp_names
+                for ie1 in int_names
+                for ie2 in int_names
+                for se in str_names
+            )
+        elif field_type == "4byte_walks":
+            decomp_names = ["none", "orientation_strid", "orientation_numid"]
+            result[option] = sorted(
+                f"{d}+{ie}+{se}"
+                for d in decomp_names
+                for ie in int_names
+                for se in str_names
+            )
     return result
