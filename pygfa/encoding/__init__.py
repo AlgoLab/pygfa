@@ -122,15 +122,15 @@ from pygfa.encoding.ppm_coding import (
 
 COMPRESSION_OPTIONS: dict[str, str] = {
     "compression_segment_names": "2byte",
-    "compression_str": "2byte",
+    "compression_sequences": "2byte",
     "compression_from": "1byte_int",
     "compression_to": "1byte_int",
     "compression_cigars": "4byte_cigar",
     "compression_path_names": "2byte",
     "compression_paths": "4byte_walks",
     "compression_sample_ids": "2byte",
-    "compression_hep": "2byte",
-    "compression_sequence": "1byte_str",
+    "compression_haplotype_indices": "2byte",
+    "compression_sequence_ids": "1byte_str",
     "compression_positions_start": "1byte_int",
     "compression_positions_end": "1byte_int",
     "compression_walks": "4byte_walks",
