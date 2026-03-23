@@ -196,15 +196,15 @@ def parse_cli_options():
     # Extract compression options (they have specific names)
     comp_prefixes = [
         "compression-segment-names",
-        "compression-str",
+        "compression-sequences",
         "compression-from",
         "compression-to",
         "compression-cigars",
         "compression-path-names",
         "compression-paths",
         "compression-sample-ids",
-        "compression-hep",
-        "compression-sequence",
+        "compression-haplotype-indices",
+        "compression-sequence-ids",
         "compression-positions-start",
         "compression-positions-end",
         "compression-walks",
