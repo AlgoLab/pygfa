@@ -56,11 +56,11 @@ The BGFA format uses strategy codes to specify encoding methods. The code size d
 
 **Storage:** Strategy codes are stored as little-endian multi-byte integers. The integer value is constructed by placing the first byte listed below in the high-order position, the second byte in the next position, and so on. The resulting integer is written in little-endian byte order.
 
-| Type         | Code Size | Integer Structure                          | Example      | Used For           |
-|--------------|-----------|--------------------------------------------|--------------|--------------------|
-| Integer-only | 1 byte    | `[method]`                                 | `0x01`       | Pure integer lists |
-| Strings      | 2 bytes   | `(int_method << 8) | str_method`           | `0x0102`     | String lists       |
-| CIGAR        | 4 bytes   | `(decomp<<24)|(int1<<16)|(int2<<8)|ops`    | `0x01020304` | CIGAR strings only |
+| Type         | Code Size | Integer Structure                        | Example      | Used For           |
+|--------------|-----------|------------------------------------------|--------------|--------------------|
+| Integer-only | 1 byte    | `[method]`                               | `0x01`       | Pure integer lists |
+| Strings      | 2 bytes   | `(int_method << 8) | str_method`         | `0x0102`     | String lists       |
+| CIGAR        | 4 bytes   | `(decomp<<24)|(int1<<16)|(int2<<8)|ops`  | `0x01020304` | CIGAR strings only |
 | Walks/Paths  | 4 bytes   | `(decomp<<24)|(reserved<<16)|(int<<8)|0` | `0x02000000` | Walks and Paths    |
 
 **Key distinction:**
@@ -154,7 +154,8 @@ The following is the sequence of fields making up the header.
 | `section_id`              | Section type (3 = links)                               | `uint8`  |
 | `record_num`              | number of records in the block                         | `uint16` |
 | **From/To field**         |                                                        |          |
-| `compression_fromto`      | Encoding strategy for the from and to fields (2 bytes) | `uint16` |
+| `compression_from`        | Encoding strategy for the from  fields                 | `uint8`  |
+| `compression_to`          | Encoding strategy for the to fields                    | `uint8`  |
 | `compressed_fromto_len`   | length of compressed from/to payload (metadata + blob) | `uint64` |
 | **CIGAR field**           |                                                        |          |
 | `compression_cigars`      | Encoding strategy for the cigar strings (4 bytes)      | `uint32` |
@@ -224,31 +225,32 @@ Each block consists of a header and a payload.
 
 The following is the sequence of fields making up the header.
 
-| Field                        | Description                                                             | Type     |
-|------------------------------|-------------------------------------------------------------------------|----------|
-| `section_id`                 | Section type (5 = walks)                                                | `uint8`  |
-| `record_num`                 | number of records in the block                                          | `uint16` |
-| **Compression strategies**   |                                                                         |          |
-| `compression_sample_ids`     | Encoding strategy for the sample IDs (2 bytes)                          | `uint16` |
-| `compression_hep`            | Encoding strategy for the haplotype indices (2 bytes)                   | `uint16` |
-| `compression_sequence`       | Encoding strategy for the sequence IDs (2 bytes)                        | `uint16` |
-| `compression_positions`      | Encoding strategy for the start and end positions (2 bytes)             | `uint16` |
-| `compression_walks`          | Encoding strategy for the walks (4 bytes)                               | `uint32` |
-| **Samples field**            |                                                                         |          |
-| `compressed_sample_ids_len`  | length of compressed sample IDs payload (metadata + blob)               | `uint64` |
-| `uncompressed_sample_ids_len`| sum of the lengths of uncompressed sample IDs                           | `uint64` |
-| **Haplotype indices field**  |                                                                         |          |
-| `compressed_hep_len`         | length of compressed haplotype indices payload (metadata + blob)        | `uint64` |
-| `uncompressed_hep_len`       | sum of the lengths of uncompressed haplotype indices                    | `uint64` |
-| **Sequence IDs field**       |                                                                         |          |
-| `compressed_sequence_len`    | length of compressed sequence IDs payload (metadata + blob)             | `uint64` |
-| `uncompressed_sequence_len`  | sum of the lengths of uncompressed sequence IDs                         | `uint64` |
-| **Positions field**          |                                                                         |          |
-| `compressed_positions_len`   | length of compressed positions payload (metadata + blob)                | `uint64` |
-| `uncompressed_positions_len` | sum of the lengths of uncompressed positions                            | `uint64` |
-| **Walks field**              |                                                                         |          |
-| `compressed_walk_len`        | length of compressed walks payload (metadata + blob)                    | `uint64` |
-| `uncompressed_walk_len`      | sum of the lengths of uncompressed walks (total segment occurrences)    | `uint64` |
+| Field                         | Description                                                          | Type     |
+|-------------------------------|----------------------------------------------------------------------|----------|
+| `section_id`                  | Section type (5 = walks)                                             | `uint8`  |
+| `record_num`                  | number of records in the block                                       | `uint16` |
+| **Compression strategies**    |                                                                      |          |
+| `compression_sample_ids`      | Encoding strategy for the sample IDs (2 bytes)                       | `uint16` |
+| `compression_hep`             | Encoding strategy for the haplotype indices (2 bytes)                | `uint16` |
+| `compression_sequence`        | Encoding strategy for the sequence IDs                               | `uint8`  |
+| `compression_positions_start` | Encoding strategy for the start positions                            | `uint8`  |
+| `compression_positions_end`   | Encoding strategy for the  end positions                             | `uint8`  |
+| `compression_walks`           | Encoding strategy for the walks (4 bytes)                            | `uint32` |
+| **Samples field**             |                                                                      |          |
+| `compressed_sample_ids_len`   | length of compressed sample IDs payload (metadata + blob)            | `uint64` |
+| `uncompressed_sample_ids_len` | sum of the lengths of uncompressed sample IDs                        | `uint64` |
+| **Haplotype indices field**   |                                                                      |          |
+| `compressed_hep_len`          | length of compressed haplotype indices payload (metadata + blob)     | `uint64` |
+| `uncompressed_hep_len`        | sum of the lengths of uncompressed haplotype indices                 | `uint64` |
+| **Sequence IDs field**        |                                                                      |          |
+| `compressed_sequence_len`     | length of compressed sequence IDs payload (metadata + blob)          | `uint64` |
+| `uncompressed_sequence_len`   | sum of the lengths of uncompressed sequence IDs                      | `uint64` |
+| **Positions field**           |                                                                      |          |
+| `compressed_positions_len`    | length of compressed positions payload (metadata + blob)             | `uint64` |
+| `uncompressed_positions_len`  | sum of the lengths of uncompressed positions                         | `uint64` |
+| **Walks field**               |                                                                      |          |
+| `compressed_walk_len`         | length of compressed walks payload (metadata + blob)                 | `uint64` |
+| `uncompressed_walk_len`       | sum of the lengths of uncompressed walks (total segment occurrences) | `uint64` |
 
 #### Payload
 
