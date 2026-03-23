@@ -5,9 +5,11 @@ Strictly following the specification in spec/gfa_binary_format.md.
 
 from __future__ import annotations
 
+import brotli
 import gzip
 import io
 import logging
+import lz4.frame
 import lzma
 import math
 import re
@@ -51,12 +53,6 @@ from pygfa.encoding.cigar_encoding import (
 )
 from pygfa.encoding.dictionary_encoding import (
     decompress_string_dictionary,
-)
-from pygfa.encoding.lz4_codec import (
-    decompress_string_lz4,
-)
-from pygfa.encoding.brotli_codec import (
-    decompress_string_brotli,
 )
 from pygfa.encoding.ppm_coding import (
     decompress_string_ppm,
@@ -703,6 +699,20 @@ def decompress_string_lzma(payload: bytes, record_num: int, int_decoder: Callabl
     return decompress_string_none_from_blob(data, lengths)
 
 
+def decompress_string_lz4(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode lz4-compressed strings."""
+    lengths, consumed = int_decoder(payload, record_num)
+    data = lz4.frame.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_brotli(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode brotli-compressed strings."""
+    lengths, consumed = int_decoder(payload, record_num)
+    data = brotli.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
 def decompress_string_huffman(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
     """Decode nibble-huffman encoded strings."""
     lengths, consumed = int_decoder(payload, record_num)
@@ -875,8 +885,8 @@ STRING_DECODERS = {
     STRING_ENCODING_CIGAR: lambda p, rn, id: _decompress_string_cigar_with_metadata(p, rn, id),
     STRING_ENCODING_DICTIONARY: lambda p, rn, id: decompress_string_dictionary(p, [0] * rn),
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
-    STRING_ENCODING_LZ4: lambda p, rn, id: decompress_string_lz4(p, [0] * rn),
-    STRING_ENCODING_BROTLI: lambda p, rn, id: decompress_string_brotli(p, [0] * rn),
+    STRING_ENCODING_LZ4: decompress_string_lz4,
+    STRING_ENCODING_BROTLI: decompress_string_brotli,
     STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn, id),
     STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
     STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
@@ -905,6 +915,8 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
             method = "huffman"
         elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:
             method = "2bit"
+        elif str_encoding == STRING_ENCODING_SUPERSTRING_PPM:
+            method = "ppm"
         return compress_string_list_superstring(string_list, int_encoder, method, first_byte_strategy=int_encoding)
 
     # Concatenation encodings
@@ -1818,6 +1830,7 @@ def parse_compression_strategy(s: str) -> int:
 
     Format: "int_encoding-str_encoding" (e.g., "varint-2bit") or
              "int_encoding+str_encoding" (e.g., "bit_packing+brotli")
+             or just "str_encoding" (e.g., "superstring_ppm", "brotli")
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 
@@ -1832,8 +1845,21 @@ def parse_compression_strategy(s: str) -> int:
     s_map["identity"] = 0
     s_map["2bit"] = 5
 
+    # Handle single-part encoding (e.g., "superstring_ppm", "brotli")
+    if len(p) == 1:
+        # Try to match as string encoding first
+        str_key = p[0].replace("_", "")
+        str_enc = s_map.get(str_key, STRING_ENCODING_NONE)
+        if str_enc != STRING_ENCODING_NONE:
+            # Found a valid string encoding, use default integer encoding
+            return make_compression_code(INTEGER_ENCODING_VARINT, str_enc)
+        # Not found, try as integer encoding (legacy support)
+        int_enc = i_map.get(str_key, INTEGER_ENCODING_VARINT)
+        return make_compression_code(int_enc, STRING_ENCODING_NONE)
+
+    # Two-part encoding: int_encoding+str_encoding or int_encoding-str_encoding
     int_enc = i_map.get(p[0].replace("_", ""), INTEGER_ENCODING_VARINT)
-    str_enc = s_map.get(p[1].replace("_", "") if len(p) > 1 else "none", STRING_ENCODING_NONE)
+    str_enc = s_map.get(p[1].replace("_", ""), STRING_ENCODING_NONE)
 
     return make_compression_code(int_enc, str_enc)
 

@@ -26,6 +26,9 @@ def discover_encodings():
 
     Single-byte fields remain unchanged.
     """
+    # Encodings to exclude from benchmarks
+    EXCLUDED_ENCODINGS = {"bwt_huffman"}
+
     cmd = ["pixi", "run", "python", "bin/bgfatools", "show-full-encodings"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -59,7 +62,7 @@ def discover_encodings():
                 parts = m.split('+')
                 for i, part in enumerate(parts):
                     mapped = _normalize(part)
-                    if mapped and mapped not in seen_per_byte[i]:
+                    if mapped and mapped not in seen_per_byte[i] and mapped not in EXCLUDED_ENCODINGS:
                         per_byte[i].append(mapped)
                         seen_per_byte[i].add(mapped)
 
@@ -70,7 +73,7 @@ def discover_encodings():
             seen = set()
             for m in methods:
                 mapped = _normalize(m)
-                if mapped and mapped not in seen:
+                if mapped and mapped not in seen and mapped not in EXCLUDED_ENCODINGS:
                     normalized.append(mapped)
                     seen.add(mapped)
             encodings[option] = sorted(normalized)
