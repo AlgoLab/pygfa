@@ -17,13 +17,21 @@ from benchmark_filter import filter_gfa_files, extract_header_comments
 
 
 def discover_encodings():
-    """Discover available encodings from bgfatools show-full-encodings"""
+    """Discover available encodings from bgfatools show-full-encodings.
+
+    For multi-byte fields (composite values with '+' separator), splits into
+    per-byte option entries. E.g. compression_segment_names becomes:
+      - compression_segment_names_1: byte 1 values, byte 2 fixed to identity
+      - compression_segment_names_2: byte 2 values, byte 1 fixed to identity
+
+    Single-byte fields remain unchanged.
+    """
     cmd = ["pixi", "run", "python", "bin/bgfatools", "show-full-encodings"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise Exception(f"Failed to discover encodings: {result.stderr}")
     raw_encodings = json.loads(result.stdout)
-    
+
     encoding_map = {
         "two_bit_dna": "2bit",
         "elias_gamma": "gamma",
@@ -31,18 +39,42 @@ def discover_encodings():
         "simple_8b": "simple8b",
         "identity": "none",
     }
-    
+
+    def _normalize(name):
+        return encoding_map.get(name, name)
+
     encodings = {}
     for option, methods in raw_encodings.items():
-        normalized = []
-        seen = set()
-        for m in methods:
-            mapped = encoding_map.get(m, m)
-            if mapped and mapped not in seen:
-                normalized.append(mapped)
-                seen.add(mapped)
-        encodings[option] = normalized
-    
+        if not methods:
+            continue
+
+        is_multi_byte = '+' in methods[0]
+
+        if is_multi_byte:
+            num_bytes = len(methods[0].split('+'))
+            per_byte = [[] for _ in range(num_bytes)]
+            seen_per_byte = [set() for _ in range(num_bytes)]
+
+            for m in methods:
+                parts = m.split('+')
+                for i, part in enumerate(parts):
+                    mapped = _normalize(part)
+                    if mapped and mapped not in seen_per_byte[i]:
+                        per_byte[i].append(mapped)
+                        seen_per_byte[i].add(mapped)
+
+            for byte_idx in range(num_bytes):
+                encodings[f"{option}_{byte_idx + 1}"] = sorted(per_byte[byte_idx])
+        else:
+            normalized = []
+            seen = set()
+            for m in methods:
+                mapped = _normalize(m)
+                if mapped and mapped not in seen:
+                    normalized.append(mapped)
+                    seen.add(mapped)
+            encodings[option] = sorted(normalized)
+
     return encodings
 
 
@@ -105,44 +137,63 @@ def get_all_csv_files():
     return files
 
 
-# Mapping from encoding option names to bgfatools CLI flag names
-ENCODING_CLI_MAP = {
-    "segment_names_header": "--names-enc",
-    "segment_names_payload_lengths": "--names-enc",
-    "segment_names_payload_names": "--names-enc",
-    "segments_header": "--seq-enc",
-    "segments_payload_lengths": "--seq-enc",
-    "segments_payload_strings": "--seq-enc",
-    "links_header": "--links-fromto-enc",
-    "links_payload_from": "--links-fromto-enc",
-    "links_payload_to": "--links-fromto-enc",
-    "links_payload_cigar_lengths": "--links-cigars-enc",
-    "links_payload_cigar": "--links-cigars-enc",
-    "paths_header": "--paths-names-enc",
-    "paths_payload_names": "--paths-names-enc",
-    "paths_payload_segment_lengths": "--paths-paths-enc",
-    "paths_payload_path_ids": "--paths-paths-enc",
-    "paths_payload_cigar_lengths": "--paths-cigars-enc",
-    "paths_payload_cigar": "--paths-cigars-enc",
-    "walks_header": "--walks-sample-ids-enc",
-    "walks_payload_sample_ids": "--walks-sample-ids-enc",
-    "walks_payload_hep_indices": "--walks-hap-indices-enc",
-    "walks_payload_sequence_ids": "--walks-seq-ids-enc",
-    "walks_payload_start": "--walks-start-enc",
-    "walks_payload_end": "--walks-end-enc",
-    "walks_payload_walks": "--walks-walks-enc"
+# Mapping from base compression option names to bgfatools CLI flag names.
+# Used by _build_compress_flags to determine which CLI flag each option controls.
+OPTION_CLI_MAP = {
+    "compression_segment_names": "--names-enc",
+    "compression_sequences": "--seq-enc",
+    "compression_from": "--links-fromto-enc",
+    "compression_to": "--links-fromto-enc",
+    "compression_cigars": "--links-cigars-enc",
+    "compression_path_names": "--paths-names-enc",
+    "compression_paths": "--paths-paths-enc",
+    "compression_sample_ids": "--walks-sample-ids-enc",
+    "compression_haplotype_indices": "--walks-hap-indices-enc",
+    "compression_sequence_ids": "--walks-seq-ids-enc",
+    "compression_positions_start": "--walks-start-enc",
+    "compression_positions_end": "--walks-end-enc",
+    "compression_walks": "--walks-walks-enc",
 }
 
 
 def _build_compress_flags(option, encoding):
-    """Build shell string of compression flags for bgfatools CLI."""
+    """Build shell string of compression flags for bgfatools CLI.
+
+    For byte-position options (e.g. compression_segment_names_2), builds
+    a composite encoding with all other bytes set to identity (none).
+    """
+    # Detect byte position suffix: option names like "compression_xxx_N"
+    base_option = option
+    byte_position = None
+    m = re.match(r'^(.+)_([0-9]+)$', option)
+    if m and m.group(1) in OPTION_CLI_MAP:
+        base_option = m.group(1)
+        byte_position = int(m.group(2))
+
+    encodings, _ = get_cached_data()
+
     cli_to_options = {}
-    for opt, cli_flag in ENCODING_CLI_MAP.items():
+    for opt, cli_flag in OPTION_CLI_MAP.items():
         cli_to_options.setdefault(cli_flag, []).append(opt)
 
     flags = []
     for cli_flag, opts in cli_to_options.items():
-        val = encoding if option in opts else "none"
+        if base_option in opts:
+            if byte_position is not None:
+                # Determine total bytes from existing per-byte keys
+                num_bytes = 1
+                for key in encodings:
+                    km = re.match(rf'^{re.escape(base_option)}_([0-9]+)$', key)
+                    if km:
+                        num_bytes = max(num_bytes, int(km.group(1)))
+
+                parts = ["none"] * num_bytes
+                parts[byte_position - 1] = encoding
+                val = "-".join(parts)
+            else:
+                val = encoding
+        else:
+            val = "none"
         flags.append(f"{cli_flag} {val}")
     return " ".join(flags)
 
