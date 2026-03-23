@@ -125,9 +125,9 @@ incrementing integer starting at 0. Segment IDs are assigned in the order segmen
 | `compression_segment_names`      | Encoding strategy for the segment names (2 bytes)           | `uint16` |
 | `compressed_segment_names_len`   | length of compressed segment names field                    | `uint64` |
 | `uncompressed_segment_names_len` | sum of the lengths of the uncompressed segment names        | `uint64` |
-| `compression_str`                | Encoding strategy for the segment sequences (2 bytes)       | `uint16` |
-| `compressed_str_len`             | length of compressed segment_sequences field                | `uint64` |
-| `uncompressed_str_len`           | sum of the lengths of uncompressed segment_sequences fields | `uint64` |
+| `compression_segment_str`                | Encoding strategy for the segment sequences (2 bytes)       | `uint16` |
+| `compressed_segment_str_len`             | length of compressed segment_sequences field                | `uint64` |
+| `uncompressed_segment_str_len`           | sum of the lengths of uncompressed segment_sequences fields | `uint64` |
 
 The length of the uncompressed segment names does not include any terminator character.
 
@@ -158,9 +158,9 @@ The following is the sequence of fields making up the header.
 | `compression_to`          | Encoding strategy for the to fields                    | `uint8`  |
 | `compressed_fromto_len`   | length of compressed from/to payload (metadata + blob) | `uint64` |
 | **CIGAR field**           |                                                        |          |
-| `compression_cigars`      | Encoding strategy for the cigar strings (4 bytes)      | `uint32` |
-| `compressed_cigars_len`   | length of compressed cigars payload (metadata + blob)  | `uint64` |
-| `uncompressed_cigars_len` | sum of the lengths of uncompressed cigars              | `uint64` |
+| `compression_links_cigars`      | Encoding strategy for the cigar strings (4 bytes)      | `uint32` |
+| `compressed_links_cigars_len`   | length of compressed cigars payload (metadata + blob)  | `uint64` |
+| `uncompressed_links_cigars_len` | sum of the lengths of uncompressed cigars              | `uint64` |
 
 #### Payload
 
@@ -175,7 +175,7 @@ length is 20 bytes.
 | `to_ids`           | Head segment IDs (1-based; 0 = no connection)     | `uints`                      |
 | `from_orientation` | Orientations of all from segments. 0 is +, 1 is - | `bits` (length = record_num) |
 | `to_orientation`   | Orientations of all to segments. 0 is +, 1 is -   | `bits` (length = record_num) |
-| `cigar_strings`    | CIGAR strings                                     | `strings`                    |
+| `links_cigar_strings`    | CIGAR strings                                     | `strings`                    |
 
 **Segment ID encoding:** Segment IDs in the links payload are stored as 1-based indices into the segment list (value = internal_segment_id + 1, where internal IDs start at 0). The value 0 is reserved to indicate "no connection". The reader converts back to 0-based by subtracting 1.
 
@@ -203,9 +203,9 @@ The following is the sequence of fields making up the header.
 | `compression_paths`           | Encoding strategy for the paths as list of segment IDs (4 bytes) | `uint32` |
 | `compressed_paths_len`        | length of compressed paths                                       | `uint64` |
 | `uncompressed_paths_len`      | sum of the lengths of uncompressed paths (as segment ID strings) | `uint64` |
-| `compression_cigars`          | Encoding strategy for the cigar strings (4 bytes)                | `uint32` |
-| `compressed_len_cigar`        | length of compressed concatenated cigars                         | `uint64` |
-| `uncompressed_len_cigar`      | sum of the lengths of uncompressed concatenated cigars strings   | `uint64` |
+| `compression_paths_cigars`          | Encoding strategy for the cigar strings (4 bytes)                | `uint32` |
+| `compressed_paths_len_cigar`        | length of compressed concatenated cigars                         | `uint64` |
+| `uncompressed_paths_len_cigar`      | sum of the lengths of uncompressed concatenated cigars strings   | `uint64` |
 
 #### Payload
 
@@ -215,7 +215,7 @@ The following is the sequence of fields making up the payload layout.
 |-----------------|--------------------------------------------------------|-----------------|
 | `path_names`    | Path names                                             | `strings`       |
 | `paths`         | Paths, each path is a sequence of oriented segment IDs | `walks`         |
-| `cigar_strings` | The list of CIGAR strings                              | `strings`       |
+| `paths_cigar_strings` | The list of CIGAR strings                              | `strings`       |
 
 ### Walks Block
 
