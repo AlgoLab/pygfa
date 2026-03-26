@@ -88,7 +88,8 @@ class TestEncodingFieldOffsets(unittest.TestCase):
         
         for name, encoding in test_encodings:
             with self.subTest(encoding=name):
-                with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False) as f:
+                os.makedirs("results/test", exist_ok=True)
+                with tempfile.NamedTemporaryFile(suffix=".bgfa", dir="results/test", delete=False) as f:
                     bgfa_path = f.name
                 
                 try:
