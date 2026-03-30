@@ -5,6 +5,7 @@
 # Usage:
 #   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -j 8
 #   snakemake -s workflow/Snakefile --configfile workflow/config.yaml -n  # dry run
+#   snakemake -s workflow/Snakefile --config memory_limit_mb=8192 -j 8  # override memory limit
 
 import os
 import sys
