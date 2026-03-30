@@ -11,7 +11,7 @@ COLOR_CYAN = "\033[96m"
 COLOR_BOLD = "\033[1m"
 COLOR_RESET = "\033[0m"
 
-MEMORY_LIMIT = "8GB"
+DEFAULT_MEMORY_LIMIT = "8GB"
 LARGE_FILE_THRESHOLD = 1 * 1024 * 1024  # 1MB in bytes
 
 
@@ -59,6 +59,7 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Apply limit_memory marker only to tests that load GFA files > 1MB."""
+    memory_limit = config.getoption("--memory-limit", default=DEFAULT_MEMORY_LIMIT)
     for item in items:
         if "limit_memory" in item.keywords:
             continue
@@ -66,7 +67,7 @@ def pytest_collection_modifyitems(config, items):
         nodeid = item.nodeid
         for test_type in _TEST_TYPES_WITH_LARGE_FILES:
             if test_type in nodeid:
-                item.add_marker(pytest.mark.limit_memory(MEMORY_LIMIT))
+                item.add_marker(pytest.mark.limit_memory(memory_limit))
                 break
 
 
@@ -81,6 +82,12 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         help="Run tests only on the specified GFA file instead of all matching files",
+    )
+    parser.addoption(
+        "--memory-limit",
+        action="store",
+        default=DEFAULT_MEMORY_LIMIT,
+        help="Memory limit for tests (e.g. '8GB', '4GB'). Default: 8GB",
     )
 
 

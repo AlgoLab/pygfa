@@ -225,6 +225,57 @@ def get_gfa_file_from_args(test_name, data_dir=None):
     return matching_files[0]
 
 
+def get_benchmark_names_from_gfa(gfa_path):
+    """Parse a GFA file and extract benchmark names from comments.
+
+    Each GFA file can have one or more comments of the form `# benchmark: NAME`
+    at the beginning of the file. The comment `# benchmark: NAME` means that
+    the GFA file must be used for the benchmark named NAME.
+
+    Args:
+        gfa_path: Path to the GFA file.
+
+    Returns:
+        A list of benchmark names extracted from the GFA file comments.
+        Returns an empty list if no benchmark comments are found.
+    """
+    benchmark_names = []
+
+    if not os.path.isabs(gfa_path):
+        gfa_path = os.path.abspath(gfa_path)
+
+    if not os.path.exists(gfa_path):
+        return benchmark_names
+
+    with open(gfa_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith("#"):
+                break
+            match = re.match(r"^#\s*benchmark:\s*(\S+)", line)
+            if match:
+                benchmark_names.append(match.group(1))
+
+    return benchmark_names
+
+
+def should_run_benchmark_for_gfa(benchmark_name, gfa_path):
+    """Check if a benchmark should run for a given GFA file.
+
+    A benchmark should only run if there is a corresponding `# benchmark: NAME`
+    comment in the GFA file.
+
+    Args:
+        benchmark_name: The name of the benchmark (e.g., 'roundtrip_small').
+        gfa_path: Path to the GFA file.
+
+    Returns:
+        True if the benchmark should run for this GFA file, False otherwise.
+    """
+    benchmark_names = get_benchmark_names_from_gfa(gfa_path)
+    return benchmark_name in benchmark_names
+
+
 def get_all_gfa_files_for_test(test_name, data_dir="data"):
     """Get all GFA files for a test, optionally filtered by command-line argument.
 
