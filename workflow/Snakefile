@@ -116,6 +116,8 @@ BLOCK_SIZES = config.get("block_sizes", [
 
 OUTPUT_DIR = config.get("output_dir", "results/benchmark")
 
+MEMORY_LIMIT_MB = config.get("memory_limit_mb", 4096)
+
 _CACHED_ENCODINGS = None
 _CACHED_DATASETS = None
 
@@ -232,6 +234,8 @@ rule generate_bgfa:
         bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa"
     params:
         compress_flags=lambda wildcards: _build_compress_flags(wildcards.option, wildcards.encoding),
+    resources:
+        mem_mb=MEMORY_LIMIT_MB,
     shell:
         "pixi run python bin/bgfatools bgfa {input.gfa} {output.bgfa} "
         "--block-size {wildcards.block_size} {params.compress_flags} "
@@ -248,6 +252,8 @@ rule measure_bgfa:
     params:
         option="{option}",
         encoding="{encoding}",
+    resources:
+        mem_mb=MEMORY_LIMIT_MB,
     shell:
         "tmp=$(mktemp -p {OUTPUT_DIR} measure_XXXXXX.csv) && "
         "pixi run python bin/bgfatools measure {input.bgfa} \"$tmp\" && "

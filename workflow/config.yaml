@@ -17,3 +17,11 @@ block_sizes:
 # Output Configuration
 # =============================================================================
 output_dir: results/benchmark
+
+# =============================================================================
+# Memory Limit
+# Maximum memory (in MB) available for benchmark jobs.
+# Snakemake uses this to schedule jobs without exceeding total memory.
+# Override on CLI: --config memory_limit_mb=8192
+# =============================================================================
+memory_limit_mb: 4096
