@@ -49,6 +49,9 @@ gfa1_output = gfa.to_gfa1()
 
 See `AGENTS.md` for development guidelines and `doc/` for API documentation.
 
+See [BGFA specifications](https://github.com/AlgoLab/bgfa-spec/blob/main/gfa_binary_format.md) for the complete
+specifications of the binary GFA format.
+
 ## Testing
 
 ```bash
@@ -59,7 +62,6 @@ python -m pytest test/
 coverage run -p test/run_tests.sh
 coverage html
 ```
-
 
 ### Workflow
 
@@ -78,6 +80,7 @@ snakemake -s workflow/Snakefile -n
 ```
 
 **Features**:
+
 - 🔍 **Dynamic discovery**: Finds all GFA files with `# benchmark:` comments automatically
 - 🏷️ **Combined naming**: Files with multiple benchmark comments get combined names (e.g., `file_bgfa_compression_bgfa_roundtrip`)
 - 📁 **Benchmark-type directories**: Output organized by benchmark type (`benchmark/bgfa_compression/dataset/`, `benchmark/bgfa_roundtrip/dataset/`)
