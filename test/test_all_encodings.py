@@ -62,7 +62,7 @@ FIELD_TO_CLI_STR = {
 
 
 @dataclass
-class TestResult:
+class EncodingResult:
     """Result of a single encoding test."""
 
     encoding_name: str
@@ -77,10 +77,10 @@ class TestResult:
 class VerificationReport:
     """Collection of all test results."""
 
-    results: list[TestResult] = field(default_factory=list)
+    results: list[EncodingResult] = field(default_factory=list)
     start_time: float = 0.0
     end_time: float = 0.0
-    first_failure: TestResult | None = None
+    first_failure: EncodingResult | None = None
 
     @property
     def total_time_seconds(self) -> float:
@@ -140,13 +140,13 @@ def run_roundtrip_test(
     str_enc: str,
     is_int_test: bool,
     verbose: bool = False,
-) -> TestResult:
+) -> EncodingResult:
     """Run a single roundtrip test for an encoding combination."""
     enc_format = f"{int_enc}-{str_enc}"
     cli_option = FIELD_TO_CLI_INT.get(field_name) if is_int_test else FIELD_TO_CLI_STR.get(field_name)
 
     if not cli_option:
-        return TestResult(
+        return EncodingResult(
             encoding_name=enc_format,
             field_name=field_name,
             status="FAIL",
@@ -175,7 +175,7 @@ def run_roundtrip_test(
 
         if encode_result.returncode != 0:
             error_msg = encode_result.stderr.strip() or encode_result.stdout.strip()
-            return TestResult(
+            return EncodingResult(
                 encoding_name=enc_format,
                 field_name=field_name,
                 status="FAIL",
@@ -200,7 +200,7 @@ def run_roundtrip_test(
 
         if decode_result.returncode != 0:
             error_msg = decode_result.stderr.strip() or decode_result.stdout.strip()
-            return TestResult(
+            return EncodingResult(
                 encoding_name=enc_format,
                 field_name=field_name,
                 status="FAIL",
@@ -210,7 +210,7 @@ def run_roundtrip_test(
             )
 
         if not os.path.exists(gfa_output) or os.path.getsize(gfa_output) == 0:
-            return TestResult(
+            return EncodingResult(
                 encoding_name=enc_format,
                 field_name=field_name,
                 status="FAIL",
@@ -219,7 +219,7 @@ def run_roundtrip_test(
                 decode_time_ms=decode_time,
             )
 
-        return TestResult(
+        return EncodingResult(
             encoding_name=enc_format,
             field_name=field_name,
             status="PASS",
