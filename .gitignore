@@ -112,6 +112,8 @@ ENV/
 results/*
 openspec/
 .opencode/
+.kilo/
+.kilocode/
 plans/
 docs/superpowers/
 
@@ -123,3 +125,4 @@ docs/superpowers/
 
 node_modules
 bun.lock
+
