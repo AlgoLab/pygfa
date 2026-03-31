@@ -1795,10 +1795,10 @@ class BGFAWriter:
         # Write single segments block with names and sequences
         # No block_size chunking in new spec
         names_enc = self._comp_options.get(
-            "names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+            "segment_names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
         seqs_enc = self._comp_options.get(
-            "seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
+            "sequences_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
         )
 
         sorted_segs = [(name, i) for i, name in enumerate(names)]
@@ -1807,10 +1807,10 @@ class BGFAWriter:
         # Write links blocks
         edges = list(self._gfa.edges(data=True, keys=True))
         links_ft_enc = self._comp_options.get(
-            "links_fromto_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+            "link_endpoints_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
         links_cig_enc = self._comp_options.get(
-            "links_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR)
+            "link_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR)
         )
 
         for i in range(0, len(edges), self._block_size):
@@ -1976,14 +1976,16 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                     seq = seg_data.get("sequence", "*")
                     logger.info("    [%d] %s: %s", sid, name, seq[:50] + ("..." if len(seq) > 50 else ""))
 
-            stats.append({
-                "block_index": "segments",
-                "section_id": section_id,
-                "section_type": "segments",
-                "record_num": record_num,
-                "compressed_length": clen_names + clen_str,
-                "uncompressed_length": ulen_names + ulen_str,
-            })
+            stats.append(
+                {
+                    "block_index": "segments",
+                    "section_id": section_id,
+                    "section_type": "segments",
+                    "record_num": record_num,
+                    "compressed_length": clen_names + clen_str,
+                    "uncompressed_length": ulen_names + ulen_str,
+                }
+            )
             offset += consumed
 
         elif section_id == SECTION_ID_LINKS:
@@ -2018,16 +2020,26 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
             if verbose:
                 logger.info("  Links:")
                 for i, link in enumerate(lnks):
-                    logger.info("    [%d] %s%s -> %s%s  %s", i, link["from_node"], link["from_orn"], link["to_node"], link["to_orn"], link["alignment"])
+                    logger.info(
+                        "    [%d] %s%s -> %s%s  %s",
+                        i,
+                        link["from_node"],
+                        link["from_orn"],
+                        link["to_node"],
+                        link["to_orn"],
+                        link["alignment"],
+                    )
 
-            stats.append({
-                "block_index": "links",
-                "section_id": section_id,
-                "section_type": "links",
-                "record_num": record_num,
-                "compressed_length": clen_fromto + clen_cigars,
-                "uncompressed_length": ulen_cigars,
-            })
+            stats.append(
+                {
+                    "block_index": "links",
+                    "section_id": section_id,
+                    "section_type": "links",
+                    "record_num": record_num,
+                    "compressed_length": clen_fromto + clen_cigars,
+                    "uncompressed_length": ulen_cigars,
+                }
+            )
             offset += consumed
 
         elif section_id == SECTION_ID_PATHS:
@@ -2069,16 +2081,20 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                 logger.info("  Paths:")
                 for i, p in enumerate(paths_data):
                     segments_str = ", ".join(p.get("segments", []))
-                    logger.info("    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", []))
+                    logger.info(
+                        "    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", [])
+                    )
 
-            stats.append({
-                "block_index": "paths",
-                "section_id": section_id,
-                "section_type": "paths",
-                "record_num": record_num,
-                "compressed_length": clen_names + clen_cigars,
-                "uncompressed_length": ulen_names + ulen_cigars,
-            })
+            stats.append(
+                {
+                    "block_index": "paths",
+                    "section_id": section_id,
+                    "section_type": "paths",
+                    "record_num": record_num,
+                    "compressed_length": clen_names + clen_cigars,
+                    "uncompressed_length": ulen_names + ulen_cigars,
+                }
+            )
             offset += consumed
 
         elif section_id == SECTION_ID_WALKS:
@@ -2140,18 +2156,29 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
                 logger.info("  Walks:")
                 for i, w in enumerate(walks_data):
                     walk_str = ", ".join(w.get("walk", []))
-                    logger.info("    [%d] sample=%s hap=%s seq=%s start=%s end=%s: %s", i, w.get("sample_id", "?"), w.get("haplotype_index", "?"), w.get("sequence_id", "?"), w.get("start", "?"), w.get("end", "?"), walk_str)
+                    logger.info(
+                        "    [%d] sample=%s hap=%s seq=%s start=%s end=%s: %s",
+                        i,
+                        w.get("sample_id", "?"),
+                        w.get("haplotype_index", "?"),
+                        w.get("sequence_id", "?"),
+                        w.get("start", "?"),
+                        w.get("end", "?"),
+                        walk_str,
+                    )
 
             total_compressed = clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
             total_uncompressed = ulen_samples + ulen_hep + ulen_seq + ulen_positions + ulen_walks
-            stats.append({
-                "block_index": "walks",
-                "section_id": section_id,
-                "section_type": "walks",
-                "record_num": record_num,
-                "compressed_length": total_compressed,
-                "uncompressed_length": total_uncompressed,
-            })
+            stats.append(
+                {
+                    "block_index": "walks",
+                    "section_id": section_id,
+                    "section_type": "walks",
+                    "record_num": record_num,
+                    "compressed_length": total_compressed,
+                    "uncompressed_length": total_uncompressed,
+                }
+            )
             offset += consumed
 
         else:
@@ -2167,6 +2194,16 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
 
     # Write CSV
     with open(output_file, "w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=["block_index", "section_id", "section_type", "record_num", "compressed_length", "uncompressed_length"])
+        writer = csv.DictWriter(
+            csvfile,
+            fieldnames=[
+                "block_index",
+                "section_id",
+                "section_type",
+                "record_num",
+                "compressed_length",
+                "uncompressed_length",
+            ],
+        )
         writer.writeheader()
         writer.writerows(stats)

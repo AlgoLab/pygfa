@@ -31,33 +31,33 @@ from pygfa.encoding import (
 )
 
 FIELD_TO_CLI_INT = {
-    "segment_names_payload_lengths": "--names-enc",
-    "segments_payload_lengths": "--seq-enc",
-    "links_payload_from": "--links-fromto-enc",
-    "links_payload_to": "--links-fromto-enc",
-    "links_payload_cigar_lengths": "--links-cigars-enc",
-    "paths_payload_segment_lengths": "--paths-paths-enc",
-    "paths_payload_cigar_lengths": "--paths-cigars-enc",
-    "walks_payload_hep_indices": "--walks-hap-indices-enc",
-    "walks_payload_start": "--walks-start-enc",
-    "walks_payload_end": "--walks-end-enc",
+    "segment_names_payload_lengths": "--segment-names",
+    "segments_payload_lengths": "--sequences",
+    "links_payload_from": "--link-endpoints",
+    "links_payload_to": "--link-endpoints",
+    "links_payload_cigar_lengths": "--link-cigars",
+    "paths_payload_segment_lengths": "--path-sequences",
+    "paths_payload_cigar_lengths": "--path-cigars",
+    "walks_payload_hep_indices": "--walk-haplotype-indices",
+    "walks_payload_start": "--walk-positions-start",
+    "walks_payload_end": "--walk-positions-end",
 }
 
 FIELD_TO_CLI_STR = {
-    "segment_names_header": "--names-enc",
-    "segment_names_payload_names": "--names-enc",
-    "segments_header": "--seq-enc",
-    "segments_payload_strings": "--seq-enc",
-    "links_header": "--links-fromto-enc",
-    "links_payload_cigar": "--links-cigars-enc",
-    "paths_header": "--paths-names-enc",
-    "paths_payload_names": "--paths-names-enc",
-    "paths_payload_path_ids": "--paths-paths-enc",
-    "paths_payload_cigar": "--paths-cigars-enc",
-    "walks_header": "--walks-sample-ids-enc",
-    "walks_payload_sample_ids": "--walks-sample-ids-enc",
-    "walks_payload_sequence_ids": "--walks-seq-ids-enc",
-    "walks_payload_walks": "--walks-walks-enc",
+    "segment_names_header": "--segment-names",
+    "segment_names_payload_names": "--segment-names",
+    "segments_header": "--sequences",
+    "segments_payload_strings": "--sequences",
+    "links_header": "--link-endpoints",
+    "links_payload_cigar": "--link-cigars",
+    "paths_header": "--path-names",
+    "paths_payload_names": "--path-names",
+    "paths_payload_path_ids": "--path-sequences",
+    "paths_payload_cigar": "--path-cigars",
+    "walks_header": "--walk-sample-ids",
+    "walks_payload_sample_ids": "--walk-sample-ids",
+    "walks_payload_sequence_ids": "--walk-sequence-ids",
+    "walks_payload_walks": "--walk-steps",
 }
 
 
@@ -234,17 +234,49 @@ def validate_encodings_present(
 ) -> None:
     """Validate all expected encodings are present in the test matrix."""
     expected_int = {
-        "none", "varint", "fixed16", "fixed32", "fixed64", "delta",
-        "gamma", "omega", "golomb", "rice", "streamvbyte", "vbyte",
-        "pfor_delta", "simple8b", "group_varint", "bit_packing",
-        "fibonacci", "exp_golomb", "byte_packed", "masked_vbyte",
+        "none",
+        "varint",
+        "fixed16",
+        "fixed32",
+        "fixed64",
+        "delta",
+        "gamma",
+        "omega",
+        "golomb",
+        "rice",
+        "streamvbyte",
+        "vbyte",
+        "pfor_delta",
+        "simple8b",
+        "group_varint",
+        "bit_packing",
+        "fibonacci",
+        "exp_golomb",
+        "byte_packed",
+        "masked_vbyte",
     }
     expected_str = {
-        "none", "zstd", "zstd_dict", "gzip", "lzma", "lz4",
-        "brotli", "huffman", "frontcoding", "delta", "dictionary",
-        "rle", "cigar", "2bit", "arithmetic", "bwt_huffman",
-        "ppm", "superstring_none", "superstring_huffman",
-        "superstring_2bit", "superstring_ppm",
+        "none",
+        "zstd",
+        "zstd_dict",
+        "gzip",
+        "lzma",
+        "lz4",
+        "brotli",
+        "huffman",
+        "frontcoding",
+        "delta",
+        "dictionary",
+        "rle",
+        "cigar",
+        "2bit",
+        "arithmetic",
+        "bwt_huffman",
+        "ppm",
+        "superstring_none",
+        "superstring_huffman",
+        "superstring_2bit",
+        "superstring_ppm",
     }
 
     int_set = set(int_encodings)
@@ -394,9 +426,7 @@ def print_failure_report(report: VerificationReport) -> None:
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Verify all encoding strategies via roundtrip testing"
-    )
+    parser = argparse.ArgumentParser(description="Verify all encoding strategies via roundtrip testing")
     parser.add_argument(
         "--int-only",
         action="store_true",

@@ -355,7 +355,7 @@ def test_vbyte_encoding_measure(tmp_path):
     gfa = GFA.from_gfa("data/HLA-zoo/graphs/pggb/DRB4-3126/DRB4-3126.fa.bab52bb.34ee7b1.6c8dee8.smooth.fix.gfa")
 
     bgfa_path = tmp_path / "test_vbyte.bgfa"
-    gfa.to_bgfa(str(bgfa_path), seq_enc="vbyte")
+    gfa.to_bgfa(str(bgfa_path), sequences_enc="vbyte")
 
     csv_path = tmp_path / "measure.csv"
     measure_bgfa(str(bgfa_path), str(csv_path))

@@ -20,7 +20,9 @@ def test_roundtrip_granular():
     output_bgfa = "test_compliance.bgfa"
 
     # Use huffman for names and 2bit for sequences
-    g.to_bgfa(output_bgfa, names_enc="varint-huffman", seq_enc="delta-2bit", links_cigars_enc="varint-huffman")
+    g.to_bgfa(
+        output_bgfa, segment_names_enc="varint-huffman", sequences_enc="delta-2bit", link_cigars_enc="varint-huffman"
+    )
 
     g2 = read_bgfa(output_bgfa)
 
@@ -43,7 +45,7 @@ def test_superstring_roundtrip():
     output_bgfa = "test_superstring.bgfa"
 
     # Use superstring for sequences
-    g.to_bgfa(output_bgfa, seq_enc="varint-superstring_none")
+    g.to_bgfa(output_bgfa, sequences_enc="varint-superstring_none")
 
     g2 = read_bgfa(output_bgfa)
     assert g2.nodes(identifier="s1")["sequence"] == "GATTACA"
@@ -57,7 +59,7 @@ def test_huffman_nibble_roundtrip():
     g.add_node(Node("s1", "ABCDEFGHIJKLMNOP"))  # Non-DNA to test Huffman properly
 
     output_bgfa = "test_huffman.bgfa"
-    g.to_bgfa(output_bgfa, seq_enc="varint-huffman")
+    g.to_bgfa(output_bgfa, sequences_enc="varint-huffman")
 
     g2 = read_bgfa(output_bgfa)
     assert g2.nodes(identifier="s1")["sequence"] == "ABCDEFGHIJKLMNOP"
