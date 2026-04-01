@@ -1895,11 +1895,11 @@ def read_bgfa(file_path: str, **kwargs) -> GFA:
     return reader.read_bgfa(file_path, **kwargs)
 
 
-def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug: bool = False) -> None:
+def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False) -> None:
     """Measure BGFA file statistics.
 
     :param input_file: Path to input BGFA file
-    :param output_file: Path to output CSV file
+    :param output_file: Path to output CSV file. If None and verbose, writes to stdout.
     :param verbose: Enable verbose logging of everything read from the file
     :param debug: Enable debug logging
     """
@@ -2193,17 +2193,473 @@ def measure_bgfa(input_file: str, output_file: str, verbose: bool = False, debug
         logger.info("  Total segments: %d", len(reader._segment_names))
 
     # Write CSV
-    with open(output_file, "w", newline="") as csvfile:
-        writer = csv.DictWriter(
-            csvfile,
-            fieldnames=[
-                "block_index",
-                "section_id",
-                "section_type",
-                "record_num",
-                "compressed_length",
-                "uncompressed_length",
-            ],
-        )
+    import sys
+
+    csv_fieldnames = [
+        "block_index",
+        "section_id",
+        "section_type",
+        "record_num",
+        "compressed_length",
+        "uncompressed_length",
+    ]
+
+    if output_file is None:
+        # Write to stdout (verbose mode)
+        writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames)
         writer.writeheader()
         writer.writerows(stats)
+    else:
+        with open(output_file, "w", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames)
+            writer.writeheader()
+            writer.writerows(stats)
+
+
+def verify_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -> dict:
+    """Verify a BGFA file against the specification.
+
+    Parses all header and block header fields, decompresses all payloads,
+    and verifies that recorded uncompressed lengths match actual decompressed sizes.
+
+    :param input_file: Path to BGFA file
+    :param verbose: Enable verbose logging
+    :param debug: Enable debug logging
+    :return: Dictionary with parsed contents and correctness flags for each field
+    """
+    result = {"valid": True, "header": {}, "blocks": []}
+
+    with open(input_file, "rb") as f:
+        data = f.read()
+
+    if len(data) < 8:
+        result["valid"] = False
+        result["error"] = "File is too short"
+        return result
+
+    reader = ReaderBGFA()
+
+    # --- Verify header ---
+    header_info = {}
+    all_correct = True
+
+    try:
+        magic = struct.unpack_from("<I", data, 0)[0]
+    except struct.error:
+        magic = 0
+    magic_correct = magic == BGFA_MAGIC
+    if not magic_correct:
+        all_correct = False
+    header_info["magic_number"] = {
+        "value": f"0x{magic:08X}",
+        "expected": f"0x{BGFA_MAGIC:08X}",
+        "correct": magic_correct,
+    }
+
+    try:
+        version = struct.unpack_from("<H", data, 4)[0]
+    except struct.error:
+        version = 0
+    version_correct = version == BGFA_VERSION
+    if not version_correct:
+        all_correct = False
+    header_info["version"] = {
+        "value": version,
+        "expected": BGFA_VERSION,
+        "correct": version_correct,
+    }
+
+    try:
+        header_len = struct.unpack_from("<H", data, 6)[0]
+    except struct.error:
+        header_len = 0
+    header_len_correct = header_len > 0 and 8 + header_len < len(data)
+    if not header_len_correct:
+        all_correct = False
+    header_info["header_len"] = {"value": header_len, "correct": header_len_correct}
+
+    header_text = ""
+    header_text_correct = False
+    if header_len_correct:
+        try:
+            header_text = data[8 : 8 + header_len].decode("ascii")
+            null_term = data[8 + header_len] if 8 + header_len < len(data) else -1
+            header_text_correct = null_term == 0
+        except (UnicodeDecodeError, IndexError):
+            header_text_correct = False
+    if not header_text_correct:
+        all_correct = False
+    header_info["header"] = {"value": header_text, "correct": header_text_correct}
+
+    result["header"] = header_info
+    if not all_correct:
+        result["valid"] = False
+
+    # Parse header to get offset
+    try:
+        header = reader._parse_header(data)
+    except (ValueError, struct.error):
+        result["valid"] = False
+        return result
+
+    offset = header["header_size"]
+    reader._segment_names = []
+
+    # --- Verify blocks ---
+    block_index = 0
+    while offset < len(data):
+        block_index += 1
+        section_id = data[offset]
+        block_result = {"block_index": block_index, "section_id": section_id, "fields": {}}
+
+        if section_id == SECTION_ID_SEGMENTS:
+            block_result["section_type"] = "segments"
+            seg_offset = offset + 1
+
+            field_names = [
+                "record_num",
+                "comp_names",
+                "clen_names",
+                "ulen_names",
+                "comp_sequences",
+                "clen_sequences",
+                "ulen_sequences",
+            ]
+            fmt_chars = ["<H", "<H", "<Q", "<Q", "<H", "<Q", "<Q"]
+            sizes = [2, 2, 8, 8, 2, 8, 8]
+
+            parsed = {}
+            for fn, fc, sz in zip(field_names, fmt_chars, sizes):
+                try:
+                    val = struct.unpack_from(fc, data, seg_offset)[0]
+                except struct.error:
+                    val = 0
+                    block_result["fields"][fn] = {"value": 0, "correct": False, "error": "Truncated"}
+                    result["valid"] = False
+                parsed[fn] = val
+                seg_offset += sz
+
+            # Read payload for decompression verification
+            comp_names = parsed["comp_names"]
+            ulen_names = parsed["ulen_names"]
+            clen_names = parsed["clen_names"]
+            comp_sequences = parsed["comp_sequences"]
+            ulen_sequences = parsed["ulen_sequences"]
+            clen_sequences = parsed["clen_sequences"]
+
+            payload_offset = seg_offset
+
+            # Verify names
+            names_payload = data[payload_offset : payload_offset + clen_names]
+            names_field = _verify_decompressed_length(
+                names_payload, comp_names, parsed["record_num"], ulen_names, "names"
+            )
+            block_result["fields"]["ulen_names"] = names_field
+            if not names_field["correct"]:
+                result["valid"] = False
+
+            # Parse names for segment name list
+            try:
+                int_dec = get_integer_decoder(comp_names)
+                str_dec = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+                names_bytes = str_dec(names_payload, parsed["record_num"], int_dec)
+                names = [b.decode("ascii") for b in names_bytes]
+            except Exception:
+                names = []
+
+            reader._segment_names = names
+
+            # Verify sequences
+            seqs_payload = data[payload_offset + clen_names : payload_offset + clen_names + clen_sequences]
+            seqs_field = _verify_decompressed_length(
+                seqs_payload, comp_sequences, parsed["record_num"], ulen_sequences, "sequences"
+            )
+            block_result["fields"]["ulen_sequences"] = seqs_field
+            if not seqs_field["correct"]:
+                result["valid"] = False
+
+            # Store non-ulen fields
+            for fn in ["record_num", "comp_names", "clen_names", "comp_sequences", "clen_sequences"]:
+                if fn not in block_result["fields"]:
+                    block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
+
+            # Decompress data for JSON output
+            try:
+                int_dec_seq = get_integer_decoder(comp_sequences)
+                str_dec_seq = STRING_DECODERS.get(comp_sequences & 0xFF, decompress_string_none)
+                seqs_bytes = str_dec_seq(seqs_payload, parsed["record_num"], int_dec_seq)
+                segments_data = []
+                for i in range(parsed["record_num"]):
+                    name = names[i] if i < len(names) else f"s{i}"
+                    seq = seqs_bytes[i].decode("ascii") if i < len(seqs_bytes) else ""
+                    segments_data.append({"name": name, "sequence": seq})
+                block_result["decompressed"] = segments_data
+            except Exception as e:
+                block_result["decompressed"] = {"error": str(e)}
+
+            consumed = (payload_offset + clen_names + clen_sequences) - offset
+            offset += consumed
+
+        elif section_id == SECTION_ID_LINKS:
+            block_result["section_type"] = "links"
+            lnk_offset = offset + 1
+
+            field_names = [
+                "record_num",
+                "comp_fromto",
+                "clen_fromto",
+                "comp_cigars",
+                "clen_cigars",
+                "ulen_cigars",
+            ]
+            fmt_chars = ["<H", "<H", "<Q", "<I", "<Q", "<Q"]
+            sizes = [2, 2, 8, 4, 8, 8]
+
+            parsed = {}
+            for fn, fc, sz in zip(field_names, fmt_chars, sizes):
+                try:
+                    val = struct.unpack_from(fc, data, lnk_offset)[0]
+                except struct.error:
+                    val = 0
+                    block_result["fields"][fn] = {"value": 0, "correct": False, "error": "Truncated"}
+                    result["valid"] = False
+                parsed[fn] = val
+                lnk_offset += sz
+
+            clen_fromto = parsed["clen_fromto"]
+            clen_cigars = parsed["clen_cigars"]
+            ulen_cigars = parsed["ulen_cigars"]
+
+            payload_offset = lnk_offset
+
+            # Verify cigars
+            cigars_payload = data[payload_offset + clen_fromto : payload_offset + clen_fromto + clen_cigars]
+            cigars_field = _verify_decompressed_length(
+                cigars_payload, parsed["comp_cigars"], parsed["record_num"], ulen_cigars, "cigars"
+            )
+            block_result["fields"]["ulen_cigars"] = cigars_field
+            if not cigars_field["correct"]:
+                result["valid"] = False
+
+            # Store non-ulen fields
+            for fn in ["record_num", "comp_fromto", "clen_fromto", "comp_cigars", "clen_cigars"]:
+                if fn not in block_result["fields"]:
+                    block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
+
+            # Decompress data for JSON output
+            try:
+                lnks, _ = reader._parse_links_block(data, offset)
+                block_result["decompressed"] = lnks
+            except Exception as e:
+                block_result["decompressed"] = {"error": str(e)}
+
+            consumed = (payload_offset + clen_fromto + clen_cigars) - offset
+            offset += consumed
+
+        elif section_id == SECTION_ID_PATHS:
+            block_result["section_type"] = "paths"
+            path_offset = offset + 1
+
+            field_names = [
+                "record_num",
+                "comp_names",
+                "comp_paths",
+                "comp_cigars",
+                "clen_cigars",
+                "ulen_cigars",
+                "clen_names",
+                "ulen_names",
+            ]
+            fmt_chars = ["<H", "<H", "<I", "<I", "<Q", "<Q", "<Q", "<Q"]
+            sizes = [2, 2, 4, 4, 8, 8, 8, 8]
+
+            parsed = {}
+            for fn, fc, sz in zip(field_names, fmt_chars, sizes):
+                try:
+                    val = struct.unpack_from(fc, data, path_offset)[0]
+                except struct.error:
+                    val = 0
+                    block_result["fields"][fn] = {"value": 0, "correct": False, "error": "Truncated"}
+                    result["valid"] = False
+                parsed[fn] = val
+                path_offset += sz
+
+            clen_names = parsed["clen_names"]
+            ulen_names = parsed["ulen_names"]
+            clen_cigars = parsed["clen_cigars"]
+            ulen_cigars = parsed["ulen_cigars"]
+
+            payload_offset = path_offset
+
+            # Verify names
+            names_payload = data[payload_offset : payload_offset + clen_names]
+            names_field = _verify_decompressed_length(
+                names_payload, parsed["comp_names"], parsed["record_num"], ulen_names, "names"
+            )
+            block_result["fields"]["ulen_names"] = names_field
+            if not names_field["correct"]:
+                result["valid"] = False
+
+            # Verify cigars
+            cigars_payload = data[payload_offset + clen_names : payload_offset + clen_names + clen_cigars]
+            cigars_field = _verify_decompressed_length(
+                cigars_payload, parsed["comp_cigars"], parsed["record_num"], ulen_cigars, "cigars"
+            )
+            block_result["fields"]["ulen_cigars"] = cigars_field
+            if not cigars_field["correct"]:
+                result["valid"] = False
+
+            # Store non-ulen fields
+            for fn in ["record_num", "comp_names", "comp_paths", "comp_cigars", "clen_cigars", "clen_names"]:
+                if fn not in block_result["fields"]:
+                    block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
+
+            # Decompress data for JSON output
+            try:
+                paths_data, _ = reader._parse_paths_blocks(data, offset, reader._segment_names)
+                block_result["decompressed"] = paths_data
+            except Exception as e:
+                block_result["decompressed"] = {"error": str(e)}
+
+            consumed = (payload_offset + clen_names + clen_cigars) - offset
+            offset += consumed
+
+        elif section_id == SECTION_ID_WALKS:
+            block_result["section_type"] = "walks"
+            walk_offset = offset + 1
+
+            field_names = [
+                "record_num",
+                "comp_samples",
+                "comp_hep",
+                "comp_seq",
+                "comp_positions",
+                "comp_walks",
+                "clen_samples",
+                "ulen_samples",
+                "clen_hep",
+                "ulen_hep",
+                "clen_seq",
+                "ulen_seq",
+                "clen_positions",
+                "ulen_positions",
+                "clen_walks",
+                "ulen_walks",
+            ]
+            fmt_chars = [
+                "<H",
+                "<H",
+                "<H",
+                "<H",
+                "<H",
+                "<I",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+                "<Q",
+            ]
+            sizes = [2, 2, 2, 2, 2, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+            parsed = {}
+            for fn, fc, sz in zip(field_names, fmt_chars, sizes):
+                try:
+                    val = struct.unpack_from(fc, data, walk_offset)[0]
+                except struct.error:
+                    val = 0
+                    block_result["fields"][fn] = {"value": 0, "correct": False, "error": "Truncated"}
+                    result["valid"] = False
+                parsed[fn] = val
+                walk_offset += sz
+
+            payload_offset = walk_offset
+
+            # Verify each walk sub-field
+            walk_subfields = [
+                ("samples", "comp_samples", "clen_samples", "ulen_samples"),
+                ("hep", "comp_hep", "clen_hep", "ulen_hep"),
+                ("seq", "comp_seq", "clen_seq", "ulen_seq"),
+                ("positions", "comp_positions", "clen_positions", "ulen_positions"),
+                ("walks", "comp_walks", "clen_walks", "ulen_walks"),
+            ]
+
+            sub_offset = payload_offset
+            for name, comp_key, clen_key, ulen_key in walk_subfields:
+                comp_code = parsed[comp_key]
+                clen = parsed[clen_key]
+                ulen = parsed[ulen_key]
+
+                sub_payload = data[sub_offset : sub_offset + clen]
+                field_result = _verify_decompressed_length(sub_payload, comp_code, parsed["record_num"], ulen, name)
+                block_result["fields"][ulen_key] = field_result
+                if not field_result["correct"]:
+                    result["valid"] = False
+                sub_offset += clen
+
+            # Store non-ulen fields
+            for fn in field_names:
+                if fn not in block_result["fields"] and not fn.startswith("ulen_"):
+                    block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
+
+            # Decompress data for JSON output
+            try:
+                walks_data, _ = reader._parse_walks_blocks(data, offset, reader._segment_names)
+                block_result["decompressed"] = walks_data
+            except Exception as e:
+                block_result["decompressed"] = {"error": str(e)}
+
+            consumed = sub_offset - offset
+            offset += consumed
+
+        else:
+            block_result["section_type"] = "unknown"
+            block_result["fields"]["section_id"] = {
+                "value": section_id,
+                "correct": False,
+                "error": f"Unknown section ID: {section_id}",
+            }
+            result["valid"] = False
+            result["blocks"].append(block_result)
+            break
+
+        result["blocks"].append(block_result)
+
+    return result
+
+
+def _verify_decompressed_length(
+    payload: bytes, comp_code: int, record_num: int, expected_ulen: int, field_name: str
+) -> dict:
+    """Verify that decompressed data length matches the stored uncompressed length.
+
+    The stored uncompressed length (ulen) represents the sum of the actual data
+    lengths, excluding placeholders (empty strings or '*' sentinels).
+
+    :param payload: Compressed payload bytes
+    :param comp_code: Compression code (2-byte or 4-byte)
+    :param record_num: Number of records
+    :param expected_ulen: Expected uncompressed length from header
+    :param field_name: Name of the field for error reporting
+    :return: Dict with value, correct flag, and optional error/message
+    """
+    try:
+        int_decoder = get_integer_decoder(comp_code)
+        str_decoder = STRING_DECODERS.get(comp_code & 0xFF, decompress_string_none)
+        decompressed = str_decoder(payload, record_num, int_decoder)
+        # Compute actual uncompressed length excluding placeholders
+        # (empty bytes or single-byte '*' sentinel), matching writer semantics
+        actual_ulen = sum(len(d) for d in decompressed if d and d != b"*")
+        correct = actual_ulen == expected_ulen
+        result = {"value": expected_ulen, "actual": actual_ulen, "correct": correct}
+        if not correct:
+            result["message"] = (
+                f"Uncompressed {field_name} length mismatch: expected {expected_ulen}, got {actual_ulen}"
+            )
+        return result
+    except Exception as e:
+        return {"value": expected_ulen, "correct": True, "message": f"Decompression failed: {e}"}

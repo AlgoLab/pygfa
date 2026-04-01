@@ -13,7 +13,7 @@ from pygfa.gfa import GFA
 from pygfa.encoding import (
     show_full_encodings,
 )
-from pygfa.bgfa import measure_bgfa
+from pygfa.bgfa import measure_bgfa, verify_bgfa
 
 
 def parse_cli_options():
@@ -73,7 +73,26 @@ def parse_cli_options():
         "measure", help="Analyze BGFA file structure and output block statistics to CSV"
     )
     measure_parser.add_argument("input_file", help="Path to input BGFA file")
-    measure_parser.add_argument("output_file", help="Path to output CSV file")
+    measure_parser.add_argument(
+        "--output", "-o", type=str, default=None,
+        help="Path to output CSV file (default: /dev/null, --verbose sends to stdout)",
+    )
+    measure_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
+
+    # verify subcommand
+    verify_parser = subparsers.add_parser(
+        "verify", help="Verify BGFA file structure against specification"
+    )
+    verify_parser.add_argument("input_file", help="Path to input BGFA file")
+    verify_parser.add_argument(
+        "--output", "-o", type=str, default=None,
+        help="Path to output JSON report file (default: stdout)",
+    )
+    verify_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
+    )
 
     # show-full-encodings subcommand
     subparsers.add_parser(
@@ -313,9 +332,12 @@ if __name__ == "__main__":
         try:
             logger.info("Measuring BGFA file: %s", options.get("input_file"))
             verbose_mode = options.get("verbose", False) or options.get("debug", False)
+            output_file = options.get("output")
+            if output_file is None and not verbose_mode:
+                output_file = "/dev/null"
             measure_bgfa(
                 options.get("input_file"),
-                options.get("output_file"),
+                output_file=output_file,
                 verbose=verbose_mode,
                 debug=options.get("debug", False),
             )
@@ -325,11 +347,34 @@ if __name__ == "__main__":
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
+    elif options.get("command") == "verify":
+        try:
+            logger.info("Verifying BGFA file: %s", options.get("input_file"))
+            verbose_mode = options.get("verbose", False) or options.get("debug", False)
+            result = verify_bgfa(
+                options.get("input_file"),
+                verbose=verbose_mode,
+                debug=options.get("debug", False),
+            )
+            json_str = json.dumps(result, indent=2)
+            output_file = options.get("output")
+            if output_file:
+                logger.info("Writing verify report to file: %s", output_file)
+                with open(output_file, "w") as f:
+                    f.write(json_str)
+            else:
+                print(json_str)
+            logger.info("Verify command completed successfully")
+        except Exception as e:
+            logger.error("Error during verification: %s", e, exc_info=True)
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
     elif options.get("command") == "show-full-encodings":
         print(json.dumps(show_full_encodings(), indent=2))
 
     else:
         # No command specified
-        logger.error("No command specified. Use 'bgfa', 'cat', 'measure', or 'show-full-encodings'.")
-        print("Error: No command specified. Use 'bgfa', 'cat', 'measure', or 'show-full-encodings'.", file=sys.stderr)
+        logger.error("No command specified. Use 'bgfa', 'cat', 'measure', 'verify', or 'show-full-encodings'.")
+        print("Error: No command specified. Use 'bgfa', 'cat', 'measure', 'verify', or 'show-full-encodings'.", file=sys.stderr)
         sys.exit(1)
