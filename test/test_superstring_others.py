@@ -1,29 +1,28 @@
-import sys
 import os
+import sys
 
-# Add src to path
-sys.path.append(os.getcwd())
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-from pygfa.encoding.string_encoding import (
+from pygfa.encoding.string_encoding import (  # noqa: E402
     compress_string_list_superstring_huffman,
     compress_string_list_superstring_2bit,
 )
-from pygfa.bgfa import (
+from pygfa.bgfa import (  # noqa: E402
     decompress_string_superstring_huffman,
     decompress_string_superstring_2bit,
-    decode_integer_list_varint,
 )
 
 
 def test_superstring_huffman():
     print("Testing Superstring + Huffman...")
     strings = ["GATTACA", "TTACAGA", "CAGAT"]
-    # GATTACAGA is a common superstring
 
     compressed = compress_string_list_superstring_huffman(strings)
     print(f"Compressed size: {len(compressed)}")
 
-    decompressed = decompress_string_superstring_huffman(compressed, len(strings), decode_integer_list_varint)
+    decompressed = decompress_string_superstring_huffman(compressed, [len(s) for s in strings])
     print(f"Decompressed: {decompressed}")
 
     assert decompressed == [s.encode("ascii") for s in strings]
@@ -33,12 +32,11 @@ def test_superstring_huffman():
 def test_superstring_2bit():
     print("Testing Superstring + 2-bit DNA...")
     strings = ["ACGT", "CGTA", "GTAC"]
-    # ACGTAC is a common superstring
 
     compressed = compress_string_list_superstring_2bit(strings)
     print(f"Compressed size: {len(compressed)}")
 
-    decompressed = decompress_string_superstring_2bit(compressed, len(strings), decode_integer_list_varint)
+    decompressed = decompress_string_superstring_2bit(compressed, [len(s) for s in strings])
     print(f"Decompressed: {decompressed}")
 
     assert decompressed == [s.encode("ascii") for s in strings]
