@@ -2,7 +2,7 @@
 """Round-trip tests (large tier): files requiring between 16 and 64 GB memory.
 
 Tests that converting a GFA file to BGFA and back produces an identical GFA.
-Only runs on GFA files tagged with `# benchmark: roundtrip_large`.
+Only runs on GFA files tagged with `# test: roundtrip_large`.
 """
 
 import glob
