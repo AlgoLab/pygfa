@@ -112,10 +112,28 @@ class TestEncodingFieldOffsets(unittest.TestCase):
                     if os.path.exists(bgfa_path):
                         os.unlink(bgfa_path)
 
-    @unittest.skip("BROTLI roundtrip has separate issue - requires investigation")
     def test_roundtrip_with_brotli_encoding(self):
-        """Test round-trip with BROTLI encoding - has separate issue."""
-        pass
+        """Test round-trip with BROTLI encoding."""
+        g = GFA()
+        g.add_node(node_module.Node("node1", "ACGT"))
+        g.add_node(node_module.Node("node2", "TTTT"))
+
+        os.makedirs("results/test", exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=".bgfa", dir="results/test", delete=False) as f:
+            bgfa_path = f.name
+
+        try:
+            writer = bgfa.BGFAWriter(g, 100, {"segment_names_enc": "varint+brotli"})
+            with open(bgfa_path, "wb") as f:
+                f.write(writer.to_bgfa())
+
+            g2 = bgfa.read_bgfa(bgfa_path)
+
+            self.assertIn("node1", g2.nodes())
+            self.assertIn("node2", g2.nodes())
+        finally:
+            if os.path.exists(bgfa_path):
+                os.unlink(bgfa_path)
 
     def test_parse_compression_strategy_with_underscores(self):
         """Test parsing of composite encoding strings with underscores."""

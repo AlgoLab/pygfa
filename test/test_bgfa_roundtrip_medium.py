@@ -152,17 +152,52 @@ INT_IDENTITY_CODE = 0x00
 STR_IDENTITY_CODE = 0x00
 
 ALL_INT_ENCODING_NAMES = sorted([name for name in _ALL_INT_ENCODINGS.keys() if name])
-ALL_STR_ENCODING_NAMES = sorted([name for name in _ALL_STR_ENCODINGS.keys() if name])
+# Exclude placeholder encodings that have no decompressor implementation
+_NO_DECOMPRESSOR = {"frontcoding", "delta"}
+ALL_STR_ENCODING_NAMES = sorted([name for name in _ALL_STR_ENCODINGS.keys() if name and name not in _NO_DECOMPRESSOR])
 
 INT_ENCODINGS = [
     ("none", 0x00),
     ("varint", 0x01),
+    ("fixed16", 0x02),
+    ("fixed32", 0x0A),
+    ("fixed64", 0x0B),
     ("delta", 0x03),
+    ("gamma", 0x04),
+    ("omega", 0x05),
+    ("golomb", 0x06),
+    ("rice", 0x07),
+    ("streamvbyte", 0x08),
+    ("vbyte", 0x09),
+    ("pfor_delta", 0x0C),
+    ("simple8b", 0x0D),
+    ("group_varint", 0x0E),
+    ("bit_packing", 0x0F),
+    ("fibonacci", 0x10),
+    ("exp_golomb", 0x11),
+    ("byte_packed", 0x12),
+    ("masked_vbyte", 0x13),
 ]
 STR_ENCODINGS = [
     ("none", 0x00),
     ("zstd", 0x01),
+    ("zstd_dict", 0x0B),
     ("gzip", 0x02),
+    ("lzma", 0x03),
+    ("lz4", 0x0C),
+    ("brotli", 0x0D),
+    ("huffman", 0x04),
+    ("2bit", 0x05),
+    ("arithmetic", 0x06),
+    ("bwt_huffman", 0x07),
+    ("rle", 0x08),
+    ("cigar", 0x09),
+    ("dictionary", 0x0A),
+    ("ppm", 0x0E),
+    ("superstring_none", 0xF0),
+    ("superstring_huffman", 0xF4),
+    ("superstring_2bit", 0xF5),
+    ("superstring_ppm", 0xF1),
 ]
 BLOCK_SIZES = [512, 1024, 4096]
 

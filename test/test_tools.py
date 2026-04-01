@@ -181,7 +181,7 @@ class TestToolsIntegration(TestToolsBase):
 
             # Test each tool with invalid input
             tools_to_test = [
-                ("tools/canonical_gfa.py", [temp_file, "output.gfa"]),
+                ("tools/canonical_gfa.py", [temp_file, self.get_temp_file(suffix=".gfa")]),
                 ("tools/prettify_gfa.py", [temp_file]),
                 ("tools/same_gfa.py", [temp_file, temp_file]),
             ]

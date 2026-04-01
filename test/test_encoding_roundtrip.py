@@ -50,9 +50,20 @@ CLI_FLAGS = [
 ]
 
 # Integer encodings that have a corresponding decompress function.
-# Checked by looking for ``decompress_integer_list_*`` in pygfa.encoding.
+# Checked by looking for ``decompress_integer_list_*`` / ``decode_integer_list_*`` in pygfa.
 INTEGER_DECOMPRESSORS = {
     "none",
+    "varint",
+    "fixed16",
+    "fixed32",
+    "fixed64",
+    "delta",
+    "gamma",
+    "omega",
+    "golomb",
+    "rice",
+    "streamvbyte",
+    "vbyte",
     "pfor_delta",
     "simple8b",
     "group_varint",
@@ -64,18 +75,27 @@ INTEGER_DECOMPRESSORS = {
 }
 
 # String encodings that have a corresponding decompress function.
+# frontcoding and delta (string) have NO decompressor — they are compress-only.
 STRING_DECOMPRESSORS = {
     "none",
+    "zstd",
     "zstd_dict",
+    "gzip",
+    "lzma",
+    "lz4",
+    "brotli",
+    "huffman",
     "2bit",
-    "cigar",
     "arithmetic",
     "bwt_huffman",
     "rle",
     "dictionary",
-    "lz4",
-    "brotli",
+    "cigar",
     "ppm",
+    "superstring_none",
+    "superstring_huffman",
+    "superstring_2bit",
+    "superstring_ppm",
 }
 
 # Sorted encoding name lists (exclude empty-string alias)
@@ -126,6 +146,9 @@ def build_isolated_flags(target_encoding: str, is_integer: bool) -> list[str]:
 
     if target_encoding == "2bit":
         return _expand_flags("none+2bit", ["--sequences"])
+
+    if target_encoding.startswith("superstring_"):
+        return _expand_flags(f"none+{target_encoding}", ["--sequences"])
 
     if target_encoding == "cigar":
         return _expand_flags("none+cigar", ["--link-cigars", "--path-cigars"])
@@ -284,7 +307,7 @@ class TestIntegerEncodingRoundtrip(unittest.TestCase):
         """Run an isolated roundtrip test for a single integer encoding."""
         has_decompressor, reason = get_decompressor_status(encoding_name, True)
         if not has_decompressor:
-            self.skipTest(reason)
+            self.fail(f"Integer encoding '{encoding_name}' cannot roundtrip: {reason}")
 
         flags = build_isolated_flags(encoding_name, True)
         status, error, _, _ = run_roundtrip(self.gfa_file, flags)
@@ -366,7 +389,7 @@ class TestStringEncodingRoundtrip(unittest.TestCase):
         """Run an isolated roundtrip test for a single string encoding."""
         has_decompressor, reason = get_decompressor_status(encoding_name, False)
         if not has_decompressor:
-            self.skipTest(reason)
+            self.fail(f"String encoding '{encoding_name}' cannot roundtrip: {reason}")
 
         flags = build_isolated_flags(encoding_name, False)
         status, error, _, _ = run_roundtrip(self.gfa_file, flags)
@@ -399,12 +422,6 @@ class TestStringEncodingRoundtrip(unittest.TestCase):
 
     def test_huffman_isolated_roundtrip(self) -> None:
         self._run_str_encoding("huffman")
-
-    def test_frontcoding_isolated_roundtrip(self) -> None:
-        self._run_str_encoding("frontcoding")
-
-    def test_delta_str_isolated_roundtrip(self) -> None:
-        self._run_str_encoding("delta")
 
     def test_dictionary_isolated_roundtrip(self) -> None:
         self._run_str_encoding("dictionary")
