@@ -147,6 +147,14 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 
 
+def pytest_collection_modifyitems(items):
+    """Group file-based roundtrip tests so at most one runs at a time with pytest-xdist."""
+    marker = pytest.mark.xdist_group("bgfa_roundtrip")
+    for item in items:
+        if item.cls is TestFileRoundtrip:
+            item.add_marker(marker)
+
+
 # ---------------------------------------------------------------------------
 # In-memory structural round-trip tests
 # ---------------------------------------------------------------------------

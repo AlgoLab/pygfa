@@ -98,6 +98,13 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 
 
+def pytest_collection_modifyitems(items):
+    """Group all medium-tier tests so at most one runs at a time with pytest-xdist."""
+    marker = pytest.mark.xdist_group("roundtrip_medium")
+    for item in items:
+        item.add_marker(marker)
+
+
 class TestStructuralRoundtrip:
     """Compare graph components individually."""
 

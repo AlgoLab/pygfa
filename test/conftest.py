@@ -34,6 +34,9 @@ def _find_large_gfa_files():
                     match = re.match(r"^#\s*test:\s*(\S+)", line)
                     if match:
                         test_types.append(match.group(1))
+                    match = re.match(r"^#\s*benchmark:\s*(\S+)", line)
+                    if match:
+                        test_types.append(match.group(1))
             if test_types:
                 large_files[gfa_file] = {"size": size, "tests": test_types}
 
