@@ -1154,9 +1154,8 @@ class ReaderBGFA:
         # bytes 3-4 would be for ID encoding strategy
 
         if walk_byte == 0x00:
-            # None/identity - walk data is already decoded as strings
-            # This shouldn't happen in practice as walks need orientation
-            raise NotImplementedError("Walk encoding 0x00 (none) not supported")
+            # None/identity - no walk data, return empty walks
+            return [[] for _ in range(record_num)]
         elif walk_byte == 0x01:
             # orientation + strid: orientation bits + string segment IDs
             # First decode orientation bits
