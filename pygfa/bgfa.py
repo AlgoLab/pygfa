@@ -1797,7 +1797,10 @@ class BGFAWriter:
             "segment_names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
         seqs_enc = self._comp_options.get(
-            "sequences_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
+            "sequences_enc",
+            self._comp_options.get(
+                "seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
+            ),
         )
 
         sorted_segs = [(name, i) for i, name in enumerate(names)]

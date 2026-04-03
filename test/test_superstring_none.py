@@ -6,7 +6,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pygfa.encoding.string_encoding import compress_string_list_superstring_none  # noqa: E402
-from pygfa.bgfa import decompress_string_superstring_none  # noqa: E402
+from pygfa.bgfa import decompress_string_superstring_none, decode_integer_list_varint  # noqa: E402
 import struct  # noqa: E402
 
 
@@ -23,7 +23,7 @@ def test_superstring_none():
     superstring = compressed[8 : 8 + encoded_len]
     print(f"Superstring: {superstring}")
 
-    decompressed = decompress_string_superstring_none(compressed, [len(s) for s in strings])
+    decompressed = decompress_string_superstring_none(compressed, len(strings), decode_integer_list_varint)
 
     print(f"Decompressed: {decompressed}")
 

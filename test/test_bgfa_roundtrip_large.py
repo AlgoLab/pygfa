@@ -15,7 +15,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pygfa.gfa import GFA  # noqa: E402
-from test_utils import should_run_benchmark_for_gfa  # noqa: E402
+from test_utils import should_run_test_for_gfa  # noqa: E402
 from pygfa.encoding import INTEGER_ENCODINGS as _ALL_INT_ENCODINGS, STRING_ENCODINGS as _ALL_STR_ENCODINGS  # noqa: E402
 
 try:
@@ -64,7 +64,7 @@ def _roundtrip_file(gfa_path, block_size=1024, compression_options=None, test_ou
 
 
 ALL_ROUNDTRIP_FILES = [
-    f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_benchmark_for_gfa(BENCHMARK_NAME, f)
+    f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa(BENCHMARK_NAME, f)
 ]
 
 
@@ -93,7 +93,11 @@ def pytest_generate_tests(metafunc):
             test_files = ALL_ROUNDTRIP_FILES
 
         if not test_files:
-            pytest.skip(f"No matching GFA files found for {BENCHMARK_NAME}. Use --gfa-file to specify a file.")
+            from test_utils import should_run_test_for_gfa
+
+            test_files = [
+                f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa("bgfa_roundtrip", f)
+            ]
 
         metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 

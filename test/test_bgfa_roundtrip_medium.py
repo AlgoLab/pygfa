@@ -66,6 +66,12 @@ def _roundtrip_file(gfa_path, block_size=1024, compression_options=None, test_ou
 ALL_ROUNDTRIP_FILES = [
     f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_benchmark_for_gfa(BENCHMARK_NAME, f)
 ]
+if not ALL_ROUNDTRIP_FILES:
+    from test_utils import should_run_test_for_gfa
+
+    ALL_ROUNDTRIP_FILES = [
+        f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa("bgfa_roundtrip", f)
+    ]
 
 
 def _gfa_test_id(gfa_path):
@@ -93,7 +99,11 @@ def pytest_generate_tests(metafunc):
             test_files = ALL_ROUNDTRIP_FILES
 
         if not test_files:
-            pytest.skip(f"No matching GFA files found for {BENCHMARK_NAME}. Use --gfa-file to specify a file.")
+            from test_utils import should_run_test_for_gfa
+
+            test_files = [
+                f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa("bgfa_roundtrip", f)
+            ]
 
         metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 

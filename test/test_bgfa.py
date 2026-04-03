@@ -177,9 +177,6 @@ def pytest_generate_tests(metafunc):
             # Use all matching files
             test_files = [f for f in _ALL_GFA_FILES if should_run_test_for_gfa("bgfa", f)]
 
-        if not test_files:
-            pytest.skip("No matching GFA files found. Use --gfa-file to specify a file.")
-
         metafunc.parametrize("gfa_file_path", test_files, ids=_gfa_test_id)
 
 

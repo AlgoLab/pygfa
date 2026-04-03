@@ -141,9 +141,6 @@ def pytest_generate_tests(metafunc):
         else:
             test_files = ALL_ROUNDTRIP_FILES
 
-        if not test_files:
-            pytest.skip(f"No matching GFA files found for {TEST_NAME}. Use --gfa-file to specify a file.")
-
         metafunc.parametrize("gfa_path", test_files, ids=_gfa_test_id)
 
 
