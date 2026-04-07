@@ -191,6 +191,8 @@ def greedy_scs(strings: list[bytes]) -> bytes:
 
     This is an approximation algorithm that repeatedly merges the pair
     of strings with maximum overlap until only one remains.
+    
+    Enhanced version ensures all input strings are included in the result.
 
     :param strings: List of byte strings
     :return: Superstring containing all input strings
@@ -198,10 +200,13 @@ def greedy_scs(strings: list[bytes]) -> bytes:
     if not strings:
         return b""
 
-    # Remove empty strings and duplicates
-    candidates = list(set(s for s in strings if s))
+    # Remove empty strings but keep duplicates (they may have different positions)
+    candidates = [s for s in strings if s]
     if not candidates:
         return b""
+
+    # Track original strings to ensure all are included
+    original_strings = candidates.copy()
 
     while len(candidates) > 1:
         max_overlap = -1
@@ -228,7 +233,15 @@ def greedy_scs(strings: list[bytes]) -> bytes:
             candidates.pop(i)
         candidates.append(merged)
 
-    return candidates[0]
+    superstring = candidates[0]
+    
+    # Post-processing: Ensure all original strings are included
+    # If any string is missing, append it to the superstring
+    for s in original_strings:
+        if s not in superstring:
+            superstring += s
+    
+    return superstring
 
 
 def compress_string_list_superstring(
@@ -263,20 +276,8 @@ def compress_string_list_superstring(
     # Convert to bytes
     strings = [s.encode("ascii") for s in string_list]
 
-    # Compute superstring
+    # Compute superstring (now guaranteed to include all strings)
     superstring = greedy_scs(strings)
-
-    # Validation: Ensure all strings are in the superstring
-    # If not (shouldn't happen with greedy_scs), fall back to concatenation
-    for s in strings:
-        if s not in superstring:
-            # Fall back to concatenation
-            return compress_string_list(
-                string_list,
-                int_encoder,
-                compression_method,
-                first_byte_strategy=first_byte_strategy,
-            )
 
     # Find start and end positions
     starts = []

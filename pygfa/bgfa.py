@@ -1836,8 +1836,15 @@ def parse_compression_strategy(s: str) -> int:
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 
-    # Split on hyphen or plus sign only (not underscore, which is part of encoding names)
-    p = re.split(r"[-+]", s.lower())
+    # Split on FIRST hyphen or plus sign only (not underscore, which is part of encoding names)
+    # Use maxsplit=1 to split only on the first separator
+    # Prioritize + over - when both are present (e.g., "varint+2-bit")
+    if "+" in s:
+        p = s.lower().split("+", 1)
+    elif "-" in s:
+        p = s.lower().split("-", 1)
+    else:
+        p = [s.lower()]
 
     i_map = {e.name.lower().replace("_", ""): e.value for e in IntegerEncoding}
     s_map = {e.name.lower().replace("_", ""): e.value for e in StringEncoding}
@@ -1845,7 +1852,12 @@ def parse_compression_strategy(s: str) -> int:
     # Aliases
     i_map["identity"] = 0
     s_map["identity"] = 0
-    s_map["2bit"] = 5
+    # Map simple names to superstring encodings by default
+    s_map["2bit"] = 0xF5  # superstring_2bit
+    s_map["2-bit"] = 0xF5  # superstring_2bit (with hyphen)
+    s_map["huffman"] = 0xF4  # superstring_huffman
+    s_map["ppm"] = 0xF1  # superstring_ppm
+    s_map["none"] = 0xF0  # superstring_none
 
     # Handle single-part encoding (e.g., "superstring_ppm", "brotli")
     if len(p) == 1:
@@ -2218,8 +2230,8 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
             writer.writerows(stats)
 
 
-def verify_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -> dict:
-    """Verify a BGFA file against the specification.
+def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -> dict:
+    """Validate a BGFA file against the specification.
 
     Parses all header and block header fields, decompresses all payloads,
     and verifies that recorded uncompressed lengths match actual decompressed sizes.
@@ -2665,3 +2677,520 @@ def _verify_decompressed_length(
         return result
     except Exception as e:
         return {"value": expected_ulen, "correct": True, "message": f"Decompression failed: {e}"}
+
+
+def dump_bgfa(file_path: str, text_format: bool = False) -> None:
+    """Read a BGFA file and print its content with field names.
+
+    This function provides a structured dump of the BGFA file, showing all headers,
+    blocks, and their contents with complete field names from the specification.
+
+    By default, outputs a JSON document. With text_format=True, outputs a pretty
+    text format where indentation gives a clear structure.
+
+    :param file_path: Path to BGFA file
+    :param text_format: If True, output pretty text format instead of JSON
+    """
+    import sys
+    import json
+
+    def validate_field(expected: int, actual: int, field_name: str) -> dict:
+        """Validate a field and return error info if validation fails."""
+        result = {"value": actual}
+        if expected != actual:
+            result["error"] = f"Validation failed: expected {expected}, got {actual}"
+        return result
+
+    with open(file_path, "rb") as f:
+        data = f.read()
+
+    if len(data) < 8:
+        print(json.dumps({"error": "BGFA file is too short"}), file=sys.stderr)
+        return
+
+    if not data:
+        print(json.dumps({"error": "Empty file"}), file=sys.stderr)
+        return
+
+    reader = ReaderBGFA()
+    result = {
+        "bgfa_format_version": 1,
+        "header": {},
+        "blocks": [],
+        "summary": {}
+    }
+
+    # Parse header
+    try:
+        header = reader._parse_header(data)
+        result["header"] = {
+            "magic_number": {"value": f"0x{header['magic']:08X}"},
+            "version": {"value": header['version']},
+            "header_text": {"value": header['header_text']},
+            "header_size_bytes": {"value": header['header_size']}
+        }
+    except Exception as e:
+        result["header"]["error"] = f"Error parsing header: {e}"
+        print(json.dumps(result, indent=2 if text_format else None))
+        return
+
+    offset = header["header_size"]
+    reader._segment_names = []
+    block_index = 0
+
+    while offset < len(data):
+        block_index += 1
+        section_id = data[offset]
+        block_result = {
+            "block_index": block_index,
+            "section_id": section_id
+        }
+
+        if section_id == SECTION_ID_SEGMENTS:
+            block_result["section_type"] = "segments"
+            
+            seg_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            comp_names = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            clen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            ulen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            comp_str = struct.unpack_from("<H", data, seg_offset)[0]
+            seg_offset += 2
+            clen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+            seg_offset += 8
+            ulen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+
+            block_result["fields"] = {
+                "record_count": {"value": record_num},
+                "segment_names_compression_code": {"value": f"0x{comp_names:04X}"},
+                "compressed_segment_names_length_bytes": validate_field(clen_names, clen_names, "compressed_segment_names_length"),
+                "uncompressed_segment_names_length_bytes": validate_field(ulen_names, ulen_names, "uncompressed_segment_names_length"),
+                "segment_sequences_compression_code": {"value": f"0x{comp_str:04X}"},
+                "compressed_segment_sequences_length_bytes": validate_field(clen_str, clen_str, "compressed_segment_sequences_length"),
+                "uncompressed_segment_sequences_length_bytes": validate_field(ulen_str, ulen_str, "uncompressed_segment_sequences_length")
+            }
+
+            segs, names, consumed = reader._parse_segments_block(data, offset)
+            reader._segment_names = names
+
+            # Check if using superstring compression
+            str_encoding = comp_str & 0xFF
+            is_superstring = str_encoding >= 0xF0  # Superstring encodings are 0xF0+
+            
+            # Extract compressed data for analysis
+            # Segment block header: 1 (section_id) + 2+2+8+8+2+8+8 = 39 bytes
+            payload_start = offset + 39
+            names_payload = data[payload_start : payload_start + clen_names]
+            seqs_payload = data[payload_start + clen_names : payload_start + clen_names + clen_str]
+            
+            # Add compressed data information
+            compressed_info = {
+                "compressed_names_hex": names_payload.hex() if clen_names > 0 else "",
+                "compressed_sequences_hex": seqs_payload.hex() if clen_str > 0 else "",
+                "compressed_names_bytes": list(names_payload) if clen_names > 0 else [],
+                "compressed_sequences_bytes": list(seqs_payload) if clen_str > 0 else [],
+                "using_superstring": is_superstring
+            }
+            
+            if is_superstring:
+                try:
+                    # Use the actual string decoder to get the decompressed sequences
+                    int_decoder = get_integer_decoder(comp_str)
+                    str_decoder = STRING_DECODERS.get(str_encoding, lambda p, rn, id: [b''] * rn)
+                    sequences = str_decoder(seqs_payload, record_num, int_decoder)
+                    
+                    # Try to extract superstring information
+                    try:
+                        # Parse starts and ends
+                        starts, consumed1 = int_decoder(seqs_payload, record_num)
+                        ends, consumed2 = int_decoder(seqs_payload[consumed1:], record_num)
+                        superstring_blob = seqs_payload[consumed1 + consumed2:]
+                        
+                        # Get the actual superstring
+                        superstring_bytes = b""
+                        if str_encoding == STRING_ENCODING_SUPERSTRING_NONE:  # 0xF0
+                            superstring_bytes = superstring_blob
+                        elif str_encoding == STRING_ENCODING_SUPERSTRING_PPM:  # 0xF1
+                            superstring_list = decompress_string_ppm(superstring_blob, [max(ends) if ends else 0])
+                            superstring_bytes = superstring_list[0] if superstring_list else b""
+                        elif str_encoding == STRING_ENCODING_SUPERSTRING_HUFFMAN:  # 0xF4
+                            from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+                            super_len = max(ends) if ends else 0
+                            superstring_bytes = decompress_nibble_huffman(superstring_blob, int_decoder, super_len * 2)
+                        elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:  # 0xF5
+                            superstring_list = decompress_string_2bit_dna(superstring_blob, [max(ends) if ends else 0])
+                            superstring_bytes = superstring_list[0] if superstring_list else b""
+                        
+                        # Decode the superstring
+                        try:
+                            superstring = superstring_bytes.decode('ascii')
+                        except UnicodeDecodeError:
+                            superstring = superstring_bytes.decode('latin-1')
+                        
+                        # Show the superstring information even if positions seem invalid
+                        compressed_info.update({
+                            "superstring_compression_method": f"0x{str_encoding:02X}",
+                            "superstring_length": len(superstring),
+                            "superstring_content": superstring,
+                            "segment_starts": starts,
+                            "segment_ends": ends,
+                            "superstring_hex": superstring_bytes.hex()
+                        })
+                        
+                        # Try to reconstruct segments from superstring for validation
+                        reconstructed_segments = []
+                        for i in range(min(record_num, len(starts), len(ends))):
+                            start = starts[i]
+                            end = ends[i]
+                            if start < len(superstring) and end <= len(superstring):
+                                reconstructed_segments.append(superstring[start:end])
+                            else:
+                                reconstructed_segments.append("(invalid position)")
+                        
+                        compressed_info["reconstructed_segments"] = reconstructed_segments
+                        
+                    except Exception as e:
+                        compressed_info["superstring_error"] = f"Failed to parse superstring details: {e}"
+                        
+                        # Still show basic superstring info
+                        compressed_info.update({
+                            "superstring_compression_method": f"0x{str_encoding:02X}",
+                            "superstring_content": "(could not extract)"
+                        })
+                        
+                except Exception as e:
+                    compressed_info["superstring_error"] = f"Failed to parse superstring: {e}"
+            
+            block_result["compressed_info"] = compressed_info
+
+            segments_list = []
+            for sid, seg_data in segs.items():
+                name = seg_data.get("name", f"s{sid}")
+                seq = seg_data.get("sequence", "*")
+                
+                segment_info = {
+                    "segment_id": sid,
+                    "segment_name": name,
+                    "segment_sequence": seq,
+                    "segment_length": len(seq) if seq != "*" else 0
+                }
+                
+                # Add superstring position info if applicable
+                if is_superstring and 'segment_starts' in compressed_info and 'segment_ends' in compressed_info:
+                    starts = compressed_info['segment_starts']
+                    ends = compressed_info['segment_ends']
+                    superstring = compressed_info.get('superstring_content', '')
+                    
+                    if sid < len(starts) and sid < len(ends):
+                        segment_info.update({
+                            "superstring_start_position": starts[sid],
+                            "superstring_end_position": ends[sid],
+                            "superstring_substring": superstring[starts[sid]:ends[sid]] if superstring and starts[sid] <= ends[sid] else ""
+                        })
+                
+                segments_list.append(segment_info)
+
+            block_result["segments"] = segments_list
+            result["blocks"].append(block_result)
+
+            offset += consumed
+
+        elif section_id == SECTION_ID_LINKS:
+            block_result["section_type"] = "links"
+            
+            lnk_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, lnk_offset)[0]
+            lnk_offset += 2
+            comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
+            lnk_offset += 2
+            clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
+            lnk_offset += 8
+            comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
+            lnk_offset += 4
+            clen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+            lnk_offset += 8
+            ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+
+            block_result["fields"] = {
+                "record_count": {"value": record_num},
+                "link_endpoints_compression_code": {"value": f"0x{comp_fromto:04X}"},
+                "compressed_link_endpoints_length_bytes": validate_field(clen_fromto, clen_fromto, "compressed_link_endpoints_length"),
+                "cigar_strings_compression_code": {"value": f"0x{comp_cigars:08X}"},
+                "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
+                "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length")
+            }
+
+            lnks, consumed = reader._parse_links_block(data, offset)
+
+            links_list = []
+            for i, link in enumerate(lnks):
+                links_list.append({
+                    "link_id": i,
+                    "from_segment_name": link['from_node'],
+                    "from_orientation": link['from_orn'],
+                    "to_segment_name": link['to_node'],
+                    "to_orientation": link['to_orn'],
+                    "cigar_string": link['alignment']
+                })
+
+            block_result["links"] = links_list
+            result["blocks"].append(block_result)
+
+            offset += consumed
+
+        elif section_id == SECTION_ID_PATHS:
+            block_result["section_type"] = "paths"
+            
+            path_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, path_offset)[0]
+            path_offset += 2
+            comp_names = struct.unpack_from("<H", data, path_offset)[0]
+            path_offset += 2
+            comp_paths = struct.unpack_from("<I", data, path_offset)[0]
+            path_offset += 4
+            comp_cigars = struct.unpack_from("<I", data, path_offset)[0]
+            path_offset += 4
+            clen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            ulen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            clen_names = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+
+            block_result["fields"] = {
+                "record_count": {"value": record_num},
+                "path_names_compression_code": {"value": f"0x{comp_names:04X}"},
+                "path_oriented_segment_ids_compression_code": {"value": f"0x{comp_paths:08X}"},
+                "cigar_strings_compression_code": {"value": f"0x{comp_cigars:08X}"},
+                "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
+                "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"),
+                "compressed_path_names_length_bytes": validate_field(clen_names, clen_names, "compressed_path_names_length"),
+                "uncompressed_path_names_length_bytes": validate_field(ulen_names, ulen_names, "uncompressed_path_names_length")
+            }
+
+            paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
+
+            paths_list = []
+            for i, p in enumerate(paths_data):
+                paths_list.append({
+                    "path_id": i,
+                    "path_name": p.get('path_name', f'path{i}'),
+                    "oriented_segment_ids": p.get('segments', []),
+                    "overlap_cigar_strings": p.get('overlaps', [])
+                })
+
+            block_result["paths"] = paths_list
+            result["blocks"].append(block_result)
+
+            offset += consumed
+
+        elif section_id == SECTION_ID_WALKS:
+            block_result["section_type"] = "walks"
+            
+            walk_offset = offset + 1
+            record_num = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_samples = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_hep = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_seq = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
+            comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
+            walk_offset += 4
+
+            clen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+
+            block_result["fields"] = {
+                "record_count": {"value": record_num},
+                "sample_ids_compression_code": {"value": f"0x{comp_samples:04X}"},
+                "haplotype_indices_compression_code": {"value": f"0x{comp_hep:04X}"},
+                "sequence_ids_compression_code": {"value": f"0x{comp_seq:04X}"},
+                "positions_compression_code": {"value": f"0x{comp_positions:04X}"},
+                "oriented_segment_ids_compression_code": {"value": f"0x{comp_walks:08X}"},
+                "compressed_sample_ids_length_bytes": validate_field(clen_samples, clen_samples, "compressed_sample_ids_length"),
+                "compressed_haplotype_indices_length_bytes": validate_field(clen_hep, clen_hep, "compressed_haplotype_indices_length"),
+                "compressed_sequence_ids_length_bytes": validate_field(clen_seq, clen_seq, "compressed_sequence_ids_length"),
+                "compressed_positions_length_bytes": validate_field(clen_positions, clen_positions, "compressed_positions_length"),
+                "compressed_oriented_segment_ids_length_bytes": validate_field(clen_walks, clen_walks, "compressed_oriented_segment_ids_length")
+            }
+
+            walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
+
+            walks_list = []
+            for i, w in enumerate(walks_data):
+                walks_list.append({
+                    "walk_id": i,
+                    "sample_id": w.get('sample_id', f'sample{i}'),
+                    "haplotype_index": w.get('haplotype_index', 0),
+                    "sequence_id": w.get('sequence_id', f'seq{i}'),
+                    "start_position": w.get('start', 0),
+                    "end_position": w.get('end', 0),
+                    "oriented_segment_ids": w.get('walk', [])
+                })
+
+            block_result["walks"] = walks_list
+            result["blocks"].append(block_result)
+
+            offset += consumed
+
+        else:
+            block_result["section_type"] = "unknown"
+            block_result["error"] = f"Unknown section ID: {section_id}"
+            result["blocks"].append(block_result)
+            break
+
+    result["summary"] = {
+        "total_blocks": block_index,
+        "total_segments": len(reader._segment_names)
+    }
+
+    # Output the result
+    if text_format:
+        # Pretty text format
+        print("BGFA File Structure:")
+        print(f"  Format Version: {result['bgfa_format_version']}")
+        print()
+        
+        print("Header:")
+        for key, value in result['header'].items():
+            if 'error' in value:
+                print(f"  {key}: ERROR - {value['error']}")
+            else:
+                print(f"  {key}: {value['value']}")
+        print()
+        
+        print(f"Blocks ({result['summary']['total_blocks']} total):")
+        for i, block in enumerate(result['blocks']):
+            print(f"\n  Block {i+1} (Section ID {block['section_id']} - {block.get('section_type', 'unknown')}):")
+            
+            if 'error' in block:
+                print(f"    ERROR: {block['error']}")
+                continue
+            
+            if 'fields' in block:
+                print("    Fields:")
+                for field_name, field_value in block['fields'].items():
+                    if 'error' in field_value:
+                        print(f"      {field_name}: {field_value['value']} (ERROR: {field_value['error']})")
+                    else:
+                        print(f"      {field_name}: {field_value['value']}")
+            
+            if 'segments' in block:
+                # Check if this block uses superstring compression
+                comp_info = block.get('compressed_info', {})
+                using_superstring = comp_info.get('using_superstring', False)
+                
+                if using_superstring and 'superstring_content' in comp_info:
+                    # Show the superstring first
+                    superstring = comp_info['superstring_content']
+                    print(f"    Superstring: '{superstring}' (length: {len(superstring)})")
+                    
+                    # Show segments with their positions in the superstring
+                    print(f"    Segments:")
+                    for seg in block['segments']:
+                        seg_id = seg['segment_id']
+                        seg_name = seg['segment_name']
+                        seg_seq = seg['segment_sequence']
+                        
+                        # Get superstring positions if available
+                        if 'superstring_start_position' in seg and 'superstring_end_position' in seg:
+                            start = seg['superstring_start_position']
+                            end = seg['superstring_end_position']
+                            substring = seg.get('superstring_substring', '')
+                            # Show the substring extracted from superstring, not the original sequence
+                            display_seq = substring if substring else seg_seq
+                            print(f"      Segment {seg_id}: ({start}, {end}) -> {display_seq}")
+                        else:
+                            # Try to get positions from compressed info
+                            starts = comp_info.get('segment_starts', [])
+                            ends = comp_info.get('segment_ends', [])
+                            if seg_id < len(starts) and seg_id < len(ends):
+                                start = starts[seg_id]
+                                end = ends[seg_id]
+                                # Extract the substring from superstring
+                                if start < len(superstring) and end <= len(superstring):
+                                    substring = superstring[start:end]
+                                    print(f"      Segment {seg_id}: ({start}, {end}) -> {substring}")
+                                else:
+                                    print(f"      Segment {seg_id}: (invalid position {start}:{end}) -> {seg_seq}")
+                            else:
+                                print(f"      Segment {seg_id}: {seg_name} -> {seg_seq}")
+                    
+                    # Add additional compressed info
+                    print(f"    Compressed Information:")
+                    print(f"      Superstring compression method: {comp_info.get('superstring_compression_method', 'unknown')}")
+                    print(f"      Compressed hex: {comp_info['compressed_sequences_hex'][:50]}{'...' if len(comp_info['compressed_sequences_hex']) > 50 else ''}")
+                    
+                    # Show any errors
+                    if 'superstring_error' in comp_info:
+                        print(f"      Warning: {comp_info['superstring_error']}")
+                else:
+                    # Regular segment output (no superstring)
+                    print(f"    Segments:")
+                    for seg in block['segments']:
+                        print(f"      Segment {seg['segment_id']}: {seg['segment_name']} -> {seg['segment_sequence']}")
+                    
+                    # Add compressed info if present
+                    if 'compressed_info' in block and block['compressed_info'].get('using_superstring', False):
+                        comp_info = block['compressed_info']
+                        print(f"    Compressed Information:")
+                        print(f"      Using superstring: Yes")
+                        print(f"      Superstring length: {comp_info['superstring_length']}")
+                        print(f"      Superstring content: '{comp_info['superstring_content']}'")
+                        print(f"      Segment positions: starts={comp_info['segment_starts']}, ends={comp_info['segment_ends']}")
+                        print(f"      Compressed hex: {comp_info['compressed_sequences_hex'][:50]}{'...' if len(comp_info['compressed_sequences_hex']) > 50 else ''}")
+                        
+                        # Show any errors
+                        if 'superstring_error' in comp_info:
+                            print(f"      Warning: {comp_info['superstring_error']}")
+            
+            if 'links' in block:
+                print("    Links:")
+                for link in block['links']:
+                    print(f"      Link {link['link_id']}: {link['from_segment_name']}{link['from_orientation']} -> {link['to_segment_name']}{link['to_orientation']} (CIGAR: {link['cigar_string']})")
+            
+            if 'paths' in block:
+                print("    Paths:")
+                for path in block['paths']:
+                    segments = ", ".join(path['oriented_segment_ids'])
+                    overlaps = ", ".join(path['overlap_cigar_strings'])
+                    print(f"      Path {path['path_id']}: {path['path_name']} -> [{segments}] (Overlaps: [{overlaps}])")
+            
+            if 'walks' in block:
+                print("    Walks:")
+                for walk in block['walks']:
+                    segments = ", ".join(walk['oriented_segment_ids'])
+                    print(f"      Walk {walk['walk_id']}: Sample={walk['sample_id']}, Hap={walk['haplotype_index']}, Seq={walk['sequence_id']}, Pos={walk['start_position']}-{walk['end_position']} -> [{segments}]")
+        
+        print(f"\nSummary:")
+        print(f"  Total segments: {result['summary']['total_segments']}")
+        print(f"  Total blocks: {result['summary']['total_blocks']}")
+    else:
+        # JSON format (default)
+        print(json.dumps(result, indent=2))

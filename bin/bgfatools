@@ -13,7 +13,7 @@ from pygfa.gfa import GFA
 from pygfa.encoding import (
     show_full_encodings,
 )
-from pygfa.bgfa import measure_bgfa, verify_bgfa
+from pygfa.bgfa import measure_bgfa, validate_bgfa
 
 
 def parse_cli_options():
@@ -42,7 +42,7 @@ def parse_cli_options():
     )
 
     # Strategy options for every component
-    strategy_group = bgfa_parser.add_argument_group("Strategy Options (Format: int+str, e.g. varint+huffman)")
+    strategy_group = bgfa_parser.add_argument_group("Strategy Options (Format: int+str, e.g. varint+huffman, varint+2bit)")
     strategy_group.add_argument("--segment-names", type=str, default="varint+none")
     strategy_group.add_argument("--sequences", type=str, default="varint+none")
     strategy_group.add_argument("--link-endpoints", type=str, default="varint+none")
@@ -83,7 +83,7 @@ def parse_cli_options():
 
     # verify subcommand
     verify_parser = subparsers.add_parser(
-        "verify", help="Verify BGFA file structure against specification"
+        "validate", help="Validate BGFA file structure against specification"
     )
     verify_parser.add_argument("input_file", help="Path to input BGFA file")
     verify_parser.add_argument(
@@ -97,6 +97,23 @@ def parse_cli_options():
     # show-full-encodings subcommand
     subparsers.add_parser(
         "show-full-encodings", help="Show all compression encoding options as JSON"
+    )
+
+    # dump subcommand
+    dump_parser = subparsers.add_parser(
+        "dump", help="Dump BGFA file contents with detailed field information"
+    )
+    dump_parser.add_argument("input_file", help="Path to input BGFA file")
+    dump_parser.add_argument(
+        "--output", "-o", type=str, default=None,
+        help="Path to output file (default: stdout)",
+    )
+    dump_parser.add_argument(
+        "--text", action="store_true",
+        help="Output pretty text format instead of JSON (default: JSON)",
+    )
+    dump_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
 
     # Options common to all commands
@@ -154,6 +171,8 @@ def parse_cli_options():
         options["output"] = args.output
     if hasattr(args, "original_gfa"):
         options["original_gfa"] = args.original_gfa
+    if hasattr(args, "text"):
+        options["text"] = args.text
 
     # Extract positional arguments and save them to the options dict
     if hasattr(args, "input_file"):
@@ -221,6 +240,47 @@ def parse_cli_options():
     return options
 
 
+def log_parsed_options(options, logger):
+    """Log the parsed command line options in verbose mode."""
+    if not logger or not logger.isEnabledFor(logging.INFO):
+        return
+    
+    logger.info("Parsed command line options:")
+    
+    # Log basic options
+    if "command" in options:
+        logger.info("  Command: %s", options["command"])
+    if "input_file" in options:
+        logger.info("  Input file: %s", options["input_file"])
+    if "output_file" in options:
+        logger.info("  Output file: %s", options["output_file"])
+    if "block_size" in options:
+        logger.info("  Block size: %s", options["block_size"])
+    if "verbose" in options and options["verbose"]:
+        logger.info("  Verbose: True")
+    if "debug" in options and options["debug"]:
+        logger.info("  Debug: True")
+    
+    # Log strategy options
+    strategy_opts = [
+        "segment_names_enc", "sequences_enc", "link_endpoints_enc", "link_cigars_enc",
+        "path_names_enc", "path_sequences_enc", "path_cigars_enc",
+        "walk_sample_ids_enc", "walk_haplotype_indices_enc", "walk_sequence_ids_enc",
+        "walk_positions_start_enc", "walk_positions_end_enc", "walk_steps_enc"
+    ]
+    
+    strategy_opts_found = False
+    for opt in strategy_opts:
+        if opt in options and options[opt]:
+            if not strategy_opts_found:
+                logger.info("  Strategy options:")
+                strategy_opts_found = True
+            logger.info("    %s: %s", opt.replace("_", " "), options[opt])
+    
+    if "config" in options and options["config"]:
+        logger.info("  Config file: %s", options["config"])
+
+
 if __name__ == "__main__":
     import sys
 
@@ -264,6 +324,10 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
     logger.info("Starting bgfatools command: %s", options.get("command"))
+
+    # Log parsed options in verbose mode
+    if options.get("verbose") or options.get("debug"):
+        log_parsed_options(options, logger)
 
     if options.get("command") == "bgfa":
         try:
@@ -347,11 +411,11 @@ if __name__ == "__main__":
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
-    elif options.get("command") == "verify":
+    elif options.get("command") == "validate":
         try:
-            logger.info("Verifying BGFA file: %s", options.get("input_file"))
+            logger.info("Validating BGFA file: %s", options.get("input_file"))
             verbose_mode = options.get("verbose", False) or options.get("debug", False)
-            result = verify_bgfa(
+            result = validate_bgfa(
                 options.get("input_file"),
                 verbose=verbose_mode,
                 debug=options.get("debug", False),
@@ -359,22 +423,56 @@ if __name__ == "__main__":
             json_str = json.dumps(result, indent=2)
             output_file = options.get("output")
             if output_file:
-                logger.info("Writing verify report to file: %s", output_file)
+                logger.info("Writing validation report to file: %s", output_file)
                 with open(output_file, "w") as f:
                     f.write(json_str)
             else:
                 print(json_str)
-            logger.info("Verify command completed successfully")
+            logger.info("Validation command completed successfully")
         except Exception as e:
-            logger.error("Error during verification: %s", e, exc_info=True)
+            logger.error("Error during validation: %s", e, exc_info=True)
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif options.get("command") == "show-full-encodings":
         print(json.dumps(show_full_encodings(), indent=2))
 
+    elif options.get("command") == "dump":
+        try:
+            logger.info("Dumping BGFA file: %s", options.get("input_file"))
+            verbose_mode = options.get("verbose", False) or options.get("debug", False)
+            text_format = options.get("text", False)
+            
+            # Import the dump_bgfa function
+            from pygfa.bgfa import dump_bgfa
+            
+            # Capture the output
+            import io
+            from contextlib import redirect_stdout
+            
+            f = io.StringIO()
+            with redirect_stdout(f):
+                dump_bgfa(options.get("input_file"), text_format=text_format)
+            output = f.getvalue()
+            
+            # Output to file or stdout
+            output_file = options.get("output")
+            
+            if output_file:
+                logger.info("Writing dump to file: %s", output_file)
+                with open(output_file, "w") as f:
+                    f.write(output)
+            else:
+                print(output)
+            
+            logger.info("Dump command completed successfully")
+        except Exception as e:
+            logger.error("Error during dump: %s", e, exc_info=True)
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
     else:
         # No command specified
-        logger.error("No command specified. Use 'bgfa', 'cat', 'measure', 'verify', or 'show-full-encodings'.")
-        print("Error: No command specified. Use 'bgfa', 'cat', 'measure', 'verify', or 'show-full-encodings'.", file=sys.stderr)
+        logger.error("No command specified. Use 'bgfa', 'cat', 'measure', 'validate', 'dump', or 'show-full-encodings'.")
+        print("Error: No command specified. Use 'bgfa', 'cat', 'measure', 'validate', 'dump', or 'show-full-encodings'.", file=sys.stderr)
         sys.exit(1)
