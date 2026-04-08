@@ -44,18 +44,31 @@ def parse_cli_options():
     # Strategy options for every component
     strategy_group = bgfa_parser.add_argument_group("Strategy Options (Format: int+str, e.g. varint+huffman, varint+2bit)")
     strategy_group.add_argument("--segment-names", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-segment-names", type=str, default="varint+none")
     strategy_group.add_argument("--sequences", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-sequences", type=str, default="varint+none")
     strategy_group.add_argument("--link-endpoints", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-link-endpoints", type=str, default="varint+none")
     strategy_group.add_argument("--link-cigars", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-link-cigars", type=str, default="varint+none")
     strategy_group.add_argument("--path-names", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-path-names", type=str, default="varint+none")
     strategy_group.add_argument("--path-sequences", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-path-sequences", type=str, default="varint+none")
     strategy_group.add_argument("--path-cigars", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-path-cigars", type=str, default="varint+none")
     strategy_group.add_argument("--walk-sample-ids", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-sample-ids", type=str, default="varint+none")
     strategy_group.add_argument("--walk-haplotype-indices", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-haplotype-indices", type=str, default="varint+none")
     strategy_group.add_argument("--walk-sequence-ids", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-sequence-ids", type=str, default="varint+none")
     strategy_group.add_argument("--walk-positions-start", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-positions-start", type=str, default="varint+none")
     strategy_group.add_argument("--walk-positions-end", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-positions-end", type=str, default="varint+none")
     strategy_group.add_argument("--walk-steps", type=str, default="varint+none")
+    strategy_group.add_argument("--compression-walk-steps", type=str, default="varint+none")
 
     # cat subcommand
 
@@ -181,31 +194,70 @@ def parse_cli_options():
         options["output_file"] = args.output_file
 
     # Extract strategy options for bgfa command (kwargs keys use _enc suffix for writer compatibility)
-    if hasattr(args, "segment_names"):
+    # Priority: compression_ options override non-compression_ options for backward compatibility
+    if hasattr(args, "compression_segment_names"):
+        options["segment_names_enc"] = args.compression_segment_names
+    elif hasattr(args, "segment_names"):
         options["segment_names_enc"] = args.segment_names
-    if hasattr(args, "sequences"):
+    
+    if hasattr(args, "compression_sequences"):
+        options["sequences_enc"] = args.compression_sequences
+    elif hasattr(args, "sequences"):
         options["sequences_enc"] = args.sequences
-    if hasattr(args, "link_endpoints"):
+    
+    if hasattr(args, "compression_link_endpoints"):
+        options["link_endpoints_enc"] = args.compression_link_endpoints
+    elif hasattr(args, "link_endpoints"):
         options["link_endpoints_enc"] = args.link_endpoints
-    if hasattr(args, "link_cigars"):
+    
+    if hasattr(args, "compression_link_cigars"):
+        options["link_cigars_enc"] = args.compression_link_cigars
+    elif hasattr(args, "link_cigars"):
         options["link_cigars_enc"] = args.link_cigars
-    if hasattr(args, "path_names"):
+    
+    if hasattr(args, "compression_path_names"):
+        options["path_names_enc"] = args.compression_path_names
+    elif hasattr(args, "path_names"):
         options["path_names_enc"] = args.path_names
-    if hasattr(args, "path_sequences"):
+    
+    if hasattr(args, "compression_path_sequences"):
+        options["path_sequences_enc"] = args.compression_path_sequences
+    elif hasattr(args, "path_sequences"):
         options["path_sequences_enc"] = args.path_sequences
-    if hasattr(args, "path_cigars"):
+    
+    if hasattr(args, "compression_path_cigars"):
+        options["path_cigars_enc"] = args.compression_path_cigars
+    elif hasattr(args, "path_cigars"):
         options["path_cigars_enc"] = args.path_cigars
-    if hasattr(args, "walk_sample_ids"):
+    
+    if hasattr(args, "compression_walk_sample_ids"):
+        options["walk_sample_ids_enc"] = args.compression_walk_sample_ids
+    elif hasattr(args, "walk_sample_ids"):
         options["walk_sample_ids_enc"] = args.walk_sample_ids
-    if hasattr(args, "walk_haplotype_indices"):
+    
+    if hasattr(args, "compression_walk_haplotype_indices"):
+        options["walk_haplotype_indices_enc"] = args.compression_walk_haplotype_indices
+    elif hasattr(args, "walk_haplotype_indices"):
         options["walk_haplotype_indices_enc"] = args.walk_haplotype_indices
-    if hasattr(args, "walk_sequence_ids"):
+    
+    if hasattr(args, "compression_walk_sequence_ids"):
+        options["walk_sequence_ids_enc"] = args.compression_walk_sequence_ids
+    elif hasattr(args, "walk_sequence_ids"):
         options["walk_sequence_ids_enc"] = args.walk_sequence_ids
-    if hasattr(args, "walk_positions_start"):
+    
+    if hasattr(args, "compression_walk_positions_start"):
+        options["walk_positions_start_enc"] = args.compression_walk_positions_start
+    elif hasattr(args, "walk_positions_start"):
         options["walk_positions_start_enc"] = args.walk_positions_start
-    if hasattr(args, "walk_positions_end"):
+    
+    if hasattr(args, "compression_walk_positions_end"):
+        options["walk_positions_end_enc"] = args.compression_walk_positions_end
+    elif hasattr(args, "walk_positions_end"):
         options["walk_positions_end_enc"] = args.walk_positions_end
-    if hasattr(args, "walk_steps"):
+    
+    if hasattr(args, "compression_walk_steps"):
+        options["walk_steps_enc"] = args.compression_walk_steps
+    elif hasattr(args, "walk_steps"):
         options["walk_steps_enc"] = args.walk_steps
 
     # Load configuration from TOML file if provided

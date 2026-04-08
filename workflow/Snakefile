@@ -146,19 +146,19 @@ def get_all_csv_files():
 # Mapping from base compression option names to bgfatools CLI flag names.
 # Used by _build_compress_flags to determine which CLI flag each option controls.
 OPTION_CLI_MAP = {
-    "compression_segment_names": "--segment-names",
-    "compression_sequences": "--sequences",
-    "compression_from": "--link-endpoints",
-    "compression_to": "--link-endpoints",
-    "compression_cigars": "--link-cigars",
-    "compression_path_names": "--path-names",
-    "compression_paths": "--path-sequences",
-    "compression_sample_ids": "--walk-sample-ids",
-    "compression_haplotype_indices": "--walk-haplotype-indices",
-    "compression_sequence_ids": "--walk-sequence-ids",
-    "compression_positions_start": "--walk-positions-start",
-    "compression_positions_end": "--walk-positions-end",
-    "compression_walks": "--walk-steps",
+    "compression_segment_names": "--compression-segment-names",
+    "compression_sequences": "--compression-sequences",
+    "compression_from": "--compression-link-endpoints",
+    "compression_to": "--compression-link-endpoints",
+    "compression_cigars": "--compression-link-cigars",
+    "compression_path_names": "--compression-path-names",
+    "compression_paths": "--compression-path-sequences",
+    "compression_sample_ids": "--compression-walk-sample-ids",
+    "compression_haplotype_indices": "--compression-walk-haplotype-indices",
+    "compression_sequence_ids": "--compression-walk-sequence-ids",
+    "compression_positions_start": "--compression-walk-positions-start",
+    "compression_positions_end": "--compression-walk-positions-end",
+    "compression_walks": "--compression-walk-steps",
 }
 
 

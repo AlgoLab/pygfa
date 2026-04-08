@@ -198,12 +198,17 @@ def show_full_encodings() -> dict[str, list[str]]:
     For 4-byte walks/paths fields, values are ``decomp+int+str`` combinations.
     For 1-byte integer-only fields, values are integer encoding names.
     For 1-byte string-only fields, values are string encoding names.
+    
+    Note: This function filters out superstring encoding variants and deduplicates
+    equivalent strategies to provide a cleaner output.
     """
     int_names = sorted(
         n for n in INTEGER_ENCODING_NAMES if n
     )
+    
+    # Filter out superstring entries and deduplicate equivalent strategies
     str_names = sorted(
-        n for n in STRING_ENCODING_NAMES if n
+        n for n in STRING_ENCODING_NAMES if n and not n.startswith("superstring_")
     )
 
     result: dict[str, list[str]] = {}
