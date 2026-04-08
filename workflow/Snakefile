@@ -111,8 +111,9 @@ def discover_datasets():
 
 
 BLOCK_SIZES = config.get("block_sizes", [
-    512, 1024, 2048, 4096, 8192, 16384, 32768,
-    65536, 131072, 262144
+#    512, 1024, 2048, 4096, 8192, 16384, 32768,
+#    65536, 131072, 262144
+512
 ])
 
 OUTPUT_DIR = config.get("output_dir", "results/benchmark")

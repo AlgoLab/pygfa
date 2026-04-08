@@ -1945,6 +1945,27 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
     # Statistics to write to CSV
     stats = []
 
+    # Mapping from section_id to compression options
+    SECTION_COMPRESSION_OPTIONS = {
+        SECTION_ID_SEGMENTS: [
+            ("compression_segment_names", 2),  # 2-byte field at offset +3
+            ("compression_sequences", 2),     # 2-byte field at offset +11
+        ],
+        SECTION_ID_LINKS: [
+            ("compression_from", 2),           # 2-byte field at offset +3
+            ("compression_to", 2),             # 2-byte field at offset +3 (same as from)
+            ("compression_cigars", 4),         # 4-byte field at offset +13
+        ],
+        SECTION_ID_PATHS: [
+            ("compression_path_names", 2),    # 2-byte field at offset +3
+            ("compression_paths", 4),         # 4-byte field at offset +7
+            ("compression_path_cigars", 4),   # 4-byte field at offset +11
+        ],
+        SECTION_ID_WALKS: [
+            # Walks section would go here if needed
+        ],
+    }
+
     block_index = 0
     while offset < len(data):
         section_id = data[offset]
