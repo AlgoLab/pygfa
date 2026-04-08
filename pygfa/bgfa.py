@@ -2241,12 +2241,12 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
 
     if output_file is None:
         # Write to stdout (verbose mode)
-        writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames)
+        writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames, lineterminator='\n')
         writer.writeheader()
         writer.writerows(stats)
     else:
         with open(output_file, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames)
+            writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames, lineterminator='\n')
             writer.writeheader()
             writer.writerows(stats)
 
