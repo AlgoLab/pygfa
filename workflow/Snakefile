@@ -258,7 +258,7 @@ rule measure_bgfa:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
         "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" && "
-        "awk -v gfa='{input.gfa}' -v block_size='{wildcards.block_size}' -v option='{params.option}' -v encoding='{params.encoding}' '
-        NR==1 {{print $0 \",original_gfa,block_size,compression_option,compression_value\"}}
-        NR>1 {{print $0 \",\" gfa \",\" block_size \",\" option \",\" encoding \"\"}}
-        ' {output.csv} > {output.csv}.tmp && mv {output.csv}.tmp {output.csv}"
+        "awk -v gfa='{input.gfa}' -v block_size='{wildcards.block_size}' -v option='{params.option}' -v encoding='{params.encoding}' '"
+        "NR==1 {{print $0 \",original_gfa,block_size,compression_option,compression_value\"}}"
+        "NR>1 {{print $0 \",\" gfa \",\" block_size \",\" option \",\" encoding \"\"}}"
+        ""' {output.csv} > {output.csv}.tmp && mv {output.csv}.tmp {output.csv}"
