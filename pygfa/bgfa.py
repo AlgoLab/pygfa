@@ -1909,13 +1909,14 @@ def read_bgfa(file_path: str, **kwargs) -> GFA:
     return reader.read_bgfa(file_path, **kwargs)
 
 
-def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False) -> None:
+def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False, option_filter: str = None) -> None:
     """Measure BGFA file statistics.
 
     :param input_file: Path to input BGFA file
     :param output_file: Path to output CSV file. If None and verbose, writes to stdout.
     :param verbose: Enable verbose logging of everything read from the file
     :param debug: Enable debug logging
+    :param option_filter: If specified, filter results to only include the section affected by this option
     """
     import csv
 
@@ -1964,6 +1965,24 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
         SECTION_ID_WALKS: [
             # Walks section would go here if needed
         ],
+    }
+
+    # Mapping from option names to section_id and length field names
+    OPTION_SECTION_LENGTH_MAP = {
+        "compression_segment_names": (SECTION_ID_SEGMENTS, "clen_names", "ulen_names"),
+        "compression_sequences": (SECTION_ID_SEGMENTS, "clen_str", "ulen_str"),
+        "compression_from": (SECTION_ID_LINKS, "clen_fromto", "ulen_fromto"),
+        "compression_to": (SECTION_ID_LINKS, "clen_fromto", "ulen_fromto"),
+        "compression_cigars": (SECTION_ID_LINKS, "clen_cigars", "ulen_cigars"),
+        "compression_path_names": (SECTION_ID_PATHS, "clen_names", "ulen_names"),
+        "compression_paths": (SECTION_ID_PATHS, "clen_paths", "ulen_paths"),
+        "compression_path_cigars": (SECTION_ID_PATHS, "clen_cigars", "ulen_cigars"),
+        "compression_sample_ids": (SECTION_ID_WALKS, "clen_samples", "ulen_samples"),
+        "compression_haplotype_indices": (SECTION_ID_WALKS, "clen_hep", "ulen_hep"),
+        "compression_sequence_ids": (SECTION_ID_WALKS, "clen_seq", "ulen_seq"),
+        "compression_positions_start": (SECTION_ID_WALKS, "clen_positions", "ulen_positions"),
+        "compression_positions_end": (SECTION_ID_WALKS, "clen_positions", "ulen_positions"),
+        "compression_walks": (SECTION_ID_WALKS, "clen_walks", "ulen_walks"),
     }
 
     block_index = 0
@@ -2019,6 +2038,10 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": record_num,
                     "compressed_length": clen_names + clen_str,
                     "uncompressed_length": ulen_names + ulen_str,
+                    "clen_names": clen_names,
+                    "ulen_names": ulen_names,
+                    "clen_str": clen_str,
+                    "ulen_str": ulen_str,
                 }
             )
             offset += consumed
@@ -2073,6 +2096,10 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": record_num,
                     "compressed_length": clen_fromto + clen_cigars,
                     "uncompressed_length": ulen_cigars,
+                    "clen_fromto": clen_fromto,
+                    "ulen_fromto": clen_fromto,  # For links, uncompressed fromto is same as compressed
+                    "clen_cigars": clen_cigars,
+                    "ulen_cigars": ulen_cigars,
                 }
             )
             offset += consumed
@@ -2128,6 +2155,12 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": record_num,
                     "compressed_length": clen_names + clen_cigars,
                     "uncompressed_length": ulen_names + ulen_cigars,
+                    "clen_names": clen_names,
+                    "ulen_names": ulen_names,
+                    "clen_paths": clen_cigars,  # clen_cigars is actually the compressed paths length
+                    "ulen_paths": ulen_cigars,  # ulen_cigars is actually the uncompressed paths length
+                    "clen_cigars": clen_cigars,
+                    "ulen_cigars": ulen_cigars,
                 }
             )
             offset += consumed
@@ -2212,6 +2245,16 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": record_num,
                     "compressed_length": total_compressed,
                     "uncompressed_length": total_uncompressed,
+                    "clen_samples": clen_samples,
+                    "ulen_samples": ulen_samples,
+                    "clen_hep": clen_hep,
+                    "ulen_hep": ulen_hep,
+                    "clen_seq": clen_seq,
+                    "ulen_seq": ulen_seq,
+                    "clen_positions": clen_positions,
+                    "ulen_positions": ulen_positions,
+                    "clen_walks": clen_walks,
+                    "ulen_walks": ulen_walks,
                 }
             )
             offset += consumed
@@ -2227,6 +2270,27 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
         logger.info("  Total blocks: %d", block_index)
         logger.info("  Total segments: %d", len(reader._segment_names))
 
+    # Filter stats based on option_filter if specified
+    filtered_stats = []
+    if option_filter and option_filter in OPTION_SECTION_LENGTH_MAP:
+        target_section_id, compressed_field, uncompressed_field = OPTION_SECTION_LENGTH_MAP[option_filter]
+        
+        for stat in stats:
+            if stat["section_id"] == target_section_id:
+                # Create a filtered stat with only the relevant length fields
+                filtered_stat = {
+                    "block_index": stat["block_index"],
+                    "section_id": stat["section_id"],
+                    "section_type": stat["section_type"],
+                    "record_num": stat["record_num"],
+                    "compressed_length": stat.get(compressed_field, 0),
+                    "uncompressed_length": stat.get(uncompressed_field, 0),
+                }
+                filtered_stats.append(filtered_stat)
+    else:
+        # No filtering, use original stats
+        filtered_stats = stats
+
     # Write CSV
     import sys
 
@@ -2239,16 +2303,29 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
         "uncompressed_length",
     ]
 
+    # Prepare stats for CSV - only include the basic fields
+    csv_stats = []
+    for stat in filtered_stats:
+        csv_stat = {
+            "block_index": stat["block_index"],
+            "section_id": stat["section_id"],
+            "section_type": stat["section_type"],
+            "record_num": stat["record_num"],
+            "compressed_length": stat["compressed_length"],
+            "uncompressed_length": stat["uncompressed_length"],
+        }
+        csv_stats.append(csv_stat)
+
     if output_file is None:
         # Write to stdout (verbose mode)
         writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames, lineterminator='\n')
         writer.writeheader()
-        writer.writerows(stats)
+        writer.writerows(csv_stats)
     else:
         with open(output_file, "w", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames, lineterminator='\n')
             writer.writeheader()
-            writer.writerows(stats)
+            writer.writerows(csv_stats)
 
 
 def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -> dict:

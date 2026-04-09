@@ -93,6 +93,10 @@ def parse_cli_options():
     measure_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
+    measure_parser.add_argument(
+        "--option-filter", type=str, default=None,
+        help="Filter results to only include the section affected by this compression option"
+    )
 
     # verify subcommand
     verify_parser = subparsers.add_parser(
@@ -186,6 +190,8 @@ def parse_cli_options():
         options["original_gfa"] = args.original_gfa
     if hasattr(args, "text"):
         options["text"] = args.text
+    if hasattr(args, "option_filter"):
+        options["option_filter"] = args.option_filter
 
     # Extract positional arguments and save them to the options dict
     if hasattr(args, "input_file"):
@@ -456,6 +462,7 @@ if __name__ == "__main__":
                 output_file=output_file,
                 verbose=verbose_mode,
                 debug=options.get("debug", False),
+                option_filter=options.get("option_filter"),
             )
             logger.info("Measure command completed successfully")
         except Exception as e:
