@@ -162,6 +162,21 @@ OPTION_CLI_MAP = {
     "compression_walks": "--compression-walk-steps",
 }
 
+OPTION_SECTION_MAP = {
+    "compression_segment_names": 2,
+    "compression_segment_label": 2,
+    "compression_fromto": 3,
+    "compression_links_cigars": 3,
+    "compression_path_names": 4,
+    "compression_paths": 4,
+    "compression_paths_cigars": 4,
+    "compression_sample_ids": 5,
+    "compression_paths_cigars": 5,
+    "compression_paths": 5,
+    "compression_path_names": 5,
+    "compression_links_cigars": 5,
+    "compression_fromto": 5,
+}
 
 def _build_compress_flags(option, encoding):
     """Build shell string of compression flags for bgfatools CLI.
@@ -254,10 +269,26 @@ rule measure_bgfa:
     params:
         option="{option}",
         encoding="{encoding}",
+        # Map CLI option names to filter option names
+        option_filter=lambda wildcards: {
+            "--compression-segment-names": "compression_segment_names",
+            "--compression-sequences": "compression_sequences", 
+            "--compression-link-endpoints": "compression_from",
+            "--compression-link-cigars": "compression_cigars",
+            "--compression-path-names": "compression_path_names",
+            "--compression-path-sequences": "compression_paths",
+            "--compression-path-cigars": "compression_path_cigars",
+            "--compression-walk-sample-ids": "compression_sample_ids",
+            "--compression-walk-haplotype-indices": "compression_haplotype_indices",
+            "--compression-walk-sequence-ids": "compression_sequence_ids",
+            "--compression-walk-positions-start": "compression_positions_start",
+            "--compression-walk-positions-end": "compression_positions_end",
+            "--compression-walk-steps": "compression_walks",
+        }.get(wildcards.option, "")
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
-        "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" && "
+        "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" {'--option-filter ' + params.option_filter if params.option_filter else ''} && "
         "awk -v gfa='{input.gfa}' -v block_size='{wildcards.block_size}' -v option='{params.option}' -v encoding='{params.encoding}' '"
         "NR==1 {{print $0 \",original_gfa,block_size,compression_option,compression_value\"}}"
         "NR>1 {{print $0 \",\" gfa \",\" block_size \",\" option \",\" encoding}}"
