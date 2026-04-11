@@ -323,7 +323,9 @@ rule measure_bgfa:
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
-        """
-        # Run measure_bgfa with compression value parameter
-        pixi run python -c "from pygfa.bgfa import measure_bgfa; measure_bgfa('{input.bgfa}', '{output.csv}', option_filter='{params.option_filter}', compression_value='{wildcards.encoding}')"
-        """
+      "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" "
+        "{if params.option_filter then '--option-filter ' + params.option_filter else ''} && "
+        "awk -v gfa='{input.gfa}' -v block_size='{wildcards.block_size}' -v option='{params.option}' -v encoding='{params.encoding}' '"
+        "NR==1 {{print $0 \",original_gfa,block_size,compression_option,compression_value\"}}"
+        "NR>1 {{print $0 \",\" gfa \",\" block_size \",\" option \",\" encoding}}"
+        "' {output.csv} > {output.csv}.tmp && mv {output.csv}.tmp {output.csv}"
