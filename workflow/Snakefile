@@ -113,7 +113,7 @@ def discover_datasets():
 BLOCK_SIZES = config.get("block_sizes", [
 #    512, 1024, 2048, 4096, 8192, 16384, 32768,
 #    65536, 131072, 262144
-512
+32768
 ])
 
 OUTPUT_DIR = config.get("output_dir", "results/benchmark")
@@ -269,27 +269,61 @@ rule measure_bgfa:
     params:
         option="{option}",
         encoding="{encoding}",
-        # Map CLI option names to filter option names
+        # Map option names to filter option names
         option_filter=lambda wildcards: {
-            "--compression-segment-names": "compression_segment_names",
-            "--compression-sequences": "compression_sequences", 
-            "--compression-link-endpoints": "compression_from",
-            "--compression-link-cigars": "compression_cigars",
-            "--compression-path-names": "compression_path_names",
-            "--compression-path-sequences": "compression_paths",
-            "--compression-path-cigars": "compression_path_cigars",
-            "--compression-walk-sample-ids": "compression_sample_ids",
-            "--compression-walk-haplotype-indices": "compression_haplotype_indices",
-            "--compression-walk-sequence-ids": "compression_sequence_ids",
-            "--compression-walk-positions-start": "compression_positions_start",
-            "--compression-walk-positions-end": "compression_positions_end",
-            "--compression-walk-steps": "compression_walks",
-        }.get(wildcards.option, "")
+            "compression_segment_names": "compression_segment_names",
+            "compression_segment_names_1": "compression_segment_names",
+            "compression_segment_names_2": "compression_segment_names",
+            "compression_sequences": "compression_sequences",
+            "compression_sequences_1": "compression_sequences", 
+            "compression_sequences_2": "compression_sequences",
+            "compression_from": "compression_from",
+            "compression_from_1": "compression_from",
+            "compression_from_2": "compression_from",
+            "compression_to": "compression_from",
+            "compression_to_1": "compression_from",
+            "compression_to_2": "compression_from",
+            "compression_cigars": "compression_cigars",
+            "compression_cigars_1": "compression_cigars",
+            "compression_cigars_2": "compression_cigars",
+            "compression_cigars_3": "compression_cigars",
+            "compression_cigars_4": "compression_cigars",
+            "compression_path_names": "compression_path_names",
+            "compression_path_names_1": "compression_path_names",
+            "compression_path_names_2": "compression_path_names",
+            "compression_paths": "compression_paths",
+            "compression_paths_1": "compression_paths",
+            "compression_paths_2": "compression_paths",
+            "compression_paths_3": "compression_paths",
+            "compression_paths_4": "compression_paths",
+            "compression_path_cigars": "compression_path_cigars",
+            "compression_path_cigars_1": "compression_path_cigars",
+            "compression_path_cigars_2": "compression_path_cigars",
+            "compression_path_cigars_3": "compression_path_cigars",
+            "compression_path_cigars_4": "compression_path_cigars",
+            "compression_sample_ids": "compression_sample_ids",
+            "compression_sample_ids_1": "compression_sample_ids",
+            "compression_sample_ids_2": "compression_sample_ids",
+            "compression_haplotype_indices": "compression_haplotype_indices",
+            "compression_haplotype_indices_1": "compression_haplotype_indices",
+            "compression_haplotype_indices_2": "compression_haplotype_indices",
+            "compression_sequence_ids": "compression_sequence_ids",
+            "compression_sequence_ids_1": "compression_sequence_ids",
+            "compression_sequence_ids_2": "compression_sequence_ids",
+            "compression_positions_start": "compression_positions_start",
+            "compression_positions_start_1": "compression_positions_start",
+            "compression_positions_start_2": "compression_positions_start",
+            "compression_positions_end": "compression_positions_end",
+            "compression_positions_end_1": "compression_positions_end",
+            "compression_positions_end_2": "compression_positions_end",
+            "compression_walks": "compression_walks",
+            "compression_walks_1": "compression_walks",
+            "compression_walks_2": "compression_walks",
+        }.get(wildcards.option, wildcards.option)
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
-        "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" {'--option-filter ' + params.option_filter if params.option_filter else ''} && "
-        "awk -v gfa='{input.gfa}' -v block_size='{wildcards.block_size}' -v option='{params.option}' -v encoding='{params.encoding}' '"
-        "NR==1 {{print $0 \",original_gfa,block_size,compression_option,compression_value\"}}"
-        "NR>1 {{print $0 \",\" gfa \",\" block_size \",\" option \",\" encoding}}"
-        "' {output.csv} > {output.csv}.tmp && mv {output.csv}.tmp {output.csv}"
+        """
+        # Run measure_bgfa with compression value parameter
+        pixi run python -c "from pygfa.bgfa import measure_bgfa; measure_bgfa('{input.bgfa}', '{output.csv}', option_filter='{params.option_filter}', compression_value='{wildcards.encoding}')"
+        """

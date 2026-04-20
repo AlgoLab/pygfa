@@ -1909,7 +1909,7 @@ def read_bgfa(file_path: str, **kwargs) -> GFA:
     return reader.read_bgfa(file_path, **kwargs)
 
 
-def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False, option_filter: str = None) -> None:
+def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False, option_filter: str = None, compression_value: str = None) -> None:
     """Measure BGFA file statistics.
 
     :param input_file: Path to input BGFA file
@@ -1917,6 +1917,7 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
     :param verbose: Enable verbose logging of everything read from the file
     :param debug: Enable debug logging
     :param option_filter: If specified, filter results to only include the section affected by this option
+    :param compression_value: The compression value/encoding used for this BGFA file
     """
     import csv
 
@@ -2285,8 +2286,29 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": stat["record_num"],
                     "compressed_length": stat.get(compressed_field, 0),
                     "uncompressed_length": stat.get(uncompressed_field, 0),
+                    "compression_option": option_filter,
+                    "compression_value": compression_value if "compression_value" in locals() else None,
                 }
                 filtered_stats.append(filtered_stat)
+        
+        # If no matching sections found, add a missing entry
+        if not filtered_stats:
+            section_type_map = {
+                SECTION_ID_SEGMENTS: "segments",
+                SECTION_ID_LINKS: "links",
+                SECTION_ID_PATHS: "paths",
+                SECTION_ID_WALKS: "walks",
+            }
+            filtered_stats.append({
+                "block_index": option_filter,
+                "section_id": target_section_id,
+                "section_type": section_type_map.get(target_section_id, "unknown"),
+                "record_num": "",
+                "compressed_length": "",
+                "uncompressed_length": "",
+                "compression_option": option_filter,
+                "compression_value": compression_value,
+            })
     else:
         # No filtering, use original stats
         filtered_stats = stats
@@ -2301,9 +2323,11 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
         "record_num",
         "compressed_length",
         "uncompressed_length",
+        "compression_option",
+        "compression_value",
     ]
 
-    # Prepare stats for CSV - only include the basic fields
+    # Prepare stats for CSV
     csv_stats = []
     for stat in filtered_stats:
         csv_stat = {
@@ -2313,6 +2337,8 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
             "record_num": stat["record_num"],
             "compressed_length": stat["compressed_length"],
             "uncompressed_length": stat["uncompressed_length"],
+            "compression_option": stat.get("compression_option", option_filter),
+            "compression_value": stat.get("compression_value", compression_value),
         }
         csv_stats.append(csv_stat)
 
