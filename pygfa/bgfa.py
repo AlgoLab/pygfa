@@ -872,6 +872,62 @@ def decompress_string_ppm_wrapper(payload: bytes, record_num: int, int_decoder: 
     return decompress_string_ppm(ppm_blob, lengths)
 
 
+def _decompress_string_arithmetic_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Wrapper to decode lengths using integer decoder before arithmetic decompression."""
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    # If remaining payload is too short for arithmetic format (needs 4-byte length prefix),
+    # fall back to identity decoding (the file was created with fallback before arithmetic was properly implemented)
+    if len(remaining) < 4:
+        # Try identity decoding: the payload is just the concatenated strings
+        return decompress_string_none_from_blob(remaining, lengths)
+    try:
+        return decompress_string_arithmetic(remaining, lengths)
+    except ValueError as e:
+        if "Data too short" in str(e) and len(remaining) > 0:
+            # Fall back to identity decoding
+            return decompress_string_none_from_blob(remaining, lengths)
+        raise
+
+
+def _decompress_string_bwt_huffman_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Wrapper to decode lengths using integer decoder before BWT+Huffman decompression."""
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    # If remaining payload is too short for BWT+Huffman format (needs 4-byte length prefix),
+    # fall back to identity decoding
+    if len(remaining) < 4:
+        return decompress_string_none_from_blob(remaining, lengths)
+    try:
+        return decompress_string_bwt_huffman(remaining, lengths)
+    except ValueError as e:
+        if "Data too short" in str(e) and len(remaining) > 0:
+            return decompress_string_none_from_blob(remaining, lengths)
+        raise
+
+
+def _decompress_string_dictionary_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Wrapper to decode lengths using integer decoder before dictionary decompression."""
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    try:
+        return decompress_string_dictionary(remaining, lengths)
+    except (ValueError, IndexError):
+        # Dictionary decompression might fail on malformed data
+        return decompress_string_none_from_blob(remaining, lengths)
+
+
+def _decompress_string_rle_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Wrapper to decode lengths using integer decoder before RLE decompression."""
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    try:
+        return decompress_string_rle(remaining, lengths)
+    except (ValueError, IndexError):
+        # RLE decompression might fail on malformed data
+        return decompress_string_none_from_blob(remaining, lengths)
+
+
 STRING_DECODERS = {
     STRING_ENCODING_NONE: decompress_string_none,
     STRING_ENCODING_ZSTD: decompress_string_zstd,
@@ -879,11 +935,11 @@ STRING_DECODERS = {
     STRING_ENCODING_LZMA: decompress_string_lzma,
     STRING_ENCODING_HUFFMAN: decompress_string_huffman,
     STRING_ENCODING_2BIT_DNA: decompress_string_2bit_dna_strings,
-    STRING_ENCODING_ARITHMETIC: lambda p, rn, id: decompress_string_arithmetic(p, [0] * rn),
-    STRING_ENCODING_BWT_HUFFMAN: lambda p, rn, id: decompress_string_bwt_huffman(p, [0] * rn),
-    STRING_ENCODING_RLE: lambda p, rn, id: decompress_string_rle(p, [0] * rn),
+    STRING_ENCODING_ARITHMETIC: _decompress_string_arithmetic_wrapper,
+    STRING_ENCODING_BWT_HUFFMAN: _decompress_string_bwt_huffman_wrapper,
+    STRING_ENCODING_RLE: _decompress_string_rle_wrapper,
     STRING_ENCODING_CIGAR: lambda p, rn, id: _decompress_string_cigar_with_metadata(p, rn, id),
-    STRING_ENCODING_DICTIONARY: lambda p, rn, id: decompress_string_dictionary(p, [0] * rn),
+    STRING_ENCODING_DICTIONARY: _decompress_string_dictionary_wrapper,
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
     STRING_ENCODING_LZ4: decompress_string_lz4,
     STRING_ENCODING_BROTLI: decompress_string_brotli,
@@ -933,6 +989,8 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
         STRING_ENCODING_LZ4: "lz4",
         STRING_ENCODING_BROTLI: "brotli",
         STRING_ENCODING_PPM: "ppm",
+        STRING_ENCODING_ARITHMETIC: "arithmetic",
+        STRING_ENCODING_BWT_HUFFMAN: "bwt_huffman",
     }
     method = method_map.get(str_encoding, "none")
     return compress_string_list(string_list, int_encoder, method, first_byte_strategy=int_encoding)

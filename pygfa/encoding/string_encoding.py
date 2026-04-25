@@ -169,6 +169,14 @@ def compress_string_list(
         from pygfa.encoding.ppm_coding import compress_string_ppm
 
         blob = compress_string_ppm(concatenated.decode("ascii"))
+    elif compression_method == "arithmetic":
+        from pygfa.encoding.arithmetic_coding import compress_string_arithmetic
+
+        blob = compress_string_arithmetic(concatenated.decode("ascii"))
+    elif compression_method == "bwt_huffman":
+        from pygfa.encoding.arithmetic_coding import compress_string_bwt_huffman
+
+        blob = compress_string_bwt_huffman(concatenated.decode("ascii"))
     elif compression_method == "none":
         blob = concatenated
     else:
