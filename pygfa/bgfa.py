@@ -1097,7 +1097,10 @@ class ReaderBGFA:
         int_dec_names = get_integer_decoder(comp_names)
         str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
         names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
-        names = [b.decode("ascii") for b in names_bytes]
+        names = [
+            b.decode("ascii") if b else ""
+            for b in names_bytes
+        ]
 
         # Parse sequences payload
         seqs_payload = data[offset + clen_names : offset + clen_names + clen_str]
@@ -1109,7 +1112,14 @@ class ReaderBGFA:
         segments = {}
         for i in range(record_num):
             name = names[i] if i < len(names) else f"s{i}"
-            seq = seqs_bytes[i].decode("ascii") if i < len(seqs_bytes) and seqs_bytes[i] else "*"
+            if i < len(seqs_bytes) and seqs_bytes[i]:
+                try:
+                    seq = seqs_bytes[i].decode("ascii")
+                except UnicodeDecodeError:
+                    # If ASCII decode fails (e.g., due to malformed compression), use latin-1 as fallback
+                    seq = seqs_bytes[i].decode("latin-1")
+            else:
+                seq = "*"
             if not seq:
                 seq = "*"
             segments[i] = {"name": name, "sequence": seq}
@@ -1175,7 +1185,11 @@ class ReaderBGFA:
                     "to_node": to_name,
                     "from_orn": "-" if f_orns[i] else "+",
                     "to_orn": "-" if t_orns[i] else "+",
-                    "alignment": cigars_bytes[i].decode("ascii") if i < len(cigars_bytes) else "*",
+                    "alignment": (
+                        cigars_bytes[i].decode("ascii")
+                        if i < len(cigars_bytes) and cigars_bytes[i]
+                        else "*"
+                    ),
                 }
             )
 
@@ -1231,7 +1245,13 @@ class ReaderBGFA:
             # Combine orientations with segment IDs
             walks = []
             for i in range(record_num):
-                seg_id = segment_id_strings[i].decode("ascii") if i < len(segment_id_strings) else ""
+                if i < len(segment_id_strings) and segment_id_strings[i]:
+                    try:
+                        seg_id = segment_id_strings[i].decode("ascii")
+                    except UnicodeDecodeError:
+                        seg_id = segment_id_strings[i].decode("latin-1")
+                else:
+                    seg_id = ""
                 orn = "-" if orientations[i] else "+"
                 walks.append(f"{seg_id}{orn}")
             return walks
@@ -1329,8 +1349,20 @@ class ReaderBGFA:
         # Build paths list
         paths = []
         for i in range(record_num):
-            path_name = path_names[i].decode("ascii") if i < len(path_names) else f"path{i}"
-            cigar = cigar_bytes[i].decode("ascii") if i < len(cigar_bytes) else "*"
+            if i < len(path_names) and path_names[i]:
+                try:
+                    path_name = path_names[i].decode("ascii")
+                except UnicodeDecodeError:
+                    path_name = path_names[i].decode("latin-1")
+            else:
+                path_name = f"path{i}"
+            if i < len(cigar_bytes) and cigar_bytes[i]:
+                try:
+                    cigar = cigar_bytes[i].decode("ascii")
+                except UnicodeDecodeError:
+                    cigar = cigar_bytes[i].decode("latin-1")
+            else:
+                cigar = "*"
             segments = walks[i] if i < len(walks) else []
 
             paths.append({"path_name": path_name, "segments": segments, "overlaps": [cigar] if cigar != "*" else []})
@@ -1454,9 +1486,21 @@ class ReaderBGFA:
         # Build walks list
         walks_list = []
         for i in range(record_num):
-            sample_id = sample_ids[i].decode("ascii") if i < len(sample_ids) else f"sample{i}"
+            if i < len(sample_ids) and sample_ids[i]:
+                try:
+                    sample_id = sample_ids[i].decode("ascii")
+                except UnicodeDecodeError:
+                    sample_id = sample_ids[i].decode("latin-1")
+            else:
+                sample_id = f"sample{i}"
             hap_idx = hap_indices[i] if i < len(hap_indices) else 0
-            seq_id = sequence_ids[i].decode("ascii") if i < len(sequence_ids) else f"seq{i}"
+            if i < len(sequence_ids) and sequence_ids[i]:
+                try:
+                    seq_id = sequence_ids[i].decode("ascii")
+                except UnicodeDecodeError:
+                    seq_id = sequence_ids[i].decode("latin-1")
+            else:
+                seq_id = f"seq{i}"
             start_pos = starts[i] if i < len(starts) else 0
             end_pos = ends[i] if i < len(ends) else 0
             walk_segments = walks[i] if i < len(walks) else []
@@ -2587,7 +2631,13 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 segments_data = []
                 for i in range(parsed["record_num"]):
                     name = names[i] if i < len(names) else f"s{i}"
-                    seq = seqs_bytes[i].decode("ascii") if i < len(seqs_bytes) else ""
+                    if i < len(seqs_bytes) and seqs_bytes[i]:
+                        try:
+                            seq = seqs_bytes[i].decode("ascii")
+                        except UnicodeDecodeError:
+                            seq = seqs_bytes[i].decode("latin-1")
+                    else:
+                        seq = ""
                     segments_data.append({"name": name, "sequence": seq})
                 block_result["decompressed"] = segments_data
             except Exception as e:
