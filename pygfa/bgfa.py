@@ -1097,10 +1097,15 @@ class ReaderBGFA:
         int_dec_names = get_integer_decoder(comp_names)
         str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
         names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
-        names = [
-            b.decode("ascii") if b else ""
-            for b in names_bytes
-        ]
+        names = []
+        for b in names_bytes:
+            if b:
+                try:
+                    names.append(b.decode("ascii"))
+                except UnicodeDecodeError:
+                    names.append(b.decode("latin-1"))
+            else:
+                names.append("")
 
         # Parse sequences payload
         seqs_payload = data[offset + clen_names : offset + clen_names + clen_str]
