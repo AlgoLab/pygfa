@@ -2388,8 +2388,6 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "record_num": stat["record_num"],
                     "compressed_length": stat.get(compressed_field, 0),
                     "uncompressed_length": stat.get(uncompressed_field, 0),
-                    "compression_option": option_filter,
-                    "compression_value": compression_value if "compression_value" in locals() else None,
                 }
                 filtered_stats.append(filtered_stat)
         
@@ -2408,8 +2406,6 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                 "record_num": "",
                 "compressed_length": "",
                 "uncompressed_length": "",
-                "compression_option": option_filter,
-                "compression_value": compression_value,
             })
     else:
         # No filtering, use original stats
@@ -2425,8 +2421,6 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
         "record_num",
         "compressed_length",
         "uncompressed_length",
-        "compression_option",
-        "compression_value",
     ]
 
     # Prepare stats for CSV
@@ -2439,8 +2433,6 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
             "record_num": stat["record_num"],
             "compressed_length": stat["compressed_length"],
             "uncompressed_length": stat["uncompressed_length"],
-            "compression_option": stat.get("compression_option", option_filter),
-            "compression_value": stat.get("compression_value", compression_value),
         }
         csv_stats.append(csv_stat)
 
