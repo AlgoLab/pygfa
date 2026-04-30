@@ -1796,12 +1796,16 @@ class BGFAWriter:
 
     def _write_header(self, buf: io.BytesIO) -> None:
         """Write the BGFA file header."""
+        logger.debug("BGFAWriter._write_header() -> entry")
         header_text = b"H\tVN:Z:1.0"
+        logger.debug("BGFAWriter._write_header() -> header_text=%s, magic=0x%08X, version=%d",
+                     header_text.decode('ascii'), BGFA_MAGIC, BGFA_VERSION)
         buf.write(struct.pack("<I", BGFA_MAGIC))
         buf.write(struct.pack("<H", BGFA_VERSION))
         buf.write(struct.pack("<H", len(header_text)))
         buf.write(header_text)
         buf.write(b"\0")  # Null terminator
+        logger.debug("BGFAWriter._write_header() -> exit")
 
     def _write_segments_block(self, buf: io.BytesIO, chunk: list[tuple], names_enc: int, seqs_enc: int) -> None:
         """Write a segments block.
@@ -1810,6 +1814,7 @@ class BGFAWriter:
         Chunk is a list of (name, segment_id) tuples.
         Payload layout: [names encoded][sequences encoded]
         """
+        logger.debug("BGFAWriter._write_segments_block() -> entry, chunk_size=%d, names_enc=0x%04X, seqs_enc=0x%04X", len(chunk), names_enc, seqs_enc)
         nodes_data = dict(self._gfa.nodes(data=True))
 
         names = [name for name, sid in chunk]
@@ -1819,6 +1824,9 @@ class BGFAWriter:
             if s is None or s == "":
                 s = "*"
             seqs.append(s)
+
+        logger.debug("BGFAWriter._write_segments_block() -> segment names=%s", names)
+        logger.debug("BGFAWriter._write_segments_block() -> sequences=%s", seqs)
 
         # Encode names
         payload_names = _compress_string_for_bgfa(names, names_enc)
@@ -1837,26 +1845,39 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", len(payload_seqs)))
         buf.write(struct.pack("<Q", sum(len(s) if s != "*" else 0 for s in seqs)))
         buf.write(payload)
+        logger.debug("BGFAWriter._write_segments_block() -> exit, payload_size=%d", len(payload))
 
     def _write_links_block(self, buf: io.BytesIO, chunk: list, c_ft: int, c_cig: int) -> None:
         """Write a links block.
 
         Payload layout: [from_ids][to_ids][from_orientation][to_orientation][cigar_strings]
         """
+        logger.debug("BGFAWriter._write_links_block() -> entry, chunk_size=%d, c_ft=0x%04X, c_cig=0x%08X", len(chunk), c_ft, c_cig)
         f_ids = []
         t_ids = []
         f_os = []
         t_os = []
         cigs = []
+        from_nodes = []
+        to_nodes = []
+        orientations = []
 
         for u, v, k, d in chunk:
             fn = d.get("from_node", u)
             tn = d.get("to_node", v)
+            from_nodes.append(fn)
+            to_nodes.append(tn)
             f_ids.append(self._segment_map.get(fn, 0) + 1)  # 1-based for links
             t_ids.append(self._segment_map.get(tn, 0) + 1)
-            f_os.append(0 if d.get("from_orn", "+") == "+" else 1)
-            t_os.append(0 if d.get("to_orn", "+") == "+" else 1)
+            from_orn = d.get("from_orn", "+")
+            to_orn = d.get("to_orn", "+")
+            f_os.append(0 if from_orn == "+" else 1)
+            t_os.append(0 if to_orn == "+" else 1)
+            orientations.append(f"{from_orn}>{to_orn}")
             cigs.append(d.get("alignment", "*"))
+
+        logger.debug("BGFAWriter._write_links_block() -> from_nodes=%s, to_nodes=%s, orientations=%s, cigars=%s",
+                     from_nodes, to_nodes, orientations, cigs)
 
         # Encode from/to IDs and orientations
         int_encoder = get_integer_encoder(c_ft)
@@ -1877,6 +1898,7 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", len(p_cig)))
         buf.write(struct.pack("<Q", sum(len(c) for c in cigs)))
         buf.write(p_ft + p_cig)
+        logger.debug("BGFAWriter._write_links_block() -> exit, p_ft_size=%d, p_cig_size=%d", len(p_ft), len(p_cig))
 
     def to_bgfa(self, verbose: bool = False, debug: bool = False, logfile: str = None, **kwargs) -> bytes:
         """Convert GFA to BGFA format.
@@ -1884,6 +1906,8 @@ class BGFAWriter:
         New spec: Single segments block containing both names and sequences.
         No separate segment names block.
         """
+        logger.debug("BGFAWriter.to_bgfa() -> entry, node_count=%d, edge_count=%d, block_size=%d",
+                     len(self._gfa.nodes()), len(self._gfa.edges()), self._block_size)
         # Apply compression options from kwargs
         for k, v in kwargs.items():
             if k.endswith("_enc"):
@@ -1892,6 +1916,7 @@ class BGFAWriter:
         buf = io.BytesIO()
 
         # Write header
+        logger.debug("BGFAWriter.to_bgfa() -> calling _write_header()")
         self._write_header(buf)
 
         # Build segment map
@@ -1911,6 +1936,7 @@ class BGFAWriter:
         )
 
         sorted_segs = [(name, i) for i, name in enumerate(names)]
+        logger.debug("BGFAWriter.to_bgfa() -> calling _write_segments_block() with %d segments", len(sorted_segs))
         self._write_segments_block(buf, sorted_segs, names_enc, seqs_enc)
 
         # Write links blocks
@@ -1924,9 +1950,12 @@ class BGFAWriter:
 
         for i in range(0, len(edges), self._block_size):
             chunk = edges[i : i + self._block_size]
+            logger.debug("BGFAWriter.to_bgfa() -> calling _write_links_block() for chunk %d with %d edges", i // self._block_size, len(chunk))
             self._write_links_block(buf, chunk, links_ft_enc, links_cig_enc)
 
-        return buf.getvalue()
+        result = buf.getvalue()
+        logger.debug("BGFAWriter.to_bgfa() -> exit, total_bgfa_size=%d bytes", len(result))
+        return result
 
 
 # =============================================================================
@@ -2995,10 +3024,16 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
-                "segment_names_compression_code": {"value": f"0x{comp_names:04X}"},
+                "segment_names_compression_code": {
+                    "value": f"0x{comp_names:04X}",
+                    "description": _describe_compression_code(comp_names)
+                },
                 "compressed_segment_names_length_bytes": validate_field(clen_names, clen_names, "compressed_segment_names_length"),
                 "uncompressed_segment_names_length_bytes": validate_field(ulen_names, ulen_names, "uncompressed_segment_names_length"),
-                "segment_sequences_compression_code": {"value": f"0x{comp_str:04X}"},
+                "segment_sequences_compression_code": {
+                    "value": f"0x{comp_str:04X}",
+                    "description": _describe_compression_code(comp_str)
+                },
                 "compressed_segment_sequences_length_bytes": validate_field(clen_str, clen_str, "compressed_segment_sequences_length"),
                 "uncompressed_segment_sequences_length_bytes": validate_field(ulen_str, ulen_str, "uncompressed_segment_sequences_length")
             }
@@ -3024,6 +3059,24 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 "compressed_sequences_bytes": list(seqs_payload) if clen_str > 0 else [],
                 "using_superstring": is_superstring
             }
+            
+            # Add decompressed segment names
+            try:
+                int_dec_names = get_integer_decoder(comp_names)
+                str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+                names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
+                decompressed_names = []
+                for b in names_bytes:
+                    if b:
+                        try:
+                            decompressed_names.append(b.decode("ascii"))
+                        except UnicodeDecodeError:
+                            decompressed_names.append(b.decode("latin-1"))
+                    else:
+                        decompressed_names.append("")
+                compressed_info["decompressed_segment_names"] = decompressed_names
+            except Exception as e:
+                compressed_info["decompressed_segment_names_error"] = f"Failed to decompress names: {e}"
             
             if is_superstring:
                 try:
@@ -3146,9 +3199,15 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
-                "link_endpoints_compression_code": {"value": f"0x{comp_fromto:04X}"},
+                "link_endpoints_compression_code": {
+                    "value": f"0x{comp_fromto:04X}",
+                    "description": _describe_compression_code(comp_fromto)
+                },
                 "compressed_link_endpoints_length_bytes": validate_field(clen_fromto, clen_fromto, "compressed_link_endpoints_length"),
-                "cigar_strings_compression_code": {"value": f"0x{comp_cigars:08X}"},
+                "cigar_strings_compression_code": {
+                    "value": f"0x{comp_cigars:08X}",
+                    "description": _describe_compression_code(comp_cigars)
+                },
                 "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
                 "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length")
             }
@@ -3193,9 +3252,18 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
-                "path_names_compression_code": {"value": f"0x{comp_names:04X}"},
-                "path_oriented_segment_ids_compression_code": {"value": f"0x{comp_paths:08X}"},
-                "cigar_strings_compression_code": {"value": f"0x{comp_cigars:08X}"},
+                "path_names_compression_code": {
+                    "value": f"0x{comp_names:04X}",
+                    "description": _describe_compression_code(comp_names)
+                },
+                "path_oriented_segment_ids_compression_code": {
+                    "value": f"0x{comp_paths:08X}",
+                    "description": _describe_compression_code(comp_paths)
+                },
+                "cigar_strings_compression_code": {
+                    "value": f"0x{comp_cigars:08X}",
+                    "description": _describe_compression_code(comp_cigars)
+                },
                 "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
                 "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"),
                 "compressed_path_names_length_bytes": validate_field(clen_names, clen_names, "compressed_path_names_length"),
@@ -3257,11 +3325,26 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
-                "sample_ids_compression_code": {"value": f"0x{comp_samples:04X}"},
-                "haplotype_indices_compression_code": {"value": f"0x{comp_hep:04X}"},
-                "sequence_ids_compression_code": {"value": f"0x{comp_seq:04X}"},
-                "positions_compression_code": {"value": f"0x{comp_positions:04X}"},
-                "oriented_segment_ids_compression_code": {"value": f"0x{comp_walks:08X}"},
+                "sample_ids_compression_code": {
+                    "value": f"0x{comp_samples:04X}",
+                    "description": _describe_compression_code(comp_samples)
+                },
+                "haplotype_indices_compression_code": {
+                    "value": f"0x{comp_hep:04X}",
+                    "description": _describe_compression_code(comp_hep)
+                },
+                "sequence_ids_compression_code": {
+                    "value": f"0x{comp_seq:04X}",
+                    "description": _describe_compression_code(comp_seq)
+                },
+                "positions_compression_code": {
+                    "value": f"0x{comp_positions:04X}",
+                    "description": _describe_compression_code(comp_positions)
+                },
+                "oriented_segment_ids_compression_code": {
+                    "value": f"0x{comp_walks:08X}",
+                    "description": _describe_compression_code(comp_walks)
+                },
                 "compressed_sample_ids_length_bytes": validate_field(clen_samples, clen_samples, "compressed_sample_ids_length"),
                 "compressed_haplotype_indices_length_bytes": validate_field(clen_hep, clen_hep, "compressed_haplotype_indices_length"),
                 "compressed_sequence_ids_length_bytes": validate_field(clen_seq, clen_seq, "compressed_sequence_ids_length"),
@@ -3327,6 +3410,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 for field_name, field_value in block['fields'].items():
                     if 'error' in field_value:
                         print(f"      {field_name}: {field_value['value']} (ERROR: {field_value['error']})")
+                    elif 'description' in field_value:
+                        print(f"      {field_name}: {field_value['value']} ({field_value['description']})")
                     else:
                         print(f"      {field_name}: {field_value['value']}")
             
@@ -3374,6 +3459,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     # Add additional compressed info
                     print(f"    Compressed Information:")
                     print(f"      Superstring compression method: {comp_info.get('superstring_compression_method', 'unknown')}")
+                    if 'decompressed_segment_names' in comp_info:
+                        print(f"      Segment names: {comp_info['decompressed_segment_names']}")
+                    if 'compressed_names_hex' in comp_info and comp_info['compressed_names_hex']:
+                        print(f"      Compressed names hex: {comp_info['compressed_names_hex'][:100]}{'...' if len(comp_info['compressed_names_hex']) > 100 else ''}")
                     print(f"      Compressed hex: {comp_info['compressed_sequences_hex'][:50]}{'...' if len(comp_info['compressed_sequences_hex']) > 50 else ''}")
                     
                     # Show any errors
@@ -3385,17 +3474,17 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     for seg in block['segments']:
                         print(f"      Segment {seg['segment_id']}: {seg['segment_name']} -> {seg['segment_sequence']}")
                     
-                    # Add compressed info if present
-                    if 'compressed_info' in block and block['compressed_info'].get('using_superstring', False):
+                    # Add compressed info
+                    if 'compressed_info' in block:
                         comp_info = block['compressed_info']
                         print(f"    Compressed Information:")
-                        print(f"      Using superstring: Yes")
-                        print(f"      Superstring length: {comp_info['superstring_length']}")
-                        print(f"      Superstring content: '{comp_info['superstring_content']}'")
-                        print(f"      Segment positions: starts={comp_info['segment_starts']}, ends={comp_info['segment_ends']}")
-                        print(f"      Compressed hex: {comp_info['compressed_sequences_hex'][:50]}{'...' if len(comp_info['compressed_sequences_hex']) > 50 else ''}")
-                        
-                        # Show any errors
+                        print(f"      Using superstring: {comp_info.get('using_superstring', False)}")
+                        if 'decompressed_segment_names' in comp_info:
+                            print(f"      Segment names: {comp_info['decompressed_segment_names']}")
+                        if 'compressed_names_hex' in comp_info and comp_info['compressed_names_hex']:
+                            print(f"      Compressed names hex: {comp_info['compressed_names_hex'][:100]}{'...' if len(comp_info['compressed_names_hex']) > 100 else ''}")
+                        if 'compressed_sequences_hex' in comp_info and comp_info['compressed_sequences_hex']:
+                            print(f"      Compressed sequences hex: {comp_info['compressed_sequences_hex'][:100]}{'...' if len(comp_info['compressed_sequences_hex']) > 100 else ''}")
                         if 'superstring_error' in comp_info:
                             print(f"      Warning: {comp_info['superstring_error']}")
             
