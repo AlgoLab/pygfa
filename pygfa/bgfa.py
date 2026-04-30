@@ -1993,7 +1993,6 @@ def parse_compression_strategy(s: str) -> int:
     s_map["2-bit"] = 0xF5  # superstring_2bit (with hyphen)
     s_map["huffman"] = 0xF4  # superstring_huffman
     s_map["ppm"] = 0xF1  # superstring_ppm
-    s_map["none"] = 0xF0  # superstring_none
 
     # Handle single-part encoding (e.g., "superstring_ppm", "brotli")
     if len(p) == 1:
@@ -2935,6 +2934,29 @@ def _verify_decompressed_length(
         return result
     except Exception as e:
         return {"value": expected_ulen, "correct": True, "message": f"Decompression failed: {e}"}
+
+
+def _describe_compression_code(code: int) -> str:
+    """Return a human-readable description of a compression code.
+    
+    The compression code is a 2-byte value where:
+    - High byte: Integer encoding (for IDs, lengths, etc.)
+    - Low byte: String encoding (for sequences, names, etc.)
+    """
+    from pygfa.encoding.enums import IntegerEncoding, StringEncoding
+    
+    int_code = (code >> 8) & 0xFF
+    str_code = code & 0xFF
+    
+    # Map integer encoding values to names
+    int_names = {e.value: e.name.lower().replace('_', ' ') for e in IntegerEncoding}
+    # Map string encoding values to names
+    str_names = {e.value: e.name.lower().replace('_', ' ') for e in StringEncoding}
+    
+    int_name = int_names.get(int_code, f"unknown_int({int_code:02X})")
+    str_name = str_names.get(str_code, f"unknown_str({str_code:02X})")
+    
+    return f"{int_name}+{str_name}"
 
 
 def dump_bgfa(file_path: str, text_format: bool = False) -> None:
