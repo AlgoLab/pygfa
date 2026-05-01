@@ -2201,6 +2201,18 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
             lnk_offset += 8
             ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
 
+            # Warn about invalid compression codes
+            if not _is_valid_compression_code(comp_fromto):
+                logger.warning(
+                    "Invalid link endpoints compression code 0x%04X (%s) at offset %d",
+                    comp_fromto, _describe_compression_code(comp_fromto), offset + 4
+                )
+            if not _is_valid_cigar_encoding_code(comp_cigars):
+                logger.warning(
+                    "Invalid link CIGARs encoding code 0x%08X (%s) at offset %d",
+                    comp_cigars, _describe_compression_code(comp_cigars), offset + 8
+                )
+
             if verbose:
                 logger.info("  Record count: %d", record_num)
                 logger.info("  Compression from/to: 0x%04X", comp_fromto)
@@ -2959,6 +2971,74 @@ def _describe_compression_code(code: int) -> str:
     return f"{int_name}+{str_name}"
 
 
+def _is_valid_compression_code(code: int) -> bool:
+    """Check if a compression code is valid per the BGFA specification.
+
+    A valid compression code must have both its integer encoding (high byte)
+    and string encoding (low byte) be known enum values from the specification.
+
+    :param code: Compression code (typically 2-byte or 4-byte value)
+    :return: True if both encoding bytes are known, False otherwise
+    """
+    from pygfa.encoding.enums import IntegerEncoding, StringEncoding
+
+    int_code = (code >> 8) & 0xFF
+    str_code = code & 0xFF
+
+    try:
+        IntegerEncoding(int_code)
+        StringEncoding(str_code)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_valid_cigar_encoding_code(code: int) -> bool:
+    """Check if a CIGAR encoding code is valid per the BGFA specification.
+
+    4-byte CIGAR codes have a CigarDecomposition value in the high byte
+    and a compression code in the low 2 bytes.
+    2-byte codes are also valid (implicitly CigarDecomposition.NONE).
+
+    :param code: CIGAR encoding code (2-byte or 4-byte value)
+    :return: True if the encoding code is valid, False otherwise
+    """
+    from pygfa.encoding.enums import CigarDecomposition
+
+    if code <= 0xFFFF:
+        return _is_valid_compression_code(code)
+    decomp = (code >> 24) & 0xFF
+    try:
+        CigarDecomposition(decomp)
+    except ValueError:
+        return False
+    return _is_valid_compression_code(code & 0xFFFF)
+
+
+def _is_valid_walk_encoding_code(code: int) -> bool:
+    """Check if a walk encoding code is valid per the BGFA specification.
+
+    4-byte walk codes have a WalkDecomposition value in the high byte
+    and a compression code in the low 2 bytes.
+    A value of 0 means no walk data (valid).
+
+    :param code: Walk encoding code (4-byte value)
+    :return: True if the encoding code is valid, False otherwise
+    """
+    from pygfa.encoding.enums import WalkDecomposition
+
+    if code == 0:
+        return True
+    if code > 0xFFFF:
+        decomp = (code >> 24) & 0xFF
+        try:
+            WalkDecomposition(decomp)
+        except ValueError:
+            return False
+        return _is_valid_compression_code(code & 0xFFFF)
+    return False
+
+
 def dump_bgfa(file_path: str, text_format: bool = False) -> None:
     """Read a BGFA file and print its content with field names.
 
@@ -3043,6 +3123,18 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             clen_str = struct.unpack_from("<Q", data, seg_offset)[0]
             seg_offset += 8
             ulen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+
+            # Warn about invalid compression codes
+            if not _is_valid_compression_code(comp_names):
+                logger.warning(
+                    "Invalid segment names compression code 0x%04X (%s) at offset %d",
+                    comp_names, _describe_compression_code(comp_names), offset + 4
+                )
+            if not _is_valid_compression_code(comp_str):
+                logger.warning(
+                    "Invalid segment sequences compression code 0x%04X (%s) at offset %d",
+                    comp_str, _describe_compression_code(comp_str), offset + 23
+                )
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -3219,6 +3311,18 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             lnk_offset += 8
             ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
 
+            # Warn about invalid compression codes
+            if not _is_valid_compression_code(comp_fromto):
+                logger.warning(
+                    "Invalid link endpoints compression code 0x%04X (%s) at offset %d",
+                    comp_fromto, _describe_compression_code(comp_fromto), offset + 4
+                )
+            if not _is_valid_cigar_encoding_code(comp_cigars):
+                logger.warning(
+                    "Invalid link CIGARs encoding code 0x%08X (%s) at offset %d",
+                    comp_cigars, _describe_compression_code(comp_cigars), offset + 8
+                )
+
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "link_endpoints_compression_code": {
@@ -3272,6 +3376,23 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             path_offset += 8
             ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
 
+            # Warn about invalid compression codes
+            if not _is_valid_compression_code(comp_names):
+                logger.warning(
+                    "Invalid path names compression code 0x%04X (%s) at offset %d",
+                    comp_names, _describe_compression_code(comp_names), offset + 4
+                )
+            if not _is_valid_walk_encoding_code(comp_paths):
+                logger.warning(
+                    "Invalid path oriented segment IDs encoding code 0x%08X (%s) at offset %d",
+                    comp_paths, _describe_compression_code(comp_paths), offset + 8
+                )
+            if not _is_valid_cigar_encoding_code(comp_cigars):
+                logger.warning(
+                    "Invalid path CIGARs encoding code 0x%08X (%s) at offset %d",
+                    comp_cigars, _describe_compression_code(comp_cigars), offset + 14
+                )
+
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "path_names_compression_code": {
@@ -3323,6 +3444,33 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
             walk_offset += 2
             comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
+
+            # Warn about invalid compression codes
+            if not _is_valid_compression_code(comp_samples):
+                logger.warning(
+                    "Invalid sample IDs compression code 0x%04X (%s) at offset %d",
+                    comp_samples, _describe_compression_code(comp_samples), offset + 4
+                )
+            if not _is_valid_compression_code(comp_hep):
+                logger.warning(
+                    "Invalid haplotype indices compression code 0x%04X (%s) at offset %d",
+                    comp_hep, _describe_compression_code(comp_hep), offset + 6
+                )
+            if not _is_valid_compression_code(comp_seq):
+                logger.warning(
+                    "Invalid sequence IDs compression code 0x%04X (%s) at offset %d",
+                    comp_seq, _describe_compression_code(comp_seq), offset + 8
+                )
+            if not _is_valid_compression_code(comp_positions):
+                logger.warning(
+                    "Invalid positions compression code 0x%04X (%s) at offset %d",
+                    comp_positions, _describe_compression_code(comp_positions), offset + 10
+                )
+            if not _is_valid_walk_encoding_code(comp_walks):
+                logger.warning(
+                    "Invalid oriented segment IDs encoding code 0x%08X (%s) at offset %d",
+                    comp_walks, _describe_compression_code(comp_walks), offset + 12
+                )
             walk_offset += 4
 
             clen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
