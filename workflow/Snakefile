@@ -20,12 +20,8 @@ from benchmark_filter import filter_gfa_files, extract_header_comments
 def discover_encodings():
     """Discover available encodings from bgfatools show-full-encodings.
 
-    For multi-byte fields (composite values with '+' separator), splits into
-    per-byte option entries. E.g. compression_segment_names becomes:
-      - compression_segment_names_1: byte 1 values, byte 2 fixed to identity
-      - compression_segment_names_2: byte 2 values, byte 1 fixed to identity
-
-    Single-byte fields remain unchanged.
+    For multi-byte fields, composite values (e.g. ``varint+2bit``) are
+    kept as atomic encoding values. Single-byte fields remain unchanged.
     """
     # Encodings to exclude from benchmarks
     EXCLUDED_ENCODINGS = {"bwt_huffman"}
@@ -57,20 +53,18 @@ def discover_encodings():
         is_multi_byte = '+' in methods[0]
 
         if is_multi_byte:
-            num_bytes = len(methods[0].split('+'))
-            per_byte = [[] for _ in range(num_bytes)]
-            seen_per_byte = [set() for _ in range(num_bytes)]
-
+            normalized = []
+            seen = set()
             for m in methods:
                 parts = m.split('+')
-                for i, part in enumerate(parts):
-                    mapped = _normalize(part)
-                    if mapped and mapped not in seen_per_byte[i] and mapped not in EXCLUDED_ENCODINGS:
-                        per_byte[i].append(mapped)
-                        seen_per_byte[i].add(mapped)
-
-            for byte_idx in range(num_bytes):
-                encodings[f"{option}_{byte_idx + 1}"] = sorted(per_byte[byte_idx])
+                mapped_parts = [_normalize(p) for p in parts]
+                if any(p in EXCLUDED_ENCODINGS for p in mapped_parts):
+                    continue
+                mapped = '+'.join(mapped_parts)
+                if mapped not in seen:
+                    normalized.append(mapped)
+                    seen.add(mapped)
+            encodings[option] = sorted(normalized)
         else:
             normalized = []
             seen = set()
@@ -183,17 +177,9 @@ OPTION_SECTION_MAP = {
 def _build_compress_flags(option, encoding):
     """Build shell string of compression flags for bgfatools CLI.
 
-    For byte-position options (e.g. compression_segment_names_2), builds
-    a composite encoding with all other bytes set to identity (none).
+    Sets the tested option's CLI flag to the encoding value, and all
+    other compression options to identity (none).
     """
-    # Detect byte position suffix: option names like "compression_xxx_N"
-    base_option = option
-    byte_position = None
-    m = re.match(r'^(.+)_([0-9]+)$', option)
-    if m and m.group(1) in OPTION_CLI_MAP:
-        base_option = m.group(1)
-        byte_position = int(m.group(2))
-
     encodings, _ = get_cached_data()
 
     cli_to_options = {}
@@ -202,77 +188,17 @@ def _build_compress_flags(option, encoding):
 
     flags = []
     for cli_flag, opts in cli_to_options.items():
-        if base_option in opts:
-            if byte_position is not None:
-                # Determine total bytes from existing per-byte keys
-                num_bytes = 1
-                for key in encodings:
-                    km = re.match(rf'^{re.escape(base_option)}_([0-9]+)$', key)
-                    if km:
-                        num_bytes = max(num_bytes, int(km.group(1)))
-
-                parts = ["none"] * num_bytes
-                parts[byte_position - 1] = encoding
-                val = "+".join(parts)
-            else:
-                val = encoding
+        if option in opts:
+            flags.append(f"{cli_flag} {encoding}")
         else:
-            val = "none"
-        flags.append(f"{cli_flag} {val}")
+            flags.append(f"{cli_flag} none")
     return " ".join(flags)
 
 
 def get_filter_option(option):
     """Map option names to filter option names for bgfatools measure."""
     mapping = {
-        "compression_segment_names": "compression_segment_names",
-        "compression_segment_names_1": "compression_segment_names",
-        "compression_segment_names_2": "compression_segment_names",
-        "compression_sequences": "compression_sequences",
-        "compression_sequences_1": "compression_sequences",
-        "compression_sequences_2": "compression_sequences",
-        "compression_from": "compression_from",
-        "compression_from_1": "compression_from",
-        "compression_from_2": "compression_from",
         "compression_to": "compression_from",
-        "compression_to_1": "compression_from",
-        "compression_to_2": "compression_from",
-        "compression_cigars": "compression_cigars",
-        "compression_cigars_1": "compression_cigars",
-        "compression_cigars_2": "compression_cigars",
-        "compression_cigars_3": "compression_cigars",
-        "compression_cigars_4": "compression_cigars",
-        "compression_path_names": "compression_path_names",
-        "compression_path_names_1": "compression_path_names",
-        "compression_path_names_2": "compression_path_names",
-        "compression_paths": "compression_paths",
-        "compression_paths_1": "compression_paths",
-        "compression_paths_2": "compression_paths",
-        "compression_paths_3": "compression_paths",
-        "compression_paths_4": "compression_paths",
-        "compression_path_cigars": "compression_path_cigars",
-        "compression_path_cigars_1": "compression_path_cigars",
-        "compression_path_cigars_2": "compression_path_cigars",
-        "compression_path_cigars_3": "compression_path_cigars",
-        "compression_path_cigars_4": "compression_path_cigars",
-        "compression_sample_ids": "compression_sample_ids",
-        "compression_sample_ids_1": "compression_sample_ids",
-        "compression_sample_ids_2": "compression_sample_ids",
-        "compression_haplotype_indices": "compression_haplotype_indices",
-        "compression_haplotype_indices_1": "compression_haplotype_indices",
-        "compression_haplotype_indices_2": "compression_haplotype_indices",
-        "compression_sequence_ids": "compression_sequence_ids",
-        "compression_sequence_ids_1": "compression_sequence_ids",
-        "compression_sequence_ids_2": "compression_sequence_ids",
-        "compression_positions_start": "compression_positions_start",
-        "compression_positions_start_1": "compression_positions_start",
-        "compression_positions_start_2": "compression_positions_start",
-        "compression_positions_end": "compression_positions_end",
-        "compression_positions_end_1": "compression_positions_end",
-        "compression_positions_end_2": "compression_positions_end",
-        "compression_walks": "compression_walks",
-        "compression_walks_1": "compression_walks",
-        "compression_walks_2": "compression_walks",
     }
     return mapping.get(option, option)
 
