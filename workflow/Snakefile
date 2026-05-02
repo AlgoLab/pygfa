@@ -49,6 +49,8 @@ def discover_encodings():
 
     encodings = {}
     for option, methods in raw_encodings.items():
+        if "cigar" in option:
+            continue
         if not methods:
             continue
 
