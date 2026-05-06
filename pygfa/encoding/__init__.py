@@ -18,10 +18,6 @@ from pygfa.encoding.string_encoding import (
     compress_string_list_dictionary,
     compress_string_list_frontcoding,
     compress_string_list_huffman,
-    compress_string_list_superstring_2bit,
-    compress_string_list_superstring_huffman,
-    compress_string_list_superstring_none,
-    compress_string_list_superstring_ppm,
     compress_string_lzma,
     compress_string_none,
     compress_string_zstd,
@@ -176,15 +172,10 @@ STRING_ENCODINGS: dict[str, str] = {
     "delta": "compress_string_list_delta",
     "dictionary": "compress_string_list_dictionary",
     "rle": "compress_string_rle",
-    "cigar": "compress_string_cigar",
     "2bit": "compress_string_2bit_dna",
     "arithmetic": "compress_string_arithmetic",
     "bwt_huffman": "compress_string_bwt_huffman",
     "ppm": "compress_string_ppm",
-    "superstring_none": "compress_string_list_superstring_none",
-    "superstring_huffman": "compress_string_list_superstring_huffman",
-    "superstring_2bit": "compress_string_list_superstring_2bit",
-    "superstring_ppm": "compress_string_list_superstring_ppm",
     "": "compress_string_none",
 }
 
@@ -198,25 +189,18 @@ def show_full_encodings() -> dict[str, list[str]]:
     For 4-byte walks/paths fields, values are ``decomp+int+str`` combinations.
     For 1-byte integer-only fields, values are integer encoding names.
     For 1-byte string-only fields, values are string encoding names.
-    
+
     Note: This function filters out superstring encoding variants and deduplicates
     equivalent strategies to provide a cleaner output.
     """
-    int_names = sorted(
-        n for n in INTEGER_ENCODING_NAMES if n
-    )
-    
-    # Filter out superstring entries and deduplicate equivalent strategies
-    str_names = sorted(
-        n for n in STRING_ENCODING_NAMES if n and not n.startswith("superstring_")
-    )
+    int_names = sorted(n for n in INTEGER_ENCODING_NAMES if n)
+
+    str_names = sorted(n for n in STRING_ENCODING_NAMES if n)
 
     result: dict[str, list[str]] = {}
     for option, field_type in COMPRESSION_OPTIONS.items():
         if field_type == "2byte":
-            result[option] = sorted(
-                f"{ie}+{se}" for ie in int_names for se in str_names
-            )
+            result[option] = sorted(f"{ie}+{se}" for ie in int_names for se in str_names)
         elif field_type == "1byte_int":
             result[option] = list(int_names)
         elif field_type == "1byte_str":
@@ -232,10 +216,5 @@ def show_full_encodings() -> dict[str, list[str]]:
             )
         elif field_type == "4byte_walks":
             decomp_names = ["none", "orientation_strid", "orientation_numid"]
-            result[option] = sorted(
-                f"{d}+{ie}+{se}"
-                for d in decomp_names
-                for ie in int_names
-                for se in str_names
-            )
+            result[option] = sorted(f"{d}+{ie}+{se}" for d in decomp_names for ie in int_names for se in str_names)
     return result

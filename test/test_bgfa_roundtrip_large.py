@@ -202,13 +202,8 @@ STR_ENCODINGS = [
     ("arithmetic", 0x06),
     ("bwt_huffman", 0x07),
     ("rle", 0x08),
-    ("cigar", 0x09),
     ("dictionary", 0x0A),
     ("ppm", 0x0E),
-    ("superstring_none", 0xF0),
-    ("superstring_huffman", 0xF4),
-    ("superstring_2bit", 0xF5),
-    ("superstring_ppm", 0xF1),
 ]
 BLOCK_SIZES = [512, 1024, 4096]
 

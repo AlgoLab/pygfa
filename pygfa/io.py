@@ -88,8 +88,22 @@ def save(
     logger.info(f"Saving {format.upper()} file: {path}")
 
     if format == "bgfa":
-        compression_code = (integer_encoding.value << 8) | string_encoding.value
-        graph.to_bgfa(str(path), block_size=block_size, compression_code=compression_code)
+        int_name = integer_encoding.name.lower()
+        str_name = string_encoding.name.lower()
+        cigar_code = (
+            0x01  # DD = numOperations + lengths + operations
+            | (integer_encoding.value << 8)  # RR = int encoding for lengths
+            | (integer_encoding.value << 16)  # II = int encoding for counts
+            | (string_encoding.value << 24)  # SS = string encoding for ops
+        )
+        graph.to_bgfa(
+            str(path),
+            block_size=block_size,
+            segment_names_enc=f"{int_name}+{str_name}",
+            seq_enc=f"{int_name}+{str_name}",
+            link_endpoints_enc=f"{int_name}+{str_name}",
+            link_cigars_enc=cigar_code,
+        )
     else:
         graph.dump(gfa_version, str(path))
 

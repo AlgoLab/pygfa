@@ -48,7 +48,6 @@ from pygfa.encoding.rle_encoding import (
     decompress_string_rle,
 )
 from pygfa.encoding.cigar_encoding import (
-    decompress_string_cigar,
     decompress_string_cigar_decomposed,
 )
 from pygfa.encoding.dictionary_encoding import (
@@ -106,16 +105,11 @@ STRING_ENCODING_2BIT_DNA = StringEncoding.TWO_BIT_DNA
 STRING_ENCODING_ARITHMETIC = StringEncoding.ARITHMETIC
 STRING_ENCODING_BWT_HUFFMAN = StringEncoding.BWT_HUFFMAN
 STRING_ENCODING_RLE = StringEncoding.RLE
-STRING_ENCODING_CIGAR = StringEncoding.CIGAR
 STRING_ENCODING_DICTIONARY = StringEncoding.DICTIONARY
 STRING_ENCODING_ZSTD_DICT = StringEncoding.ZSTD_DICT
 STRING_ENCODING_LZ4 = StringEncoding.LZ4
 STRING_ENCODING_BROTLI = StringEncoding.BROTLI
 STRING_ENCODING_PPM = StringEncoding.PPM
-STRING_ENCODING_SUPERSTRING_NONE = StringEncoding.SUPERSTRING_NONE
-STRING_ENCODING_SUPERSTRING_HUFFMAN = StringEncoding.SUPERSTRING_HUFFMAN
-STRING_ENCODING_SUPERSTRING_2BIT = StringEncoding.SUPERSTRING_2BIT
-STRING_ENCODING_SUPERSTRING_PPM = StringEncoding.SUPERSTRING_PPM
 
 # Walk/CIGAR decomposition strategies (for 4-byte codes)
 WALK_DECOMPOSITION_NONE = WalkDecomposition.NONE
@@ -622,6 +616,25 @@ def get_integer_decoder_from_code(int_code: int) -> Callable:
     return INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
 
 
+def get_integer_encoder_from_code(int_code: int) -> Callable:
+    """Get the integer encoder function from a single-byte integer encoding code."""
+    _ENCODERS = {
+        INTEGER_ENCODING_NONE: compress_integer_list_none,
+        INTEGER_ENCODING_VARINT: compress_integer_list_varint,
+        INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, 16),
+        INTEGER_ENCODING_FIXED32: lambda x: compress_integer_list_fixed(x, 32),
+        INTEGER_ENCODING_FIXED64: lambda x: compress_integer_list_fixed(x, 64),
+        INTEGER_ENCODING_DELTA: compress_integer_list_delta,
+        INTEGER_ENCODING_ELIAS_GAMMA: compress_integer_list_elias_gamma,
+        INTEGER_ENCODING_ELIAS_OMEGA: compress_integer_list_elias_omega,
+        INTEGER_ENCODING_GOLOMB: compress_integer_list_golomb,
+        INTEGER_ENCODING_RICE: compress_integer_list_rice,
+        INTEGER_ENCODING_STREAMVBYTE: compress_integer_list_streamvbyte,
+        INTEGER_ENCODING_VBYTE: compress_integer_list_vbyte,
+    }
+    return _ENCODERS.get(int_code, compress_integer_list_varint)
+
+
 def get_integer_encoder(code: int) -> Callable:
     """Get the integer encoder function for a compression code."""
     int_code = (code >> 8) & 0xFF
@@ -759,15 +772,6 @@ def decompress_string_2bit_dna_strings(payload: bytes, record_num: int, int_deco
     return decompress_string_none_from_blob(decompressed, lengths)
 
 
-def _decompress_string_cigar_with_metadata(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode CIGAR strings with metadata (lengths prefix)."""
-    # First decode the lengths metadata
-    lengths, consumed = int_decoder(payload, record_num)
-    # Then decode the CIGAR blob
-    cigar_blob = payload[consumed:]
-    return decompress_string_cigar(cigar_blob, lengths)
-
-
 def _ops_string_decoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
     """Get a bytes-to-bytes decompressor for CIGAR ops string encoding.
 
@@ -786,76 +790,50 @@ def _ops_string_decoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
 
         return lzma.decompress
     else:
-        # Fallback: identity for unsupported encodings
         return lambda x: x
 
 
-def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode CIGAR strings, dispatching on 2-byte vs 4-byte strategy code.
+def _ops_string_encoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
+    """Get a bytes-to-bytes compressor for CIGAR ops string encoding.
 
-    For 2-byte codes (0x??09): uses standard string encoding with metadata lengths.
+    The 4-byte CIGAR decomposition stores packed operations as a raw byte blob
+    that may be compressed with a simple byte-level compressor (gzip, lzma).
+    """
+    if byte4 == 0x00:  # NONE
+        return lambda x: x
+    elif byte4 == 0x02:  # GZIP
+        import gzip
+
+        return gzip.compress
+    elif byte4 == 0x03:  # LZMA
+        import lzma
+
+        return lzma.compress
+    else:
+        raise ValueError(f"Unsupported CIGAR ops string encoding code: 0x{byte4:02X}")
+
+
+def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode CIGAR strings using 4-byte strategy code.
+
     For 4-byte code 0x01??????: uses numOperations+lengths+operations decomposition.
     For 4-byte code 0x02??????: treats as plain compressed string.
     """
-    byte1 = (comp_code >> 24) & 0xFF if comp_code > 0xFFFF else 0
-    if byte1 == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
-        byte2 = (comp_code >> 16) & 0xFF  # int encoding for op counts
-        byte3 = (comp_code >> 8) & 0xFF  # int encoding for lengths
-        byte4 = comp_code & 0xFF  # string encoding for packed ops
-        num_ops_decoder = get_integer_decoder_from_code(byte2)
-        lengths_decoder = get_integer_decoder_from_code(byte3)
-        ops_decoder = _ops_string_decoder_for_code(byte4)
+    dd = comp_code & 0xFF
+    if dd == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
+        rr = (comp_code >> 8) & 0xFF  # int encoding for lengths
+        ii = (comp_code >> 16) & 0xFF  # int encoding for op counts
+        ss = (comp_code >> 24) & 0xFF  # string encoding for packed ops
+        lengths_decoder = get_integer_decoder_from_code(rr)
+        num_ops_decoder = get_integer_decoder_from_code(ii)
+        ops_decoder = _ops_string_decoder_for_code(ss)
         return decompress_string_cigar_decomposed(payload, record_num, num_ops_decoder, lengths_decoder, ops_decoder)
-    elif byte1 == CIGAR_DECOMPOSITION_STRING:
-        byte2 = (comp_code >> 16) & 0xFF
-        str_dec = STRING_DECODERS.get(byte2, decompress_string_none)
+    elif dd == CIGAR_DECOMPOSITION_STRING:
+        ss = (comp_code >> 24) & 0xFF
+        str_dec = STRING_DECODERS.get(ss, decompress_string_none)
         return str_dec(payload, record_num, get_integer_decoder_from_code(0x01))
     else:
-        int_dec = get_integer_decoder(comp_code)
-        str_dec = STRING_DECODERS.get(comp_code & 0xFF, decompress_string_none)
-        return str_dec(payload, record_num, int_dec)
-
-
-def decompress_string_superstring_none(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode superstring with no compression."""
-    starts, consumed1 = int_decoder(payload, record_num)
-    ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    blob = payload[consumed1 + consumed2 :]
-    return [blob[s:e] for s, e in zip(starts, ends)]
-
-
-def decompress_string_superstring_huffman(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode superstring with Huffman compression."""
-    starts, consumed1 = int_decoder(payload, record_num)
-    ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    remaining = payload[consumed1 + consumed2 :]
-    super_len = max(ends) if ends else 0
-    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
-
-    superstring = decompress_nibble_huffman(remaining, int_decoder, super_len * 2)
-    return [superstring[s:e] for s, e in zip(starts, ends)]
-
-
-def decompress_string_superstring_2bit(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode superstring with 2-bit DNA compression."""
-    starts, consumed1 = int_decoder(payload, record_num)
-    ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    remaining = payload[consumed1 + consumed2 :]
-    super_len = max(ends) if ends else 0
-    superstring_list = decompress_string_2bit_dna(remaining, [super_len])
-    superstring = superstring_list[0] if superstring_list else b""
-    return [superstring[s:e] for s, e in zip(starts, ends)]
-
-
-def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    """Decode superstring with PPM compression."""
-    starts, consumed1 = int_decoder(payload, record_num)
-    ends, consumed2 = int_decoder(payload[consumed1:], record_num)
-    remaining = payload[consumed1 + consumed2 :]
-    super_len = max(ends) if ends else 0
-    superstring_list = decompress_string_ppm(remaining, [super_len])
-    superstring = superstring_list[0] if superstring_list else b""
-    return [superstring[s:e] for s, e in zip(starts, ends)]
+        raise ValueError(f"Invalid CIGAR decomposition code: 0x{dd:02X}")
 
 
 def decompress_string_ppm_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
@@ -938,16 +916,11 @@ STRING_DECODERS = {
     STRING_ENCODING_ARITHMETIC: _decompress_string_arithmetic_wrapper,
     STRING_ENCODING_BWT_HUFFMAN: _decompress_string_bwt_huffman_wrapper,
     STRING_ENCODING_RLE: _decompress_string_rle_wrapper,
-    STRING_ENCODING_CIGAR: lambda p, rn, id: _decompress_string_cigar_with_metadata(p, rn, id),
     STRING_ENCODING_DICTIONARY: _decompress_string_dictionary_wrapper,
     STRING_ENCODING_ZSTD_DICT: decompress_string_none,
     STRING_ENCODING_LZ4: decompress_string_lz4,
     STRING_ENCODING_BROTLI: decompress_string_brotli,
     STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn, id),
-    STRING_ENCODING_SUPERSTRING_NONE: decompress_string_superstring_none,
-    STRING_ENCODING_SUPERSTRING_HUFFMAN: decompress_string_superstring_huffman,
-    STRING_ENCODING_SUPERSTRING_2BIT: decompress_string_superstring_2bit,
-    STRING_ENCODING_SUPERSTRING_PPM: decompress_string_superstring_ppm,
 }
 
 
@@ -962,20 +935,8 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
     int_encoding = (compression_code >> 8) & 0xFF
     int_encoder = get_integer_encoder(compression_code)
 
-    from pygfa.encoding.string_encoding import compress_string_list, compress_string_list_superstring
+    from pygfa.encoding.string_encoding import compress_string_list
 
-    # Superstring encodings (0xF0+)
-    if str_encoding >= 0xF0:
-        method = "none"
-        if str_encoding == STRING_ENCODING_SUPERSTRING_HUFFMAN:
-            method = "huffman"
-        elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:
-            method = "2bit"
-        elif str_encoding == STRING_ENCODING_SUPERSTRING_PPM:
-            method = "ppm"
-        return compress_string_list_superstring(string_list, int_encoder, method, first_byte_strategy=int_encoding)
-
-    # Concatenation encodings
     method_map = {
         STRING_ENCODING_NONE: "none",
         STRING_ENCODING_ZSTD: "zstd",
@@ -984,7 +945,6 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
         STRING_ENCODING_HUFFMAN: "huffman",
         STRING_ENCODING_2BIT_DNA: "2bit",
         STRING_ENCODING_RLE: "rle",
-        STRING_ENCODING_CIGAR: "cigar",
         STRING_ENCODING_DICTIONARY: "dictionary",
         STRING_ENCODING_LZ4: "lz4",
         STRING_ENCODING_BROTLI: "brotli",
@@ -1191,9 +1151,7 @@ class ReaderBGFA:
                     "from_orn": "-" if f_orns[i] else "+",
                     "to_orn": "-" if t_orns[i] else "+",
                     "alignment": (
-                        cigars_bytes[i].decode("ascii")
-                        if i < len(cigars_bytes) and cigars_bytes[i]
-                        else "*"
+                        cigars_bytes[i].decode("ascii") if i < len(cigars_bytes) and cigars_bytes[i] else "*"
                     ),
                 }
             )
@@ -1798,8 +1756,12 @@ class BGFAWriter:
         """Write the BGFA file header."""
         logger.debug("BGFAWriter._write_header() -> entry")
         header_text = b"H\tVN:Z:1.0"
-        logger.debug("BGFAWriter._write_header() -> header_text=%s, magic=0x%08X, version=%d",
-                     header_text.decode('ascii'), BGFA_MAGIC, BGFA_VERSION)
+        logger.debug(
+            "BGFAWriter._write_header() -> header_text=%s, magic=0x%08X, version=%d",
+            header_text.decode("ascii"),
+            BGFA_MAGIC,
+            BGFA_VERSION,
+        )
         buf.write(struct.pack("<I", BGFA_MAGIC))
         buf.write(struct.pack("<H", BGFA_VERSION))
         buf.write(struct.pack("<H", len(header_text)))
@@ -1814,7 +1776,12 @@ class BGFAWriter:
         Chunk is a list of (name, segment_id) tuples.
         Payload layout: [names encoded][sequences encoded]
         """
-        logger.debug("BGFAWriter._write_segments_block() -> entry, chunk_size=%d, names_enc=0x%04X, seqs_enc=0x%04X", len(chunk), names_enc, seqs_enc)
+        logger.debug(
+            "BGFAWriter._write_segments_block() -> entry, chunk_size=%d, names_enc=0x%04X, seqs_enc=0x%04X",
+            len(chunk),
+            names_enc,
+            seqs_enc,
+        )
         nodes_data = dict(self._gfa.nodes(data=True))
 
         names = [name for name, sid in chunk]
@@ -1852,7 +1819,12 @@ class BGFAWriter:
 
         Payload layout: [from_ids][to_ids][from_orientation][to_orientation][cigar_strings]
         """
-        logger.debug("BGFAWriter._write_links_block() -> entry, chunk_size=%d, c_ft=0x%04X, c_cig=0x%08X", len(chunk), c_ft, c_cig)
+        logger.debug(
+            "BGFAWriter._write_links_block() -> entry, chunk_size=%d, c_ft=0x%04X, c_cig=0x%08X",
+            len(chunk),
+            c_ft,
+            c_cig,
+        )
         f_ids = []
         t_ids = []
         f_os = []
@@ -1876,8 +1848,13 @@ class BGFAWriter:
             orientations.append(f"{from_orn}>{to_orn}")
             cigs.append(d.get("alignment", "*"))
 
-        logger.debug("BGFAWriter._write_links_block() -> from_nodes=%s, to_nodes=%s, orientations=%s, cigars=%s",
-                     from_nodes, to_nodes, orientations, cigs)
+        logger.debug(
+            "BGFAWriter._write_links_block() -> from_nodes=%s, to_nodes=%s, orientations=%s, cigars=%s",
+            from_nodes,
+            to_nodes,
+            orientations,
+            cigs,
+        )
 
         # Encode from/to IDs and orientations
         int_encoder = get_integer_encoder(c_ft)
@@ -1887,8 +1864,13 @@ class BGFAWriter:
         p_t_or = pack_bits_lsb(t_os)
         p_ft = p_from + p_to + p_f_or + p_t_or
 
-        # Encode cigars
-        p_cig = _compress_string_for_bgfa(cigs, c_cig)
+        # Encode cigars using spec-compliant 4-byte decomposition
+        from pygfa.encoding.cigar_encoding import compress_string_cigar_decomposed
+
+        rr_encoder = get_integer_encoder_from_code((c_cig >> 8) & 0xFF)
+        ii_encoder = get_integer_encoder_from_code((c_cig >> 16) & 0xFF)
+        ss_encoder = _ops_string_encoder_for_code((c_cig >> 24) & 0xFF)
+        p_cig = compress_string_cigar_decomposed(cigs, ii_encoder, rr_encoder, ss_encoder)
 
         buf.write(struct.pack("<B", SECTION_ID_LINKS))
         buf.write(struct.pack("<H", len(chunk)))
@@ -1906,12 +1888,19 @@ class BGFAWriter:
         New spec: Single segments block containing both names and sequences.
         No separate segment names block.
         """
-        logger.debug("BGFAWriter.to_bgfa() -> entry, node_count=%d, edge_count=%d, block_size=%d",
-                     len(self._gfa.nodes()), len(self._gfa.edges()), self._block_size)
+        logger.debug(
+            "BGFAWriter.to_bgfa() -> entry, node_count=%d, edge_count=%d, block_size=%d",
+            len(self._gfa.nodes()),
+            len(self._gfa.edges()),
+            self._block_size,
+        )
         # Apply compression options from kwargs
         for k, v in kwargs.items():
             if k.endswith("_enc"):
-                self._comp_options[k] = parse_compression_strategy(v)
+                if isinstance(v, str):
+                    self._comp_options[k] = parse_compression_strategy(v)
+                else:
+                    self._comp_options[k] = v
 
         buf = io.BytesIO()
 
@@ -1930,9 +1919,7 @@ class BGFAWriter:
         )
         seqs_enc = self._comp_options.get(
             "sequences_enc",
-            self._comp_options.get(
-                "seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)
-            ),
+            self._comp_options.get("seq_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_2BIT_DNA)),
         )
 
         sorted_segs = [(name, i) for i, name in enumerate(names)]
@@ -1945,12 +1932,20 @@ class BGFAWriter:
             "link_endpoints_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
         links_cig_enc = self._comp_options.get(
-            "link_cigars_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_CIGAR)
+            "link_cigars_enc",
+            (CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS << 0)
+            | (INTEGER_ENCODING_VARINT << 8)
+            | (INTEGER_ENCODING_VARINT << 16)
+            | (STRING_ENCODING_NONE << 24),
         )
 
         for i in range(0, len(edges), self._block_size):
             chunk = edges[i : i + self._block_size]
-            logger.debug("BGFAWriter.to_bgfa() -> calling _write_links_block() for chunk %d with %d edges", i // self._block_size, len(chunk))
+            logger.debug(
+                "BGFAWriter.to_bgfa() -> calling _write_links_block() for chunk %d with %d edges",
+                i // self._block_size,
+                len(chunk),
+            )
             self._write_links_block(buf, chunk, links_ft_enc, links_cig_enc)
 
         result = buf.getvalue()
@@ -1988,11 +1983,9 @@ def parse_compression_strategy(s: str) -> int:
     # Aliases
     i_map["identity"] = 0
     s_map["identity"] = 0
-    # Map simple names to superstring encodings by default
-    s_map["2bit"] = 0xF5  # superstring_2bit
-    s_map["2-bit"] = 0xF5  # superstring_2bit (with hyphen)
-    s_map["huffman"] = 0xF4  # superstring_huffman
-    s_map["ppm"] = 0xF1  # superstring_ppm
+    # Remap simple names to standard encodings
+    s_map["2bit"] = StringEncoding.TWO_BIT_DNA.value
+    s_map["2-bit"] = StringEncoding.TWO_BIT_DNA.value
 
     # Handle single-part encoding (e.g., "superstring_ppm", "brotli")
     if len(p) == 1:
@@ -2044,7 +2037,14 @@ def read_bgfa(file_path: str, **kwargs) -> GFA:
     return reader.read_bgfa(file_path, **kwargs)
 
 
-def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False, debug: bool = False, option_filter: str = None, compression_value: str = None) -> None:
+def measure_bgfa(
+    input_file: str,
+    output_file: str = None,
+    verbose: bool = False,
+    debug: bool = False,
+    option_filter: str = None,
+    compression_value: str = None,
+) -> None:
     """Measure BGFA file statistics.
 
     :param input_file: Path to input BGFA file
@@ -2086,17 +2086,17 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
     SECTION_COMPRESSION_OPTIONS = {
         SECTION_ID_SEGMENTS: [
             ("compression_segment_names", 2),  # 2-byte field at offset +3
-            ("compression_sequences", 2),     # 2-byte field at offset +11
+            ("compression_sequences", 2),  # 2-byte field at offset +11
         ],
         SECTION_ID_LINKS: [
-            ("compression_from", 2),           # 2-byte field at offset +3
-            ("compression_to", 2),             # 2-byte field at offset +3 (same as from)
-            ("compression_cigars", 4),         # 4-byte field at offset +13
+            ("compression_from", 2),  # 2-byte field at offset +3
+            ("compression_to", 2),  # 2-byte field at offset +3 (same as from)
+            ("compression_cigars", 4),  # 4-byte field at offset +13
         ],
         SECTION_ID_PATHS: [
-            ("compression_path_names", 2),    # 2-byte field at offset +3
-            ("compression_paths", 4),         # 4-byte field at offset +7
-            ("compression_path_cigars", 4),   # 4-byte field at offset +11
+            ("compression_path_names", 2),  # 2-byte field at offset +3
+            ("compression_paths", 4),  # 4-byte field at offset +7
+            ("compression_path_cigars", 4),  # 4-byte field at offset +11
         ],
         SECTION_ID_WALKS: [
             # Walks section would go here if needed
@@ -2205,12 +2205,16 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
             if not _is_valid_compression_code(comp_fromto):
                 logger.warning(
                     "Invalid link endpoints compression code 0x%04X (%s) at offset %d",
-                    comp_fromto, _describe_compression_code(comp_fromto), offset + 4
+                    comp_fromto,
+                    _describe_compression_code(comp_fromto),
+                    offset + 4,
                 )
             if not _is_valid_cigar_encoding_code(comp_cigars):
                 logger.warning(
                     "Invalid link CIGARs encoding code 0x%08X (%s) at offset %d",
-                    comp_cigars, _describe_compression_code(comp_cigars), offset + 8
+                    comp_cigars,
+                    _describe_compression_code(comp_cigars),
+                    offset + 8,
                 )
 
             if verbose:
@@ -2422,7 +2426,7 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
     filtered_stats = []
     if option_filter and option_filter in OPTION_SECTION_LENGTH_MAP:
         target_section_id, compressed_field, uncompressed_field = OPTION_SECTION_LENGTH_MAP[option_filter]
-        
+
         for stat in stats:
             if stat["section_id"] == target_section_id:
                 # Create a filtered stat with only the relevant length fields
@@ -2435,7 +2439,7 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                     "uncompressed_length": stat.get(uncompressed_field, 0),
                 }
                 filtered_stats.append(filtered_stat)
-        
+
         # If no matching sections found, add a missing entry
         if not filtered_stats:
             section_type_map = {
@@ -2444,14 +2448,16 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
                 SECTION_ID_PATHS: "paths",
                 SECTION_ID_WALKS: "walks",
             }
-            filtered_stats.append({
-                "block_index": option_filter,
-                "section_id": target_section_id,
-                "section_type": section_type_map.get(target_section_id, "unknown"),
-                "record_num": "",
-                "compressed_length": "",
-                "uncompressed_length": "",
-            })
+            filtered_stats.append(
+                {
+                    "block_index": option_filter,
+                    "section_id": target_section_id,
+                    "section_type": section_type_map.get(target_section_id, "unknown"),
+                    "record_num": "",
+                    "compressed_length": "",
+                    "uncompressed_length": "",
+                }
+            )
     else:
         # No filtering, use original stats
         filtered_stats = stats
@@ -2483,12 +2489,12 @@ def measure_bgfa(input_file: str, output_file: str = None, verbose: bool = False
 
     if output_file is None:
         # Write to stdout (verbose mode)
-        writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames, lineterminator='\n')
+        writer = csv.DictWriter(sys.stdout, fieldnames=csv_fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(csv_stats)
     else:
         with open(output_file, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames, lineterminator='\n')
+            writer = csv.DictWriter(csvfile, fieldnames=csv_fieldnames, lineterminator="\n")
             writer.writeheader()
             writer.writerows(csv_stats)
 
@@ -2950,24 +2956,24 @@ def _verify_decompressed_length(
 
 def _describe_compression_code(code: int) -> str:
     """Return a human-readable description of a compression code.
-    
+
     The compression code is a 2-byte value where:
     - High byte: Integer encoding (for IDs, lengths, etc.)
     - Low byte: String encoding (for sequences, names, etc.)
     """
     from pygfa.encoding.enums import IntegerEncoding, StringEncoding
-    
+
     int_code = (code >> 8) & 0xFF
     str_code = code & 0xFF
-    
+
     # Map integer encoding values to names
-    int_names = {e.value: e.name.lower().replace('_', ' ') for e in IntegerEncoding}
+    int_names = {e.value: e.name.lower().replace("_", " ") for e in IntegerEncoding}
     # Map string encoding values to names
-    str_names = {e.value: e.name.lower().replace('_', ' ') for e in StringEncoding}
-    
+    str_names = {e.value: e.name.lower().replace("_", " ") for e in StringEncoding}
+
     int_name = int_names.get(int_code, f"unknown_int({int_code:02X})")
     str_name = str_names.get(str_code, f"unknown_str({str_code:02X})")
-    
+
     return f"{int_name}+{str_name}"
 
 
@@ -2996,23 +3002,37 @@ def _is_valid_compression_code(code: int) -> bool:
 def _is_valid_cigar_encoding_code(code: int) -> bool:
     """Check if a CIGAR encoding code is valid per the BGFA specification.
 
-    4-byte CIGAR codes have a CigarDecomposition value in the high byte
-    and a compression code in the low 2 bytes.
-    2-byte codes are also valid (implicitly CigarDecomposition.NONE).
+    4-byte CIGAR codes have format [DD, RR, II, SS] where DD is the decomposition
+    strategy (byte 0), RR is the lengths integer encoding (byte 1), II is the
+    counts integer encoding (byte 2), SS is the ops string encoding (byte 3).
 
-    :param code: CIGAR encoding code (2-byte or 4-byte value)
+    :param code: CIGAR encoding code (4-byte value)
     :return: True if the encoding code is valid, False otherwise
     """
-    from pygfa.encoding.enums import CigarDecomposition
+    from pygfa.encoding.enums import IntegerEncoding, StringEncoding
 
     if code <= 0xFFFF:
-        return _is_valid_compression_code(code)
-    decomp = (code >> 24) & 0xFF
-    try:
-        CigarDecomposition(decomp)
-    except ValueError:
         return False
-    return _is_valid_compression_code(code & 0xFFFF)
+    dd = code & 0xFF
+    if dd == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
+        rr = (code >> 8) & 0xFF
+        ii = (code >> 16) & 0xFF
+        ss = (code >> 24) & 0xFF
+        try:
+            IntegerEncoding(rr)
+            IntegerEncoding(ii)
+            StringEncoding(ss)
+        except ValueError:
+            return False
+        return True
+    elif dd == CIGAR_DECOMPOSITION_STRING:
+        ss = (code >> 24) & 0xFF
+        try:
+            StringEncoding(ss)
+        except ValueError:
+            return False
+        return (code >> 8) & 0xFFFF == 0  # Reserved bytes must be 0
+    return False
 
 
 def _is_valid_walk_encoding_code(code: int) -> bool:
@@ -3073,21 +3093,16 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         return
 
     reader = ReaderBGFA()
-    result = {
-        "bgfa_format_version": 1,
-        "header": {},
-        "blocks": [],
-        "summary": {}
-    }
+    result = {"bgfa_format_version": 1, "header": {}, "blocks": [], "summary": {}}
 
     # Parse header
     try:
         header = reader._parse_header(data)
         result["header"] = {
             "magic_number": {"value": f"0x{header['magic']:08X}"},
-            "version": {"value": header['version']},
-            "header_text": {"value": header['header_text']},
-            "header_size_bytes": {"value": header['header_size']}
+            "version": {"value": header["version"]},
+            "header_text": {"value": header["header_text"]},
+            "header_size_bytes": {"value": header["header_size"]},
         }
     except Exception as e:
         result["header"]["error"] = f"Error parsing header: {e}"
@@ -3101,14 +3116,11 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
     while offset < len(data):
         block_index += 1
         section_id = data[offset]
-        block_result = {
-            "block_index": block_index,
-            "section_id": section_id
-        }
+        block_result = {"block_index": block_index, "section_id": section_id}
 
         if section_id == SECTION_ID_SEGMENTS:
             block_result["section_type"] = "segments"
-            
+
             seg_offset = offset + 1
             record_num = struct.unpack_from("<H", data, seg_offset)[0]
             seg_offset += 2
@@ -3128,52 +3140,59 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             if not _is_valid_compression_code(comp_names):
                 logger.warning(
                     "Invalid segment names compression code 0x%04X (%s) at offset %d",
-                    comp_names, _describe_compression_code(comp_names), offset + 4
+                    comp_names,
+                    _describe_compression_code(comp_names),
+                    offset + 4,
                 )
             if not _is_valid_compression_code(comp_str):
                 logger.warning(
                     "Invalid segment sequences compression code 0x%04X (%s) at offset %d",
-                    comp_str, _describe_compression_code(comp_str), offset + 23
+                    comp_str,
+                    _describe_compression_code(comp_str),
+                    offset + 23,
                 )
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "segment_names_compression_code": {
                     "value": f"0x{comp_names:04X}",
-                    "description": _describe_compression_code(comp_names)
+                    "description": _describe_compression_code(comp_names),
                 },
-                "compressed_segment_names_length_bytes": validate_field(clen_names, clen_names, "compressed_segment_names_length"),
-                "uncompressed_segment_names_length_bytes": validate_field(ulen_names, ulen_names, "uncompressed_segment_names_length"),
+                "compressed_segment_names_length_bytes": validate_field(
+                    clen_names, clen_names, "compressed_segment_names_length"
+                ),
+                "uncompressed_segment_names_length_bytes": validate_field(
+                    ulen_names, ulen_names, "uncompressed_segment_names_length"
+                ),
                 "segment_sequences_compression_code": {
                     "value": f"0x{comp_str:04X}",
-                    "description": _describe_compression_code(comp_str)
+                    "description": _describe_compression_code(comp_str),
                 },
-                "compressed_segment_sequences_length_bytes": validate_field(clen_str, clen_str, "compressed_segment_sequences_length"),
-                "uncompressed_segment_sequences_length_bytes": validate_field(ulen_str, ulen_str, "uncompressed_segment_sequences_length")
+                "compressed_segment_sequences_length_bytes": validate_field(
+                    clen_str, clen_str, "compressed_segment_sequences_length"
+                ),
+                "uncompressed_segment_sequences_length_bytes": validate_field(
+                    ulen_str, ulen_str, "uncompressed_segment_sequences_length"
+                ),
             }
 
             segs, names, consumed = reader._parse_segments_block(data, offset)
             reader._segment_names = names
 
-            # Check if using superstring compression
-            str_encoding = comp_str & 0xFF
-            is_superstring = str_encoding >= 0xF0  # Superstring encodings are 0xF0+
-            
             # Extract compressed data for analysis
             # Segment block header: 1 (section_id) + 2+2+8+8+2+8+8 = 39 bytes
             payload_start = offset + 39
             names_payload = data[payload_start : payload_start + clen_names]
             seqs_payload = data[payload_start + clen_names : payload_start + clen_names + clen_str]
-            
+
             # Add compressed data information
             compressed_info = {
                 "compressed_names_hex": names_payload.hex() if clen_names > 0 else "",
                 "compressed_sequences_hex": seqs_payload.hex() if clen_str > 0 else "",
                 "compressed_names_bytes": list(names_payload) if clen_names > 0 else [],
                 "compressed_sequences_bytes": list(seqs_payload) if clen_str > 0 else [],
-                "using_superstring": is_superstring
             }
-            
+
             # Add decompressed segment names
             try:
                 int_dec_names = get_integer_decoder(comp_names)
@@ -3191,103 +3210,21 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 compressed_info["decompressed_segment_names"] = decompressed_names
             except Exception as e:
                 compressed_info["decompressed_segment_names_error"] = f"Failed to decompress names: {e}"
-            
-            if is_superstring:
-                try:
-                    # Use the actual string decoder to get the decompressed sequences
-                    int_decoder = get_integer_decoder(comp_str)
-                    str_decoder = STRING_DECODERS.get(str_encoding, lambda p, rn, id: [b''] * rn)
-                    sequences = str_decoder(seqs_payload, record_num, int_decoder)
-                    
-                    # Try to extract superstring information
-                    try:
-                        # Parse starts and ends
-                        starts, consumed1 = int_decoder(seqs_payload, record_num)
-                        ends, consumed2 = int_decoder(seqs_payload[consumed1:], record_num)
-                        superstring_blob = seqs_payload[consumed1 + consumed2:]
-                        
-                        # Get the actual superstring
-                        superstring_bytes = b""
-                        if str_encoding == STRING_ENCODING_SUPERSTRING_NONE:  # 0xF0
-                            superstring_bytes = superstring_blob
-                        elif str_encoding == STRING_ENCODING_SUPERSTRING_PPM:  # 0xF1
-                            superstring_list = decompress_string_ppm(superstring_blob, [max(ends) if ends else 0])
-                            superstring_bytes = superstring_list[0] if superstring_list else b""
-                        elif str_encoding == STRING_ENCODING_SUPERSTRING_HUFFMAN:  # 0xF4
-                            from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
-                            super_len = max(ends) if ends else 0
-                            superstring_bytes = decompress_nibble_huffman(superstring_blob, int_decoder, super_len * 2)
-                        elif str_encoding == STRING_ENCODING_SUPERSTRING_2BIT:  # 0xF5
-                            superstring_list = decompress_string_2bit_dna(superstring_blob, [max(ends) if ends else 0])
-                            superstring_bytes = superstring_list[0] if superstring_list else b""
-                        
-                        # Decode the superstring
-                        try:
-                            superstring = superstring_bytes.decode('ascii')
-                        except UnicodeDecodeError:
-                            superstring = superstring_bytes.decode('latin-1')
-                        
-                        # Show the superstring information even if positions seem invalid
-                        compressed_info.update({
-                            "superstring_compression_method": f"0x{str_encoding:02X}",
-                            "superstring_length": len(superstring),
-                            "superstring_content": superstring,
-                            "segment_starts": starts,
-                            "segment_ends": ends,
-                            "superstring_hex": superstring_bytes.hex()
-                        })
-                        
-                        # Try to reconstruct segments from superstring for validation
-                        reconstructed_segments = []
-                        for i in range(min(record_num, len(starts), len(ends))):
-                            start = starts[i]
-                            end = ends[i]
-                            if start < len(superstring) and end <= len(superstring):
-                                reconstructed_segments.append(superstring[start:end])
-                            else:
-                                reconstructed_segments.append("(invalid position)")
-                        
-                        compressed_info["reconstructed_segments"] = reconstructed_segments
-                        
-                    except Exception as e:
-                        compressed_info["superstring_error"] = f"Failed to parse superstring details: {e}"
-                        
-                        # Still show basic superstring info
-                        compressed_info.update({
-                            "superstring_compression_method": f"0x{str_encoding:02X}",
-                            "superstring_content": "(could not extract)"
-                        })
-                        
-                except Exception as e:
-                    compressed_info["superstring_error"] = f"Failed to parse superstring: {e}"
-            
+
             block_result["compressed_info"] = compressed_info
 
             segments_list = []
             for sid, seg_data in segs.items():
                 name = seg_data.get("name", f"s{sid}")
                 seq = seg_data.get("sequence", "*")
-                
+
                 segment_info = {
                     "segment_id": sid,
                     "segment_name": name,
                     "segment_sequence": seq,
-                    "segment_length": len(seq) if seq != "*" else 0
+                    "segment_length": len(seq) if seq != "*" else 0,
                 }
-                
-                # Add superstring position info if applicable
-                if is_superstring and 'segment_starts' in compressed_info and 'segment_ends' in compressed_info:
-                    starts = compressed_info['segment_starts']
-                    ends = compressed_info['segment_ends']
-                    superstring = compressed_info.get('superstring_content', '')
-                    
-                    if sid < len(starts) and sid < len(ends):
-                        segment_info.update({
-                            "superstring_start_position": starts[sid],
-                            "superstring_end_position": ends[sid],
-                            "superstring_substring": superstring[starts[sid]:ends[sid]] if superstring and starts[sid] <= ends[sid] else ""
-                        })
-                
+
                 segments_list.append(segment_info)
 
             block_result["segments"] = segments_list
@@ -3297,7 +3234,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
         elif section_id == SECTION_ID_LINKS:
             block_result["section_type"] = "links"
-            
+
             lnk_offset = offset + 1
             record_num = struct.unpack_from("<H", data, lnk_offset)[0]
             lnk_offset += 2
@@ -3315,41 +3252,53 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             if not _is_valid_compression_code(comp_fromto):
                 logger.warning(
                     "Invalid link endpoints compression code 0x%04X (%s) at offset %d",
-                    comp_fromto, _describe_compression_code(comp_fromto), offset + 4
+                    comp_fromto,
+                    _describe_compression_code(comp_fromto),
+                    offset + 4,
                 )
             if not _is_valid_cigar_encoding_code(comp_cigars):
                 logger.warning(
                     "Invalid link CIGARs encoding code 0x%08X (%s) at offset %d",
-                    comp_cigars, _describe_compression_code(comp_cigars), offset + 8
+                    comp_cigars,
+                    _describe_compression_code(comp_cigars),
+                    offset + 8,
                 )
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "link_endpoints_compression_code": {
                     "value": f"0x{comp_fromto:04X}",
-                    "description": _describe_compression_code(comp_fromto)
+                    "description": _describe_compression_code(comp_fromto),
                 },
-                "compressed_link_endpoints_length_bytes": validate_field(clen_fromto, clen_fromto, "compressed_link_endpoints_length"),
+                "compressed_link_endpoints_length_bytes": validate_field(
+                    clen_fromto, clen_fromto, "compressed_link_endpoints_length"
+                ),
                 "cigar_strings_compression_code": {
                     "value": f"0x{comp_cigars:08X}",
-                    "description": _describe_compression_code(comp_cigars)
+                    "description": _describe_compression_code(comp_cigars),
                 },
-                "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
-                "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length")
+                "compressed_cigar_strings_length_bytes": validate_field(
+                    clen_cigars, clen_cigars, "compressed_cigar_strings_length"
+                ),
+                "uncompressed_cigar_strings_length_bytes": validate_field(
+                    ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"
+                ),
             }
 
             lnks, consumed = reader._parse_links_block(data, offset)
 
             links_list = []
             for i, link in enumerate(lnks):
-                links_list.append({
-                    "link_id": i,
-                    "from_segment_name": link['from_node'],
-                    "from_orientation": link['from_orn'],
-                    "to_segment_name": link['to_node'],
-                    "to_orientation": link['to_orn'],
-                    "cigar_string": link['alignment']
-                })
+                links_list.append(
+                    {
+                        "link_id": i,
+                        "from_segment_name": link["from_node"],
+                        "from_orientation": link["from_orn"],
+                        "to_segment_name": link["to_node"],
+                        "to_orientation": link["to_orn"],
+                        "cigar_string": link["alignment"],
+                    }
+                )
 
             block_result["links"] = links_list
             result["blocks"].append(block_result)
@@ -3358,7 +3307,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
         elif section_id == SECTION_ID_PATHS:
             block_result["section_type"] = "paths"
-            
+
             path_offset = offset + 1
             record_num = struct.unpack_from("<H", data, path_offset)[0]
             path_offset += 2
@@ -3380,49 +3329,65 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             if not _is_valid_compression_code(comp_names):
                 logger.warning(
                     "Invalid path names compression code 0x%04X (%s) at offset %d",
-                    comp_names, _describe_compression_code(comp_names), offset + 4
+                    comp_names,
+                    _describe_compression_code(comp_names),
+                    offset + 4,
                 )
             if not _is_valid_walk_encoding_code(comp_paths):
                 logger.warning(
                     "Invalid path oriented segment IDs encoding code 0x%08X (%s) at offset %d",
-                    comp_paths, _describe_compression_code(comp_paths), offset + 8
+                    comp_paths,
+                    _describe_compression_code(comp_paths),
+                    offset + 8,
                 )
             if not _is_valid_cigar_encoding_code(comp_cigars):
                 logger.warning(
                     "Invalid path CIGARs encoding code 0x%08X (%s) at offset %d",
-                    comp_cigars, _describe_compression_code(comp_cigars), offset + 14
+                    comp_cigars,
+                    _describe_compression_code(comp_cigars),
+                    offset + 14,
                 )
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "path_names_compression_code": {
                     "value": f"0x{comp_names:04X}",
-                    "description": _describe_compression_code(comp_names)
+                    "description": _describe_compression_code(comp_names),
                 },
                 "path_oriented_segment_ids_compression_code": {
                     "value": f"0x{comp_paths:08X}",
-                    "description": _describe_compression_code(comp_paths)
+                    "description": _describe_compression_code(comp_paths),
                 },
                 "cigar_strings_compression_code": {
                     "value": f"0x{comp_cigars:08X}",
-                    "description": _describe_compression_code(comp_cigars)
+                    "description": _describe_compression_code(comp_cigars),
                 },
-                "compressed_cigar_strings_length_bytes": validate_field(clen_cigars, clen_cigars, "compressed_cigar_strings_length"),
-                "uncompressed_cigar_strings_length_bytes": validate_field(ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"),
-                "compressed_path_names_length_bytes": validate_field(clen_names, clen_names, "compressed_path_names_length"),
-                "uncompressed_path_names_length_bytes": validate_field(ulen_names, ulen_names, "uncompressed_path_names_length")
+                "compressed_cigar_strings_length_bytes": validate_field(
+                    clen_cigars, clen_cigars, "compressed_cigar_strings_length"
+                ),
+                "uncompressed_cigar_strings_length_bytes": validate_field(
+                    ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"
+                ),
+                "compressed_path_names_length_bytes": validate_field(
+                    clen_names, clen_names, "compressed_path_names_length"
+                ),
+                "uncompressed_path_names_length_bytes": validate_field(
+                    ulen_names, ulen_names, "uncompressed_path_names_length"
+                ),
             }
 
             paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
 
             paths_list = []
             for i, p in enumerate(paths_data):
-                paths_list.append({
-                    "path_id": i,
-                    "path_name": p.get('path_name', f'path{i}'),
-                    "oriented_segment_ids": p.get('segments', []),
-                    "overlap_cigar_strings": p.get('overlaps', [])
-                })
+                paths_list.append(
+                    {
+                        "path_id": i,
+                        "path_name": p.get("path_name", f"path{i}"),
+                        "oriented_segment_ids": p.get("segments", []),
+                        "overlap_cigar_strings": p.get("overlaps", []),
+                    }
+                )
 
             block_result["paths"] = paths_list
             result["blocks"].append(block_result)
@@ -3431,7 +3396,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
         elif section_id == SECTION_ID_WALKS:
             block_result["section_type"] = "walks"
-            
+
             walk_offset = offset + 1
             record_num = struct.unpack_from("<H", data, walk_offset)[0]
             walk_offset += 2
@@ -3449,27 +3414,37 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             if not _is_valid_compression_code(comp_samples):
                 logger.warning(
                     "Invalid sample IDs compression code 0x%04X (%s) at offset %d",
-                    comp_samples, _describe_compression_code(comp_samples), offset + 4
+                    comp_samples,
+                    _describe_compression_code(comp_samples),
+                    offset + 4,
                 )
             if not _is_valid_compression_code(comp_hep):
                 logger.warning(
                     "Invalid haplotype indices compression code 0x%04X (%s) at offset %d",
-                    comp_hep, _describe_compression_code(comp_hep), offset + 6
+                    comp_hep,
+                    _describe_compression_code(comp_hep),
+                    offset + 6,
                 )
             if not _is_valid_compression_code(comp_seq):
                 logger.warning(
                     "Invalid sequence IDs compression code 0x%04X (%s) at offset %d",
-                    comp_seq, _describe_compression_code(comp_seq), offset + 8
+                    comp_seq,
+                    _describe_compression_code(comp_seq),
+                    offset + 8,
                 )
             if not _is_valid_compression_code(comp_positions):
                 logger.warning(
                     "Invalid positions compression code 0x%04X (%s) at offset %d",
-                    comp_positions, _describe_compression_code(comp_positions), offset + 10
+                    comp_positions,
+                    _describe_compression_code(comp_positions),
+                    offset + 10,
                 )
             if not _is_valid_walk_encoding_code(comp_walks):
                 logger.warning(
                     "Invalid oriented segment IDs encoding code 0x%08X (%s) at offset %d",
-                    comp_walks, _describe_compression_code(comp_walks), offset + 12
+                    comp_walks,
+                    _describe_compression_code(comp_walks),
+                    offset + 12,
                 )
             walk_offset += 4
 
@@ -3497,44 +3472,56 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 "record_count": {"value": record_num},
                 "sample_ids_compression_code": {
                     "value": f"0x{comp_samples:04X}",
-                    "description": _describe_compression_code(comp_samples)
+                    "description": _describe_compression_code(comp_samples),
                 },
                 "haplotype_indices_compression_code": {
                     "value": f"0x{comp_hep:04X}",
-                    "description": _describe_compression_code(comp_hep)
+                    "description": _describe_compression_code(comp_hep),
                 },
                 "sequence_ids_compression_code": {
                     "value": f"0x{comp_seq:04X}",
-                    "description": _describe_compression_code(comp_seq)
+                    "description": _describe_compression_code(comp_seq),
                 },
                 "positions_compression_code": {
                     "value": f"0x{comp_positions:04X}",
-                    "description": _describe_compression_code(comp_positions)
+                    "description": _describe_compression_code(comp_positions),
                 },
                 "oriented_segment_ids_compression_code": {
                     "value": f"0x{comp_walks:08X}",
-                    "description": _describe_compression_code(comp_walks)
+                    "description": _describe_compression_code(comp_walks),
                 },
-                "compressed_sample_ids_length_bytes": validate_field(clen_samples, clen_samples, "compressed_sample_ids_length"),
-                "compressed_haplotype_indices_length_bytes": validate_field(clen_hep, clen_hep, "compressed_haplotype_indices_length"),
-                "compressed_sequence_ids_length_bytes": validate_field(clen_seq, clen_seq, "compressed_sequence_ids_length"),
-                "compressed_positions_length_bytes": validate_field(clen_positions, clen_positions, "compressed_positions_length"),
-                "compressed_oriented_segment_ids_length_bytes": validate_field(clen_walks, clen_walks, "compressed_oriented_segment_ids_length")
+                "compressed_sample_ids_length_bytes": validate_field(
+                    clen_samples, clen_samples, "compressed_sample_ids_length"
+                ),
+                "compressed_haplotype_indices_length_bytes": validate_field(
+                    clen_hep, clen_hep, "compressed_haplotype_indices_length"
+                ),
+                "compressed_sequence_ids_length_bytes": validate_field(
+                    clen_seq, clen_seq, "compressed_sequence_ids_length"
+                ),
+                "compressed_positions_length_bytes": validate_field(
+                    clen_positions, clen_positions, "compressed_positions_length"
+                ),
+                "compressed_oriented_segment_ids_length_bytes": validate_field(
+                    clen_walks, clen_walks, "compressed_oriented_segment_ids_length"
+                ),
             }
 
             walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
 
             walks_list = []
             for i, w in enumerate(walks_data):
-                walks_list.append({
-                    "walk_id": i,
-                    "sample_id": w.get('sample_id', f'sample{i}'),
-                    "haplotype_index": w.get('haplotype_index', 0),
-                    "sequence_id": w.get('sequence_id', f'seq{i}'),
-                    "start_position": w.get('start', 0),
-                    "end_position": w.get('end', 0),
-                    "oriented_segment_ids": w.get('walk', [])
-                })
+                walks_list.append(
+                    {
+                        "walk_id": i,
+                        "sample_id": w.get("sample_id", f"sample{i}"),
+                        "haplotype_index": w.get("haplotype_index", 0),
+                        "sequence_id": w.get("sequence_id", f"seq{i}"),
+                        "start_position": w.get("start", 0),
+                        "end_position": w.get("end", 0),
+                        "oriented_segment_ids": w.get("walk", []),
+                    }
+                )
 
             block_result["walks"] = walks_list
             result["blocks"].append(block_result)
@@ -3547,10 +3534,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             result["blocks"].append(block_result)
             break
 
-    result["summary"] = {
-        "total_blocks": block_index,
-        "total_segments": len(reader._segment_names)
-    }
+    result["summary"] = {"total_blocks": block_index, "total_segments": len(reader._segment_names)}
 
     # Output the result
     if text_format:
@@ -3558,124 +3542,76 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         print("BGFA File Structure:")
         print(f"  Format Version: {result['bgfa_format_version']}")
         print()
-        
+
         print("Header:")
-        for key, value in result['header'].items():
-            if 'error' in value:
+        for key, value in result["header"].items():
+            if "error" in value:
                 print(f"  {key}: ERROR - {value['error']}")
             else:
                 print(f"  {key}: {value['value']}")
         print()
-        
+
         print(f"Blocks ({result['summary']['total_blocks']} total):")
-        for i, block in enumerate(result['blocks']):
-            print(f"\n  Block {i+1} (Section ID {block['section_id']} - {block.get('section_type', 'unknown')}):")
-            
-            if 'error' in block:
+        for i, block in enumerate(result["blocks"]):
+            print(f"\n  Block {i + 1} (Section ID {block['section_id']} - {block.get('section_type', 'unknown')}):")
+
+            if "error" in block:
                 print(f"    ERROR: {block['error']}")
                 continue
-            
-            if 'fields' in block:
+
+            if "fields" in block:
                 print("    Fields:")
-                for field_name, field_value in block['fields'].items():
-                    if 'error' in field_value:
+                for field_name, field_value in block["fields"].items():
+                    if "error" in field_value:
                         print(f"      {field_name}: {field_value['value']} (ERROR: {field_value['error']})")
-                    elif 'description' in field_value:
+                    elif "description" in field_value:
                         print(f"      {field_name}: {field_value['value']} ({field_value['description']})")
                     else:
                         print(f"      {field_name}: {field_value['value']}")
-            
-            if 'segments' in block:
-                # Check if this block uses superstring compression
-                comp_info = block.get('compressed_info', {})
-                using_superstring = comp_info.get('using_superstring', False)
-                
-                if using_superstring and 'superstring_content' in comp_info:
-                    # Show the superstring first
-                    superstring = comp_info['superstring_content']
-                    print(f"    Superstring: '{superstring}' (length: {len(superstring)})")
-                    
-                    # Show segments with their positions in the superstring
-                    print(f"    Segments:")
-                    for seg in block['segments']:
-                        seg_id = seg['segment_id']
-                        seg_name = seg['segment_name']
-                        seg_seq = seg['segment_sequence']
-                        
-                        # Get superstring positions if available
-                        if 'superstring_start_position' in seg and 'superstring_end_position' in seg:
-                            start = seg['superstring_start_position']
-                            end = seg['superstring_end_position']
-                            substring = seg.get('superstring_substring', '')
-                            # Show the substring extracted from superstring, not the original sequence
-                            display_seq = substring if substring else seg_seq
-                            print(f"      Segment {seg_id}: ({start}, {end}) -> {display_seq}")
-                        else:
-                            # Try to get positions from compressed info
-                            starts = comp_info.get('segment_starts', [])
-                            ends = comp_info.get('segment_ends', [])
-                            if seg_id < len(starts) and seg_id < len(ends):
-                                start = starts[seg_id]
-                                end = ends[seg_id]
-                                # Extract the substring from superstring
-                                if start < len(superstring) and end <= len(superstring):
-                                    substring = superstring[start:end]
-                                    print(f"      Segment {seg_id}: ({start}, {end}) -> {substring}")
-                                else:
-                                    print(f"      Segment {seg_id}: (invalid position {start}:{end}) -> {seg_seq}")
-                            else:
-                                print(f"      Segment {seg_id}: {seg_name} -> {seg_seq}")
-                    
-                    # Add additional compressed info
+
+            if "segments" in block:
+                # Regular segment output
+                print(f"    Segments:")
+                for seg in block["segments"]:
+                    print(f"      Segment {seg['segment_id']}: {seg['segment_name']} -> {seg['segment_sequence']}")
+
+                # Add compressed info
+                if "compressed_info" in block:
+                    comp_info = block["compressed_info"]
                     print(f"    Compressed Information:")
-                    print(f"      Superstring compression method: {comp_info.get('superstring_compression_method', 'unknown')}")
-                    if 'decompressed_segment_names' in comp_info:
+                    if "decompressed_segment_names" in comp_info:
                         print(f"      Segment names: {comp_info['decompressed_segment_names']}")
-                    if 'compressed_names_hex' in comp_info and comp_info['compressed_names_hex']:
-                        print(f"      Compressed names hex: {comp_info['compressed_names_hex'][:100]}{'...' if len(comp_info['compressed_names_hex']) > 100 else ''}")
-                    print(f"      Compressed hex: {comp_info['compressed_sequences_hex'][:50]}{'...' if len(comp_info['compressed_sequences_hex']) > 50 else ''}")
-                    
-                    # Show any errors
-                    if 'superstring_error' in comp_info:
-                        print(f"      Warning: {comp_info['superstring_error']}")
-                else:
-                    # Regular segment output (no superstring)
-                    print(f"    Segments:")
-                    for seg in block['segments']:
-                        print(f"      Segment {seg['segment_id']}: {seg['segment_name']} -> {seg['segment_sequence']}")
-                    
-                    # Add compressed info
-                    if 'compressed_info' in block:
-                        comp_info = block['compressed_info']
-                        print(f"    Compressed Information:")
-                        print(f"      Using superstring: {comp_info.get('using_superstring', False)}")
-                        if 'decompressed_segment_names' in comp_info:
-                            print(f"      Segment names: {comp_info['decompressed_segment_names']}")
-                        if 'compressed_names_hex' in comp_info and comp_info['compressed_names_hex']:
-                            print(f"      Compressed names hex: {comp_info['compressed_names_hex'][:100]}{'...' if len(comp_info['compressed_names_hex']) > 100 else ''}")
-                        if 'compressed_sequences_hex' in comp_info and comp_info['compressed_sequences_hex']:
-                            print(f"      Compressed sequences hex: {comp_info['compressed_sequences_hex'][:100]}{'...' if len(comp_info['compressed_sequences_hex']) > 100 else ''}")
-                        if 'superstring_error' in comp_info:
-                            print(f"      Warning: {comp_info['superstring_error']}")
-            
-            if 'links' in block:
+                    if "compressed_names_hex" in comp_info and comp_info["compressed_names_hex"]:
+                        print(
+                            f"      Compressed names hex: {comp_info['compressed_names_hex'][:100]}{'...' if len(comp_info['compressed_names_hex']) > 100 else ''}"
+                        )
+                    if "compressed_sequences_hex" in comp_info and comp_info["compressed_sequences_hex"]:
+                        print(
+                            f"      Compressed sequences hex: {comp_info['compressed_sequences_hex'][:100]}{'...' if len(comp_info['compressed_sequences_hex']) > 100 else ''}"
+                        )
+
+            if "links" in block:
                 print("    Links:")
-                for link in block['links']:
-                    print(f"      Link {link['link_id']}: {link['from_segment_name']}{link['from_orientation']} -> {link['to_segment_name']}{link['to_orientation']} (CIGAR: {link['cigar_string']})")
-            
-            if 'paths' in block:
+                for link in block["links"]:
+                    print(
+                        f"      Link {link['link_id']}: {link['from_segment_name']}{link['from_orientation']} -> {link['to_segment_name']}{link['to_orientation']} (CIGAR: {link['cigar_string']})"
+                    )
+
+            if "paths" in block:
                 print("    Paths:")
-                for path in block['paths']:
-                    segments = ", ".join(path['oriented_segment_ids'])
-                    overlaps = ", ".join(path['overlap_cigar_strings'])
+                for path in block["paths"]:
+                    segments = ", ".join(path["oriented_segment_ids"])
+                    overlaps = ", ".join(path["overlap_cigar_strings"])
                     print(f"      Path {path['path_id']}: {path['path_name']} -> [{segments}] (Overlaps: [{overlaps}])")
-            
-            if 'walks' in block:
+
+            if "walks" in block:
                 print("    Walks:")
-                for walk in block['walks']:
-                    segments = ", ".join(walk['oriented_segment_ids'])
-                    print(f"      Walk {walk['walk_id']}: Sample={walk['sample_id']}, Hap={walk['haplotype_index']}, Seq={walk['sequence_id']}, Pos={walk['start_position']}-{walk['end_position']} -> [{segments}]")
-        
+                for walk in block["walks"]:
+                    segments = ", ".join(walk["oriented_segment_ids"])
+                    print(
+                        f"      Walk {walk['walk_id']}: Sample={walk['sample_id']}, Hap={walk['haplotype_index']}, Seq={walk['sequence_id']}, Pos={walk['start_position']}-{walk['end_position']} -> [{segments}]"
+                    )
+
         print(f"\nSummary:")
         print(f"  Total segments: {result['summary']['total_segments']}")
         print(f"  Total blocks: {result['summary']['total_blocks']}")

@@ -55,16 +55,11 @@ class StringEncoding(IntEnum):
     ARITHMETIC = 0x06
     BWT_HUFFMAN = 0x07
     RLE = 0x08
-    CIGAR = 0x09
     DICTIONARY = 0x0A
     ZSTD_DICT = 0x0B
     LZ4 = 0x0C
     BROTLI = 0x0D
     PPM = 0x0E
-    SUPERSTRING_NONE = 0xF0
-    SUPERSTRING_HUFFMAN = 0xF4
-    SUPERSTRING_2BIT = 0xF5
-    SUPERSTRING_PPM = 0xF1
 
 
 class WalkDecomposition(IntEnum):

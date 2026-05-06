@@ -148,11 +148,6 @@ class TestEncodingFieldOffsets(unittest.TestCase):
             ("brotli", make_compression_code(IntegerEncoding.VARINT, StringEncoding.BROTLI)),
             ("zstd", make_compression_code(IntegerEncoding.VARINT, StringEncoding.ZSTD)),
             ("gzip", make_compression_code(IntegerEncoding.VARINT, StringEncoding.GZIP)),
-            # Superstring encodings (underscore in name, single part)
-            ("superstring_ppm", make_compression_code(IntegerEncoding.VARINT, StringEncoding.SUPERSTRING_PPM)),
-            ("superstring_huffman", make_compression_code(IntegerEncoding.VARINT, StringEncoding.SUPERSTRING_HUFFMAN)),
-            ("superstring_none", make_compression_code(IntegerEncoding.VARINT, StringEncoding.SUPERSTRING_NONE)),
-            ("superstring_2bit", make_compression_code(IntegerEncoding.VARINT, StringEncoding.SUPERSTRING_2BIT)),
         ]
 
         for encoding_str, expected in test_cases:
