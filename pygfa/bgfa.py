@@ -1233,80 +1233,99 @@ class ReaderBGFA:
 
     def _decode_walk(
         self, walk_data: bytes, record_num: int, walk_compression: int, int_decoder: Callable, segment_names: list[str]
-    ) -> list[list[str]]:
+    ) -> tuple[list[list[str]], int]:
         """Decode walk data according to 4-byte walk strategy code.
+
+        Multi-segment format: [walk_lengths encoded][orientations packed][seg_ids encoded]
 
         Walk compression codes (4 bytes):
         - 0x00??????: none (identity)
         - 0x01??????: orientation + strid (string IDs)
         - 0x02??????: orientation + numid (numeric IDs)
 
+        Byte 0 (LSB): integer encoding for walk_lengths (and seg_ids for NUMID)
+        Byte 1: (STRID) int encoding part for string compression
+        Byte 2: (STRID) string encoding part for string compression
+        Byte 3 (MSB): walk type (0x00=none, 0x01=strid, 0x02=numid)
+
         :param walk_data: Raw walk data bytes
         :param record_num: Number of walk records
         :param walk_compression: 4-byte walk compression code
-        :param int_decoder: Integer decoder function
+        :param int_decoder: Integer decoder function (unused, extracted from walk_compression)
         :param segment_names: List of segment names for ID lookup
-        :return: List of walks, each walk is a list of oriented segment IDs
+        :return: Tuple of (list of walks, bytes consumed), each walk is a list of oriented segment IDs
         """
         if record_num == 0:
-            return []
+            return [], 0
 
         if walk_compression == 0:
-            # No walk data - return empty walks
-            return [[] for _ in range(record_num)]
+            return [[] for _ in range(record_num)], 0
 
         walk_byte = (walk_compression >> 24) & 0xFF
-        # bytes 2-4 are for future use, currently ignored
-        # byte 2 would be for orientation bit count (usually 0x00)
-        # bytes 3-4 would be for ID encoding strategy
 
         if walk_byte == 0x00:
-            # None/identity - no walk data, return empty walks
-            return [[] for _ in range(record_num)]
-        elif walk_byte == 0x01:
-            # orientation + strid: orientation bits + string segment IDs
-            # First decode orientation bits
-            orientations, consumed = unpack_bits_lsb(walk_data, record_num)
-            # Then decode segment ID strings from remaining data
-            # For strid, we need to decode as strings
-            str_enc_code = walk_compression & 0xFFFF
+            return [[] for _ in range(record_num)], 0
+
+        # Integer encoding for walk_lengths and (for NUMID) segment IDs is byte 0
+        int_code = walk_compression & 0xFF
+        int_decoder_func = INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
+
+        # Step 1: decode walk_lengths (segments per record)
+        walk_lengths, consumed = int_decoder_func(walk_data, record_num)
+        total_segments = sum(walk_lengths)
+
+        if total_segments == 0:
+            return [[] for _ in range(record_num)], consumed
+
+        data_after = walk_data[consumed:]
+
+        if walk_byte == 0x01:
+            # strid + orientation: segment_id_strings first, then orientations
+            str_enc_code = (walk_compression >> 8) & 0xFFFF
             str_decoder = STRING_DECODERS.get(str_enc_code & 0xFF, decompress_string_none)
             int_enc_for_strings = (str_enc_code >> 8) & 0xFF
             int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
+            segment_id_strings, str_consumed = str_decoder(data_after, total_segments, int_decoder_for_strings)
+            orientations, bits_consumed = unpack_bits_lsb(data_after[str_consumed:], total_segments)
+            total_consumed = consumed + str_consumed + bits_consumed
 
-            # Decode the segment ID strings
-            segment_id_strings, _ = str_decoder(walk_data[consumed:], record_num, int_decoder_for_strings)
-
-            # Combine orientations with segment IDs
             walks = []
-            for i in range(record_num):
-                if i < len(segment_id_strings) and segment_id_strings[i]:
-                    try:
-                        seg_id = segment_id_strings[i].decode("ascii")
-                    except UnicodeDecodeError:
-                        seg_id = segment_id_strings[i].decode("latin-1")
-                else:
-                    seg_id = ""
-                orn = "-" if orientations[i] else "+"
-                walks.append(f"{seg_id}{orn}")
-            return walks
+            idx = 0
+            for wl in walk_lengths:
+                record_segs = []
+                for _ in range(wl):
+                    if idx < len(segment_id_strings) and segment_id_strings[idx]:
+                        try:
+                            seg_id = segment_id_strings[idx].decode("ascii")
+                        except UnicodeDecodeError:
+                            seg_id = segment_id_strings[idx].decode("latin-1")
+                    else:
+                        seg_id = ""
+                    orn = "-" if orientations[idx] else "+"
+                    record_segs.append(f"{seg_id}{orn}")
+                    idx += 1
+                walks.append(record_segs)
+            return walks, total_consumed
+
         elif walk_byte == 0x02:
-            # orientation + numid: orientation bits + numeric segment IDs
-            # First decode orientation bits
-            orientations, consumed = unpack_bits_lsb(walk_data, record_num)
-            # Then decode numeric segment IDs
-            int_enc_code = walk_compression & 0xFFFF
-            int_decoder_func = INTEGER_DECODERS.get(int_enc_code & 0xFF, decode_integer_list_varint)
-            segment_ids, _ = int_decoder_func(walk_data[consumed:], record_num)
+            # numid + orientation: seg_ids first, then orientations
+            segment_ids, ids_consumed = int_decoder_func(data_after, total_segments)
+            orientations, bits_consumed = unpack_bits_lsb(data_after[ids_consumed:], total_segments)
+            total_consumed = consumed + ids_consumed + bits_consumed
 
-            # Combine orientations with segment IDs (convert to names)
             walks = []
-            for i in range(record_num):
-                seg_idx = segment_ids[i]
-                seg_name = segment_names[seg_idx] if 0 <= seg_idx < len(segment_names) else f"s{seg_idx}"
-                orn = "-" if orientations[i] else "+"
-                walks.append(f"{seg_name}{orn}")
-            return walks
+            idx = 0
+            for wl in walk_lengths:
+                record_segs = []
+                for _ in range(wl):
+                    seg_idx = segment_ids[idx]
+                    seg_name = segment_names[seg_idx] if 0 <= seg_idx < len(segment_names) else f"s{seg_idx}"
+                    orn = "-" if orientations[idx] else "+"
+                    record_segs.append(f"{seg_name}{orn}")
+                    idx += 1
+                walks.append(record_segs)
+            return walks, total_consumed
+
         else:
             raise NotImplementedError(f"Walk encoding 0x{walk_byte:02X} not supported")
 
@@ -1373,13 +1392,10 @@ class ReaderBGFA:
         offset += clen_cigars
 
         # Parse walks (paths) - the walk data follows the cigars
-        # We need to decode the walk for each path
-        # The walk compression is given by comp_paths (4 bytes)
-        # For paths, the walk is encoded as oriented segment IDs
-        walks_start = offset
-        walks = self._decode_walk(
-            data[walks_start:], record_num, comp_paths, get_integer_decoder(comp_paths & 0xFF), segment_names
+        walks, walk_consumed = self._decode_walk(
+            data[offset:], record_num, comp_paths, get_integer_decoder(comp_paths & 0xFF), segment_names
         )
+        offset += walk_consumed
 
         # Build paths list
         paths = []
@@ -1400,7 +1416,7 @@ class ReaderBGFA:
                 cigar = "*"
             segments = walks[i] if i < len(walks) else []
 
-            paths.append({"path_name": path_name, "segments": segments, "overlaps": [cigar] if cigar != "*" else []})
+            paths.append({"path_name": path_name, "segments": segments, "overlaps": [cigar]})
 
         bytes_consumed = offset - start_offset
         return paths, bytes_consumed
@@ -1515,7 +1531,7 @@ class ReaderBGFA:
         # Parse walks
         walks_payload = data[offset : offset + clen_walks]
         int_dec_walks = get_integer_decoder(comp_walks & 0xFF)
-        walks = self._decode_walk(walks_payload, record_num, comp_walks, int_dec_walks, segment_names)
+        walks, _ = self._decode_walk(walks_payload, record_num, comp_walks, int_dec_walks, segment_names)
         offset += clen_walks
 
         # Build walks list
@@ -1954,6 +1970,106 @@ class BGFAWriter:
         buf.write(p_ft + p_cig)
         logger.debug("BGFAWriter._write_links_block() -> exit, p_ft_size=%d, p_cig_size=%d", len(p_ft), len(p_cig))
 
+    def _write_paths_block(
+        self, buf: io.BytesIO, chunk: list[dict], names_enc: int, walk_enc: int, cig_enc: int
+    ) -> None:
+        """Write a paths block.
+
+        Header order (45 bytes):
+          section_id (1), record_num (2), names_enc (2), walk_enc (4), cig_enc (4),
+          clen_cigars (8), ulen_cigars (8), clen_names (8), ulen_names (8)
+
+        Payload: [p_names][p_cig][p_walk]
+
+        Walk payload: [walk_lengths_int_enc][seg_ids_int_enc][orientations_bits]
+        """
+        logger.debug(
+            "BGFAWriter._write_paths_block() -> entry, chunk_size=%d, names_enc=0x%04X, walk_enc=0x%08X, cig_enc=0x%08X",
+            len(chunk),
+            names_enc,
+            walk_enc,
+            cig_enc,
+        )
+
+        path_names = []
+        all_walk_lengths = []
+        all_seg_ids = []
+        all_orientations = []
+        all_cigars = []
+
+        for pd in chunk:
+            pn = pd.get("path_name", "")
+            path_names.append(pn)
+
+            segments = pd.get("segments", [])
+            all_walk_lengths.append(len(segments))
+            for seg in segments:
+                if len(seg) < 2:
+                    all_seg_ids.append(0)
+                    all_orientations.append(0)
+                    continue
+                name = seg[:-1]
+                orientation = seg[-1]
+                seg_id = self._segment_map.get(name, 0)
+                all_seg_ids.append(seg_id)
+                all_orientations.append(0 if orientation == "+" else 1)
+
+            overlaps = pd.get("overlaps", [])
+            if isinstance(overlaps, list) and overlaps:
+                all_cigars.append(overlaps[0])
+            elif isinstance(overlaps, str) and overlaps not in ("*", "", None):
+                all_cigars.append(overlaps)
+            else:
+                all_cigars.append("*")
+
+        logger.debug(
+            "BGFAWriter._write_paths_block() -> path_names=%s, segments=%s, cigars=%s",
+            path_names,
+            [pd.get("segments", []) for pd in chunk],
+            all_cigars,
+        )
+
+        # Encode path names
+        p_names = _compress_string_for_bgfa(path_names, names_enc)
+
+        # Encode CIGARs
+        dd = cig_enc & 0xFF
+        if dd == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
+            from pygfa.encoding.cigar_encoding import compress_string_cigar_decomposed
+
+            rr_encoder = get_integer_encoder_from_code((cig_enc >> 8) & 0xFF)
+            ii_encoder = get_integer_encoder_from_code((cig_enc >> 16) & 0xFF)
+            ss_encoder = _ops_string_encoder_for_code((cig_enc >> 24) & 0xFF)
+            p_cig = compress_string_cigar_decomposed(all_cigars, ii_encoder, rr_encoder, ss_encoder)
+        else:
+            str_code = ((cig_enc >> 16) & 0xFF) << 8 | ((cig_enc >> 24) & 0xFF)
+            p_cig = _compress_string_for_bgfa(all_cigars, str_code)
+
+        # Encode walk data: [walk_lengths][seg_ids][orientations]
+        int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
+        p_walk_lengths = int_encoder(all_walk_lengths)
+        p_seg_ids = int_encoder(all_seg_ids)
+        p_orientations = pack_bits_lsb(all_orientations)
+        p_walk = p_walk_lengths + p_seg_ids + p_orientations
+
+        # Write header (matching _parse_paths_blocks order)
+        buf.write(struct.pack("<B", SECTION_ID_PATHS))
+        buf.write(struct.pack("<H", len(chunk)))
+        buf.write(struct.pack("<H", names_enc))
+        buf.write(struct.pack("<I", walk_enc))
+        buf.write(struct.pack("<I", cig_enc))
+        buf.write(struct.pack("<Q", len(p_cig)))
+        buf.write(struct.pack("<Q", sum(len(c) for c in all_cigars)))
+        buf.write(struct.pack("<Q", len(p_names)))
+        buf.write(struct.pack("<Q", sum(len(n) for n in path_names)))
+        buf.write(p_names + p_cig + p_walk)
+        logger.debug(
+            "BGFAWriter._write_paths_block() -> exit, p_names_size=%d, p_cig_size=%d, p_walk_size=%d",
+            len(p_names),
+            len(p_cig),
+            len(p_walk),
+        )
+
     def to_bgfa(self, verbose: bool = False, debug: bool = False, logfile: str = None, **kwargs) -> bytes:
         """Convert GFA to BGFA format.
 
@@ -2019,6 +2135,37 @@ class BGFAWriter:
                 len(chunk),
             )
             self._write_links_block(buf, chunk, links_ft_enc, links_cig_enc)
+
+        # Write paths blocks
+        paths = list(self._gfa.paths().values())
+        if paths:
+            path_names_enc = self._comp_options.get(
+                "path_names_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            paths_walk_enc = self._comp_options.get(
+                "paths_walk_enc",
+                (INTEGER_ENCODING_VARINT << 0) | (WALK_DECOMPOSITION_ORIENTATION_NUMID << 24),
+            )
+            paths_cigars_enc = self._comp_options.get(
+                "paths_cigars_enc",
+                (CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS << 0)
+                | (INTEGER_ENCODING_VARINT << 8)
+                | (INTEGER_ENCODING_VARINT << 16)
+                | (STRING_ENCODING_NONE << 24),
+            )
+
+            logger.debug(
+                "BGFAWriter.to_bgfa() -> writing %d paths, names_enc=0x%04X, walk_enc=0x%08X, cig_enc=0x%08X",
+                len(paths),
+                path_names_enc,
+                paths_walk_enc,
+                paths_cigars_enc,
+            )
+
+            for i in range(0, len(paths), self._block_size):
+                chunk = paths[i : i + self._block_size]
+                self._write_paths_block(buf, chunk, path_names_enc, paths_walk_enc, paths_cigars_enc)
 
         result = buf.getvalue()
         logger.debug("BGFAWriter.to_bgfa() -> exit, total_bgfa_size=%d bytes", len(result))

@@ -10,6 +10,7 @@ import glob
 import os
 import sys
 import tempfile
+import unittest
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
@@ -75,6 +76,25 @@ def _assert_structural_equality(g, h):
     h_links = _link_set(h)
     assert g_links == h_links, f"Link mismatch.\n  Missing: {g_links - h_links}\n  Extra: {h_links - g_links}"
 
+    _assert_path_equality(g, h)
+
+
+def _assert_path_equality(g, h):
+    """Assert that two GFA objects have identical paths."""
+    g_paths = g.paths()
+    h_paths = h.paths()
+    assert sorted(g_paths.keys()) == sorted(h_paths.keys()), "Path names mismatch"
+
+    for path_name in g_paths:
+        g_p = g_paths[path_name]
+        h_p = h_paths[path_name]
+        assert g_p["segments"] == h_p["segments"], (
+            f"Segments mismatch for path {path_name}: {g_p['segments']} vs {h_p['segments']}"
+        )
+        assert g_p.get("overlaps", []) == h_p.get("overlaps", []), (
+            f"Overlaps mismatch for path {path_name}: {g_p.get('overlaps', [])} vs {h_p.get('overlaps', [])}"
+        )
+
 
 def _roundtrip(gfa_text, block_size=1024, compression_options=None, test_output_dir=None):
     """Write gfa_text to a file, load it, convert to BGFA and back, return (original, roundtrip) GFA objects."""
@@ -119,9 +139,7 @@ def _roundtrip_file(gfa_path, block_size=1024, compression_options=None, test_ou
 
 TEST_NAME = "bgfa_roundtrip"
 
-ALL_ROUNDTRIP_FILES = [
-    f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa(TEST_NAME, f)
-]
+ALL_ROUNDTRIP_FILES = [f for f in glob.glob("data/**/*.gfa", recursive=True) if should_run_test_for_gfa(TEST_NAME, f)]
 
 
 def _gfa_test_id(gfa_path):
@@ -134,9 +152,7 @@ def pytest_generate_tests(metafunc):
 
         if gfa_file:
             test_files = (
-                [gfa_file]
-                if (os.path.exists(gfa_file) and should_run_test_for_gfa(TEST_NAME, gfa_file))
-                else []
+                [gfa_file] if (os.path.exists(gfa_file) and should_run_test_for_gfa(TEST_NAME, gfa_file)) else []
             )
         else:
             test_files = ALL_ROUNDTRIP_FILES
@@ -155,6 +171,50 @@ def pytest_collection_modifyitems(items):
 # ---------------------------------------------------------------------------
 # In-memory structural round-trip tests
 # ---------------------------------------------------------------------------
+
+
+class TestPathRoundtrip(unittest.TestCase):
+    """Test that paths survive GFA->BGFA->GFA roundtrip."""
+
+    def test_simple_path_roundtrip(self):
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\ts1\tACGT\n"
+            "S\ts2\tTGCA\n"
+            "S\ts3\tGGCC\n"
+            "L\ts1\t+\ts2\t-\t4M\n"
+            "L\ts2\t-\ts3\t+\t4M\n"
+            "P\tp1\ts1+,s2-\t4M\n"
+            "P\tp2\ts1+,s3+\t*\n"
+        )
+        g, h = _roundtrip(gfa_text)
+        _assert_structural_equality(g, h)
+        _assert_path_equality(g, h)
+
+    def test_path_roundtrip_no_overlaps(self):
+        gfa_text = "H\tVN:Z:1.0\nS\ts1\tACGT\nS\ts2\tTGCA\nL\ts1\t+\ts2\t-\t4M\nP\tp1\ts1+,s2-\t*\n"
+        g, h = _roundtrip(gfa_text)
+        _assert_structural_equality(g, h)
+        _assert_path_equality(g, h)
+
+    def test_path_roundtrip_with_compression(self):
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\ts1\tACGT\n"
+            "S\ts2\tTGCA\n"
+            "S\ts3\tGGCC\n"
+            "L\ts1\t+\ts2\t-\t4M\n"
+            "L\ts2\t-\ts3\t+\t4M\n"
+            "P\tp1\ts1+,s2-\t4M\n"
+        )
+        opts = {
+            "path_names_enc": 0x0100,
+            "paths_walk_enc": 0x02000100,
+            "paths_cigars_enc": 0x00010101,
+        }
+        g, h = _roundtrip(gfa_text, compression_options=opts)
+        _assert_structural_equality(g, h)
+        _assert_path_equality(g, h)
 
 
 class TestStrictRoundtrip:

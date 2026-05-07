@@ -135,7 +135,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             tmp_file.write(struct.pack("<BHHQQ", 2, 0, 0x0000, 0, 0))
 
             # Write empty paths block
-            tmp_file.write(struct.pack("<BHHIHQQQQ", 4, 0, 0x0000, 0x00000000, 0x0000, 0, 0, 0, 0))
+            tmp_file.write(struct.pack("<BHHIIQQQQ", 4, 0, 0x0000, 0x00000000, 0x00000000, 0, 0, 0, 0))
 
             # Write empty walks block
             tmp_file.write(
@@ -158,13 +158,15 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
     def test_decode_walk_empty(self):
         """Test walk decoding with empty data."""
-        result = self.reader._decode_walk(b"", 0, 0, lambda x, y: ([], 0), [])
+        result, consumed = self.reader._decode_walk(b"", 0, 0, lambda x, y: ([], 0), [])
         self.assertEqual(result, [])
+        self.assertEqual(consumed, 0)
 
     def test_decode_walk_no_compression(self):
         """Test walk decoding with no compression (compression=0)."""
-        result = self.reader._decode_walk(b"", 2, 0, lambda x, y: ([], 0), [])
+        result, consumed = self.reader._decode_walk(b"", 2, 0, lambda x, y: ([], 0), [])
         self.assertEqual(result, [[], []])  # Two empty walks
+        self.assertEqual(consumed, 0)
 
 
 if __name__ == "__main__":
