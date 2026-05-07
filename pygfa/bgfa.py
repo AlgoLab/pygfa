@@ -688,6 +688,72 @@ def decompress_string_none(payload: bytes, record_num: int, int_decoder: Callabl
     return decompress_string_none_from_blob(payload[consumed:], lengths)
 
 
+def decompress_string_superstring_none(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode superstring-concatenated strings with no compression.
+
+    The payload format is [starts:encoded][ends:encoded][superstring:raw].
+    """
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    blob = payload[consumed + consumed2 :]
+    result = []
+    for i in range(record_num):
+        result.append(blob[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_huffman(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode superstring-concatenated strings with nibble-Huffman compression.
+
+    The payload format is [starts:encoded][ends:encoded][huffman-compressed superstring].
+    """
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
+    lengths = [ends[i] - starts[i] for i in range(record_num)]
+    num_nibbles = sum(lengths) * 2
+    decompressed = decompress_nibble_huffman(payload[consumed + consumed2 :], int_decoder, num_nibbles)
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_2bit(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode superstring-concatenated strings with 2-bit DNA compression.
+
+    The payload format is [starts:encoded][ends:encoded][2bit-compressed superstring].
+    """
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    total_len = max(ends)
+    decompressed_list = decompress_string_2bit_dna(payload[consumed + consumed2 :], [total_len])
+    decompressed = decompressed_list[0] if decompressed_list else b""
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decode superstring-concatenated strings with PPM compression.
+
+    The payload format is [starts:encoded][ends:encoded][ppm-compressed superstring].
+    """
+    from pygfa.encoding.ppm_coding import decompress_string_ppm
+
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    total_len = max(ends)
+    decompressed_list = decompress_string_ppm(payload[consumed + consumed2 :], [total_len])
+    decompressed = decompressed_list[0] if decompressed_list else b""
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
 def decompress_string_zstd(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
     """Decode zstd-compressed strings."""
     lengths, consumed = int_decoder(payload, record_num)
@@ -828,6 +894,12 @@ def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, i
         num_ops_decoder = get_integer_decoder_from_code(ii)
         ops_decoder = _ops_string_decoder_for_code(ss)
         return decompress_string_cigar_decomposed(payload, record_num, num_ops_decoder, lengths_decoder, ops_decoder)
+    elif dd == CIGAR_DECOMPOSITION_NONE:
+        rr = (comp_code >> 8) & 0xFF
+        ss = (comp_code >> 24) & 0xFF
+        str_dec = STRING_DECODERS.get(ss, decompress_string_none)
+        int_dec = get_integer_decoder_from_code(rr)
+        return str_dec(payload, record_num, int_dec)
     elif dd == CIGAR_DECOMPOSITION_STRING:
         ss = (comp_code >> 24) & 0xFF
         str_dec = STRING_DECODERS.get(ss, decompress_string_none)

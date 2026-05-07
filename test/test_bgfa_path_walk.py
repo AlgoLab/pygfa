@@ -47,7 +47,7 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             1,  # record_num
             0x0100,  # compression_path_names
             0x00000000,  # compression_paths (empty walks)
-            0x01000000,  # compression_cigars (4 bytes, varint)
+            0x00000100,  # compression_cigars (4 bytes: NONE decomp, VARINT int, NONE string)
             len(cigars_metadata) + len(cigars_data),
             len(cigars_data),
             len(names_metadata) + len(names_data),
