@@ -6,7 +6,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pygfa.encoding.string_encoding import compress_string_list_superstring_none  # noqa: E402
-from pygfa.bgfa import decompress_string_superstring_none, decode_integer_list_varint  # noqa: E402
+from pygfa.encoding import decode_integer_list_varint, decompress_string_superstring_none  # noqa: E402
 import struct  # noqa: E402
 
 

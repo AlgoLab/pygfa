@@ -69,6 +69,15 @@ def compress_string_list_dictionary_wrapper(
     :param max_dict_size: Maximum dictionary size
     :return: Compressed bytes
     """
-    return compress_string_list_dictionary(
-        string_list, compress_integer_list, max_dict_size
-    )
+    return compress_string_list_dictionary(string_list, compress_integer_list, max_dict_size)
+
+
+def _decompress_string_dictionary_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
+
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    try:
+        return decompress_string_dictionary(remaining, lengths)
+    except (ValueError, IndexError):
+        return decompress_string_none_from_blob(remaining, lengths)

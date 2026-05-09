@@ -206,7 +206,7 @@ class Test2BitDNAEncoding(unittest.TestCase):
 
     def test_roundtrip_multiple_sequences(self):
         """Test compression of multiple DNA sequences."""
-        from pygfa.bgfa import decode_integer_list_varint
+        from pygfa.encoding import decode_integer_list_varint
 
         sequences = ["ACGT", "GGGGCCCC", "ATATATAT"]
         compressed = compress_string_list_2bit_dna(sequences)
@@ -255,7 +255,7 @@ class TestRLEEncoding(unittest.TestCase):
 
     def test_roundtrip_multiple_sequences(self):
         """Test compression of multiple sequences."""
-        from pygfa.bgfa import decode_integer_list_varint
+        from pygfa.encoding import decode_integer_list_varint
 
         sequences = ["AAAA", "GGGGCCCC", "ABCD"]
         compressed = compress_string_list_rle(sequences)
@@ -302,7 +302,7 @@ class TestCIGAREncoding(unittest.TestCase):
 
     def test_roundtrip_multiple(self):
         """Test compression of multiple CIGAR strings."""
-        from pygfa.bgfa import decode_integer_list_varint
+        from pygfa.encoding import decode_integer_list_varint
 
         cigars = ["10M", "5I3D", "100M50I"]
         compressed = compress_string_list_cigar(cigars)

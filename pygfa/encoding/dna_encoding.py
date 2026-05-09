@@ -10,24 +10,31 @@ from collections.abc import Callable
 
 # 2-bit encoding: A=00, C=01, G=10, T=11
 _DNA_TO_2BIT = {
-    ord("A"): 0b00, ord("a"): 0b00,
-    ord("C"): 0b01, ord("c"): 0b01,
-    ord("G"): 0b10, ord("g"): 0b10,
-    ord("T"): 0b11, ord("t"): 0b11,
-    ord("U"): 0b11, ord("u"): 0b11,
+    ord("A"): 0b00,
+    ord("a"): 0b00,
+    ord("C"): 0b01,
+    ord("c"): 0b01,
+    ord("G"): 0b10,
+    ord("g"): 0b10,
+    ord("T"): 0b11,
+    ord("t"): 0b11,
+    ord("U"): 0b11,
+    ord("u"): 0b11,
 }
 
 _2BIT_TO_DNA = [ord("A"), ord("C"), ord("G"), ord("T")]
 # Ambiguity codes including * (wildcard/no sequence) and - (gap)
 _AMBIGUITY_CODES = set(b"NRYKMSWBDHVnrykmswbdhv-*")
 
+
 def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], bytes] | None = None) -> bytes:
     """Compress a DNA sequence using 2-bit encoding.
-    
+
     Format: [flags:1 byte][packed_bases][exception_count][exception_positions][exception_bytes]
     """
     if int_encoder is None:
         from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
         int_encoder = compress_integer_list_varint
 
     if not string:
@@ -65,13 +72,14 @@ def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], byt
 
     return bytes(result)
 
+
 def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Callable | None = None) -> list[bytes]:
-    """Decompress 2-bit encoded DNA sequences.
-    """
+    """Decompress 2-bit encoded DNA sequences."""
     if not data or not lengths:
         return []
     if int_decoder is None:
-        from pygfa.bgfa import decode_integer_list_varint
+        from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
+
         int_decoder = decode_integer_list_varint
 
     offset = 0
@@ -114,14 +122,26 @@ def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Cal
 
     return results
 
+
 def compress_string_list_2bit_dna(string_list: list[str], int_encoder: Callable | None = None) -> bytes:
     if not string_list:
         return b""
     if int_encoder is None:
         from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
         int_encoder = compress_integer_list_varint
     lengths = [len(s) for s in string_list]
     res = int_encoder(lengths)
     for s in string_list:
         res += compress_string_2bit_dna(s, int_encoder)
     return res
+
+
+def decompress_string_2bit_dna_strings(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
+
+    lengths, consumed = int_decoder(payload, record_num)
+    total_len = sum(lengths)
+    decompressed_list = decompress_string_2bit_dna(payload[consumed:], [total_len])
+    decompressed = decompressed_list[0] if decompressed_list else b""
+    return decompress_string_none_from_blob(decompressed, lengths)

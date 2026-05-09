@@ -8,6 +8,7 @@ a byte-wise adaptive approach with 32-bit precision.
 from __future__ import annotations
 
 import struct
+from collections.abc import Callable
 from typing import List
 
 
@@ -140,7 +141,7 @@ def compress_string_bwt_huffman(string: str, block_size: int = 65536) -> bytes:
     )
 
     # Import the BGFA-compatible Huffman encoder
-    from pygfa.bgfa import _compress_huffman_payload
+    from pygfa.encoding.string_encoding import _compress_huffman_payload
 
     data = string.encode("ascii")
     if not data:
@@ -174,7 +175,7 @@ def decompress_string_bwt_huffman(data: bytes, lengths: list[int]) -> list[bytes
     :return: List of decompressed byte strings
     """
     from pygfa.encoding.bwt import inverse_bwt, move_to_front_decode
-    from pygfa.bgfa import _decompress_huffman_payload
+    from pygfa.encoding.string_encoding import _decompress_huffman_payload
 
     if len(data) < 4:
         raise ValueError("Data too short")
@@ -208,3 +209,33 @@ def decompress_string_bwt_huffman(data: bytes, lengths: list[int]) -> list[bytes
         pos += length
 
     return result
+
+
+def _decompress_string_arithmetic_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
+
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    if len(remaining) < 4:
+        return decompress_string_none_from_blob(remaining, lengths)
+    try:
+        return decompress_string_arithmetic(remaining, lengths)
+    except ValueError as e:
+        if "Data too short" in str(e) and len(remaining) > 0:
+            return decompress_string_none_from_blob(remaining, lengths)
+        raise
+
+
+def _decompress_string_bwt_huffman_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
+
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    if len(remaining) < 4:
+        return decompress_string_none_from_blob(remaining, lengths)
+    try:
+        return decompress_string_bwt_huffman(remaining, lengths)
+    except ValueError as e:
+        if "Data too short" in str(e) and len(remaining) > 0:
+            return decompress_string_none_from_blob(remaining, lengths)
+        raise

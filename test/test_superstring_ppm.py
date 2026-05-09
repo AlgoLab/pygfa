@@ -1,5 +1,5 @@
 from pygfa.encoding.string_encoding import compress_string_list_superstring_ppm
-from pygfa.bgfa import decompress_string_superstring_ppm, decode_integer_list_varint
+from pygfa.encoding import decode_integer_list_varint, decompress_string_superstring_ppm
 import pytest
 
 

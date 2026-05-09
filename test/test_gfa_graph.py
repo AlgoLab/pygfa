@@ -224,8 +224,8 @@ class TestGfaGraph(unittest.TestCase):
         retrieved_edge = self.graph.as_graph_element("virtual_0")
         self.assertEqual(retrieved_edge.from_node, edge_.from_node)
         self.assertEqual(retrieved_edge.to_node, edge_.to_node)
-        self.assertEqual(retrieved_edge.from_orn, edge_.from_orn)
-        self.assertEqual(retrieved_edge.to_orn, edge_.to_orn)
+        self.assertEqual(retrieved_edge.from_orientation, edge_.from_orientation)
+        self.assertEqual(retrieved_edge.to_orientation, edge_.to_orientation)
 
         subgraph_ = sg.Subgraph.from_line(path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test"))
         self.graph.add_subgraph(subgraph_)

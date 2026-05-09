@@ -17,20 +17,20 @@ import threading
 from collections.abc import Callable
 
 try:
-    import compression.zstd as z
+    import zstandard as zstd
 
     _ZSTD_AVAILABLE = True
 except ImportError:
     _ZSTD_AVAILABLE = False
-    z = None
+    zstd = None
 
 
 def compress_string_zstd(string: str) -> bytes:
     """Compress a single string with zstd."""
     if not _ZSTD_AVAILABLE:
         raise ImportError("zstandard package required")
-    assert z is not None
-    return z.compress(string.encode("ascii"), level=19)
+    assert zstd is not None
+    return zstd.compress(string.encode("ascii"), level=19)
 
 
 def compress_string_gzip(string: str) -> bytes:
@@ -61,9 +61,7 @@ def _get_zstd_dict():
             if _ZSTD_STATIC_DICT is None:
                 import zstandard as zstd
 
-                common_strings = (
-                    b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT"
-                ) * 1000
+                common_strings = (b"ACGTTGCAAAAATTTTGGGGCCCCATATTATAGCGCCGCGACGT") * 1000
                 _ZSTD_STATIC_DICT = zstd.ZstdCompressionDict(common_strings)
     return _ZSTD_STATIC_DICT
 
@@ -85,9 +83,7 @@ def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
     dictionary = _get_zstd_dict()
     decompressor = zstd.ZstdDecompressor(dict_data=dictionary)
     decompressed = decompressor.decompress(data)
-    from pygfa.bgfa import decompress_string_none
-
-    return decompress_string_none(decompressed, lengths)
+    return decompress_string_none_from_blob(decompressed, lengths)
 
 
 def compress_string_list(
@@ -129,8 +125,8 @@ def compress_string_list(
     if compression_method == "zstd":
         if not _ZSTD_AVAILABLE:
             raise ImportError("zstandard package required")
-        assert z is not None
-        blob = z.compress(concatenated, level=compression_level)
+        assert zstd is not None
+        blob = zstd.compress(concatenated, level=compression_level)
     elif compression_method == "gzip":
         blob = gzip.compress(concatenated, compresslevel=compression_level)
     elif compression_method == "lzma":
@@ -199,7 +195,7 @@ def greedy_scs(strings: list[bytes]) -> bytes:
 
     This is an approximation algorithm that repeatedly merges the pair
     of strings with maximum overlap until only one remains.
-    
+
     Enhanced version ensures all input strings are included in the result.
 
     :param strings: List of byte strings
@@ -242,13 +238,13 @@ def greedy_scs(strings: list[bytes]) -> bytes:
         candidates.append(merged)
 
     superstring = candidates[0]
-    
+
     # Post-processing: Ensure all original strings are included
     # If any string is missing, append it to the superstring
     for s in original_strings:
         if s not in superstring:
             superstring += s
-    
+
     return superstring
 
 
@@ -482,3 +478,139 @@ def compress_string_list_delta(
 ) -> bytes:
     """Compress using delta encoding (placeholder)."""
     return b""
+
+
+# =============================================================================
+# String Decompression Functions
+# =============================================================================
+
+
+def decompress_string_none_from_blob(blob: bytes, lengths: list[int]) -> list[bytes]:
+    result = []
+    pos = 0
+    for length in lengths:
+        result.append(blob[pos : pos + length])
+        pos += length
+    return result
+
+
+def decompress_string_none(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    lengths, consumed = int_decoder(payload, record_num)
+    return decompress_string_none_from_blob(payload[consumed:], lengths)
+
+
+def decompress_string_superstring_none(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    blob = payload[consumed + consumed2 :]
+    result = []
+    for i in range(record_num):
+        result.append(blob[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_huffman(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
+    lengths = [ends[i] - starts[i] for i in range(record_num)]
+    num_nibbles = sum(lengths) * 2
+    decompressed = decompress_nibble_huffman(payload[consumed + consumed2 :], int_decoder, num_nibbles)
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_2bit(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    total_len = max(ends)
+    from pygfa.encoding.dna_encoding import decompress_string_2bit_dna
+
+    decompressed_list = decompress_string_2bit_dna(payload[consumed + consumed2 :], [total_len])
+    decompressed = decompressed_list[0] if decompressed_list else b""
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.ppm_coding import decompress_string_ppm
+
+    starts, consumed = int_decoder(payload, record_num)
+    ends, consumed2 = int_decoder(payload[consumed:], record_num)
+    total_len = max(ends)
+    decompressed_list = decompress_string_ppm(payload[consumed + consumed2 :], [total_len])
+    decompressed = decompressed_list[0] if decompressed_list else b""
+    result = []
+    for i in range(record_num):
+        result.append(decompressed[starts[i] : ends[i]])
+    return result
+
+
+def decompress_string_zstd(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    lengths, consumed = int_decoder(payload, record_num)
+    if not _ZSTD_AVAILABLE:
+        raise ImportError("zstandard package required")
+    assert zstd is not None
+    data = zstd.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_gzip(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    import gzip
+
+    lengths, consumed = int_decoder(payload, record_num)
+    data = gzip.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_lzma(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    import lzma
+
+    lengths, consumed = int_decoder(payload, record_num)
+    data = lzma.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_lz4(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    import lz4.frame
+
+    lengths, consumed = int_decoder(payload, record_num)
+    data = lz4.frame.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_brotli(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    import brotli
+
+    lengths, consumed = int_decoder(payload, record_num)
+    data = brotli.decompress(payload[consumed:])
+    return decompress_string_none_from_blob(data, lengths)
+
+
+def decompress_string_huffman(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    lengths, consumed = int_decoder(payload, record_num)
+    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+
+    num_nibbles = sum(lengths) * 2
+    decompressed = decompress_nibble_huffman(payload[consumed:], int_decoder, num_nibbles)
+    return decompress_string_none_from_blob(decompressed, lengths)
+
+
+def _compress_huffman_payload(data: str) -> bytes:
+    from pygfa.encoding.huffman_nibble import compress_nibble_huffman
+    from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
+    raw_bytes = data.encode("latin-1")
+    return compress_nibble_huffman(raw_bytes, compress_integer_list_varint, 0x01)
+
+
+def _decompress_huffman_payload(data: bytes, num_bytes: int) -> bytes:
+    from pygfa.encoding.huffman_nibble import decompress_nibble_huffman
+    from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
+
+    return decompress_nibble_huffman(data, decode_integer_list_varint, num_bytes * 2)

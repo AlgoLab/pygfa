@@ -73,7 +73,9 @@ class GFAElementsMixin(BaseGFA):
         :raises GFAError: If safe=True and node already exists.
         """
         logger = logging.getLogger(__name__)
-        logger.debug("add_node(): Adding node with ID: %s", new_node.nid if hasattr(new_node, "nid") else "unknown")
+        logger.debug(
+            "add_node(): Adding node with ID: %s", new_node.node_id if hasattr(new_node, "node_id") else "unknown"
+        )
 
         if isinstance(new_node, str) and new_node[0] == "S":
             logger.debug("add_node(): Parsing node from string")
@@ -83,19 +85,19 @@ class GFAElementsMixin(BaseGFA):
             logger.debug("add_node(): Invalid node object")
             raise node.InvalidNodeError("The object given is not a node.")
 
-        if safe and new_node.nid in self:
-            logger.debug("add_node(): Node %s already exists (safe mode)", new_node.nid)
+        if safe and new_node.node_id in self:
+            logger.debug("add_node(): Node %s already exists (safe mode)", new_node.node_id)
             raise GFAError("An element with the same id already exists.")
 
-        logger.debug("add_node(): Adding node %s to graph", new_node.nid)
+        logger.debug("add_node(): Adding node %s to graph", new_node.node_id)
         self._graph.add_node(
-            new_node.nid,
-            nid=new_node.nid,
+            new_node.node_id,
+            nid=new_node.node_id,
             sequence=new_node.sequence,
-            slen=new_node.slen,
+            slen=new_node.sequence_length,
             **new_node.opt_fields,
         )
-        logger.debug(f"add_node(): Node {new_node.nid} added successfully")
+        logger.debug(f"add_node(): Node {new_node.node_id} added successfully")
         return True
 
     def remove_node(self, nid: str) -> None:
@@ -176,8 +178,8 @@ class GFAElementsMixin(BaseGFA):
             logger.debug("add_edge(): Invalid edge object")
             raise ge.InvalidEdgeError("The object is not a valid edge.")
 
-        key = new_edge.eid
-        if new_edge.eid is None or new_edge.eid == "*":
+        key = new_edge.edge_id
+        if new_edge.edge_id is None or new_edge.edge_id == "*":
             key = f"virtual_{self._get_virtual_id()}"
             logger.debug("add_edge(): Assigned virtual ID: %s", key)
 
@@ -200,16 +202,16 @@ class GFAElementsMixin(BaseGFA):
             key=key,
             eid=key,
             from_node=new_edge.from_node,
-            from_orn=new_edge.from_orn,
+            from_orn=new_edge.from_orientation,
             to_node=new_edge.to_node,
-            to_orn=new_edge.to_orn,
+            to_orn=new_edge.to_orientation,
             from_positions=new_edge.from_positions,
             to_positions=new_edge.to_positions,
             alignment=new_edge.alignment,
             distance=new_edge.distance,
             variance=new_edge.variance,
-            from_segment_end=new_edge.from_orn,
-            to_segment_end=new_edge.to_orn,
+            from_segment_end=new_edge.from_orientation,
+            to_segment_end=new_edge.to_orientation,
             **new_edge.opt_fields,
         )
         logger.debug("add_edge(): Edge %s added successfully", key)

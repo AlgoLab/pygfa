@@ -19,7 +19,8 @@ Example usage:
 
 from pygfa.gfa.base import BaseGFA, Element
 from pygfa.gfa.elements import GFAElementsMixin
-from pygfa.gfa.query import GFAQueryMixin, GFAParserMixin
+from pygfa.gfa.query import GFAQueryMixin
+from pygfa.gfa.parser import GFAParserMixin
 from pygfa.graph_element import node, edge, subgraph  # noqa: F401
 from pygfa.exceptions import (  # noqa: F401
     GFAError,

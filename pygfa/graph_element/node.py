@@ -79,24 +79,9 @@ class Node:
             )
 
     @property
-    def nid(self) -> str:
-        """Return node ID (deprecated alias, use node_id)."""
-        return self.node_id
-
-    @property
     def id(self) -> str:
         """Return node ID (alias for node_id)."""
         return self.node_id
-
-    @property
-    def seq(self) -> str:
-        """Return sequence (alias for sequence)."""
-        return self.sequence
-
-    @property
-    def slen(self) -> Optional[int]:
-        """Return sequence length (deprecated alias, use sequence_length)."""
-        return self.sequence_length
 
     @classmethod
     def from_line(cls, segment_line: line.Line) -> Node:

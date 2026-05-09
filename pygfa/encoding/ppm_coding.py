@@ -354,9 +354,7 @@ def compress_string_list_ppm(string_list: List[str], order: int = 3) -> bytes:
     return bytes(result)
 
 
-def decompress_string_ppm(
-    data: bytes, lengths: list[int], int_decoder: Callable | None = None
-) -> list[bytes]:
+def decompress_string_ppm(data: bytes, lengths: list[int], int_decoder: Callable | None = None) -> list[bytes]:
     """Decompress PPM-compressed data and return list of byte strings.
 
     Format when used with int_decoder (BGFA format):
@@ -411,7 +409,14 @@ __all__ = [
     "compress_string_ppm",
     "compress_string_list_ppm",
     "decompress_string_ppm",
+    "decompress_string_ppm_wrapper",
     "PPMModel",
     "SimpleArithmeticCoder",
     "SimpleArithmeticDecoder",
 ]
+
+
+def decompress_string_ppm_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    lengths, consumed = int_decoder(payload, record_num)
+    ppm_blob = payload[consumed:]
+    return decompress_string_ppm(ppm_blob, lengths)

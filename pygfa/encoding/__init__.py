@@ -10,8 +10,22 @@ from pygfa.encoding.integer_list_encoding import (
     compress_integer_list_streamvbyte,
     compress_integer_list_varint,
     compress_integer_list_vbyte,
+    decode_integer_list_delta,
+    decode_integer_list_elias_gamma,
+    decode_integer_list_elias_omega,
+    decode_integer_list_fixed16,
+    decode_integer_list_fixed32,
+    decode_integer_list_fixed64,
+    decode_integer_list_golomb,
+    decode_integer_list_none,
+    decode_integer_list_rice,
+    decode_integer_list_streamvbyte,
+    decode_integer_list_varint,
+    decode_integer_list_vbyte,
 )
 from pygfa.encoding.string_encoding import (
+    _compress_huffman_payload,
+    _decompress_huffman_payload,
     compress_string_gzip,
     compress_string_list,
     compress_string_list_delta,
@@ -22,9 +36,21 @@ from pygfa.encoding.string_encoding import (
     compress_string_none,
     compress_string_zstd,
     compress_string_zstd_dict,
+    decompress_string_gzip,
+    decompress_string_huffman,
+    decompress_string_lzma,
+    decompress_string_none,
+    decompress_string_none_from_blob,
+    decompress_string_superstring_2bit,
+    decompress_string_superstring_huffman,
+    decompress_string_superstring_none,
+    decompress_string_superstring_ppm,
+    decompress_string_zstd,
     decompress_string_zstd_dict,
 )
 from pygfa.encoding.arithmetic_coding import (
+    _decompress_string_arithmetic_wrapper,
+    _decompress_string_bwt_huffman_wrapper,
     compress_string_arithmetic,
     compress_string_bwt_huffman,
     decompress_string_arithmetic,
@@ -34,18 +60,23 @@ from pygfa.encoding.dna_encoding import (
     compress_string_2bit_dna,
     compress_string_list_2bit_dna,
     decompress_string_2bit_dna,
+    decompress_string_2bit_dna_strings,
 )
 from pygfa.encoding.rle_encoding import (
+    _decompress_string_rle_wrapper,
     compress_string_rle,
     compress_string_list_rle,
     decompress_string_rle,
 )
 from pygfa.encoding.cigar_encoding import (
+    _ops_string_decoder_for_code,
+    _ops_string_encoder_for_code,
     compress_string_cigar,
     compress_string_list_cigar,
     decompress_string_cigar,
 )
 from pygfa.encoding.dictionary_encoding import (
+    _decompress_string_dictionary_wrapper,
     compress_string_dictionary,
     compress_string_list_dictionary_wrapper,
     decompress_string_dictionary,
@@ -114,6 +145,7 @@ from pygfa.encoding.masked_vbyte import (
 from pygfa.encoding.ppm_coding import (
     compress_string_list_ppm,
     compress_string_ppm,
+    decompress_string_ppm_wrapper,
 )
 
 COMPRESSION_OPTIONS: dict[str, str] = {

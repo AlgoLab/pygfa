@@ -76,24 +76,9 @@ class Edge:
             raise InvalidEdgeError(f"to_orientation must be '+' or '-', got {self.to_orientation}")
 
     @property
-    def eid(self) -> Optional[str]:
-        """Return edge ID (deprecated alias, use edge_id)."""
-        return self.edge_id
-
-    @property
     def id(self) -> Optional[str]:
         """Return edge ID (alias for edge_id)."""
         return self.edge_id
-
-    @property
-    def from_orn(self) -> str:
-        """Return from orientation (deprecated alias, use from_orientation)."""
-        return self.from_orientation
-
-    @property
-    def to_orn(self) -> str:
-        """Return to orientation (deprecated alias, use to_orientation)."""
-        return self.to_orientation
 
     @classmethod
     def from_line(cls, edge_line: line.Line) -> Optional[Edge]:

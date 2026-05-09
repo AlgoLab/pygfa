@@ -303,19 +303,19 @@ class TestGraphElement(unittest.TestCase):
     def test_node_from_segment(self):
         seg = segment.SegmentV1.from_string("S\t3\tTGCAACGTATAGACTTGTCAC\tRC:i:4")
         node_ = node.Node.from_line(seg)
-        self.assertTrue(node_.nid == seg.fields["name"].value)
-        self.assertTrue(node_.slen == len(seg.fields["sequence"].value))
+        self.assertTrue(node_.node_id == seg.fields["name"].value)
+        self.assertTrue(node_.sequence_length == len(seg.fields["sequence"].value))
         self.assertTrue(node_.sequence == seg.fields["sequence"].value)
         self.assertTrue(node_.opt_fields["RC"].value == seg.fields["RC"].value)
 
     def test_edge_from_link(self):
         line = link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
-        self.assertTrue(ed.eid == "*")
+        self.assertTrue(ed.edge_id == "*")
         self.assertTrue(ed.from_node == line.fields["from"].value)
-        self.assertTrue(ed.from_orn == line.fields["from_orn"].value)
+        self.assertTrue(ed.from_orientation == line.fields["from_orn"].value)
         self.assertTrue(ed.to_node == line.fields["to"].value)
-        self.assertTrue(ed.to_orn == line.fields["to_orn"].value)
+        self.assertTrue(ed.to_orientation == line.fields["to_orn"].value)
         self.assertTrue(ed.from_positions == (None, None))
         self.assertTrue(ed.to_positions == (None, None))
         self.assertTrue(ed.alignment == line.fields["overlap"].value)
@@ -326,16 +326,16 @@ class TestGraphElement(unittest.TestCase):
 
         line = link.Link.from_string("L\t3\t+\t65\t-\t47M\tui:Z:test\tab:Z:another_test\tID:Z:3_to_65")
         ed = graph_edge.Edge.from_line(line)
-        self.assertTrue(ed.eid == "3_to_65")
+        self.assertTrue(ed.edge_id == "3_to_65")
 
     def test_edge_from_containment(self):
         line = containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test")
         ed = graph_edge.Edge.from_line(line)
-        self.assertTrue(ed.eid == "*")
+        self.assertTrue(ed.edge_id == "*")
         self.assertTrue(ed.from_node == line.fields["from"].value)
-        self.assertTrue(ed.from_orn == line.fields["from_orn"].value)
+        self.assertTrue(ed.from_orientation == line.fields["from_orn"].value)
         self.assertTrue(ed.to_node == line.fields["to"].value)
-        self.assertTrue(ed.to_orn == line.fields["to_orn"].value)
+        self.assertTrue(ed.to_orientation == line.fields["to_orn"].value)
         self.assertTrue(ed.from_positions == (None, None))
         self.assertTrue(ed.to_positions == (None, None))
         self.assertTrue(ed.alignment == line.fields["overlap"].value)
@@ -347,7 +347,7 @@ class TestGraphElement(unittest.TestCase):
 
         line = containment.Containment.from_string("C\ta\t+\tb\t-\t10\t*\tui:Z:test\tab:Z:another_test\tID:Z:a_to_b")
         ed = graph_edge.Edge.from_line(line)
-        self.assertTrue(ed.eid == "a_to_b")
+        self.assertTrue(ed.edge_id == "a_to_b")
 
     def test_subgraph_from_path(self):
         line = path.Path.from_string("P\t14\t11+,12+\t122M\tui:Z:test\tab:Z:another_test")

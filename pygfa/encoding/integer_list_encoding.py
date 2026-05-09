@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import struct
 from collections.abc import Iterable
 
 
@@ -516,3 +517,361 @@ def compress_integer_list_vbyte(int_list: Iterable[int], _size: int = 0) -> byte
                     out.append(val & 0x7F)
                 val >>= 7
     return bytes(out)
+
+
+# =============================================================================
+# Integer Decoders
+# =============================================================================
+
+
+def decode_integer_list_none(data: bytes, count: int) -> tuple[list[int], int]:
+    result = []
+    pos = 0
+    current = bytearray()
+
+    while pos < len(data):
+        byte = data[pos]
+        if byte == ord(","):
+            if current:
+                result.append(int(current.decode("ascii")))
+                current = bytearray()
+            pos += 1
+            if count > 0 and len(result) >= count:
+                break
+        elif ord("0") <= byte <= ord("9"):
+            current.append(byte)
+            pos += 1
+        else:
+            break
+
+    if current:
+        result.append(int(current.decode("ascii")))
+
+    if pos < len(data) and data[pos] == ord(","):
+        pos += 1
+
+    return result, pos
+
+
+def decode_integer_list_varint(data: bytes, count: int) -> tuple[list[int], int]:
+    result = []
+    pos = 0
+
+    while pos < len(data) and (count < 0 or len(result) < count):
+        value = 0
+        shift = 0
+        while pos < len(data):
+            byte = data[pos]
+            pos += 1
+            value |= (byte & 0x7F) << shift
+            shift += 7
+            if (byte & 0x80) == 0:
+                break
+        result.append(value)
+
+    return result, pos
+
+
+def decode_integer_list_fixed16(data: bytes, count: int) -> tuple[list[int], int]:
+    n = len(data) // 2 if count < 0 else count
+    result = []
+    pos = 0
+
+    for _ in range(n):
+        if pos + 2 > len(data):
+            break
+        result.append(struct.unpack_from("<H", data, pos)[0])
+        pos += 2
+
+    return result, pos
+
+
+def decode_integer_list_fixed32(data: bytes, count: int) -> tuple[list[int], int]:
+    n = len(data) // 4 if count < 0 else count
+    result = []
+    pos = 0
+
+    for _ in range(n):
+        if pos + 4 > len(data):
+            break
+        result.append(struct.unpack_from("<I", data, pos)[0])
+        pos += 4
+
+    return result, pos
+
+
+def decode_integer_list_fixed64(data: bytes, count: int) -> tuple[list[int], int]:
+    n = len(data) // 8 if count < 0 else count
+    result = []
+    pos = 0
+
+    for _ in range(n):
+        if pos + 8 > len(data):
+            break
+        result.append(struct.unpack_from("<Q", data, pos)[0])
+        pos += 8
+
+    return result, pos
+
+
+def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
+    vals, consumed = decode_integer_list_varint(data, count)
+    if not vals:
+        return [], consumed
+
+    decoded = []
+    for v in vals:
+        decoded.append((v >> 1) ^ (-(v & 1)))
+
+    result = [decoded[0]]
+    for i in range(1, len(decoded)):
+        result.append(result[-1] + decoded[i])
+
+    return result, consumed
+
+
+def decode_integer_list_elias_gamma(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data:
+        return [], 0
+
+    result = []
+    bit_pos = 0
+
+    def read_bit() -> int | None:
+        nonlocal bit_pos
+        if bit_pos >= len(data) * 8:
+            return None
+        byte_idx = bit_pos // 8
+        bit_idx = bit_pos % 8
+        bit_pos += 1
+        return (data[byte_idx] >> (7 - bit_idx)) & 1
+
+    def read_bits(n: int) -> int:
+        val = 0
+        for _ in range(n):
+            bit = read_bit()
+            if bit is None:
+                break
+            val = (val << 1) | bit
+        return val
+
+    while count < 0 or len(result) < count:
+        unary = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            unary += 1
+
+        if unary == 0:
+            result.append(0)
+        else:
+            binary_part = read_bits(unary)
+            value = (1 << unary) | binary_part
+            result.append(value - 1)
+
+        if bit_pos >= len(data) * 8:
+            break
+
+    return result, (bit_pos + 7) // 8
+
+
+def decode_integer_list_elias_omega(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data:
+        return [], 0
+
+    result = []
+    bit_pos = 0
+
+    def read_bit() -> int | None:
+        nonlocal bit_pos
+        if bit_pos >= len(data) * 8:
+            return None
+        byte_idx = bit_pos // 8
+        bit_idx = bit_pos % 8
+        bit_pos += 1
+        return (data[byte_idx] >> (7 - bit_idx)) & 1
+
+    def decode_omega_recursive() -> int:
+        bit = read_bit()
+        if bit is None or bit == 0:
+            return 1
+
+        length = decode_omega_recursive()
+        value = 1
+        for _ in range(length - 1):
+            value = (value << 1) | (read_bit() or 0)
+        return value
+
+    while count < 0 or len(result) < count:
+        if bit_pos >= len(data) * 8:
+            break
+        value = decode_omega_recursive()
+        result.append(value - 1)
+
+    return result, (bit_pos + 7) // 8
+
+
+def decode_integer_list_golomb(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data or len(data) < 1:
+        return [], 0
+
+    b = data[0]
+    if b == 0:
+        b = 128
+
+    result = []
+    pos = 1
+    bits_read = 0
+
+    def read_bit() -> int | None:
+        nonlocal pos, bits_read
+        if pos >= len(data):
+            return None
+        bit = (data[pos] >> (7 - bits_read)) & 1
+        bits_read += 1
+        if bits_read == 8:
+            bits_read = 0
+            pos += 1
+        return bit
+
+    bits_for_remainder = math.ceil(math.log2(b)) if b > 1 else 1
+
+    while count < 0 or len(result) < count:
+        quotient = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            quotient += 1
+
+        if quotient == 0 and pos >= len(data):
+            break
+
+        remainder = 0
+        for _ in range(bits_for_remainder):
+            bit = read_bit()
+            if bit is not None:
+                remainder = (remainder << 1) | bit
+
+        value = quotient * b + remainder
+        result.append(value)
+
+    bytes_consumed = pos + (1 if bits_read > 0 else 0)
+    return result, bytes_consumed
+
+
+def decode_integer_list_rice(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data or len(data) < 1:
+        return [], 0
+
+    k = data[0]
+    result = []
+    pos = 1
+    bits_read = 0
+
+    def read_bit() -> int | None:
+        nonlocal pos, bits_read
+        if pos >= len(data):
+            return None
+        bit = (data[pos] >> (7 - bits_read)) & 1
+        bits_read += 1
+        if bits_read == 8:
+            bits_read = 0
+            pos += 1
+        return bit
+
+    while count < 0 or len(result) < count:
+        quotient = 0
+        while True:
+            bit = read_bit()
+            if bit is None:
+                break
+            if bit == 0:
+                break
+            quotient += 1
+
+        if quotient == 0 and pos >= len(data):
+            break
+
+        remainder = 0
+        for _ in range(k):
+            bit = read_bit()
+            if bit is not None:
+                remainder = (remainder << 1) | bit
+
+        value = (quotient << k) | remainder
+        result.append(value)
+
+    bytes_consumed = pos + (1 if bits_read > 0 else 0)
+    return result, bytes_consumed
+
+
+def decode_integer_list_streamvbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data or len(data) < 4:
+        return [], 0
+
+    n = struct.unpack_from("<I", data, 0)[0]
+    if n == 0:
+        return [], 4
+
+    ctrl_count = (n + 3) // 4
+    data_start = 4 + ctrl_count
+
+    if len(data) < data_start:
+        return [], 4
+
+    result = []
+    ctrl_pos = 4
+    data_pos = data_start
+
+    while len(result) < n and ctrl_pos < data_start and data_pos < len(data):
+        ctrl = data[ctrl_pos]
+        ctrl_pos += 1
+
+        for _ in range(4):
+            if len(result) >= n or data_pos >= len(data):
+                break
+
+            bytes_used = (ctrl & 0x03) + 1
+            ctrl >>= 2
+
+            if data_pos + bytes_used > len(data):
+                break
+
+            val = 0
+            for i in range(bytes_used):
+                val |= data[data_pos + i] << (i * 8)
+            result.append(val)
+            data_pos += bytes_used
+
+    return result, data_pos
+
+
+def decode_integer_list_vbyte(data: bytes, count: int) -> tuple[list[int], int]:
+    if not data:
+        return [], 0
+
+    result = []
+    pos = 0
+
+    while count < 0 or len(result) < count:
+        if pos >= len(data):
+            break
+
+        val = 0
+        shift = 0
+        while pos < len(data):
+            byte = data[pos]
+            pos += 1
+            val |= (byte & 0x7F) << shift
+            shift += 7
+            if (byte & 0x80) == 0:
+                break
+        result.append(val)
+
+    return result, pos

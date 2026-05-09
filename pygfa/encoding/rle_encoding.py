@@ -67,9 +67,7 @@ def compress_string_rle(string: str) -> bytes:
                 # Look ahead for runs
                 look_run = 1
                 if i + 1 < len(data):
-                    while (
-                        i + look_run < len(data) and data[i + look_run] == data[i]
-                    ):
+                    while i + look_run < len(data) and data[i + look_run] == data[i]:
                         look_run += 1
 
                 if look_run >= _MIN_RUN_LENGTH:
@@ -104,7 +102,7 @@ def decompress_string_rle(data: bytes, lengths: list[int]) -> list[bytes]:
     if not data or not lengths:
         return []
 
-    from pygfa.bgfa import decode_integer_list_varint
+    from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
 
     offset = 0
     results: list[bytes] = []
@@ -145,9 +143,7 @@ def decompress_string_rle(data: bytes, lengths: list[int]) -> list[bytes]:
                     char = segment_data[seg_offset]
                     seg_offset += 1
 
-                    counts, bytes_used = decode_integer_list_varint(
-                        segment_data[seg_offset:], 1
-                    )
+                    counts, bytes_used = decode_integer_list_varint(segment_data[seg_offset:], 1)
                     count = counts[0]
                     seg_offset += bytes_used
 
@@ -184,3 +180,14 @@ def compress_string_list_rle(
 
     # Concatenate: [lengths][sequences]
     return length_bytes + b"".join(compressed_sequences)
+
+
+def _decompress_string_rle_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
+
+    lengths, consumed = int_decoder(payload, record_num)
+    remaining = payload[consumed:]
+    try:
+        return decompress_string_rle(remaining, lengths)
+    except (ValueError, IndexError):
+        return decompress_string_none_from_blob(remaining, lengths)

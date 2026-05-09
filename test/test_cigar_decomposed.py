@@ -10,7 +10,7 @@ from pygfa.encoding.cigar_encoding import (
     compress_string_cigar_decomposed,
     decompress_string_cigar_decomposed,
 )
-from pygfa.bgfa import (
+from pygfa.encoding import (
     decode_integer_list_varint,
 )
 from pygfa.encoding.integer_list_encoding import (

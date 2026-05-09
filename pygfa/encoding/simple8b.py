@@ -57,14 +57,12 @@ def compress_integer_list_simple8b(data: List[int]) -> bytes:
     while pos < n:
         # Find best selector for next chunk
         best_selector = 14  # Default to 60 bits per value
-        best_count = 1
 
         for sel_idx, (bits, count) in enumerate(SIMPLE8B_SELECTORS[1:], 1):
             max_val = (1 << bits) - 1
             chunk = data[pos : pos + count]
             if all(0 <= v <= max_val for v in chunk):
                 best_selector = sel_idx
-                best_count = count
                 break
 
         bits, count = SIMPLE8B_SELECTORS[best_selector]
