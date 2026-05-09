@@ -215,10 +215,15 @@ class BGFAWriter:
         p_t_or = pack_bits_lsb(t_os)
         p_ft = p_from + p_to + p_f_or + p_t_or
 
-        rr_encoder = get_integer_encoder_from_code((c_cig >> 8) & 0xFF)
-        ii_encoder = get_integer_encoder_from_code((c_cig >> 16) & 0xFF)
-        ss_encoder = _ops_string_encoder_for_code((c_cig >> 24) & 0xFF)
-        p_cig = compress_string_cigar_decomposed(cigs, ii_encoder, rr_encoder, ss_encoder)
+        dd = c_cig & 0xFF
+        if dd == CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS:
+            rr_encoder = get_integer_encoder_from_code((c_cig >> 8) & 0xFF)
+            ii_encoder = get_integer_encoder_from_code((c_cig >> 16) & 0xFF)
+            ss_encoder = _ops_string_encoder_for_code((c_cig >> 24) & 0xFF)
+            p_cig = compress_string_cigar_decomposed(cigs, ii_encoder, rr_encoder, ss_encoder)
+        else:
+            str_code = ((c_cig >> 8) & 0xFF) << 8 | ((c_cig >> 24) & 0xFF)
+            p_cig = _compress_string_for_bgfa(cigs, str_code)
 
         buf.write(struct.pack("<B", SECTION_ID_LINKS))
         buf.write(struct.pack("<H", len(chunk)))
@@ -281,7 +286,7 @@ class BGFAWriter:
             ss_encoder = _ops_string_encoder_for_code((cig_enc >> 24) & 0xFF)
             p_cig = compress_string_cigar_decomposed(all_cigars, ii_encoder, rr_encoder, ss_encoder)
         else:
-            str_code = ((cig_enc >> 16) & 0xFF) << 8 | ((cig_enc >> 24) & 0xFF)
+            str_code = ((cig_enc >> 8) & 0xFF) << 8 | ((cig_enc >> 24) & 0xFF)
             p_cig = _compress_string_for_bgfa(all_cigars, str_code)
 
         int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
