@@ -81,35 +81,41 @@ class TestIntegerListEncoding(unittest.TestCase):
         encoded = compress_integer_list_uints_delta(data, encoder)
         decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_compress_uints_delta_sparse(self):
         data = [1, 100, 5, 200]
         encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
         decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_compress_uints_delta_single(self):
         data = [42]
         encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
         decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_compress_uints_delta_decreasing(self):
         data = [50, 40, 30, 20, 10]
         encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
         decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_compress_uints_delta_empty(self):
         encoded = compress_integer_list_uints_delta([], compress_integer_list_varint)
         self.assertEqual(encoded, b"")
         decoded, consumed = decode_integer_list_uints_delta(encoded, 0, decode_integer_list_varint)
         self.assertEqual(decoded, [])
+        self.assertEqual(consumed, 0)
 
     def test_compress_uints_delta_default_encoder(self):
         encoded = compress_integer_list_uints_delta([10, 20, 30])
         decoded, consumed = decode_integer_list_uints_delta(encoded, 3)
         self.assertEqual(decoded, [10, 20, 30])
+        self.assertEqual(consumed, len(encoded))
 
     def test_compress_integer_list_elias_gamma(self):
         """Test Elias gamma encoding."""

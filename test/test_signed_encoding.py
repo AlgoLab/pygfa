@@ -22,42 +22,49 @@ class TestSignedEncoding(unittest.TestCase):
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_mixed_signs(self):
         data = [0, -1, 2, -3, 4, -5]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_with_zero(self):
         data = [0, 0, 0, 0]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_all_positive_starts_with_zero(self):
         data = [0, 5, 10]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_alternating_signs(self):
         data = [1, -1, 1, -1, 1, -1]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_single_positive(self):
         data = [42]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_single_negative(self):
         data = [-42]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_empty_list(self):
         encoded = compress_signed_integers([], compress_integer_list_varint)
@@ -75,18 +82,21 @@ class TestSignedEncoding(unittest.TestCase):
         encoded = compress_signed_integers(data, _fixed32_encoder)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_fixed32)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_first_bit_is_one(self):
         data = [-1, 2, 3]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_all_ones_then_all_zeros(self):
         data = [-1, -2, -3, 4, 5, 6]
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
 
 if __name__ == "__main__":
