@@ -1,6 +1,5 @@
 import unittest
 import sys
-import pytest
 
 sys.path.insert(0, "../")
 
@@ -8,13 +7,15 @@ from pygfa.encoding.integer_list_encoding import (
     compress_integer_list_varint,
     compress_integer_list_fixed,
     compress_integer_list_none,
-    compress_integer_list_delta,
+    compress_integer_list_uints_delta,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
     compress_integer_list_golomb,
     compress_integer_list_rice,
     compress_integer_list_streamvbyte,
     compress_integer_list_vbyte,
+    decode_integer_list_varint,
+    decode_integer_list_uints_delta,
 )
 from pygfa.encoding.string_encoding import (
     compress_string_zstd,
@@ -73,28 +74,37 @@ class TestIntegerListEncoding(unittest.TestCase):
         result = compress_integer_list_none([])
         self.assertEqual(result, b"")
 
-    @pytest.mark.limit_memory(10 * 1024 * 1024)  # 10 MB limit
-    def test_compress_integer_list_delta(self):
-        """Test delta encoding."""
-        import time
+    def test_compress_integer_list_uints_delta(self):
+        """Test uints-delta encoding roundtrip."""
+        data = [10, 20, 30, 40]
+        encoder = compress_integer_list_varint
+        encoded = compress_integer_list_uints_delta(data, encoder)
+        decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
+        self.assertEqual(decoded, data)
 
-        start_time = time.time()
-        timeout = 5.0  # 5 seconds
+    def test_compress_uints_delta_sparse(self):
+        data = [1, 100, 5, 200]
+        encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
+        decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
+        self.assertEqual(decoded, data)
 
-        # Test sequential numbers
-        result = compress_integer_list_delta([10, 20, 30, 40])
-        self.assertIsInstance(result, bytes)
+    def test_compress_uints_delta_single(self):
+        data = [42]
+        encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
+        decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
+        self.assertEqual(decoded, data)
 
-        # Test empty list
-        result = compress_integer_list_delta([])
-        self.assertEqual(result, b"")
+    def test_compress_uints_delta_decreasing(self):
+        data = [50, 40, 30, 20, 10]
+        encoded = compress_integer_list_uints_delta(data, compress_integer_list_varint)
+        decoded, consumed = decode_integer_list_uints_delta(encoded, len(data), decode_integer_list_varint)
+        self.assertEqual(decoded, data)
 
-        # Test single number
-        result = compress_integer_list_delta([42])
-        self.assertIsInstance(result, bytes)
-
-        elapsed = time.time() - start_time
-        self.assertLess(elapsed, timeout, f"Test took {elapsed:.2f}s, exceeded {timeout}s threshold")
+    def test_compress_uints_delta_empty(self):
+        encoded = compress_integer_list_uints_delta([], compress_integer_list_varint)
+        self.assertEqual(encoded, b"")
+        decoded, consumed = decode_integer_list_uints_delta(encoded, 0, decode_integer_list_varint)
+        self.assertEqual(decoded, [])
 
     def test_compress_integer_list_elias_gamma(self):
         """Test Elias gamma encoding."""

@@ -45,7 +45,7 @@ from pygfa.bgfa._constants import (
     logger,
 )
 from pygfa.encoding import (
-    compress_integer_list_delta,
+    compress_integer_list_uints_delta,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
     compress_integer_list_fixed,
@@ -67,7 +67,7 @@ from pygfa.encoding.cigar_encoding import (
 from pygfa.encoding.dictionary_encoding import _decompress_string_dictionary_wrapper
 from pygfa.encoding.dna_encoding import decompress_string_2bit_dna_strings
 from pygfa.encoding.integer_list_encoding import (
-    decode_integer_list_delta,
+    decode_integer_list_uints_delta,
     decode_integer_list_elias_gamma,
     decode_integer_list_elias_omega,
     decode_integer_list_fixed16,
@@ -103,7 +103,7 @@ INTEGER_DECODERS = {
     INTEGER_ENCODING_FIXED16: decode_integer_list_fixed16,
     INTEGER_ENCODING_FIXED32: decode_integer_list_fixed32,
     INTEGER_ENCODING_FIXED64: decode_integer_list_fixed64,
-    INTEGER_ENCODING_DELTA: decode_integer_list_delta,
+    INTEGER_ENCODING_DELTA: decode_integer_list_uints_delta,
     INTEGER_ENCODING_ELIAS_GAMMA: decode_integer_list_elias_gamma,
     INTEGER_ENCODING_ELIAS_OMEGA: decode_integer_list_elias_omega,
     INTEGER_ENCODING_GOLOMB: decode_integer_list_golomb,
@@ -136,7 +136,7 @@ def get_integer_encoder_from_code(int_code: int) -> Callable:
         INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, 16),
         INTEGER_ENCODING_FIXED32: lambda x: compress_integer_list_fixed(x, 32),
         INTEGER_ENCODING_FIXED64: lambda x: compress_integer_list_fixed(x, 64),
-        INTEGER_ENCODING_DELTA: compress_integer_list_delta,
+        INTEGER_ENCODING_DELTA: compress_integer_list_uints_delta,
         INTEGER_ENCODING_ELIAS_GAMMA: compress_integer_list_elias_gamma,
         INTEGER_ENCODING_ELIAS_OMEGA: compress_integer_list_elias_omega,
         INTEGER_ENCODING_GOLOMB: compress_integer_list_golomb,
@@ -162,7 +162,7 @@ def get_integer_encoder(code: int) -> Callable:
     if int_code == INTEGER_ENCODING_FIXED64:
         return lambda x: compress_integer_list_fixed(x, 64)
     if int_code == INTEGER_ENCODING_DELTA:
-        return compress_integer_list_delta
+        return compress_integer_list_uints_delta
     if int_code == INTEGER_ENCODING_ELIAS_GAMMA:
         return compress_integer_list_elias_gamma
     if int_code == INTEGER_ENCODING_ELIAS_OMEGA:

@@ -64,7 +64,7 @@ from pygfa.bgfa._writer import (
     to_bgfa,
 )
 from pygfa.encoding import (
-    compress_integer_list_delta,
+    compress_integer_list_uints_delta,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
     compress_integer_list_fixed,
@@ -131,7 +131,7 @@ __all__ = [
     "WALK_DECOMPOSITION_ORIENTATION_NUMID",
     "WALK_DECOMPOSITION_ORIENTATION_STRID",
     "WalkDecomposition",
-    "compress_integer_list_delta",
+    "compress_integer_list_uints_delta",
     "compress_integer_list_elias_gamma",
     "compress_integer_list_elias_omega",
     "compress_integer_list_fixed",

@@ -1,6 +1,6 @@
 # ruff: noqa: F401 - All imports are intentional re-exports
 from pygfa.encoding.integer_list_encoding import (
-    compress_integer_list_delta,
+    compress_integer_list_uints_delta,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
     compress_integer_list_fixed,
@@ -10,7 +10,7 @@ from pygfa.encoding.integer_list_encoding import (
     compress_integer_list_streamvbyte,
     compress_integer_list_varint,
     compress_integer_list_vbyte,
-    decode_integer_list_delta,
+    decode_integer_list_uints_delta,
     decode_integer_list_elias_gamma,
     decode_integer_list_elias_omega,
     decode_integer_list_fixed16,
@@ -173,7 +173,7 @@ INTEGER_ENCODINGS: dict[str, str] = {
     "fixed16": "compress_integer_list_fixed",
     "fixed32": "compress_integer_list_fixed",
     "fixed64": "compress_integer_list_fixed",
-    "delta": "compress_integer_list_delta",
+    "delta": "compress_integer_list_uints_delta",
     "gamma": "compress_integer_list_elias_gamma",
     "omega": "compress_integer_list_elias_omega",
     "golomb": "compress_integer_list_golomb",

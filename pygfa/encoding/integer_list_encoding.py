@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import struct
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 
 def compress_integer_list_varint(int_list: Iterable[int], _size: int = 0) -> bytes:
@@ -37,29 +37,23 @@ def compress_integer_list_none(int_list: Iterable[int], _size: int = 32) -> byte
     return b",".join(str(integer).encode("ascii") for integer in int_list) + b","
 
 
-def compress_integer_list_delta(int_list: Iterable[int], _size: int = 0) -> bytes:
-    int_list = list(int_list)
-    if not int_list:
+def compress_integer_list_uints_delta(int_list: Iterable[int], encoder: Callable = None) -> bytes:
+    values = list(int_list)
+    if not values:
         return b""
 
-    out = bytearray()
-    prev = 0
-    for val in int_list:
-        delta = val - prev
-        if delta >= 0:
-            v = delta << 1
-        else:
-            v = ((-delta - 1) << 1) | 1
-        while True:
-            byte = v & 0x7F
-            v >>= 7
-            if v == 0:
-                out.append(byte)
-                break
-            else:
-                out.append(byte | 0x80)
-        prev = val
-    return bytes(out)
+    if encoder is None:
+        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
+
+        encoder = compress_integer_list_varint
+
+    deltas = [values[0]]
+    for i in range(1, len(values)):
+        deltas.append(values[i] - values[i - 1])
+
+    from pygfa.encoding.signed_encoding import compress_signed_integers
+
+    return compress_signed_integers(deltas, encoder)
 
 
 def compress_integer_list_elias_gamma(int_list: Iterable[int], _size: int = 0) -> bytes:
@@ -614,18 +608,22 @@ def decode_integer_list_fixed64(data: bytes, count: int) -> tuple[list[int], int
     return result, pos
 
 
-def decode_integer_list_delta(data: bytes, count: int) -> tuple[list[int], int]:
-    vals, consumed = decode_integer_list_varint(data, count)
-    if not vals:
-        return [], consumed
+def decode_integer_list_uints_delta(data: bytes, count: int, decoder: Callable = None) -> tuple[list[int], int]:
+    if count == 0 or not data:
+        return [], 0
 
-    decoded = []
-    for v in vals:
-        decoded.append((v >> 1) ^ (-(v & 1)))
+    if decoder is None:
+        from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
 
-    result = [decoded[0]]
-    for i in range(1, len(decoded)):
-        result.append(result[-1] + decoded[i])
+        decoder = decode_integer_list_varint
+
+    from pygfa.encoding.signed_encoding import decode_signed_integers
+
+    deltas, consumed = decode_signed_integers(data, count, decoder)
+
+    result = [deltas[0]]
+    for i in range(1, len(deltas)):
+        result.append(result[-1] + deltas[i])
 
     return result, consumed
 
