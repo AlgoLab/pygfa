@@ -15,6 +15,7 @@ class TestSignedEncoding(unittest.TestCase):
         encoded = compress_signed_integers(data, compress_integer_list_varint)
         decoded, consumed = decode_signed_integers(encoded, len(data), decode_integer_list_varint)
         self.assertEqual(decoded, data)
+        self.assertEqual(consumed, len(encoded))
 
     def test_all_negative(self):
         data = [-5, -10, -15]

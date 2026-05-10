@@ -100,7 +100,7 @@ def decode_signed_integers(
                 break
 
         if not sign_bits and value == 0:
-            if len(sign_bits) >= count or pos >= len(data):
+            if pos >= len(data):
                 break
             value = 0
             shift = 0
