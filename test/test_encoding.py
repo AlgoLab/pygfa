@@ -106,6 +106,11 @@ class TestIntegerListEncoding(unittest.TestCase):
         decoded, consumed = decode_integer_list_uints_delta(encoded, 0, decode_integer_list_varint)
         self.assertEqual(decoded, [])
 
+    def test_compress_uints_delta_default_encoder(self):
+        encoded = compress_integer_list_uints_delta([10, 20, 30])
+        decoded, consumed = decode_integer_list_uints_delta(encoded, 3)
+        self.assertEqual(decoded, [10, 20, 30])
+
     def test_compress_integer_list_elias_gamma(self):
         """Test Elias gamma encoding."""
         result = compress_integer_list_elias_gamma([1, 2, 3, 4])

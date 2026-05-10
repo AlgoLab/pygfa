@@ -43,8 +43,6 @@ def compress_integer_list_uints_delta(int_list: Iterable[int], encoder: Callable
         return b""
 
     if encoder is None:
-        from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
-
         encoder = compress_integer_list_varint
 
     deltas = [values[0]]
@@ -613,8 +611,6 @@ def decode_integer_list_uints_delta(data: bytes, count: int, decoder: Callable =
         return [], 0
 
     if decoder is None:
-        from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
-
         decoder = decode_integer_list_varint
 
     from pygfa.encoding.signed_encoding import decode_signed_integers
