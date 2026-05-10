@@ -6,6 +6,7 @@ import io
 import struct
 
 from pygfa.bgfa._codec_utils import pack_bits_lsb
+from pygfa.encoding.integer_list_encoding import compress_integer_list_uints_delta
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
     BGFA_VERSION,
@@ -291,7 +292,7 @@ class BGFAWriter:
 
         int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
         p_walk_lengths = int_encoder(all_walk_lengths)
-        p_seg_ids = int_encoder(all_seg_ids)
+        p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_encoder)
         p_orientations = pack_bits_lsb(all_orientations)
         p_walk = p_walk_lengths + p_seg_ids + p_orientations
 

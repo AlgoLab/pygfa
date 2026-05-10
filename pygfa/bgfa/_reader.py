@@ -443,7 +443,7 @@ class ReaderBGFA:
             return walks, total_consumed
 
         elif walk_byte == 0x02:
-            segment_ids, ids_consumed = int_decoder_func(data_after, total_segments)
+            segment_ids, ids_consumed = decode_integer_list_uints_delta(data_after, total_segments, int_decoder_func)
             orientations, bits_consumed = unpack_bits_lsb(data_after[ids_consumed:], total_segments)
             total_consumed = consumed + ids_consumed + bits_consumed
 
@@ -602,8 +602,8 @@ class ReaderBGFA:
         offset += clen_seq
 
         positions_payload = data[offset : offset + clen_positions]
-        starts, consumed1 = int_dec_positions(positions_payload, record_num)
-        ends, _ = int_dec_positions(positions_payload[consumed1:], record_num)
+        starts, consumed1 = decode_integer_list_uints_delta(positions_payload, record_num, int_dec_positions)
+        ends, _ = decode_integer_list_uints_delta(positions_payload[consumed1:], record_num, int_dec_positions)
         offset += clen_positions
 
         walks_payload = data[offset : offset + clen_walks]
