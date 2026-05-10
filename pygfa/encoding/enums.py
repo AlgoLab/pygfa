@@ -19,7 +19,6 @@ class IntegerEncoding(IntEnum):
     IDENTITY = NONE  # Alias for backwards compatibility
     VARINT = 0x01
     FIXED16 = 0x02
-    DELTA = 0x03
     ELIAS_GAMMA = 0x04
     ELIAS_OMEGA = 0x05
     GOLOMB = 0x06

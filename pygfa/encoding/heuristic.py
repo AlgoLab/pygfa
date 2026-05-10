@@ -95,11 +95,6 @@ def select_integer_encoding(sample: List[int]) -> IntegerEncoding:
         return HEURISTIC_FALLBACK_INT
 
     try:
-        # Check for sequential data (good for delta)
-        if is_sequential(sample):
-            logger.debug("Selected DELTA encoding for sequential data")
-            return IntegerEncoding.DELTA
-
         # Check for outliers (use PFOR-DELTA)
         if has_outliers(sample):
             logger.debug("Selected PFOR_DELTA encoding for data with outliers")
