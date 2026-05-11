@@ -27,11 +27,31 @@ _2BIT_TO_DNA = [ord("A"), ord("C"), ord("G"), ord("T")]
 _AMBIGUITY_CODES = set(b"NRYKMSWBDHVnrykmswbdhv-*")
 
 
-def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], bytes] | None = None) -> bytes:
+def compress_string_2bit_dna(
+    string: str | bytes,
+    int_encoder: Callable[[list[int]], bytes] | None = None,
+    use_numpy: bool = False,
+) -> bytes:
     """Compress a DNA sequence using 2-bit encoding.
 
     Format: [flags:1 byte][packed_bases][exception_count][exception_positions][exception_bytes]
+
+    :param string: DNA sequence as string or bytes
+    :param int_encoder: Integer encoder for exception positions
+    :param use_numpy: Use numpy-accelerated backend if available
     """
+    if use_numpy:
+        try:
+            from pygfa.encoding.numpy_backend import compress_string_2bit_dna_numpy
+
+            if isinstance(string, str):
+                data = string.encode("ascii")
+            else:
+                data = string
+            return compress_string_2bit_dna_numpy(data, int_encoder)
+        except ImportError:
+            pass
+
     if int_encoder is None:
         from pygfa.encoding.integer_list_encoding import compress_integer_list_varint
 
@@ -40,7 +60,10 @@ def compress_string_2bit_dna(string: str, int_encoder: Callable[[list[int]], byt
     if not string:
         return b"\x00"
 
-    data = string.encode("ascii")
+    if isinstance(string, bytes):
+        data = string
+    else:
+        data = string.encode("ascii")
     exceptions: list[tuple[int, int]] = []
     packed_bits: list[int] = []
 

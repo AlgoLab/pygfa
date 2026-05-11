@@ -38,6 +38,7 @@ from pygfa.encoding.cigar_encoding import (
     compress_string_cigar_decomposed,
 )
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding, make_compression_code
+from pygfa.encoding.heuristic import select_string_encoding
 from pygfa.gfa import GFA
 
 # =============================================================================
@@ -125,9 +126,15 @@ class BGFAWriter:
         self._gfa = gfa
         self._block_size = block_size
         self._comp_options = {}
+        self._use_heuristic = True
+        self._use_numpy = False
         if comp_options:
             for k, v in comp_options.items():
-                if isinstance(v, str):
+                if k == "use_heuristic":
+                    self._use_heuristic = bool(v)
+                elif k == "use_numpy":
+                    self._use_numpy = bool(v)
+                elif isinstance(v, str):
                     self._comp_options[k] = parse_compression_strategy(v)
                 else:
                     self._comp_options[k] = v
@@ -292,8 +299,12 @@ class BGFAWriter:
 
         int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
         p_walk_lengths = int_encoder(all_walk_lengths)
-        p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_encoder)
-        p_orientations = pack_bits_lsb(all_orientations)
+        if getattr(self, '_use_numpy', False):
+            from pygfa.encoding.numpy_backend import uints_delta_encode_numpy
+            p_seg_ids = uints_delta_encode_numpy(all_seg_ids, int_encoder)
+        else:
+            p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_encoder)
+        p_orientations = pack_bits_lsb(all_orientations, use_numpy=getattr(self, '_use_numpy', False))
         p_walk = p_walk_lengths + p_seg_ids + p_orientations
 
         buf.write(struct.pack("<B", SECTION_ID_PATHS))
@@ -334,6 +345,23 @@ class BGFAWriter:
 
         names = list(self._gfa.nodes())
         self._segment_map = {n: i for i, n in enumerate(names)}
+
+        if self._use_heuristic:
+            if "segment_names_enc" not in self._comp_options:
+                names_sample = [n.encode("ascii") for n in names[:100]]
+                str_enc = select_string_encoding(b"".join(names_sample))
+                self._comp_options["segment_names_enc"] = make_compression_code(
+                    INTEGER_ENCODING_VARINT, str_enc.value
+                )
+            if "sequences_enc" not in self._comp_options and "seq_enc" not in self._comp_options:
+                nodes_data = dict(self._gfa.nodes(data=True))
+                seq_sample = b"".join(
+                    nodes_data[n].get("sequence", "*").encode("ascii")[:100] for n in names[:50]
+                )
+                str_enc = select_string_encoding(seq_sample)
+                self._comp_options["sequences_enc"] = make_compression_code(
+                    INTEGER_ENCODING_VARINT, str_enc.value
+                )
 
         names_enc = self._comp_options.get(
             "segment_names_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)

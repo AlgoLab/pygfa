@@ -233,9 +233,10 @@ STRING_DECODERS = {
 class ReaderBGFA:
     """BGFA file reader."""
 
-    def __init__(self):
+    def __init__(self, use_numpy: bool = False):
         self._segment_names = []
         self._segment_map = {}  # name -> id
+        self._use_numpy = use_numpy
 
     def _parse_header(self, data: bytes) -> dict:
         if len(data) < 8:
@@ -353,8 +354,8 @@ class ReaderBGFA:
         from_ids, c1 = int_dec_fromto(fromto_payload, record_num)
         to_ids, c2 = int_dec_fromto(fromto_payload[c1:], record_num)
 
-        f_orns, c3 = unpack_bits_lsb(fromto_payload[c1 + c2 :], record_num)
-        t_orns, c4 = unpack_bits_lsb(fromto_payload[c1 + c2 + c3 :], record_num)
+        f_orns, c3 = unpack_bits_lsb(fromto_payload[c1 + c2 :], record_num, use_numpy=self._use_numpy)
+        t_orns, c4 = unpack_bits_lsb(fromto_payload[c1 + c2 + c3 :], record_num, use_numpy=self._use_numpy)
 
         cigar_payload = data[offset + clen_fromto : offset + clen_fromto + clen_cigars]
         cigars_bytes = _decompress_cigar_payload(
@@ -415,7 +416,7 @@ class ReaderBGFA:
             int_enc_for_strings = (str_enc_code >> 8) & 0xFF
             int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
             segment_id_strings, str_consumed = str_decoder(data_after, total_segments, int_decoder_for_strings)
-            orientations, bits_consumed = unpack_bits_lsb(data_after[str_consumed:], total_segments)
+            orientations, bits_consumed = unpack_bits_lsb(data_after[str_consumed:], total_segments, use_numpy=self._use_numpy)
             total_consumed = consumed + str_consumed + bits_consumed
 
             walks = []
@@ -437,8 +438,13 @@ class ReaderBGFA:
             return walks, total_consumed
 
         elif walk_byte == 0x02:
-            segment_ids, ids_consumed = decode_integer_list_uints_delta(data_after, total_segments, int_decoder_func)
-            orientations, bits_consumed = unpack_bits_lsb(data_after[ids_consumed:], total_segments)
+            if self._use_numpy:
+                from pygfa.encoding.numpy_backend import uints_delta_decode_numpy
+
+                segment_ids, ids_consumed = uints_delta_decode_numpy(data_after, total_segments, int_decoder_func)
+            else:
+                segment_ids, ids_consumed = decode_integer_list_uints_delta(data_after, total_segments, int_decoder_func)
+            orientations, bits_consumed = unpack_bits_lsb(data_after[ids_consumed:], total_segments, use_numpy=self._use_numpy)
             total_consumed = consumed + ids_consumed + bits_consumed
 
             walks = []
@@ -846,13 +852,14 @@ class ReaderBGFA:
 # =============================================================================
 
 
-def read_bgfa(file_path: str, **kwargs) -> GFA:
+def read_bgfa(file_path: str, use_numpy: bool = False, **kwargs) -> GFA:
     """Read a BGFA file and return a GFA object.
 
     :param file_path: Path to BGFA file
+    :param use_numpy: Use numpy-accelerated backend if available
     :return: GFA object
     """
-    reader = ReaderBGFA()
+    reader = ReaderBGFA(use_numpy=use_numpy)
     return reader.read_bgfa(file_path, **kwargs)
 
 

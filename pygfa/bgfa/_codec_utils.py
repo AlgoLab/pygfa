@@ -16,15 +16,24 @@ def split_4byte_code(code: int) -> tuple[int, int, int, int]:
     return (code >> 24) & 0xFF, (code >> 16) & 0xFF, (code >> 8) & 0xFF, code & 0xFF
 
 
-def pack_bits_lsb(bits: list[int]) -> bytes:
+def pack_bits_lsb(bits: list[int], use_numpy: bool = False) -> bytes:
     """Pack a list of bits into bytes using LSB-first strategy within uint64 words.
 
     Bit at index i is stored at position (i % 64) within word (i // 64).
     Unused bits in the final word are set to 0.
 
     :param bits: List of 0/1 values
+    :param use_numpy: Use numpy-accelerated backend if available
     :return: Packed bytes (multiple of 8 bytes)
     """
+    if use_numpy:
+        try:
+            from pygfa.encoding.numpy_backend import pack_bits_lsb_numpy
+
+            return pack_bits_lsb_numpy(bits)
+        except ImportError:
+            pass
+
     n = len(bits)
     if n == 0:
         return b""
@@ -33,37 +42,47 @@ def pack_bits_lsb(bits: list[int]) -> bytes:
     result = bytearray()
 
     for word_idx in range(num_uint64):
+        start = word_idx * 64
+        end = min(start + 64, n)
         val = 0
-        for bit_idx in range(64):
-            idx = word_idx * 64 + bit_idx
-            if idx < n and bits[idx]:
-                val |= 1 << bit_idx  # LSB-first
+        for i in range(start, end):
+            if bits[i]:
+                val |= 1 << (i - start)  # LSB-first
         result.extend(struct.pack("<Q", val))
 
     return bytes(result)
 
 
-def unpack_bits_lsb(data: bytes, count: int) -> tuple[list[int], int]:
+def unpack_bits_lsb(data: bytes, count: int, use_numpy: bool = False) -> tuple[list[int], int]:
     """Unpack bits from LSB-first packed uint64 words.
 
     :param data: Packed bytes
     :param count: Number of bits to extract
+    :param use_numpy: Use numpy-accelerated backend if available
     :return: Tuple of (list of bits, bytes consumed)
     """
+    if use_numpy:
+        try:
+            from pygfa.encoding.numpy_backend import unpack_bits_lsb_numpy
+
+            return unpack_bits_lsb_numpy(data, count)
+        except ImportError:
+            pass
+
     if count == 0:
         return [], 0
 
     n = math.ceil(count / 64)
     bytes_consumed = n * 8
-    result = []
+    result = [0] * count
 
     for word_idx in range(n):
         if word_idx * 8 + 8 > len(data):
             break
         val = struct.unpack_from("<Q", data, word_idx * 8)[0]
-        for bit_idx in range(64):
-            if len(result) >= count:
-                break
-            result.append((val >> bit_idx) & 1)
+        start = word_idx * 64
+        end = min(start + 64, count)
+        for bit_idx in range(start, end):
+            result[bit_idx] = (val >> (bit_idx - start)) & 1
 
     return result, bytes_consumed

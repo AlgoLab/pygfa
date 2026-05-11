@@ -35,35 +35,33 @@ def compress_signed_integers(values: list[int], encoder: Callable[..., bytes]) -
     if not values:
         return b""
 
-    sign_bits = [1 if v < 0 else 0 for v in values]
-    abs_values = [abs(v) for v in values]
-
     rle_data = bytearray()
     i = 0
+    n = len(values)
 
-    if sign_bits[i] == 0:
+    if values[0] >= 0:
         run_len = 0
-        while i < len(sign_bits) and sign_bits[i] == 0:
-            run_len += 1
+        while i < n and values[i] >= 0:
             i += 1
+            run_len += 1
         rle_data.extend(_encode_varint(run_len))
     else:
         rle_data.extend(_encode_varint(0))
-        current_bit = 1
         run_len = 0
-        while i < len(sign_bits) and sign_bits[i] == current_bit:
-            run_len += 1
+        while i < n and values[i] < 0:
             i += 1
+            run_len += 1
         rle_data.extend(_encode_varint(run_len - 1))
 
-    while i < len(sign_bits):
-        current_bit = sign_bits[i]
+    while i < n:
+        current_bit = 1 if values[i] < 0 else 0
         run_len = 0
-        while i < len(sign_bits) and sign_bits[i] == current_bit:
-            run_len += 1
+        while i < n and (values[i] < 0) == current_bit:
             i += 1
+            run_len += 1
         rle_data.extend(_encode_varint(run_len - 1))
 
+    abs_values = [abs(v) for v in values]
     abs_payload = encoder(abs_values)
     return bytes(rle_data) + abs_payload
 
@@ -85,7 +83,7 @@ def decode_signed_integers(
         return [], 0
 
     pos = 0
-    sign_bits: list[int] = []
+    sign_bits = bytearray()
     current_bit = 0
 
     while len(sign_bits) < count and pos < len(data):
@@ -100,6 +98,7 @@ def decode_signed_integers(
                 break
 
         if not sign_bits and value == 0:
+            # Special case: starts with negatives
             if pos >= len(data):
                 break
             value = 0
@@ -112,15 +111,15 @@ def decode_signed_integers(
                 if (byte & 0x80) == 0:
                     break
             run_len = value + 1
-            sign_bits.extend([1] * run_len)
+            sign_bits.extend(bytearray(b'\x01') * run_len)
             current_bit = 0
         elif not sign_bits:
             run_len = value
-            sign_bits.extend([0] * run_len)
+            sign_bits.extend(b'\x00' * run_len)
             current_bit = 1
         else:
             run_len = value + 1
-            sign_bits.extend([current_bit] * run_len)
+            sign_bits.extend(bytearray([current_bit]) * run_len)
             current_bit = 1 - current_bit
 
     sign_bits = sign_bits[:count]

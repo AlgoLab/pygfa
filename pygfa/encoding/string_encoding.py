@@ -138,7 +138,7 @@ def compress_string_list(
     elif compression_method == "2bit":
         from pygfa.encoding.dna_encoding import compress_string_2bit_dna
 
-        blob = compress_string_2bit_dna(concatenated.decode("ascii"))
+        blob = compress_string_2bit_dna(concatenated)
     elif compression_method == "rle":
         from pygfa.encoding.rle_encoding import compress_string_rle
 
@@ -302,7 +302,7 @@ def compress_string_list_superstring(
     elif compression_method == "2bit":
         from pygfa.encoding.dna_encoding import compress_string_2bit_dna
 
-        blob = compress_string_2bit_dna(superstring.decode("ascii"))
+        blob = compress_string_2bit_dna(superstring)
     elif compression_method == "none":
         blob = superstring
     elif compression_method == "ppm":
