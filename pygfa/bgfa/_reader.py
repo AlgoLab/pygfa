@@ -904,21 +904,21 @@ def measure_bgfa(
 
     stats = []
 
-    OPTION_SECTION_LENGTH_MAP = {
-        "compression_segment_names": (SECTION_ID_SEGMENTS, "clen_names", "ulen_names"),
-        "compression_sequences": (SECTION_ID_SEGMENTS, "clen_str", "ulen_str"),
-        "compression_from": (SECTION_ID_LINKS, "clen_fromto", "ulen_fromto"),
-        "compression_to": (SECTION_ID_LINKS, "clen_fromto", "ulen_fromto"),
-        "compression_cigars": (SECTION_ID_LINKS, "clen_cigars", "ulen_cigars"),
-        "compression_path_names": (SECTION_ID_PATHS, "clen_names", "ulen_names"),
-        "compression_paths": (SECTION_ID_PATHS, "clen_paths", "ulen_paths"),
-        "compression_path_cigars": (SECTION_ID_PATHS, "clen_cigars", "ulen_cigars"),
-        "compression_sample_ids": (SECTION_ID_WALKS, "clen_samples", "ulen_samples"),
-        "compression_haplotype_indices": (SECTION_ID_WALKS, "clen_hep", "ulen_hep"),
-        "compression_sequence_ids": (SECTION_ID_WALKS, "clen_seq", "ulen_seq"),
-        "compression_positions_start": (SECTION_ID_WALKS, "clen_positions", "ulen_positions"),
-        "compression_positions_end": (SECTION_ID_WALKS, "clen_positions", "ulen_positions"),
-        "compression_walks": (SECTION_ID_WALKS, "clen_walks", "ulen_walks"),
+    OPTION_SECTION_FIELD_MAP = {
+        "compression_segment_names": (SECTION_ID_SEGMENTS, "names"),
+        "compression_sequences": (SECTION_ID_SEGMENTS, "sequences"),
+        "compression_from": (SECTION_ID_LINKS, "fromto"),
+        "compression_to": (SECTION_ID_LINKS, "fromto"),
+        "compression_cigars": (SECTION_ID_LINKS, "cigars"),
+        "compression_path_names": (SECTION_ID_PATHS, "names"),
+        "compression_paths": (SECTION_ID_PATHS, "paths"),
+        "compression_path_cigars": (SECTION_ID_PATHS, "cigars"),
+        "compression_sample_ids": (SECTION_ID_WALKS, "samples"),
+        "compression_haplotype_indices": (SECTION_ID_WALKS, "hep"),
+        "compression_sequence_ids": (SECTION_ID_WALKS, "seq"),
+        "compression_positions_start": (SECTION_ID_WALKS, "positions"),
+        "compression_positions_end": (SECTION_ID_WALKS, "positions"),
+        "compression_walks": (SECTION_ID_WALKS, "walks"),
     }
 
     block_index = 0
@@ -970,13 +970,21 @@ def measure_bgfa(
                     "block_index": "segments",
                     "section_id": section_id,
                     "section_type": "segments",
+                    "section_field": "names",
                     "record_num": record_num,
-                    "compressed_length": clen_names + clen_str,
-                    "uncompressed_length": ulen_names + ulen_str,
-                    "clen_names": clen_names,
-                    "ulen_names": ulen_names,
-                    "clen_str": clen_str,
-                    "ulen_str": ulen_str,
+                    "compressed_length": clen_names,
+                    "uncompressed_length": ulen_names,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "segments",
+                    "section_id": section_id,
+                    "section_type": "segments",
+                    "section_field": "sequences",
+                    "record_num": record_num,
+                    "compressed_length": clen_str,
+                    "uncompressed_length": ulen_str,
                 }
             )
             offset += consumed
@@ -1027,28 +1035,22 @@ def measure_bgfa(
                 {
                     "block_index": "links",
                     "section_id": section_id,
-                    "section_type": "links_fromto",
+                    "section_type": "links",
+                    "section_field": "fromto",
                     "record_num": record_num,
                     "compressed_length": clen_fromto,
                     "uncompressed_length": ulen_fromto,
-                    "clen_fromto": clen_fromto,
-                    "ulen_fromto": ulen_fromto,
-                    "clen_cigars": 0,
-                    "ulen_cigars": 0,
                 }
             )
             stats.append(
                 {
                     "block_index": "links",
                     "section_id": section_id,
-                    "section_type": "links_cigars",
+                    "section_type": "links",
+                    "section_field": "cigars",
                     "record_num": record_num,
                     "compressed_length": clen_cigars,
                     "uncompressed_length": ulen_cigars,
-                    "clen_fromto": 0,
-                    "ulen_fromto": 0,
-                    "clen_cigars": clen_cigars,
-                    "ulen_cigars": ulen_cigars,
                 }
             )
             offset += consumed
@@ -1095,20 +1097,40 @@ def measure_bgfa(
                         "    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", [])
                     )
 
+            paths_header_size = 45  # 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8
+            clen_paths = consumed - paths_header_size - clen_names - clen_cigars
+            ulen_paths = sum(len(p.get("segments", [])) for p in paths_data)
             stats.append(
                 {
                     "block_index": "paths",
                     "section_id": section_id,
                     "section_type": "paths",
+                    "section_field": "names",
                     "record_num": record_num,
-                    "compressed_length": clen_names + clen_cigars,
-                    "uncompressed_length": ulen_names + ulen_cigars,
-                    "clen_names": clen_names,
-                    "ulen_names": ulen_names,
-                    "clen_paths": clen_cigars,
-                    "ulen_paths": ulen_cigars,
-                    "clen_cigars": clen_cigars,
-                    "ulen_cigars": ulen_cigars,
+                    "compressed_length": clen_names,
+                    "uncompressed_length": ulen_names,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "paths",
+                    "section_id": section_id,
+                    "section_type": "paths",
+                    "section_field": "cigars",
+                    "record_num": record_num,
+                    "compressed_length": clen_cigars,
+                    "uncompressed_length": ulen_cigars,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "paths",
+                    "section_id": section_id,
+                    "section_type": "paths",
+                    "section_field": "paths",
+                    "record_num": record_num,
+                    "compressed_length": clen_paths,
+                    "uncompressed_length": ulen_paths,
                 }
             )
             offset += consumed
@@ -1182,26 +1204,59 @@ def measure_bgfa(
                         walk_str,
                     )
 
-            total_compressed = clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
-            total_uncompressed = ulen_samples + ulen_hep + ulen_seq + ulen_positions + ulen_walks
             stats.append(
                 {
                     "block_index": "walks",
                     "section_id": section_id,
                     "section_type": "walks",
+                    "section_field": "samples",
                     "record_num": record_num,
-                    "compressed_length": total_compressed,
-                    "uncompressed_length": total_uncompressed,
-                    "clen_samples": clen_samples,
-                    "ulen_samples": ulen_samples,
-                    "clen_hep": clen_hep,
-                    "ulen_hep": ulen_hep,
-                    "clen_seq": clen_seq,
-                    "ulen_seq": ulen_seq,
-                    "clen_positions": clen_positions,
-                    "ulen_positions": ulen_positions,
-                    "clen_walks": clen_walks,
-                    "ulen_walks": ulen_walks,
+                    "compressed_length": clen_samples,
+                    "uncompressed_length": ulen_samples,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "walks",
+                    "section_id": section_id,
+                    "section_type": "walks",
+                    "section_field": "hep",
+                    "record_num": record_num,
+                    "compressed_length": clen_hep,
+                    "uncompressed_length": ulen_hep,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "walks",
+                    "section_id": section_id,
+                    "section_type": "walks",
+                    "section_field": "seq",
+                    "record_num": record_num,
+                    "compressed_length": clen_seq,
+                    "uncompressed_length": ulen_seq,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "walks",
+                    "section_id": section_id,
+                    "section_type": "walks",
+                    "section_field": "positions",
+                    "record_num": record_num,
+                    "compressed_length": clen_positions,
+                    "uncompressed_length": ulen_positions,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "walks",
+                    "section_id": section_id,
+                    "section_type": "walks",
+                    "section_field": "walks",
+                    "record_num": record_num,
+                    "compressed_length": clen_walks,
+                    "uncompressed_length": ulen_walks,
                 }
             )
             offset += consumed
@@ -1218,20 +1273,22 @@ def measure_bgfa(
         logger.info("  Total segments: %d", len(reader._segment_names))
 
     filtered_stats = []
-    if option_filter and option_filter in OPTION_SECTION_LENGTH_MAP:
-        target_section_id, compressed_field, uncompressed_field = OPTION_SECTION_LENGTH_MAP[option_filter]
+    if option_filter and option_filter in OPTION_SECTION_FIELD_MAP:
+        target_section_id, target_field = OPTION_SECTION_FIELD_MAP[option_filter]
 
         for stat in stats:
-            if stat["section_id"] == target_section_id:
-                filtered_stat = {
-                    "block_index": stat["block_index"],
-                    "section_id": stat["section_id"],
-                    "section_type": stat["section_type"],
-                    "record_num": stat["record_num"],
-                    "compressed_length": stat.get(compressed_field, 0),
-                    "uncompressed_length": stat.get(uncompressed_field, 0),
-                }
-                filtered_stats.append(filtered_stat)
+            if stat["section_id"] == target_section_id and stat["section_field"] == target_field:
+                filtered_stats.append(
+                    {
+                        "block_index": stat["block_index"],
+                        "section_id": stat["section_id"],
+                        "section_type": stat["section_type"],
+                        "section_field": stat["section_field"],
+                        "record_num": stat["record_num"],
+                        "compressed_length": stat["compressed_length"],
+                        "uncompressed_length": stat["uncompressed_length"],
+                    }
+                )
 
         if not filtered_stats:
             section_type_map = {
@@ -1245,6 +1302,7 @@ def measure_bgfa(
                     "block_index": option_filter,
                     "section_id": target_section_id,
                     "section_type": section_type_map.get(target_section_id, "unknown"),
+                    "section_field": target_field,
                     "record_num": "",
                     "compressed_length": "",
                     "uncompressed_length": "",
@@ -1257,6 +1315,7 @@ def measure_bgfa(
         "block_index",
         "section_id",
         "section_type",
+        "section_field",
         "record_num",
         "compressed_length",
         "uncompressed_length",
@@ -1268,6 +1327,7 @@ def measure_bgfa(
             "block_index": stat["block_index"],
             "section_id": stat["section_id"],
             "section_type": stat["section_type"],
+            "section_field": stat.get("section_field", ""),
             "record_num": stat["record_num"],
             "compressed_length": stat["compressed_length"],
             "uncompressed_length": stat["uncompressed_length"],
