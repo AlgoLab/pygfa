@@ -1022,16 +1022,31 @@ def measure_bgfa(
                         link["alignment"],
                     )
 
+            ulen_fromto = 2 * record_num * 8  # two 64-bit ints (from-id, to-id) per edge
             stats.append(
                 {
                     "block_index": "links",
                     "section_id": section_id,
-                    "section_type": "links",
+                    "section_type": "links_fromto",
                     "record_num": record_num,
-                    "compressed_length": clen_fromto + clen_cigars,
-                    "uncompressed_length": ulen_cigars,
+                    "compressed_length": clen_fromto,
+                    "uncompressed_length": ulen_fromto,
                     "clen_fromto": clen_fromto,
-                    "ulen_fromto": clen_fromto,
+                    "ulen_fromto": ulen_fromto,
+                    "clen_cigars": 0,
+                    "ulen_cigars": 0,
+                }
+            )
+            stats.append(
+                {
+                    "block_index": "links",
+                    "section_id": section_id,
+                    "section_type": "links_cigars",
+                    "record_num": record_num,
+                    "compressed_length": clen_cigars,
+                    "uncompressed_length": ulen_cigars,
+                    "clen_fromto": 0,
+                    "ulen_fromto": 0,
                     "clen_cigars": clen_cigars,
                     "ulen_cigars": ulen_cigars,
                 }
