@@ -967,7 +967,7 @@ def measure_bgfa(
 
             stats.append(
                 {
-                    "block_index": "segments",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "segments",
                     "section_field": "names",
@@ -978,7 +978,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "segments",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "segments",
                     "section_field": "sequences",
@@ -1030,10 +1030,10 @@ def measure_bgfa(
                         link["alignment"],
                     )
 
-            ulen_fromto = 2 * record_num * 8  # two 64-bit ints (from-id, to-id) per edge
+            ulen_fromto = 4 * record_num * 8  # from-id, to-id, from-orientation, to-orientation
             stats.append(
                 {
-                    "block_index": "links",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "links",
                     "section_field": "fromto",
@@ -1044,7 +1044,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "links",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "links",
                     "section_field": "cigars",
@@ -1099,10 +1099,11 @@ def measure_bgfa(
 
             paths_header_size = 45  # 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8
             clen_paths = consumed - paths_header_size - clen_names - clen_cigars
-            ulen_paths = sum(len(p.get("segments", [])) for p in paths_data)
+            total_segments = sum(len(p.get("segments", [])) for p in paths_data)
+            ulen_paths = (record_num + 2 * total_segments) * 8  # walk-lengths (×8) + seg-ids (×8) + orientations (×8)
             stats.append(
                 {
-                    "block_index": "paths",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "paths",
                     "section_field": "names",
@@ -1113,7 +1114,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "paths",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "paths",
                     "section_field": "cigars",
@@ -1124,7 +1125,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "paths",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "paths",
                     "section_field": "paths",
@@ -1206,7 +1207,7 @@ def measure_bgfa(
 
             stats.append(
                 {
-                    "block_index": "walks",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "walks",
                     "section_field": "samples",
@@ -1217,7 +1218,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "walks",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "walks",
                     "section_field": "hep",
@@ -1228,7 +1229,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "walks",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "walks",
                     "section_field": "seq",
@@ -1239,7 +1240,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "walks",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "walks",
                     "section_field": "positions",
@@ -1250,7 +1251,7 @@ def measure_bgfa(
             )
             stats.append(
                 {
-                    "block_index": "walks",
+                    "block_index": block_index,
                     "section_id": section_id,
                     "section_type": "walks",
                     "section_field": "walks",
@@ -1273,41 +1274,44 @@ def measure_bgfa(
         logger.info("  Total segments: %d", len(reader._segment_names))
 
     filtered_stats = []
-    if option_filter and option_filter in OPTION_SECTION_FIELD_MAP:
-        target_section_id, target_field = OPTION_SECTION_FIELD_MAP[option_filter]
+    if option_filter:
+        if option_filter not in OPTION_SECTION_FIELD_MAP:
+            logger.warning("Unknown option filter: %s", option_filter)
+        else:
+            target_section_id, target_field = OPTION_SECTION_FIELD_MAP[option_filter]
 
-        for stat in stats:
-            if stat["section_id"] == target_section_id and stat["section_field"] == target_field:
+            for stat in stats:
+                if stat["section_id"] == target_section_id and stat["section_field"] == target_field:
+                    filtered_stats.append(
+                        {
+                            "block_index": stat["block_index"],
+                            "section_id": stat["section_id"],
+                            "section_type": stat["section_type"],
+                            "section_field": stat["section_field"],
+                            "record_num": stat["record_num"],
+                            "compressed_length": stat["compressed_length"],
+                            "uncompressed_length": stat["uncompressed_length"],
+                        }
+                    )
+
+            if not filtered_stats:
+                section_type_map = {
+                    SECTION_ID_SEGMENTS: "segments",
+                    SECTION_ID_LINKS: "links",
+                    SECTION_ID_PATHS: "paths",
+                    SECTION_ID_WALKS: "walks",
+                }
                 filtered_stats.append(
                     {
-                        "block_index": stat["block_index"],
-                        "section_id": stat["section_id"],
-                        "section_type": stat["section_type"],
-                        "section_field": stat["section_field"],
-                        "record_num": stat["record_num"],
-                        "compressed_length": stat["compressed_length"],
-                        "uncompressed_length": stat["uncompressed_length"],
+                        "block_index": option_filter,
+                        "section_id": target_section_id,
+                        "section_type": section_type_map.get(target_section_id, "unknown"),
+                        "section_field": target_field,
+                        "record_num": "",
+                        "compressed_length": "",
+                        "uncompressed_length": "",
                     }
                 )
-
-        if not filtered_stats:
-            section_type_map = {
-                SECTION_ID_SEGMENTS: "segments",
-                SECTION_ID_LINKS: "links",
-                SECTION_ID_PATHS: "paths",
-                SECTION_ID_WALKS: "walks",
-            }
-            filtered_stats.append(
-                {
-                    "block_index": option_filter,
-                    "section_id": target_section_id,
-                    "section_type": section_type_map.get(target_section_id, "unknown"),
-                    "section_field": target_field,
-                    "record_num": "",
-                    "compressed_length": "",
-                    "uncompressed_length": "",
-                }
-            )
     else:
         filtered_stats = stats
 
