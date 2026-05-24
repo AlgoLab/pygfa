@@ -1,0 +1,12 @@
+# test: read_gfa
+# test: bgfa_roundtrip
+# test: bgfa
+# benchmark: bgfa_compression
+# benchmark: single_param
+H	VN:Z:1.0
+S	111	ACCTT
+S	121	TCAAGGAC
+S	131	CTTGATT
+L	111	+	121	-	*
+L	121	-	131	+	*
+P	p01	111+,121-

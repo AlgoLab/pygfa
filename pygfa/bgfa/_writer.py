@@ -10,7 +10,9 @@ from pygfa.encoding.integer_list_encoding import compress_integer_list_uints_del
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
     BGFA_VERSION,
+    CIGAR_DECOMPOSITION_NONE,
     CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS,
+    CIGAR_DECOMPOSITION_STRING,
     DEFAULT_BLOCK_SIZE,
     INTEGER_ENCODING_VARINT,
     SECTION_ID_LINKS,
@@ -229,9 +231,20 @@ class BGFAWriter:
             ii_encoder = get_integer_encoder_from_code((c_cig >> 16) & 0xFF)
             ss_encoder = _ops_string_encoder_for_code((c_cig >> 24) & 0xFF)
             p_cig = compress_string_cigar_decomposed(cigs, ii_encoder, rr_encoder, ss_encoder)
-        else:
-            str_code = ((c_cig >> 8) & 0xFF) << 8 | ((c_cig >> 24) & 0xFF)
+        elif dd in (CIGAR_DECOMPOSITION_NONE, CIGAR_DECOMPOSITION_STRING):
+            # Proper 4-byte CIGAR code: str_enc at bits 31-24, int_enc at bits 15-8
+            int_enc = (c_cig >> 8) & 0xFF
+            str_enc = (c_cig >> 24) & 0xFF
+            str_code = (int_enc << 8) | str_enc
             p_cig = _compress_string_for_bgfa(cigs, str_code)
+        else:
+            # 2-byte compression code (int_enc << 8 | str_enc) passed as CIGAR encoding
+            # Convert to proper 4-byte CIGAR code with CIGAR_DECOMPOSITION_NONE
+            str_enc = c_cig & 0xFF
+            int_enc = (c_cig >> 8) & 0xFF
+            str_code = (int_enc << 8) | str_enc
+            p_cig = _compress_string_for_bgfa(cigs, str_code)
+            c_cig = (str_enc << 24) | (int_enc << 8) | CIGAR_DECOMPOSITION_NONE
 
         buf.write(struct.pack("<B", SECTION_ID_LINKS))
         buf.write(struct.pack("<H", len(chunk)))
@@ -293,9 +306,20 @@ class BGFAWriter:
             ii_encoder = get_integer_encoder_from_code((cig_enc >> 16) & 0xFF)
             ss_encoder = _ops_string_encoder_for_code((cig_enc >> 24) & 0xFF)
             p_cig = compress_string_cigar_decomposed(all_cigars, ii_encoder, rr_encoder, ss_encoder)
-        else:
-            str_code = ((cig_enc >> 8) & 0xFF) << 8 | ((cig_enc >> 24) & 0xFF)
+        elif dd in (CIGAR_DECOMPOSITION_NONE, CIGAR_DECOMPOSITION_STRING):
+            # Proper 4-byte CIGAR code: str_enc at bits 31-24, int_enc at bits 15-8
+            int_enc = (cig_enc >> 8) & 0xFF
+            str_enc = (cig_enc >> 24) & 0xFF
+            str_code = (int_enc << 8) | str_enc
             p_cig = _compress_string_for_bgfa(all_cigars, str_code)
+        else:
+            # 2-byte compression code (int_enc << 8 | str_enc) passed as CIGAR encoding
+            # Convert to proper 4-byte CIGAR code with CIGAR_DECOMPOSITION_NONE
+            str_enc = cig_enc & 0xFF
+            int_enc = (cig_enc >> 8) & 0xFF
+            str_code = (int_enc << 8) | str_enc
+            p_cig = _compress_string_for_bgfa(all_cigars, str_code)
+            cig_enc = (str_enc << 24) | (int_enc << 8) | CIGAR_DECOMPOSITION_NONE
 
         int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
         p_walk_lengths = int_encoder(all_walk_lengths)
