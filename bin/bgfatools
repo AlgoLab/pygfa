@@ -97,6 +97,10 @@ def parse_cli_options():
         "--option-filter", type=str, default=None,
         help="Filter results to only include the section affected by this compression option"
     )
+    measure_parser.add_argument(
+        "--encode-time-ms", type=float, default=None,
+        help="Encode wall-clock time in milliseconds (for benchmark CSV)"
+    )
 
     # verify subcommand
     verify_parser = subparsers.add_parser(
@@ -192,6 +196,8 @@ def parse_cli_options():
         options["text"] = args.text
     if hasattr(args, "option_filter"):
         options["option_filter"] = args.option_filter
+    if hasattr(args, "encode_time_ms"):
+        options["encode_time_ms"] = args.encode_time_ms
 
     # Extract positional arguments and save them to the options dict
     if hasattr(args, "input_file"):
@@ -463,6 +469,7 @@ if __name__ == "__main__":
                 verbose=verbose_mode,
                 debug=options.get("debug", False),
                 option_filter=options.get("option_filter"),
+                encode_time_ms=options.get("encode_time_ms"),
             )
             logger.info("Measure command completed successfully")
         except Exception as e:

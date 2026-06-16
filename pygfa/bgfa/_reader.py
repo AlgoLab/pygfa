@@ -870,6 +870,8 @@ def measure_bgfa(
     debug: bool = False,
     option_filter: str = None,
     compression_value: str = None,
+    encode_time_ms: float | None = None,
+    measure_decode_time: bool = True,
 ) -> None:
     """Measure BGFA file statistics.
 
@@ -879,7 +881,11 @@ def measure_bgfa(
     :param debug: Enable debug logging
     :param option_filter: If specified, filter results to only include the section affected by this option
     :param compression_value: The compression value/encoding used for this BGFA file
+    :param encode_time_ms: Encode wall-clock time in milliseconds (optional).
+    :param measure_decode_time: Whether to measure decode wall-clock time.
     """
+    import time
+
     with open(input_file, "rb") as f:
         data = f.read()
 
@@ -888,6 +894,8 @@ def measure_bgfa(
 
     if not data:
         raise ValueError("Empty file")
+
+    decode_start = time.perf_counter() if measure_decode_time else 0.0
 
     reader = ReaderBGFA()
 
@@ -1315,6 +1323,8 @@ def measure_bgfa(
     else:
         filtered_stats = stats
 
+    decode_time_ms = (time.perf_counter() - decode_start) * 1000.0 if measure_decode_time else None
+
     csv_fieldnames = [
         "block_index",
         "section_id",
@@ -1323,6 +1333,8 @@ def measure_bgfa(
         "record_num",
         "compressed_length",
         "uncompressed_length",
+        "encode_time_ms",
+        "decode_time_ms",
     ]
 
     csv_stats = []
@@ -1335,6 +1347,8 @@ def measure_bgfa(
             "record_num": stat["record_num"],
             "compressed_length": stat["compressed_length"],
             "uncompressed_length": stat["uncompressed_length"],
+            "encode_time_ms": encode_time_ms if encode_time_ms is not None else "",
+            "decode_time_ms": f"{decode_time_ms:.3f}" if decode_time_ms is not None else "",
         }
         csv_stats.append(csv_stat)
 

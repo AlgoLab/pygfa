@@ -63,6 +63,14 @@ coverage run -p test/run_tests.sh
 coverage html
 ```
 
+### Encoding per-section tests
+
+Iterates over every legitimate BGFA encoding combination on small GFA files in `data/`, writing each BGFA output and its dump to `results/encodings_per_section/`:
+
+```bash
+pixi run python -m pytest test/test_bgfa_encodings_per_section.py -v --tb=short
+```
+
 ### Workflow
 
 The Snakemake workflow now **automatically discovers** all GFA files with benchmark comments in the `/data` directory:

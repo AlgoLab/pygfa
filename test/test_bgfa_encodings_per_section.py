@@ -34,7 +34,6 @@ from __future__ import annotations
 import glob
 import os
 import sys
-import tempfile
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
@@ -53,6 +52,10 @@ from pygfa.encoding.enums import (  # noqa: E402
     make_compression_code,
 )
 from pygfa.bgfa._codec_utils import make_4byte_code  # noqa: E402
+from pygfa.bgfa._validation import dump_bgfa  # noqa: E402
+
+import io
+from contextlib import redirect_stdout
 
 try:
     import pytest
@@ -408,13 +411,29 @@ class TestEncodingPerSection:
         if not os.path.exists(gfa_path):
             pytest.skip(f"Test file not found: {gfa_path}")
 
+        # Build output path under results/encodings_per_section/
+        fname = os.path.basename(gfa_path).replace(".gfa", "")
+        out_dir = os.path.join("results", "encodings_per_section")
+        os.makedirs(out_dir, exist_ok=True)
+        bgfa_path = os.path.join(out_dir, f"{fname}__{field_name}__{encoding_label}.bgfa")
+
         # Build options: ALL fields start at working defaults, then override
         # only the single field under test.
         opts = _base_options()
         opts[field_name] = encoding_code
 
-        # 1 & 2: dump succeeds + roundtrip preserves content
-        g_orig, g_round = _roundtrip_with_options(gfa_path, opts)
+        # 1: BGFA file is created and roundtrip preserves content
+        g_orig, g_round = _roundtrip_with_options(gfa_path, opts, bgfa_path)
+
+        # 2: Dump the BGFA content to a sidecar .dump.txt file
+        dump_path = bgfa_path + ".dump.txt"
+        f = io.StringIO()
+        with redirect_stdout(f):
+            dump_bgfa(bgfa_path)
+        with open(dump_path, "w") as f_out:
+            f_out.write(f.getvalue())
+
+        # 3: Structural equality
         _assert_structural_equality(g_orig, g_round)
 
 
@@ -485,26 +504,21 @@ def _assert_structural_equality(g, h) -> None:
 # Roundtrip helper
 # ---------------------------------------------------------------------------
 
-def _roundtrip_with_options(gfa_path: str, compression_options: dict):
-    bgfa_path = tempfile.mktemp(suffix=".bgfa")
-    try:
-        g = GFA.from_gfa(gfa_path)
-        g.to_bgfa(
-            bgfa_path,
-            block_size=1024,
-            compression_options=compression_options,
-            use_heuristic=False,
-            verbose=False,
-            debug=False,
-            logfile=None,
-        )
-        assert os.path.exists(bgfa_path), "BGFA file was not created"
-        assert os.path.getsize(bgfa_path) > 0, "BGFA file is empty"
-        h = GFA.from_bgfa(bgfa_path, verbose=False, debug=False, logfile=None)
-        return g, h
-    finally:
-        if os.path.exists(bgfa_path):
-            os.unlink(bgfa_path)
+def _roundtrip_with_options(gfa_path: str, compression_options: dict, bgfa_path: str):
+    g = GFA.from_gfa(gfa_path)
+    g.to_bgfa(
+        bgfa_path,
+        block_size=1024,
+        compression_options=compression_options,
+        use_heuristic=False,
+        verbose=False,
+        debug=False,
+        logfile=None,
+    )
+    assert os.path.exists(bgfa_path), "BGFA file was not created"
+    assert os.path.getsize(bgfa_path) > 0, "BGFA file is empty"
+    h = GFA.from_bgfa(bgfa_path, verbose=False, debug=False, logfile=None)
+    return g, h
 
 
 # ---------------------------------------------------------------------------

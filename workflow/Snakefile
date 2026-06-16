@@ -140,6 +140,11 @@ def get_all_csv_files():
     return files
 
 
+def get_all_char_files():
+    _, datasets = get_cached_data()
+    return [f"{OUTPUT_DIR}/characterization/{dataset}.json" for dataset in datasets]
+
+
 # Mapping from base compression option names to bgfatools CLI flag names.
 # Used by _build_compress_flags to determine which CLI flag each option controls.
 OPTION_CLI_MAP = {
@@ -217,26 +222,41 @@ rule compress_summary:
         "zstd -f {input} -o {output}"
 
 
+rule characterize_dataset:
+    input:
+        gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
+    output:
+        OUTPUT_DIR + "/characterization/{dataset}.json"
+    shell:
+        "mkdir -p {OUTPUT_DIR}/characterization && "
+        "pixi run python tools/characterize_datasets.py {input.gfa} > {output}"
+
+
 rule generate_summary:
     input:
-        get_all_csv_files()
+        csv_files=get_all_csv_files(),
+        char_files=get_all_char_files()
     output:
         OUTPUT_DIR + "/summary.csv"
     shell:
-        "head -n 1 {input[0]} > {output} && "
-        "for f in {input}; do tail -n +2 -q \"$f\" >> {output}; done"
+        "head -n 1 {input.csv_files[0]} > {output} && "
+        "for f in {input.csv_files}; do tail -n +2 -q \"$f\" >> {output}; done && "
+        "pixi run python workflow/scripts/join_summary_with_chars.py " + OUTPUT_DIR + "/characterization < {output} > {output}.tmp && "
+        "mv {output}.tmp {output}"
 
 
 rule generate_bgfa:
     input:
         gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
     output:
-        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa"
+        bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa",
+        time=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.time"
     params:
         compress_flags=lambda wildcards: _build_compress_flags(wildcards.option, wildcards.encoding),
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
+        "/usr/bin/time -f '%e' -o {output.time} "
         "pixi run python bin/bgfatools bgfa {input.gfa} {output.bgfa} "
         "--block-size {wildcards.block_size} {params.compress_flags} "
         "2>&1 && rm -f {output.bgfa}.log || "
@@ -246,7 +266,8 @@ rule generate_bgfa:
 rule measure_bgfa:
     input:
         bgfa=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.bgfa",
-        gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset]
+        gfa=lambda wildcards: get_cached_data()[1][wildcards.dataset],
+        time=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.time"
     output:
         csv=OUTPUT_DIR + "/{option}/{dataset}/{encoding}_{block_size}.csv"
     params:
@@ -256,7 +277,10 @@ rule measure_bgfa:
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
-      "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" "
+        "ENCTIME_MS=$(awk '{printf \"%.0f\", $1*1000}' {input.time}); "
+        "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" "
+        "--encode-time-ms $ENCTIME_MS "
         "{params.option_filter_flag} && "
-        "sed -i '1s|$|,original_gfa,block_size,compression_option,compression_value|' {output.csv} && "
-        "sed -i '2,$s|$|,{input.gfa},{wildcards.block_size},{params.option},{params.encoding}|' {output.csv}"
+        "pixi run python workflow/scripts/add_metadata_columns.py --csv {output.csv} "
+        "--original-gfa {input.gfa} --block-size {wildcards.block_size} "
+        "--option {params.option} --encoding {params.encoding}"
