@@ -120,7 +120,8 @@ def compute_pareto(encodings: list[dict]) -> list[dict]:
 
 def balanced_score(e: dict, max_throughput: float) -> float:
     """Composite score: ratio weighted against decode speed."""
-    if max_throughput <= 0 or e["throughput_mean"] <= 0:
+    if (max_throughput <= 0 or max_throughput == float("inf")
+        or e["throughput_mean"] <= 0 or e["throughput_mean"] == float("inf")):
         return e["ratio_mean"]
     speed_bonus = 1.0 + math.log(e["throughput_mean"] / max_throughput) if e["throughput_mean"] > 0 else 1.0
     return e["ratio_mean"] * speed_bonus

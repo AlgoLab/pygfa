@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import time
 import struct
 from collections.abc import Callable
 
@@ -884,7 +885,7 @@ def measure_bgfa(
     :param encode_time_ms: Encode wall-clock time in milliseconds (optional).
     :param measure_decode_time: Whether to measure decode wall-clock time.
     """
-    import time
+
 
     with open(input_file, "rb") as f:
         data = f.read()
@@ -1347,7 +1348,7 @@ def measure_bgfa(
             "record_num": stat["record_num"],
             "compressed_length": stat["compressed_length"],
             "uncompressed_length": stat["uncompressed_length"],
-            "encode_time_ms": encode_time_ms if encode_time_ms is not None else "",
+            "encode_time_ms": f"{encode_time_ms:.3f}" if encode_time_ms is not None else "",
             "decode_time_ms": f"{decode_time_ms:.3f}" if decode_time_ms is not None else "",
         }
         csv_stats.append(csv_stat)
