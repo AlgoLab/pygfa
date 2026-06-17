@@ -207,7 +207,16 @@ def format_json(ranked: dict[str, list[dict]], top: int) -> str:
 
 def group_by_characteristic(rows: list[dict], characteristic: str) -> dict[str, list[dict]]:
     """Split rows into buckets by a characterization column."""
-    values = [float(r.get(characteristic, 0) or 0) for r in rows if r.get(characteristic, "") != ""]
+    vals: list[float] = []
+    for r in rows:
+        raw = r.get(characteristic, "")
+        if not raw and raw != 0:
+            continue
+        try:
+            vals.append(float(raw))
+        except (ValueError, TypeError):
+            continue
+    values = vals
     if not values:
         return {"all": rows}
 
@@ -220,7 +229,11 @@ def group_by_characteristic(rows: list[dict], characteristic: str) -> dict[str, 
     buckets = {"q1_low": [], "q2_medlow": [], "q3_medhigh": [], "q4_high": []}
 
     for row in rows:
-        val = float(row.get(characteristic, 0) or 0)
+        try:
+            val = float(row.get(characteristic, 0) or 0)
+        except (ValueError, TypeError):
+            buckets[list(buckets)[0]].append(row)
+            continue
         if val <= q1:
             buckets["q1_low"].append(row)
         elif val <= q2:

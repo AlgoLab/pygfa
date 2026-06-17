@@ -85,8 +85,8 @@ def characterize(gfa_path: str) -> dict:
     result["avg_path_depth"] = round(sum(path_depths) / len(path_depths), 2) if path_depths else 0.0
     result["max_path_depth"] = max(path_depths) if path_depths else 0
 
-    # Walk statistics
-    result["has_walks"] = n_walks > 0
+
+
 
     return result
 
