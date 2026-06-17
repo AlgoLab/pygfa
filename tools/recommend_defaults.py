@@ -123,7 +123,7 @@ def balanced_score(e: dict, max_throughput: float) -> float:
     if (max_throughput <= 0 or max_throughput == float("inf")
         or e["throughput_mean"] <= 0 or e["throughput_mean"] == float("inf")):
         return e["ratio_mean"]
-    speed_bonus = 1.0 + math.log(e["throughput_mean"] / max_throughput) if e["throughput_mean"] > 0 else 1.0
+    speed_bonus = 1.0 + math.log(e["throughput_mean"] / max_throughput)
     return e["ratio_mean"] * speed_bonus
 
 
@@ -137,7 +137,7 @@ def rank(encodings: list[dict], mode: str) -> list[dict]:
         pareto = compute_pareto(encodings)
         return sorted(pareto, key=lambda e: e["ratio_median"], reverse=True)
     elif mode == "balanced":
-        max_tp = max((e["throughput_mean"] for e in encodings), default=1.0)
+        max_tp = max((e["throughput_mean"] for e in encodings), default=0.0)
         for e in encodings:
             e["_score"] = balanced_score(e, max_tp)
         return sorted(encodings, key=lambda e: e["_score"], reverse=True)

@@ -163,21 +163,7 @@ OPTION_CLI_MAP = {
     "compression_walks": "--compression-walk-steps",
 }
 
-OPTION_SECTION_MAP = {
-    "compression_segment_names": 2,
-    "compression_segment_label": 2,
-    "compression_fromto": 3,
-    "compression_links_cigars": 3,
-    "compression_path_names": 4,
-    "compression_paths": 4,
-    "compression_paths_cigars": 4,
-    "compression_sample_ids": 5,
-    "compression_paths_cigars": 5,
-    "compression_paths": 5,
-    "compression_path_names": 5,
-    "compression_links_cigars": 5,
-    "compression_fromto": 5,
-}
+
 
 def _build_compress_flags(option, encoding):
     """Build shell string of compression flags for bgfatools CLI.
