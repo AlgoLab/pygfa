@@ -263,7 +263,7 @@ rule measure_bgfa:
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:
-        "ENCTIME_MS=$(awk '{printf \"%.0f\", $1*1000}' {input.time}); "
+        "ENCTIME_MS=$(awk '{{printf \"%.0f\", $1*1000}}' {input.time}); "
         "pixi run python bin/bgfatools measure {input.bgfa} --output \"{output.csv}\" "
         "--encode-time-ms $ENCTIME_MS "
         "{params.option_filter_flag} && "
