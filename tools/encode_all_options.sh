@@ -87,6 +87,7 @@ ALL_FLAGS=(
     "--compression-sequences"
     "--compression-link-endpoints"
     "--compression-link-cigars"
+    "--compression-path-cigars"
     "--compression-path-names"
     "--compression-path-sequences"
     "--compression-walk-sample-ids"
@@ -107,6 +108,8 @@ fi
 # --- Use Python to extract (option, encoding) pairs ---
 # Output format: option<TAB>encoding (one per line).
 # JSON is piped via stdin to avoid ARG_MAX limits.
+# Deduplicates options that map to the same CLI flag (e.g., compression_from
+# and compression_to both control --compression-link-endpoints).
 emit_pairs() {
     echo "$1" | python3 -c "
 import json, sys
@@ -115,11 +118,34 @@ data = json.load(sys.stdin)
 single = sys.argv[1]
 include_cigar = sys.argv[2] == '1'
 
+# Option to CLI flag mapping (mirrors OPTION_TO_FLAG in bash)
+option_to_flag = {
+    'compression_segment_names': '--compression-segment-names',
+    'compression_sequences': '--compression-sequences',
+    'compression_from': '--compression-link-endpoints',
+    'compression_to': '--compression-link-endpoints',
+    'compression_cigars': '--compression-link-cigars',
+    'compression_path_names': '--compression-path-names',
+    'compression_paths': '--compression-path-sequences',
+    'compression_sample_ids': '--compression-walk-sample-ids',
+    'compression_haplotype_indices': '--compression-walk-haplotype-indices',
+    'compression_sequence_ids': '--compression-walk-sequence-ids',
+    'compression_positions_start': '--compression-walk-positions-start',
+    'compression_positions_end': '--compression-walk-positions-end',
+    'compression_walks': '--compression-walk-steps',
+}
+
+seen_flags = set()
 for option, encodings in sorted(data.items()):
     if single and option != single:
         continue
     if 'cigar' in option and not include_cigar:
         continue
+    cli_flag = option_to_flag.get(option)
+    if cli_flag and cli_flag in seen_flags:
+        continue
+    if cli_flag:
+        seen_flags.add(cli_flag)
     for enc in encodings:
         print(f'{option}\t{enc}')
 " "$SINGLE_OPTION" "$INCLUDE_CIGAR"
@@ -178,6 +204,13 @@ for pair in "${PAIRS[@]}"; do
         fi
     done
 
+    # compression_cigars applies to both link and path cigars.
+    # This couples link and path CIGAR encodings for testing purposes,
+    # which differs from the Snakefile (which skips cigars entirely).
+    if [[ "$opt" == "compression_cigars" ]]; then
+        flag_args="$flag_args --compression-path-cigars $enc"
+    fi
+
     if [[ "$VERBOSE" -eq 1 ]]; then
         echo "  $out"
     fi
@@ -186,6 +219,8 @@ for pair in "${PAIRS[@]}"; do
         --block-size "$BLOCK_SIZE" \
         $flag_args > /dev/null 2>&1
 
+    pixi run python bin/bgfatools dump "$out" --output "$out.dump.txt" \
+        > /dev/null 2>&1
     GENERATED=$((GENERATED + 1))
 done
 
