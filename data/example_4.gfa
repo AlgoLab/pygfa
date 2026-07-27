@@ -4,9 +4,9 @@
 # benchmark: bgfa_compression
 # benchmark: single_param
 H	VN:Z:1.0
-S	111	ACCTT
-S	121	TCAAGGAC
-S	131	CTTGATT
-L	111	+	121	-	*
-L	121	-	131	+	*
-P	p01	111+,121-
+S	sas	ACCTT
+S	sbs	TCAAGGAC
+S	scs	CTTGATT
+L	sas	+	sbs	-	*
+L	sbs	-	scs	+	*
+P	p01	sas+,sbs-,scs+
