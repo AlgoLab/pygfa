@@ -22,6 +22,19 @@ from pygfa.utils.file_opener import open_gfa_file
 GRAPH_LOGGER = logging.getLogger(__name__)
 
 
+def _coerce_opt_value(value_type: str, value: str) -> Any:
+    """Return a typed value for an optional field based on its GFA type tag.
+
+    Integer (``i``) and float (``f``) fields are converted so that they are
+    re-serialized with the same type tag. Other types are kept as strings.
+    """
+    if value_type == "i":
+        return int(value)
+    if value_type == "f":
+        return float(value)
+    return value
+
+
 class GFAParserMixin(BaseGFA):
     """Mixin class providing parsing operations.
 
@@ -124,9 +137,9 @@ class GFAParserMixin(BaseGFA):
                 segment_data["sequence"] = seg_child.children[0].value
             elif seg_child.data == "optional_field":
                 tag = seg_child.children[0].children[0].value
-                _ = seg_child.children[1].children[0].value  # value_type
+                value_type = seg_child.children[1].children[0].value
                 value = seg_child.children[2].children[0].value
-                segment_data[tag] = value
+                segment_data[tag] = _coerce_opt_value(value_type, value)
 
         if "segment_name" in segment_data and "sequence" in segment_data:
             self.add_node(
@@ -164,9 +177,9 @@ class GFAParserMixin(BaseGFA):
                 logger.debug(f"Alignment: {link_data['alignment']}")
             elif link_child.data == "optional_field":
                 tag = link_child.children[0].children[0].value
-                _ = link_child.children[1].children[0].value  # value_type
+                value_type = link_child.children[1].children[0].value
                 value = link_child.children[2].children[0].value
-                link_data[tag] = value
+                link_data[tag] = _coerce_opt_value(value_type, value)
                 logger.debug(f"Optional field: {tag}={value}")
 
         if all(k in link_data for k in ["from_node", "from_orn", "to_node", "to_orn", "alignment"]):
@@ -214,9 +227,9 @@ class GFAParserMixin(BaseGFA):
                     logger.debug(f"Alignment: {containment_data['alignment']}")
                 elif containment_child.data == "optional_field":
                     tag = containment_child.children[0].children[0].value
-                    _ = containment_child.children[1].children[0].value  # value_type
+                    value_type = containment_child.children[1].children[0].value
                     value = containment_child.children[2].children[0].value
-                    containment_data[tag] = value
+                    containment_data[tag] = _coerce_opt_value(value_type, value)
                     logger.debug(f"Optional field: {tag}={value}")
             else:
                 # It's a Token (orientation)
@@ -284,9 +297,9 @@ class GFAParserMixin(BaseGFA):
                 path_data["overlaps"] = overlaps
             elif path_child.data == "optional_field":
                 tag = path_child.children[0].children[0].value
-                _ = path_child.children[1].children[0].value  # value_type
+                value_type = path_child.children[1].children[0].value
                 value = path_child.children[2].children[0].value
-                path_data[tag] = value
+                path_data[tag] = _coerce_opt_value(value_type, value)
 
         if "path_name" in path_data and "segments" in path_data:
             self.add_path(path_data)
@@ -314,9 +327,9 @@ class GFAParserMixin(BaseGFA):
                 walk_data["walk"] = walk_child.children[0].value
             elif walk_child.data == "optional_field":
                 tag = walk_child.children[0].children[0].value
-                _ = walk_child.children[1].children[0].value  # value_type
+                value_type = walk_child.children[1].children[0].value
                 value = walk_child.children[2].children[0].value
-                walk_data[tag] = value
+                walk_data[tag] = _coerce_opt_value(value_type, value)
 
         if "sample_id" in walk_data and "walk" in walk_data:
             self.add_walk(walk_data)
@@ -553,6 +566,8 @@ class GFAParserMixin(BaseGFA):
                 if key not in ["nid", "sequence", "slen"]:
                     if isinstance(value, int):
                         line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, float):
+                        line_parts.append(f"{key}:f:{value}")
                     elif isinstance(value, str):
                         line_parts.append(f"{key}:Z:{value}")
             segments.append("\t".join(line_parts))
@@ -590,6 +605,8 @@ class GFAParserMixin(BaseGFA):
                 ]:
                     if isinstance(value, int):
                         line_parts.append(f"{field_name}:i:{value}")
+                    elif isinstance(value, float):
+                        line_parts.append(f"{field_name}:f:{value}")
                     elif isinstance(value, str):
                         line_parts.append(f"{field_name}:Z:{value}")
 
@@ -619,6 +636,8 @@ class GFAParserMixin(BaseGFA):
                 if key not in ["path_name", "segments", "overlaps"]:
                     if isinstance(value, int):
                         line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, float):
+                        line_parts.append(f"{key}:f:{value}")
                     elif isinstance(value, str):
                         line_parts.append(f"{key}:Z:{value}")
 
@@ -660,6 +679,8 @@ class GFAParserMixin(BaseGFA):
                 ]:
                     if isinstance(value, int):
                         line_parts.append(f"{key}:i:{value}")
+                    elif isinstance(value, float):
+                        line_parts.append(f"{key}:f:{value}")
                     elif isinstance(value, str):
                         line_parts.append(f"{key}:Z:{value}")
 

@@ -12,6 +12,7 @@ from pygfa.bgfa._constants import (
     CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS,
     CIGAR_DECOMPOSITION_STRING,
     SECTION_ID_LINKS,
+    SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
     SECTION_ID_SEGMENTS,
     SECTION_ID_WALKS,
@@ -308,7 +309,7 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
 
             seqs_payload = data[payload_offset + clen_names : payload_offset + clen_names + clen_sequences]
             seqs_field = _verify_decompressed_length(
-                seqs_payload, comp_sequences, parsed["record_num"], ulen_names, "sequences"
+                seqs_payload, comp_sequences, parsed["record_num"], parsed["ulen_sequences"], "sequences"
             )
             block_result["fields"]["ulen_sequences"] = seqs_field
             if not seqs_field["correct"]:
@@ -449,12 +450,11 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                     block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
 
             try:
-                paths_data, _ = reader._parse_paths_blocks(data, offset, reader._segment_names)
+                paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
                 block_result["decompressed"] = paths_data
             except Exception as e:
                 block_result["decompressed"] = {"error": str(e)}
-
-            consumed = (payload_offset + clen_names + clen_cigars) - offset
+                consumed = (payload_offset + clen_names + clen_cigars) - offset
             offset += consumed
 
         elif section_id == SECTION_ID_WALKS:
@@ -546,6 +546,60 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
             consumed = sub_offset - offset
             offset += consumed
 
+        elif section_id == SECTION_ID_OPT_FIELDS:
+            block_result["section_type"] = "opt_fields"
+            opt_offset = offset + 1
+
+            field_names = ["num_segments", "num_links", "comp", "clen", "ulen"]
+            fmt_chars = ["<H", "<H", "<H", "<Q", "<Q"]
+            sizes = [2, 2, 2, 8, 8]
+
+            parsed = {}
+            for fn, fc, sz in zip(field_names, fmt_chars, sizes):
+                try:
+                    val = struct.unpack_from(fc, data, opt_offset)[0]
+                except struct.error:
+                    val = 0
+                    block_result["fields"][fn] = {"value": 0, "correct": False, "error": "Truncated"}
+                    result["valid"] = False
+                parsed[fn] = val
+                opt_offset += sz
+
+            payload_offset = opt_offset
+            clen = parsed["clen"]
+            ulen = parsed["ulen"]
+            payload = data[payload_offset : payload_offset + clen]
+            field_result = _verify_decompressed_length(
+                payload, parsed["comp"], parsed["num_segments"] + parsed["num_links"], ulen, "opt_fields"
+            )
+            block_result["fields"]["ulen"] = field_result
+            if not field_result["correct"]:
+                result["valid"] = False
+
+            for fn in ["num_segments", "num_links", "comp", "clen"]:
+                if fn not in block_result["fields"]:
+                    block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
+
+            try:
+                int_dec = get_integer_decoder(parsed["comp"])
+                str_dec = STRING_DECODERS.get(parsed["comp"] & 0xFF, decompress_string_none)
+                opt_bytes = str_dec(payload, parsed["num_segments"] + parsed["num_links"], int_dec)
+                opt_strings = []
+                for b in opt_bytes:
+                    if b:
+                        try:
+                            opt_strings.append(b.decode("ascii"))
+                        except UnicodeDecodeError:
+                            opt_strings.append(b.decode("latin-1"))
+                    else:
+                        opt_strings.append("")
+                block_result["decompressed"] = opt_strings
+            except Exception as e:
+                block_result["decompressed"] = {"error": str(e)}
+
+            consumed = (payload_offset + clen) - offset
+            offset += consumed
+
         else:
             block_result["section_type"] = "unknown"
             block_result["fields"]["section_id"] = {
@@ -581,9 +635,12 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
     """
 
     def validate_field(expected: int, actual: int, field_name: str) -> dict:
-        result = {"value": actual}
-        if expected != actual:
-            result["error"] = f"Validation failed: expected {expected}, got {actual}"
+        result = {"value": expected, "available": actual}
+        if expected > actual:
+            result["error"] = (
+                f"Validation failed: {field_name} claims {expected} bytes "
+                f"but only {actual} available"
+            )
         return result
 
     with open(file_path, "rb") as f:
@@ -625,20 +682,29 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         if section_id == SECTION_ID_SEGMENTS:
             block_result["section_type"] = "segments"
 
-            seg_offset = offset + 1
-            record_num = struct.unpack_from("<H", data, seg_offset)[0]
-            seg_offset += 2
-            comp_names = struct.unpack_from("<H", data, seg_offset)[0]
-            seg_offset += 2
-            clen_names = struct.unpack_from("<Q", data, seg_offset)[0]
-            seg_offset += 8
-            ulen_names = struct.unpack_from("<Q", data, seg_offset)[0]
-            seg_offset += 8
-            comp_str = struct.unpack_from("<H", data, seg_offset)[0]
-            seg_offset += 2
-            clen_str = struct.unpack_from("<Q", data, seg_offset)[0]
-            seg_offset += 8
-            ulen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+            try:
+                seg_offset = offset + 1
+                record_num = struct.unpack_from("<H", data, seg_offset)[0]
+                seg_offset += 2
+                comp_names = struct.unpack_from("<H", data, seg_offset)[0]
+                seg_offset += 2
+                clen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+                seg_offset += 8
+                ulen_names = struct.unpack_from("<Q", data, seg_offset)[0]
+                seg_offset += 8
+                comp_str = struct.unpack_from("<H", data, seg_offset)[0]
+                seg_offset += 2
+                clen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+                seg_offset += 8
+                ulen_str = struct.unpack_from("<Q", data, seg_offset)[0]
+            except struct.error:
+                block_result["error"] = "Truncated segment block header"
+                result["blocks"].append(block_result)
+                break
+
+            payload_start = seg_offset
+            avail_names = len(data) - payload_start
+            avail_seqs = max(0, avail_names - clen_names)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -647,27 +713,28 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     "description": _describe_compression_code(comp_names),
                 },
                 "compressed_segment_names_length_bytes": validate_field(
-                    clen_names, clen_names, "compressed_segment_names_length"
+                    clen_names, avail_names, "compressed_segment_names_length"
                 ),
-                "uncompressed_segment_names_length_bytes": validate_field(
-                    ulen_names, ulen_names, "uncompressed_segment_names_length"
-                ),
+                "uncompressed_segment_names_length_bytes": {"value": ulen_names},
                 "segment_sequences_compression_code": {
                     "value": f"0x{comp_str:04X}",
                     "description": _describe_compression_code(comp_str),
                 },
                 "compressed_segment_sequences_length_bytes": validate_field(
-                    clen_str, clen_str, "compressed_segment_sequences_length"
+                    clen_str, avail_seqs, "compressed_segment_sequences_length"
                 ),
-                "uncompressed_segment_sequences_length_bytes": validate_field(
-                    ulen_str, ulen_str, "uncompressed_segment_sequences_length"
-                ),
+                "uncompressed_segment_sequences_length_bytes": {"value": ulen_str},
             }
 
-            segs, names, consumed = reader._parse_segments_block(data, offset)
-            reader._segment_names = names
+            try:
+                segs, names, consumed = reader._parse_segments_block(data, offset)
+                reader._segment_names = names
+            except Exception as e:
+                block_result["error"] = f"Failed to parse segments block: {e}"
+                segs, names = {}, []
+                # Best-effort advance using the (possibly corrupt) clen fields.
+                consumed = 39 + clen_names + clen_str
 
-            payload_start = offset + 39
             names_payload = data[payload_start : payload_start + clen_names]
             seqs_payload = data[payload_start + clen_names : payload_start + clen_names + clen_str]
 
@@ -719,18 +786,27 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         elif section_id == SECTION_ID_LINKS:
             block_result["section_type"] = "links"
 
-            lnk_offset = offset + 1
-            record_num = struct.unpack_from("<H", data, lnk_offset)[0]
-            lnk_offset += 2
-            comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
-            lnk_offset += 2
-            clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
-            lnk_offset += 8
-            comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
-            lnk_offset += 4
-            clen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
-            lnk_offset += 8
-            ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+            try:
+                lnk_offset = offset + 1
+                record_num = struct.unpack_from("<H", data, lnk_offset)[0]
+                lnk_offset += 2
+                comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
+                lnk_offset += 2
+                clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
+                lnk_offset += 8
+                comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
+                lnk_offset += 4
+                clen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+                lnk_offset += 8
+                ulen_cigars = struct.unpack_from("<Q", data, lnk_offset)[0]
+            except struct.error:
+                block_result["error"] = "Truncated link block header"
+                result["blocks"].append(block_result)
+                break
+
+            payload_start = lnk_offset
+            avail_fromto = len(data) - payload_start
+            avail_cigars = max(0, avail_fromto - clen_fromto)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -739,21 +815,25 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     "description": _describe_compression_code(comp_fromto),
                 },
                 "compressed_link_endpoints_length_bytes": validate_field(
-                    clen_fromto, clen_fromto, "compressed_link_endpoints_length"
+                    clen_fromto, avail_fromto, "compressed_link_endpoints_length"
                 ),
                 "cigar_strings_compression_code": {
                     "value": f"0x{comp_cigars:08X}",
                     "description": _describe_compression_code(comp_cigars),
                 },
                 "compressed_cigar_strings_length_bytes": validate_field(
-                    clen_cigars, clen_cigars, "compressed_cigar_strings_length"
+                    clen_cigars, avail_cigars, "compressed_cigar_strings_length"
                 ),
-                "uncompressed_cigar_strings_length_bytes": validate_field(
-                    ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"
-                ),
+                "uncompressed_cigar_strings_length_bytes": {"value": ulen_cigars},
             }
 
-            lnks, consumed = reader._parse_links_block(data, offset)
+            try:
+                lnks, consumed = reader._parse_links_block(data, offset)
+            except Exception as e:
+                block_result["error"] = f"Failed to parse links block: {e}"
+                lnks = []
+                # Best-effort advance using the (possibly corrupt) clen fields.
+                consumed = 1 + 2 + 2 + 8 + 4 + 8 + 8 + clen_fromto + clen_cigars
 
             links_list = []
             for i, link in enumerate(lnks):
@@ -776,22 +856,31 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         elif section_id == SECTION_ID_PATHS:
             block_result["section_type"] = "paths"
 
-            path_offset = offset + 1
-            record_num = struct.unpack_from("<H", data, path_offset)[0]
-            path_offset += 2
-            comp_names = struct.unpack_from("<H", data, path_offset)[0]
-            path_offset += 2
-            comp_paths = struct.unpack_from("<I", data, path_offset)[0]
-            path_offset += 4
-            comp_cigars = struct.unpack_from("<I", data, path_offset)[0]
-            path_offset += 4
-            clen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
-            path_offset += 8
-            ulen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
-            path_offset += 8
-            clen_names = struct.unpack_from("<Q", data, path_offset)[0]
-            path_offset += 8
-            ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+            try:
+                path_offset = offset + 1
+                record_num = struct.unpack_from("<H", data, path_offset)[0]
+                path_offset += 2
+                comp_names = struct.unpack_from("<H", data, path_offset)[0]
+                path_offset += 2
+                comp_paths = struct.unpack_from("<I", data, path_offset)[0]
+                path_offset += 4
+                comp_cigars = struct.unpack_from("<I", data, path_offset)[0]
+                path_offset += 4
+                clen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+                path_offset += 8
+                ulen_cigars = struct.unpack_from("<Q", data, path_offset)[0]
+                path_offset += 8
+                clen_names = struct.unpack_from("<Q", data, path_offset)[0]
+                path_offset += 8
+                ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+            except struct.error:
+                block_result["error"] = "Truncated path block header"
+                result["blocks"].append(block_result)
+                break
+
+            payload_start = path_offset
+            avail_names = len(data) - payload_start
+            avail_cigars = max(0, avail_names - clen_names)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -808,20 +897,22 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     "description": _describe_compression_code(comp_cigars),
                 },
                 "compressed_cigar_strings_length_bytes": validate_field(
-                    clen_cigars, clen_cigars, "compressed_cigar_strings_length"
+                    clen_cigars, avail_cigars, "compressed_cigar_strings_length"
                 ),
-                "uncompressed_cigar_strings_length_bytes": validate_field(
-                    ulen_cigars, ulen_cigars, "uncompressed_cigar_strings_length"
-                ),
+                "uncompressed_cigar_strings_length_bytes": {"value": ulen_cigars},
                 "compressed_path_names_length_bytes": validate_field(
-                    clen_names, clen_names, "compressed_path_names_length"
+                    clen_names, avail_names, "compressed_path_names_length"
                 ),
-                "uncompressed_path_names_length_bytes": validate_field(
-                    ulen_names, ulen_names, "uncompressed_path_names_length"
-                ),
+                "uncompressed_path_names_length_bytes": {"value": ulen_names},
             }
 
-            paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
+            try:
+                paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
+            except Exception as e:
+                block_result["error"] = f"Failed to parse paths block: {e}"
+                paths_data = []
+                # Best-effort advance using the (possibly corrupt) clen fields.
+                consumed = 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8 + clen_names + clen_cigars
 
             paths_list = []
             for i, p in enumerate(paths_data):
@@ -842,40 +933,52 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
         elif section_id == SECTION_ID_WALKS:
             block_result["section_type"] = "walks"
 
-            walk_offset = offset + 1
-            record_num = struct.unpack_from("<H", data, walk_offset)[0]
-            walk_offset += 2
-            comp_samples = struct.unpack_from("<H", data, walk_offset)[0]
-            walk_offset += 2
-            comp_hep = struct.unpack_from("<H", data, walk_offset)[0]
-            walk_offset += 2
-            comp_seq = struct.unpack_from("<H", data, walk_offset)[0]
-            walk_offset += 2
-            comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
-            walk_offset += 2
-            comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
+            try:
+                walk_offset = offset + 1
+                record_num = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
+                comp_samples = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
+                comp_hep = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
+                comp_seq = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
+                comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
+                comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
 
-            walk_offset += 4
+                walk_offset += 4
 
-            clen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            _ulen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            clen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            _ulen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            clen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            _ulen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            clen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            _ulen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
-            walk_offset += 8
-            _ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+                clen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_samples = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                clen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_hep = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                clen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_seq = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                clen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_positions = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+            except struct.error:
+                block_result["error"] = "Truncated walk block header"
+                result["blocks"].append(block_result)
+                break
+
+            payload_start = walk_offset
+            avail_samples = len(data) - payload_start
+            avail_hep = max(0, avail_samples - clen_samples)
+            avail_seq = max(0, avail_hep - clen_hep)
+            avail_positions = max(0, avail_seq - clen_seq)
+            avail_walks = max(0, avail_positions - clen_positions)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -900,23 +1003,29 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     "description": _describe_compression_code(comp_walks),
                 },
                 "compressed_sample_ids_length_bytes": validate_field(
-                    clen_samples, clen_samples, "compressed_sample_ids_length"
+                    clen_samples, avail_samples, "compressed_sample_ids_length"
                 ),
                 "compressed_haplotype_indices_length_bytes": validate_field(
-                    clen_hep, clen_hep, "compressed_haplotype_indices_length"
+                    clen_hep, avail_hep, "compressed_haplotype_indices_length"
                 ),
                 "compressed_sequence_ids_length_bytes": validate_field(
-                    clen_seq, clen_seq, "compressed_sequence_ids_length"
+                    clen_seq, avail_seq, "compressed_sequence_ids_length"
                 ),
                 "compressed_positions_length_bytes": validate_field(
-                    clen_positions, clen_positions, "compressed_positions_length"
+                    clen_positions, avail_positions, "compressed_positions_length"
                 ),
                 "compressed_oriented_segment_ids_length_bytes": validate_field(
-                    clen_walks, clen_walks, "compressed_oriented_segment_ids_length"
+                    clen_walks, avail_walks, "compressed_oriented_segment_ids_length"
                 ),
             }
 
-            walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
+            try:
+                walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
+            except Exception as e:
+                block_result["error"] = f"Failed to parse walks block: {e}"
+                walks_data = []
+                # Best-effort advance using the (possibly corrupt) clen fields.
+                consumed = 1 + 2 + 2 + 2 + 2 + 2 + 4 + 5 * 16 + clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
 
             walks_list = []
             for i, w in enumerate(walks_data):
@@ -936,6 +1045,42 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             result["blocks"].append(block_result)
 
             offset += consumed
+
+        elif section_id == SECTION_ID_OPT_FIELDS:
+            block_result["section_type"] = "opt_fields"
+
+            try:
+                opt_offset = offset + 1
+                num_segments = struct.unpack_from("<H", data, opt_offset)[0]
+                opt_offset += 2
+                num_links = struct.unpack_from("<H", data, opt_offset)[0]
+                opt_offset += 2
+                comp = struct.unpack_from("<H", data, opt_offset)[0]
+                opt_offset += 2
+                clen = struct.unpack_from("<Q", data, opt_offset)[0]
+                opt_offset += 8
+                ulen = struct.unpack_from("<Q", data, opt_offset)[0]
+            except struct.error:
+                block_result["error"] = "Truncated opt-fields block header"
+                result["blocks"].append(block_result)
+                break
+
+            block_result["fields"] = {
+                "num_segments": {"value": num_segments},
+                "num_links": {"value": num_links},
+                "opt_fields_compression_code": {
+                    "value": f"0x{comp:04X}",
+                    "description": _describe_compression_code(comp),
+                },
+                "compressed_opt_fields_length_bytes": validate_field(
+                    clen, len(data) - (opt_offset + 8), "compressed_opt_fields_length"
+                ),
+                "uncompressed_opt_fields_length_bytes": {"value": ulen},
+            }
+
+            result["blocks"].append(block_result)
+
+            offset = opt_offset + 8 + clen
 
         else:
             block_result["section_type"] = "unknown"

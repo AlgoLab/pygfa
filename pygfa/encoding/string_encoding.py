@@ -66,20 +66,27 @@ def _get_zstd_dict():
     return _ZSTD_STATIC_DICT
 
 
-def compress_string_zstd_dict(string: str) -> bytes:
-    """Compress a single string with ZSTD using a static dictionary."""
+def compress_string_zstd_dict(data: str | bytes) -> bytes:
+    """Compress data with ZSTD using a static dictionary.
+
+    :param data: String or bytes to compress
+    :return: Compressed bytes
+    """
     import zstandard as zstd
 
-    data = string.encode("ascii")
+    raw = data.encode("ascii") if isinstance(data, str) else data
     dictionary = _get_zstd_dict()
     compressor = zstd.ZstdCompressor(dict_data=dictionary, level=3)
-    return compressor.compress(data)
+    return compressor.compress(raw)
 
 
 def decompress_string_zstd_dict(data: bytes, lengths: list[int]) -> list[bytes]:
     """Decompress ZSTD dictionary-compressed strings."""
+    if not _ZSTD_AVAILABLE:
+        raise ImportError("zstandard package required")
     import zstandard as zstd
 
+    assert zstd is not None
     dictionary = _get_zstd_dict()
     decompressor = zstd.ZstdDecompressor(dict_data=dictionary)
     decompressed = decompressor.decompress(data)
@@ -173,6 +180,8 @@ def compress_string_list(
         from pygfa.encoding.arithmetic_coding import compress_string_bwt_huffman
 
         blob = compress_string_bwt_huffman(concatenated.decode("ascii"))
+    elif compression_method == "zstd_dict":
+        blob = compress_string_zstd_dict(concatenated)
     elif compression_method == "none":
         blob = concatenated
     else:
@@ -397,52 +406,6 @@ def compress_string_list_dictionary(
     return bytes(result)
 
 
-def decompress_string_list_dictionary(
-    data: bytes,
-    int_decoder: Callable[[bytes, int], tuple[list[int], int]],
-) -> list[bytes]:
-    """Decompress dictionary-encoded strings.
-
-    :param data: Compressed data
-    :param int_decoder: Function to decode integer lists
-    :return: List of decompressed byte strings
-    """
-    if not data:
-        return []
-
-    offset = 0
-
-    # Read dictionary size
-    dict_size = struct.unpack_from("<I", data, offset)[0]
-    offset += 4
-
-    # Read offsets
-    offsets, consumed = int_decoder(data[offset:], dict_size)
-    offset += consumed
-
-    # Read dictionary blob
-    if offsets:
-        # We need to find the actual end of the blob
-        # For simplicity, read until we hit the indices
-        # This requires knowing the total length or having a marker
-        # For now, assume the rest is blob + indices
-        pass
-
-    # Read indices
-    indices, consumed = int_decoder(data[offset:], -1)  # Decode all remaining
-
-    # Reconstruct strings from dictionary
-    # This is simplified - a full implementation would parse the blob properly
-    result = []
-    for idx in indices:
-        if idx < dict_size:
-            # Would need to extract from blob
-            result.append(b"")
-        else:
-            result.append(b"")
-
-    return result
-
 
 # Compatibility wrappers
 def compress_string_list_huffman(
@@ -462,22 +425,6 @@ def compress_string_list_2bit_dna(
     """Compress using concatenation + 2-bit DNA."""
     return compress_string_list(string_list, int_encoder, "2bit")
 
-
-def compress_string_list_frontcoding(
-    string_list: list[str],
-    int_encoder: Callable[[list[int]], bytes] | None = None,
-) -> bytes:
-    """Compress using front-coding (placeholder)."""
-    return b""
-
-
-def compress_string_list_delta(
-    string_list: list[str],
-    int_encoder: Callable[[list[int]], bytes] | None = None,
-    compression_method: str = "none",
-) -> bytes:
-    """Compress using delta encoding (placeholder)."""
-    return b""
 
 
 # =============================================================================
@@ -549,6 +496,16 @@ def decompress_string_superstring_ppm(payload: bytes, record_num: int, int_decod
     for i in range(record_num):
         result.append(decompressed[starts[i] : ends[i]])
     return result
+
+
+def decompress_string_zstd_dict_list(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
+    """Decompress a zstd_dict-compressed list of strings.
+
+    Decodes lengths from the payload prefix, then decompresses the blob
+    using the ZSTD dictionary decompressor.
+    """
+    lengths, consumed = int_decoder(payload, record_num)
+    return decompress_string_zstd_dict(payload[consumed:], lengths)
 
 
 def decompress_string_zstd(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import struct
 
-from pygfa.bgfa._codec_utils import pack_bits_lsb
+from pygfa.bgfa._codec_utils import pack_bits_lsb, serialize_opt_fields
 from pygfa.encoding.integer_list_encoding import compress_integer_list_uints_delta
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
@@ -16,6 +16,7 @@ from pygfa.bgfa._constants import (
     DEFAULT_BLOCK_SIZE,
     INTEGER_ENCODING_VARINT,
     SECTION_ID_LINKS,
+    SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
     SECTION_ID_SEGMENTS,
     STRING_ENCODING_2BIT_DNA,
@@ -31,6 +32,7 @@ from pygfa.bgfa._constants import (
     STRING_ENCODING_PPM,
     STRING_ENCODING_RLE,
     STRING_ENCODING_ZSTD,
+    STRING_ENCODING_ZSTD_DICT,
     WALK_DECOMPOSITION_ORIENTATION_NUMID,
     logger,
 )
@@ -69,6 +71,7 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
         STRING_ENCODING_PPM: "ppm",
         STRING_ENCODING_ARITHMETIC: "arithmetic",
         STRING_ENCODING_BWT_HUFFMAN: "bwt_huffman",
+        STRING_ENCODING_ZSTD_DICT: "zstd_dict",
     }
     method = method_map.get(str_encoding, "none")
     int_encoder = get_integer_encoder(compression_code)
@@ -348,6 +351,60 @@ class BGFAWriter:
             len(p_walk),
         )
 
+    def _write_opt_fields_block(self, buf: io.BytesIO, names: list[str], edges: list, enc: int) -> None:
+        """Write a block holding optional fields for segments and links.
+
+        The payload is a list of tab-joined ``TAG:TYPE:VALUE`` strings, one per
+        segment (in segment order) followed by one per link (in link order).
+        """
+        nodes_data = dict(self._gfa.nodes(data=True))
+        seg_reserved = {"nid", "sequence", "slen"}
+        seg_opts = []
+        for name in names:
+            data = nodes_data.get(name, {})
+            opts = {k: v for k, v in data.items() if k not in seg_reserved}
+            seg_opts.append(serialize_opt_fields(opts))
+
+        link_reserved = {
+            "eid",
+            "from_node",
+            "from_orn",
+            "to_node",
+            "to_orn",
+            "alignment",
+            "distance",
+            "variance",
+            "from_positions",
+            "to_positions",
+            "from_segment_end",
+            "to_segment_end",
+        }
+        link_opts = []
+        for _u, _v, _k, d in edges:
+            opts = {k2: v2 for k2, v2 in d.items() if k2 not in link_reserved}
+            link_opts.append(serialize_opt_fields(opts))
+
+        all_opts = seg_opts + link_opts
+        if not any(all_opts):
+            logger.debug("BGFAWriter._write_opt_fields_block() -> no opt fields, skipping block")
+            return
+
+        payload = _compress_string_for_bgfa(all_opts, enc)
+
+        buf.write(struct.pack("<B", SECTION_ID_OPT_FIELDS))
+        buf.write(struct.pack("<H", len(seg_opts)))
+        buf.write(struct.pack("<H", len(link_opts)))
+        buf.write(struct.pack("<H", enc))
+        buf.write(struct.pack("<Q", len(payload)))
+        buf.write(struct.pack("<Q", sum(len(s) for s in all_opts)))
+        buf.write(payload)
+        logger.debug(
+            "BGFAWriter._write_opt_fields_block() -> exit, seg_opts=%d, link_opts=%d, payload_size=%d",
+            len(seg_opts),
+            len(link_opts),
+            len(payload),
+        )
+
     def to_bgfa(self, verbose: bool = False, debug: bool = False, logfile: str = None, **kwargs) -> bytes:
         logger.debug(
             "BGFAWriter.to_bgfa() -> entry, node_count=%d, edge_count=%d, block_size=%d",
@@ -449,6 +506,11 @@ class BGFAWriter:
             for i in range(0, len(paths), self._block_size):
                 chunk = paths[i : i + self._block_size]
                 self._write_paths_block(buf, chunk, path_names_enc, paths_walk_enc, paths_cigars_enc)
+
+        opt_fields_enc = self._comp_options.get(
+            "opt_fields_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+        )
+        self._write_opt_fields_block(buf, names, edges, opt_fields_enc)
 
         result = buf.getvalue()
         logger.debug("BGFAWriter.to_bgfa() -> exit, total_bgfa_size=%d bytes", len(result))

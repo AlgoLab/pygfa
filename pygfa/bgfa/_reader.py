@@ -7,7 +7,7 @@ import time
 import struct
 from collections.abc import Callable
 
-from pygfa.bgfa._codec_utils import unpack_bits_lsb
+from pygfa.bgfa._codec_utils import parse_opt_fields, unpack_bits_lsb
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
     CIGAR_DECOMPOSITION_NONE,
@@ -24,7 +24,16 @@ from pygfa.bgfa._constants import (
     INTEGER_ENCODING_STREAMVBYTE,
     INTEGER_ENCODING_VARINT,
     INTEGER_ENCODING_VBYTE,
+    INTEGER_ENCODING_PFOR_DELTA,
+    INTEGER_ENCODING_SIMPLE_8B,
+    INTEGER_ENCODING_GROUP_VARINT,
+    INTEGER_ENCODING_BIT_PACKING,
+    INTEGER_ENCODING_FIBONACCI,
+    INTEGER_ENCODING_EXP_GOLOMB,
+    INTEGER_ENCODING_BYTE_PACKED,
+    INTEGER_ENCODING_MASKED_VBYTE,
     SECTION_ID_LINKS,
+    SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
     SECTION_ID_SEGMENTS,
     SECTION_ID_WALKS,
@@ -45,12 +54,20 @@ from pygfa.bgfa._constants import (
     logger,
 )
 from pygfa.encoding import (
+    compress_integer_list_bitpacking,
+    compress_integer_list_byte_packed,
     compress_integer_list_elias_gamma,
     compress_integer_list_elias_omega,
+    compress_integer_list_exp_golomb,
+    compress_integer_list_fibonacci,
     compress_integer_list_fixed,
     compress_integer_list_golomb,
+    compress_integer_list_group_varint,
+    compress_integer_list_masked_vbyte,
     compress_integer_list_none,
+    compress_integer_list_pfor_delta,
     compress_integer_list_rice,
+    compress_integer_list_simple8b,
     compress_integer_list_streamvbyte,
     compress_integer_list_vbyte,
     compress_integer_list_varint,
@@ -79,6 +96,14 @@ from pygfa.encoding.integer_list_encoding import (
     decode_integer_list_varint,
     decode_integer_list_vbyte,
 )
+from pygfa.encoding.bit_packing import decompress_integer_list_bitpacking
+from pygfa.encoding.byte_packed import decompress_integer_list_byte_packed
+from pygfa.encoding.exp_golomb import decompress_integer_list_exp_golomb
+from pygfa.encoding.fibonacci_coding import decompress_integer_list_fibonacci
+from pygfa.encoding.group_varint import decompress_integer_list_group_varint
+from pygfa.encoding.masked_vbyte import decompress_integer_list_masked_vbyte
+from pygfa.encoding.pfor_delta import decompress_integer_list_pfor_delta
+from pygfa.encoding.simple8b import decompress_integer_list_simple8b
 from pygfa.encoding.ppm_coding import decompress_string_ppm
 from pygfa.encoding.rle_encoding import _decompress_string_rle_wrapper
 from pygfa.encoding.string_encoding import (
@@ -89,7 +114,9 @@ from pygfa.encoding.string_encoding import (
     decompress_string_lzma,
     decompress_string_none,
     decompress_string_zstd,
+    decompress_string_zstd_dict_list,
 )
+from pygfa.exceptions import InvalidEncodingError
 from pygfa.gfa import GFA
 
 # =============================================================================
@@ -108,13 +135,47 @@ INTEGER_DECODERS = {
     INTEGER_ENCODING_RICE: decode_integer_list_rice,
     INTEGER_ENCODING_STREAMVBYTE: decode_integer_list_streamvbyte,
     INTEGER_ENCODING_VBYTE: decode_integer_list_vbyte,
+    INTEGER_ENCODING_PFOR_DELTA: decompress_integer_list_pfor_delta,
+    INTEGER_ENCODING_SIMPLE_8B: decompress_integer_list_simple8b,
+    INTEGER_ENCODING_GROUP_VARINT: decompress_integer_list_group_varint,
+    INTEGER_ENCODING_BIT_PACKING: decompress_integer_list_bitpacking,
+    INTEGER_ENCODING_FIBONACCI: decompress_integer_list_fibonacci,
+    INTEGER_ENCODING_EXP_GOLOMB: decompress_integer_list_exp_golomb,
+    INTEGER_ENCODING_BYTE_PACKED: decompress_integer_list_byte_packed,
+    INTEGER_ENCODING_MASKED_VBYTE: decompress_integer_list_masked_vbyte,
 }
+
+
+INTEGER_ENCODERS = {
+    INTEGER_ENCODING_NONE: compress_integer_list_none,
+    INTEGER_ENCODING_VARINT: compress_integer_list_varint,
+    INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, 16),
+    INTEGER_ENCODING_FIXED32: lambda x: compress_integer_list_fixed(x, 32),
+    INTEGER_ENCODING_FIXED64: lambda x: compress_integer_list_fixed(x, 64),
+    INTEGER_ENCODING_ELIAS_GAMMA: compress_integer_list_elias_gamma,
+    INTEGER_ENCODING_ELIAS_OMEGA: compress_integer_list_elias_omega,
+    INTEGER_ENCODING_GOLOMB: compress_integer_list_golomb,
+    INTEGER_ENCODING_RICE: compress_integer_list_rice,
+    INTEGER_ENCODING_STREAMVBYTE: compress_integer_list_streamvbyte,
+    INTEGER_ENCODING_VBYTE: compress_integer_list_vbyte,
+    INTEGER_ENCODING_PFOR_DELTA: compress_integer_list_pfor_delta,
+    INTEGER_ENCODING_SIMPLE_8B: compress_integer_list_simple8b,
+    INTEGER_ENCODING_GROUP_VARINT: compress_integer_list_group_varint,
+    INTEGER_ENCODING_BIT_PACKING: compress_integer_list_bitpacking,
+    INTEGER_ENCODING_FIBONACCI: compress_integer_list_fibonacci,
+    INTEGER_ENCODING_EXP_GOLOMB: compress_integer_list_exp_golomb,
+    INTEGER_ENCODING_BYTE_PACKED: compress_integer_list_byte_packed,
+    INTEGER_ENCODING_MASKED_VBYTE: compress_integer_list_masked_vbyte,
+}
+
+
+def _unknown_integer_encoding(int_code: int) -> InvalidEncodingError:
+    return InvalidEncodingError(f"Unknown integer encoding code: {int_code:#04x}")
 
 
 def get_integer_decoder(code: int) -> Callable:
     """Get the integer decoder function for a compression code."""
-    int_code = (code >> 8) & 0xFF
-    return INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
+    return get_integer_decoder_from_code((code >> 8) & 0xFF)
 
 
 def get_integer_decoder_from_code(int_code: int) -> Callable:
@@ -123,55 +184,23 @@ def get_integer_decoder_from_code(int_code: int) -> Callable:
     Unlike get_integer_decoder() which extracts the high byte from a multi-byte
     code, this takes the integer encoding byte directly.
     """
-    return INTEGER_DECODERS.get(int_code, decode_integer_list_varint)
+    decoder = INTEGER_DECODERS.get(int_code)
+    if decoder is None:
+        raise _unknown_integer_encoding(int_code)
+    return decoder
 
 
 def get_integer_encoder_from_code(int_code: int) -> Callable:
     """Get the integer encoder function from a single-byte integer encoding code."""
-    _ENCODERS = {
-        INTEGER_ENCODING_NONE: compress_integer_list_none,
-        INTEGER_ENCODING_VARINT: compress_integer_list_varint,
-        INTEGER_ENCODING_FIXED16: lambda x: compress_integer_list_fixed(x, 16),
-        INTEGER_ENCODING_FIXED32: lambda x: compress_integer_list_fixed(x, 32),
-        INTEGER_ENCODING_FIXED64: lambda x: compress_integer_list_fixed(x, 64),
-        INTEGER_ENCODING_ELIAS_GAMMA: compress_integer_list_elias_gamma,
-        INTEGER_ENCODING_ELIAS_OMEGA: compress_integer_list_elias_omega,
-        INTEGER_ENCODING_GOLOMB: compress_integer_list_golomb,
-        INTEGER_ENCODING_RICE: compress_integer_list_rice,
-        INTEGER_ENCODING_STREAMVBYTE: compress_integer_list_streamvbyte,
-        INTEGER_ENCODING_VBYTE: compress_integer_list_vbyte,
-    }
-    return _ENCODERS.get(int_code, compress_integer_list_varint)
+    encoder = INTEGER_ENCODERS.get(int_code)
+    if encoder is None:
+        raise _unknown_integer_encoding(int_code)
+    return encoder
 
 
 def get_integer_encoder(code: int) -> Callable:
     """Get the integer encoder function for a compression code."""
-    int_code = (code >> 8) & 0xFF
-
-    if int_code == INTEGER_ENCODING_NONE:
-        return compress_integer_list_none
-    if int_code == INTEGER_ENCODING_VARINT:
-        return compress_integer_list_varint
-    if int_code == INTEGER_ENCODING_FIXED16:
-        return lambda x: compress_integer_list_fixed(x, 16)
-    if int_code == INTEGER_ENCODING_FIXED32:
-        return lambda x: compress_integer_list_fixed(x, 32)
-    if int_code == INTEGER_ENCODING_FIXED64:
-        return lambda x: compress_integer_list_fixed(x, 64)
-    if int_code == INTEGER_ENCODING_ELIAS_GAMMA:
-        return compress_integer_list_elias_gamma
-    if int_code == INTEGER_ENCODING_ELIAS_OMEGA:
-        return compress_integer_list_elias_omega
-    if int_code == INTEGER_ENCODING_GOLOMB:
-        return compress_integer_list_golomb
-    if int_code == INTEGER_ENCODING_RICE:
-        return compress_integer_list_rice
-    if int_code == INTEGER_ENCODING_STREAMVBYTE:
-        return compress_integer_list_streamvbyte
-    if int_code == INTEGER_ENCODING_VBYTE:
-        return compress_integer_list_vbyte
-
-    return compress_integer_list_varint
+    return get_integer_encoder_from_code((code >> 8) & 0xFF)
 
 
 # =============================================================================
@@ -197,12 +226,12 @@ def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, i
     elif dd == CIGAR_DECOMPOSITION_NONE:
         rr = (comp_code >> 8) & 0xFF
         ss = (comp_code >> 24) & 0xFF
-        str_dec = STRING_DECODERS.get(ss, decompress_string_none)
+        str_dec = _get_string_decoder(ss)
         int_dec = get_integer_decoder_from_code(rr)
         return str_dec(payload, record_num, int_dec)
     elif dd == CIGAR_DECOMPOSITION_STRING:
         ss = (comp_code >> 24) & 0xFF
-        str_dec = STRING_DECODERS.get(ss, decompress_string_none)
+        str_dec = _get_string_decoder(ss)
         return str_dec(payload, record_num, get_integer_decoder_from_code(0x01))
     else:
         raise ValueError(f"Invalid CIGAR decomposition code: 0x{dd:02X}")
@@ -219,11 +248,22 @@ STRING_DECODERS = {
     STRING_ENCODING_BWT_HUFFMAN: _decompress_string_bwt_huffman_wrapper,
     STRING_ENCODING_RLE: _decompress_string_rle_wrapper,
     STRING_ENCODING_DICTIONARY: _decompress_string_dictionary_wrapper,
-    STRING_ENCODING_ZSTD_DICT: decompress_string_none,
+    STRING_ENCODING_ZSTD_DICT: decompress_string_zstd_dict_list,
     STRING_ENCODING_LZ4: decompress_string_lz4,
     STRING_ENCODING_BROTLI: decompress_string_brotli,
     STRING_ENCODING_PPM: lambda p, rn, id: decompress_string_ppm(p, [0] * rn, id),
 }
+
+
+def _get_string_decoder(str_code: int) -> Callable:
+    """Get the string decoder function for a single-byte string encoding code.
+
+    Raises InvalidEncodingError for unknown codes instead of silently falling back.
+    """
+    decoder = STRING_DECODERS.get(str_code)
+    if decoder is None:
+        raise InvalidEncodingError(f"Unknown string encoding code: {str_code:#04x}")
+    return decoder
 
 
 # =============================================================================
@@ -294,7 +334,7 @@ class ReaderBGFA:
 
         names_payload = data[offset : offset + clen_names]
         int_dec_names = get_integer_decoder(comp_names)
-        str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+        str_dec_names = _get_string_decoder(comp_names & 0xFF)
         names_bytes = str_dec_names(names_payload, record_num, int_dec_names)
         names = []
         for b in names_bytes:
@@ -308,7 +348,7 @@ class ReaderBGFA:
 
         seqs_payload = data[offset + clen_names : offset + clen_names + clen_str]
         int_dec_str = get_integer_decoder(comp_str)
-        str_dec_str = STRING_DECODERS.get(comp_str & 0xFF, decompress_string_none)
+        str_dec_str = _get_string_decoder(comp_str & 0xFF)
         seqs_bytes = str_dec_str(seqs_payload, record_num, int_dec_str)
 
         segments = {}
@@ -327,6 +367,44 @@ class ReaderBGFA:
 
         bytes_consumed = (offset + clen_names + clen_str) - start_offset
         return segments, names, bytes_consumed
+
+    def _parse_opt_fields_block(self, data: bytes, start_offset: int) -> tuple[int, int, list[str], int]:
+        """Parse an optional-fields block.
+
+        Returns ``(num_segments, num_links, opt_strings, bytes_consumed)`` where
+        ``opt_strings`` holds one tab-joined ``TAG:TYPE:VALUE`` string per segment
+        (in segment order) followed by one per link (in link order).
+        """
+        offset = start_offset + 1
+
+        num_segments = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        num_links = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        comp = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        clen = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+        _ulen = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        payload = data[offset : offset + clen]
+        int_dec = get_integer_decoder(comp)
+        str_dec = _get_string_decoder(comp & 0xFF)
+        opt_bytes = str_dec(payload, num_segments + num_links, int_dec)
+
+        opt_strings = []
+        for b in opt_bytes:
+            if b:
+                try:
+                    opt_strings.append(b.decode("ascii"))
+                except UnicodeDecodeError:
+                    opt_strings.append(b.decode("latin-1"))
+            else:
+                opt_strings.append("")
+
+        bytes_consumed = (offset + clen) - start_offset
+        return num_segments, num_links, opt_strings, bytes_consumed
 
     def _parse_links_block(self, data: bytes, start_offset: int) -> tuple[list[dict], int]:
         offset = start_offset + 1
@@ -413,7 +491,7 @@ class ReaderBGFA:
 
         if walk_byte == 0x01:
             str_enc_code = (walk_compression >> 8) & 0xFFFF
-            str_decoder = STRING_DECODERS.get(str_enc_code & 0xFF, decompress_string_none)
+            str_decoder = _get_string_decoder(str_enc_code & 0xFF)
             int_enc_for_strings = (str_enc_code >> 8) & 0xFF
             int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
             segment_id_strings, str_consumed = str_decoder(data_after, total_segments, int_decoder_for_strings)
@@ -492,7 +570,7 @@ class ReaderBGFA:
         offset += 8
 
         int_dec_names = get_integer_decoder(comp_names)
-        str_dec_names = STRING_DECODERS.get(comp_names & 0xFF, decompress_string_none)
+        str_dec_names = _get_string_decoder(comp_names & 0xFF)
 
         names_payload = data[offset : offset + clen_names]
         path_names = str_dec_names(names_payload, record_num, int_dec_names)
@@ -584,10 +662,10 @@ class ReaderBGFA:
         offset += 8
 
         int_dec_samples = get_integer_decoder(comp_samples)
-        str_dec_samples = STRING_DECODERS.get(comp_samples & 0xFF, decompress_string_none)
+        str_dec_samples = _get_string_decoder(comp_samples & 0xFF)
         int_dec_hep = get_integer_decoder(comp_hep)
         int_dec_seq = get_integer_decoder(comp_seq)
-        str_dec_seq = STRING_DECODERS.get(comp_seq & 0xFF, decompress_string_none)
+        str_dec_seq = _get_string_decoder(comp_seq & 0xFF)
         int_dec_positions = get_integer_decoder(comp_positions)
 
         samples_payload = data[offset : offset + clen_samples]
@@ -649,7 +727,7 @@ class ReaderBGFA:
 
     def _decompress_string_list(self, payload: bytes, compression_code: int, record_num: int) -> list[bytes]:
         int_decoder = get_integer_decoder(compression_code)
-        str_decoder = STRING_DECODERS.get(compression_code & 0xFF, decompress_string_none)
+        str_decoder = _get_string_decoder(compression_code & 0xFF)
         return str_decoder(payload, record_num, int_decoder)
 
     def read_bgfa(
@@ -677,11 +755,23 @@ class ReaderBGFA:
         links = []
         all_paths = []
         all_walks = []
+        opt_fields_data = None
 
         while offset < len(data):
             section_id = data[offset]
 
-            if section_id == SECTION_ID_SEGMENTS:
+            if section_id == SECTION_ID_OPT_FIELDS:
+                if skip_payloads:
+                    try:
+                        _, consumed = self._skip_block(data, offset)
+                    except ValueError:
+                        break
+                    offset += consumed
+                else:
+                    opt_fields_data = self._parse_opt_fields_block(data, offset)
+                    offset += opt_fields_data[3]
+
+            elif section_id == SECTION_ID_SEGMENTS:
                 if skip_payloads:
                     try:
                         _, consumed = self._skip_block(data, offset)
@@ -742,12 +832,21 @@ class ReaderBGFA:
         gfa._header_info = {"version": header["version"], "header_text": header["header_text"]}
 
         if not skip_payloads:
+            seg_opt_strings = []
+            link_opt_strings = []
+            if opt_fields_data is not None:
+                num_segments, num_links, opt_strings, _ = opt_fields_data
+                seg_opt_strings = opt_strings[:num_segments]
+                link_opt_strings = opt_strings[num_segments : num_segments + num_links]
+
             for sid, seg_data in segments.items():
                 name = seg_data.get("name", f"s{sid}")
                 seq = seg_data.get("sequence", "*")
-                gfa.add_node(Node(name, seq))
+                opts = parse_opt_fields(seg_opt_strings[sid]) if sid < len(seg_opt_strings) else {}
+                gfa.add_node(Node(name, seq, opt_fields=opts))
 
-            for link in links:
+            for i, link in enumerate(links):
+                opts = parse_opt_fields(link_opt_strings[i]) if i < len(link_opt_strings) else {}
                 edge = Edge(
                     edge_id=None,
                     from_node=link["from_node"],
@@ -757,6 +856,7 @@ class ReaderBGFA:
                     from_positions=(None, None),
                     to_positions=(None, None),
                     alignment=link["alignment"],
+                    opt_fields=opts,
                 )
                 gfa.add_edge(edge)
 
@@ -829,6 +929,16 @@ class ReaderBGFA:
                     offset += 8
                     offset += 8
                     compressed_len += clen
+
+            elif section_id == SECTION_ID_OPT_FIELDS:
+                if len(data) < offset + 2 + 2 + 8 + 8:
+                    raise ValueError("BGFA file is too short")
+                # offset already advanced past num_segments by the generic prologue
+                offset += 2  # num_links
+                offset += 2  # comp
+                compressed_len = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8
+                offset += 8
 
             else:
                 if len(data) < offset + 2 + 8 + 8:
@@ -1270,6 +1380,20 @@ def measure_bgfa(
                 }
             )
             offset += consumed
+
+        elif section_id == SECTION_ID_OPT_FIELDS:
+            # Optional-fields block: fixed 23-byte header + compressed payload.
+            # Not part of the per-field compression stats, so just skip it.
+            opt_offset = offset + 1
+            opt_offset += 2  # num_segments
+            opt_offset += 2  # num_links
+            opt_offset += 2  # comp
+            clen = struct.unpack_from("<Q", data, opt_offset)[0]
+            opt_offset += 8
+            opt_offset += 8  # ulen
+            if opt_offset + clen > len(data):
+                break
+            offset = opt_offset + clen
 
         else:
             if verbose:

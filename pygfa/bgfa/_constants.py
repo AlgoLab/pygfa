@@ -19,6 +19,10 @@ SECTION_ID_SEGMENTS = 2
 SECTION_ID_LINKS = 3
 SECTION_ID_PATHS = 4
 SECTION_ID_WALKS = 5
+# pygfa-specific extension: optional fields for segments/links. Not part of the
+# upstream bgfa-spec. Older readers reject it as an unknown section, so the
+# writer omits the block entirely when no element carries opt fields.
+SECTION_ID_OPT_FIELDS = 6
 
 INTEGER_ENCODING_NONE = IntegerEncoding.NONE
 INTEGER_ENCODING_VARINT = IntegerEncoding.VARINT
@@ -32,6 +36,14 @@ INTEGER_ENCODING_RICE = IntegerEncoding.RICE
 INTEGER_ENCODING_STREAMVBYTE = IntegerEncoding.STREAMVBYTE
 INTEGER_ENCODING_VBYTE = IntegerEncoding.VBYTE
 INTEGER_ENCODING_IDENTITY = IntegerEncoding.IDENTITY
+INTEGER_ENCODING_PFOR_DELTA = IntegerEncoding.PFOR_DELTA
+INTEGER_ENCODING_SIMPLE_8B = IntegerEncoding.SIMPLE_8B
+INTEGER_ENCODING_GROUP_VARINT = IntegerEncoding.GROUP_VARINT
+INTEGER_ENCODING_BIT_PACKING = IntegerEncoding.BIT_PACKING
+INTEGER_ENCODING_FIBONACCI = IntegerEncoding.FIBONACCI
+INTEGER_ENCODING_EXP_GOLOMB = IntegerEncoding.EXP_GOLOMB
+INTEGER_ENCODING_BYTE_PACKED = IntegerEncoding.BYTE_PACKED
+INTEGER_ENCODING_MASKED_VBYTE = IntegerEncoding.MASKED_VBYTE
 
 STRING_ENCODING_NONE = StringEncoding.NONE
 STRING_ENCODING_IDENTITY = StringEncoding.IDENTITY

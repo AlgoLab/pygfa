@@ -163,9 +163,7 @@ INT_IDENTITY_CODE = 0x00
 STR_IDENTITY_CODE = 0x00
 
 ALL_INT_ENCODING_NAMES = sorted([name for name in _ALL_INT_ENCODINGS.keys() if name])
-# Exclude placeholder encodings that have no decompressor implementation
-_NO_DECOMPRESSOR = {"frontcoding", "delta"}
-ALL_STR_ENCODING_NAMES = sorted([name for name in _ALL_STR_ENCODINGS.keys() if name and name not in _NO_DECOMPRESSOR])
+ALL_STR_ENCODING_NAMES = sorted([name for name in _ALL_STR_ENCODINGS.keys() if name])
 
 INT_ENCODINGS = [
     ("none", 0x00),
@@ -174,14 +172,14 @@ INT_ENCODINGS = [
     ("fixed32", 0x0A),
     ("fixed64", 0x0B),
     ("delta", 0x03),
-    ("gamma", 0x04),
-    ("omega", 0x05),
+    ("elias_gamma", 0x04),
+    ("elias_omega", 0x05),
     ("golomb", 0x06),
     ("rice", 0x07),
     ("streamvbyte", 0x08),
     ("vbyte", 0x09),
     ("pfor_delta", 0x0C),
-    ("simple8b", 0x0D),
+    ("simple_8b", 0x0D),
     ("group_varint", 0x0E),
     ("bit_packing", 0x0F),
     ("fibonacci", 0x10),

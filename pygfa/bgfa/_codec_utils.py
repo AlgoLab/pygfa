@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import struct
+from typing import Any
 
 
 def make_4byte_code(byte1: int, byte2: int, byte3: int, byte4: int) -> int:
@@ -86,3 +87,47 @@ def unpack_bits_lsb(data: bytes, count: int, use_numpy: bool = False) -> tuple[l
             result[bit_idx] = (val >> (bit_idx - start)) & 1
 
     return result, bytes_consumed
+
+
+def serialize_opt_fields(opt_fields: dict) -> str:
+    """Serialize an optional-fields dict into a tab-joined ``TAG:TYPE:VALUE`` string.
+
+    Integer and float values keep their type tag; everything else is written as
+    a string (``Z``). An empty dict produces an empty string.
+    """
+    parts = []
+    for tag, value in opt_fields.items():
+        if isinstance(value, bool):
+            parts.append(f"{tag}:Z:{value}")
+        elif isinstance(value, int):
+            parts.append(f"{tag}:i:{value}")
+        elif isinstance(value, float):
+            parts.append(f"{tag}:f:{value}")
+        else:
+            parts.append(f"{tag}:Z:{value}")
+    return "\t".join(parts)
+
+
+def parse_opt_fields(s: str) -> dict:
+    """Parse a tab-joined ``TAG:TYPE:VALUE`` string back into an optional-fields dict.
+
+    Values are coerced to ``int``/``float`` for the ``i``/``f`` type tags and kept
+    as strings otherwise. An empty string yields an empty dict.
+    """
+    result: dict[str, Any] = {}
+    if not s:
+        return result
+    for field in s.split("\t"):
+        if not field:
+            continue
+        try:
+            tag, value_type, value = field.split(":", 2)
+            if value_type == "i":
+                result[tag] = int(value)
+            elif value_type == "f":
+                result[tag] = float(value)
+            else:
+                result[tag] = value
+        except ValueError as e:
+            raise ValueError(f"Malformed opt fields payload: {field!r}") from e
+    return result

@@ -23,8 +23,6 @@ from pygfa.encoding.string_encoding import (
     compress_string_lzma,
     compress_string_none,
     compress_string_list,
-    compress_string_list_frontcoding,
-    compress_string_list_delta,
     compress_string_list_dictionary,
     compress_string_list_huffman,
 )
@@ -213,25 +211,6 @@ class TestStringEncoding(unittest.TestCase):
         result = compress_string_list([])
         self.assertIsInstance(result, bytes)
 
-    def test_compress_string_list_frontcoding(self):
-        """Test front coding compression."""
-        strings = ["hello", "help", "helicopter"]
-        result = compress_string_list_frontcoding(strings)
-        self.assertIsInstance(result, bytes)
-
-        # Test empty list
-        result = compress_string_list_frontcoding([])
-        self.assertEqual(result, b"")
-
-    def test_compress_string_list_delta(self):
-        """Test delta encoding for strings."""
-        strings = ["abc", "abd", "abf"]
-        result = compress_string_list_delta(strings)
-        self.assertIsInstance(result, bytes)
-
-        # Test empty list
-        result = compress_string_list_delta([])
-        self.assertEqual(result, b"")
 
     def test_compress_string_list_dictionary(self):
         """Test dictionary compression."""
