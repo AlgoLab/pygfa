@@ -1,0 +1,10 @@
+# test: test_bgfa_walk_roundtrip
+H	VN:Z:1.0
+S	1	ACGT
+S	2	TTG
+S	3	GGCC
+L	1	+	2	+	4M
+L	2	+	3	+	3M
+P	x	1+,2+,3+	4M,3M
+W	sample1	0	seqA	1	10	1+2+3+
+W	sample2	1	seqB	5	20	1-2+3+

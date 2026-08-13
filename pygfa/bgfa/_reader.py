@@ -230,9 +230,10 @@ def _decompress_cigar_payload(comp_code: int, payload: bytes, record_num: int, i
         int_dec = get_integer_decoder_from_code(rr)
         return str_dec(payload, record_num, int_dec)
     elif dd == CIGAR_DECOMPOSITION_STRING:
-        ss = (comp_code >> 24) & 0xFF
+        rr = (comp_code >> 8) & 0xFF  # int encoding for the lengths list (bits 15-8)
+        ss = (comp_code >> 24) & 0xFF  # string encoding for the CIGAR blob
         str_dec = _get_string_decoder(ss)
-        return str_dec(payload, record_num, get_integer_decoder_from_code(0x01))
+        return str_dec(payload, record_num, get_integer_decoder_from_code(rr))
     else:
         raise ValueError(f"Invalid CIGAR decomposition code: 0x{dd:02X}")
 
@@ -494,8 +495,24 @@ class ReaderBGFA:
             str_decoder = _get_string_decoder(str_enc_code & 0xFF)
             int_enc_for_strings = (str_enc_code >> 8) & 0xFF
             int_decoder_for_strings = INTEGER_DECODERS.get(int_enc_for_strings, decode_integer_list_varint)
-            segment_id_strings, str_consumed = str_decoder(data_after, total_segments, int_decoder_for_strings)
-            orientations, bits_consumed = unpack_bits_lsb(data_after[str_consumed:], total_segments, use_numpy=self._use_numpy)
+            # The names payload is a string list followed by the packed orientation
+            # bits.  Bound the names payload so the bits are not consumed as blob
+            # data: for the identity codec its extent is the encoded lengths plus
+            # the sum of the decoded lengths; for compressed codecs it is the
+            # remainder of the payload up to the orientation bits.
+            lengths_meta, lengths_consumed = int_decoder_for_strings(data_after, total_segments)
+            if str_enc_code & 0xFF == STRING_ENCODING_NONE:
+                str_consumed = lengths_consumed + sum(lengths_meta)
+            else:
+                # Orientation bits are packed into ceil(n/64) uint64 words.
+                bits_bytes = ((total_segments + 63) // 64) * 8
+                str_consumed = len(data_after) - bits_bytes
+            segment_id_strings = str_decoder(
+                data_after[:str_consumed], total_segments, int_decoder_for_strings
+            )
+            orientations, bits_consumed = unpack_bits_lsb(
+                data_after[str_consumed:], total_segments, use_numpy=self._use_numpy
+            )
             total_consumed = consumed + str_consumed + bits_consumed
 
             walks = []

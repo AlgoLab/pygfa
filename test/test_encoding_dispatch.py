@@ -36,6 +36,8 @@ from pygfa.bgfa._constants import (
     INTEGER_ENCODING_RICE,
     INTEGER_ENCODING_STREAMVBYTE,
     INTEGER_ENCODING_VBYTE,
+    INTEGER_ENCODING_ELIAS_GAMMA,
+    INTEGER_ENCODING_ELIAS_OMEGA,
     STRING_ENCODING_NONE,
     STRING_ENCODING_ZSTD,
     STRING_ENCODING_ZSTD_DICT,
@@ -67,6 +69,8 @@ from pygfa.encoding import (
     compress_integer_list_exp_golomb,
     compress_integer_list_byte_packed,
     compress_integer_list_masked_vbyte,
+    compress_integer_list_elias_gamma,
+    compress_integer_list_elias_omega,
     compress_string_list,
 )
 from pygfa.encoding.integer_list_encoding import (
@@ -79,6 +83,8 @@ from pygfa.encoding.integer_list_encoding import (
     decode_integer_list_rice,
     decode_integer_list_streamvbyte,
     decode_integer_list_vbyte,
+    decode_integer_list_elias_gamma,
+    decode_integer_list_elias_omega,
 )
 from pygfa.encoding.pfor_delta import decompress_integer_list_pfor_delta
 from pygfa.encoding.simple8b import decompress_integer_list_simple8b
@@ -117,11 +123,11 @@ from pygfa.exceptions import InvalidEncodingError
 _INT_DATA = [1, 5, 3, 99, 2, 7, 11, 42, 5, 3, 8, 2, 1, 0, 4]
 
 # All integer codec mappings: (code, own_encoder, own_decoder)
-# elias_gamma/elias_omega are excluded: they are known-broken codecs
-# (pre-existing, not a dispatch issue — per-section tests skip them too).
 _INT_CODECS = [
     (INTEGER_ENCODING_NONE, compress_integer_list_none, decode_integer_list_none),
     (INTEGER_ENCODING_VARINT, compress_integer_list_varint, decode_integer_list_varint),
+    (INTEGER_ENCODING_ELIAS_GAMMA, compress_integer_list_elias_gamma, decode_integer_list_elias_gamma),
+    (INTEGER_ENCODING_ELIAS_OMEGA, compress_integer_list_elias_omega, decode_integer_list_elias_omega),
     (INTEGER_ENCODING_FIXED16, lambda x: compress_integer_list_fixed(x, 16), decode_integer_list_fixed16),
     (INTEGER_ENCODING_FIXED32, lambda x: compress_integer_list_fixed(x, 32), decode_integer_list_fixed32),
     (INTEGER_ENCODING_FIXED64, lambda x: compress_integer_list_fixed(x, 64), decode_integer_list_fixed64),
@@ -139,10 +145,9 @@ _INT_CODECS = [
     (INTEGER_ENCODING_MASKED_VBYTE, compress_integer_list_masked_vbyte, decompress_integer_list_masked_vbyte),
 ]
 
-# ACGTN-only so the 2-bit DNA codec works. rle/dictionary are known-broken
-# on short/unique strings (per-section tests skip them too), so excluded.
+# ACGTN-only so the 2-bit DNA codec works.
 _STRING_DATA = ["ACGT", "NNN", "AAAA", "CGTACG", "TTTTT"]
-_SKIP_STR_METHODS = {"rle", "dictionary"}
+_SKIP_STR_METHODS = set()
 
 # String codec mappings: (code, method_name, own_decoder)
 _STR_CODECS = [

@@ -312,6 +312,7 @@ class BGFAWriter:
         path_names = []
         all_walk_lengths = []
         all_seg_ids = []
+        all_seg_names = []
         all_orientations = []
         all_cigars = []
 
@@ -324,12 +325,14 @@ class BGFAWriter:
             for seg in segments:
                 if len(seg) < 2:
                     all_seg_ids.append(0)
+                    all_seg_names.append("")
                     all_orientations.append(0)
                     continue
                 name = seg[:-1]
                 orientation = seg[-1]
                 seg_id = self._segment_map.get(name, 0)
                 all_seg_ids.append(seg_id)
+                all_seg_names.append(name)
                 all_orientations.append(0 if orientation == "+" else 1)
 
             overlaps = pd.get("overlaps", [])
@@ -365,13 +368,21 @@ class BGFAWriter:
 
         int_encoder = get_integer_encoder_from_code(walk_enc & 0xFF)
         p_walk_lengths = int_encoder(all_walk_lengths)
-        if getattr(self, '_use_numpy', False):
-            from pygfa.encoding.numpy_backend import uints_delta_encode_numpy
-            p_seg_ids = uints_delta_encode_numpy(all_seg_ids, int_encoder)
-        else:
-            p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_encoder)
         p_orientations = pack_bits_lsb(all_orientations, use_numpy=getattr(self, '_use_numpy', False))
-        p_walk = p_walk_lengths + p_seg_ids + p_orientations
+        if (walk_enc >> 24) & 0xFF == WALK_DECOMPOSITION_ORIENTATION_STRID:
+            # STRID payload: walk lengths + string segment names + orientation bits.
+            # Bits 8-23 of walk_enc hold the 16-bit names code (int_enc << 8 | str_enc).
+            str_code = (walk_enc >> 8) & 0xFFFF
+            p_seg_names = _compress_string_for_bgfa(all_seg_names, str_code)
+            p_walk = p_walk_lengths + p_seg_names + p_orientations
+        else:
+            if getattr(self, '_use_numpy', False):
+                from pygfa.encoding.numpy_backend import uints_delta_encode_numpy
+
+                p_seg_ids = uints_delta_encode_numpy(all_seg_ids, int_encoder)
+            else:
+                p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_encoder)
+            p_walk = p_walk_lengths + p_seg_ids + p_orientations
 
         buf.write(struct.pack("<B", SECTION_ID_PATHS))
         buf.write(struct.pack("<H", len(chunk)))
@@ -418,6 +429,7 @@ class BGFAWriter:
         ends = []
         all_walk_lengths = []
         all_seg_ids = []
+        all_seg_names = []
         all_orientations = []
 
         for wd in chunk:
@@ -435,6 +447,7 @@ class BGFAWriter:
                 if name not in self._segment_map:
                     raise GFAError(f"Walk references unknown segment '{name}'")
                 all_seg_ids.append(self._segment_map[name])
+                all_seg_names.append(name)
                 all_orientations.append(0 if orientation == "+" else 1)
 
         p_samples = _compress_string_for_bgfa(sample_ids, comp_samples)
@@ -447,9 +460,16 @@ class BGFAWriter:
         )
         int_enc_walk = get_integer_encoder_from_code(comp_walks & 0xFF)
         p_walk_lengths = int_enc_walk(all_walk_lengths)
-        p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_enc_walk)
         p_orientations = pack_bits_lsb(all_orientations, use_numpy=getattr(self, "_use_numpy", False))
-        p_walks = p_walk_lengths + p_seg_ids + p_orientations
+        if (comp_walks >> 24) & 0xFF == WALK_DECOMPOSITION_ORIENTATION_STRID:
+            # STRID payload: walk lengths + string segment names + orientation bits.
+            # Bits 8-23 of comp_walks hold the 16-bit names code (int_enc << 8 | str_enc).
+            str_code = (comp_walks >> 8) & 0xFFFF
+            p_seg_names = _compress_string_for_bgfa(all_seg_names, str_code)
+            p_walks = p_walk_lengths + p_seg_names + p_orientations
+        else:
+            p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_enc_walk)
+            p_walks = p_walk_lengths + p_seg_ids + p_orientations
 
         buf.write(struct.pack("<B", SECTION_ID_WALKS))
         buf.write(struct.pack("<H", len(chunk)))

@@ -55,38 +55,76 @@ def compress_integer_list_uints_delta(int_list: Iterable[int], encoder: Callable
 
 
 def compress_integer_list_elias_gamma(int_list: Iterable[int], _size: int = 0) -> bytes:
-    out = []
+    """Encode integers using classical bit-level Elias gamma coding.
+
+    Each value n is encoded as gamma(n+1): ``floor(log2(n+1))`` ones, a zero
+    delimiter, then the low bits of n+1 below its leading 1. Bits are packed
+    MSB-first into bytes; the final byte is zero-padded.
+    """
+    out = bytearray()
+    bit_buf = 0
+    bit_pos = 0
+
+    def write_bit(bit_val: int) -> None:
+        nonlocal bit_buf, bit_pos
+        bit_buf = (bit_buf << 1) | bit_val
+        bit_pos += 1
+        if bit_pos == 8:
+            out.append(bit_buf)
+            bit_buf = 0
+            bit_pos = 0
+
     for n in int_list:
-        n += 1
-        length = n.bit_length()
-        out.append(bytes([0x80] * (length - 1) + [length - 1]))
-        out.append(n.to_bytes((length + 7) // 8, byteorder="big"))
-    return b"".join(out)
+        m = n + 1
+        length = m.bit_length() - 1
+        for _ in range(length):
+            write_bit(1)
+        write_bit(0)
+        for i in range(length - 1, -1, -1):
+            write_bit((m >> i) & 1)
+
+    if bit_pos > 0:
+        out.append(bit_buf << (8 - bit_pos))
+    return bytes(out)
 
 
 def compress_integer_list_elias_omega(int_list: Iterable[int], _size: int = 0) -> bytes:
+    """Encode integers using canonical bit-level Elias omega coding.
+
+    Each value n is encoded as omega(n+1), where omega(1) = ``0`` and, for
+    m > 1, omega(m) = omega(floor(log2 m)) followed by the binary
+    representation of m (including its leading 1). Bits are packed MSB-first;
+    the final byte is zero-padded.
+    """
     out = bytearray()
-    for n in int_list:
-        # Elias omega encoding for non-negative integers.
-        # We encode n+1 so that 0 can be represented.
-        m = n + 1
+    bit_buf = 0
+    bit_pos = 0
+
+    def write_bit(bit_val: int) -> None:
+        nonlocal bit_buf, bit_pos
+        bit_buf = (bit_buf << 1) | bit_val
+        bit_pos += 1
+        if bit_pos == 8:
+            out.append(bit_buf)
+            bit_buf = 0
+            bit_pos = 0
+
+    def write_omega(m: int) -> None:
+        if m < 1:
+            raise ValueError(f"Elias omega encoding requires non-negative input, got {m - 1}")
         if m == 1:
-            # n=0: encode as single 0x01 byte (bit 1)
-            out.append(1)
-            continue
+            write_bit(0)
+            return
+        k = m.bit_length() - 1
+        write_omega(k)
+        for i in range(k, -1, -1):
+            write_bit((m >> i) & 1)
 
-        # Get binary representation of m (MSB first)
-        bits = []
-        temp = m
-        while temp:
-            bits.insert(0, temp & 1)
-            temp >>= 1
+    for n in int_list:
+        write_omega(n + 1)
 
-        # Prepend (len(bits)-1) copies of 0x80
-        out.extend([0x80] * (len(bits) - 1))
-        # Append bits as bytes (0 or 1)
-        out.extend(bits)
-
+    if bit_pos > 0:
+        out.append(bit_buf << (8 - bit_pos))
     return bytes(out)
 
 
@@ -673,36 +711,53 @@ def decode_integer_list_elias_gamma(data: bytes, count: int) -> tuple[list[int],
 
 
 def decode_integer_list_elias_omega(data: bytes, count: int) -> tuple[list[int], int]:
+    """Decode canonical bit-level Elias omega codes.
+
+    Each code is a sequence of groups: the first group is a single ``0`` bit
+    (omega(1)); every following group is a binary number with a leading 1 and
+    length equal to the value of the previous group plus one. The last
+    group's value is the decoded integer m = n + 1.
+    """
     if not data:
         return [], 0
 
     result = []
     bit_pos = 0
+    n_bits = len(data) * 8
 
     def read_bit() -> int | None:
         nonlocal bit_pos
-        if bit_pos >= len(data) * 8:
+        if bit_pos >= n_bits:
             return None
         byte_idx = bit_pos // 8
         bit_idx = bit_pos % 8
         bit_pos += 1
         return (data[byte_idx] >> (7 - bit_idx)) & 1
 
-    def decode_omega_recursive() -> int:
-        bit = read_bit()
-        if bit is None or bit == 0:
-            return 1
-
-        length = decode_omega_recursive()
-        value = 1
-        for _ in range(length - 1):
-            value = (value << 1) | (read_bit() or 0)
-        return value
+    def peek_bit() -> int | None:
+        if bit_pos >= n_bits:
+            return None
+        return (data[bit_pos // 8] >> (7 - bit_pos % 8)) & 1
 
     while count < 0 or len(result) < count:
-        if bit_pos >= len(data) * 8:
+        if peek_bit() is None:
             break
-        value = decode_omega_recursive()
+        # The first group of every omega code is a single 0 bit (omega(1)).
+        if read_bit() != 0:
+            raise ValueError("Malformed Elias omega code: expected leading 0 bit")
+        value = 1
+        while True:
+            bit = peek_bit()
+            if bit is None or bit == 0:
+                break
+            read_bit()  # consume the group's leading 1
+            group_value = 1
+            for _ in range(value):
+                b = read_bit()
+                if b is None:
+                    break
+                group_value = (group_value << 1) | b
+            value = group_value
         result.append(value - 1)
 
     return result, (bit_pos + 7) // 8

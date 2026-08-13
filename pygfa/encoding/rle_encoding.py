@@ -99,7 +99,7 @@ def decompress_string_rle(data: bytes, lengths: list[int]) -> list[bytes]:
     :param lengths: List of original string lengths
     :return: List of decompressed byte sequences
     """
-    if not data or not lengths:
+    if not lengths:
         return []
 
     from pygfa.encoding.integer_list_encoding import decode_integer_list_varint
@@ -151,6 +151,10 @@ def decompress_string_rle(data: bytes, lengths: list[int]) -> list[bytes]:
             else:
                 raise ValueError(f"Unknown RLE mode: {mode:#x}")
 
+        if len(decoded) != expected_length:
+            raise ValueError(
+                f"Malformed RLE stream: decoded {len(decoded)} bytes, expected {expected_length}"
+            )
         results.append(bytes(decoded))
 
     return results
@@ -183,11 +187,6 @@ def compress_string_list_rle(
 
 
 def _decompress_string_rle_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
-
     lengths, consumed = int_decoder(payload, record_num)
     remaining = payload[consumed:]
-    try:
-        return decompress_string_rle(remaining, lengths)
-    except (ValueError, IndexError):
-        return decompress_string_none_from_blob(remaining, lengths)
+    return decompress_string_rle(remaining, lengths)

@@ -11,6 +11,7 @@ Replaces repeated strings with varint references to a dictionary, achieving
 
 from __future__ import annotations
 
+import struct
 from collections.abc import Callable
 
 from pygfa.encoding.string_encoding import compress_string_list_dictionary
@@ -28,30 +29,59 @@ def compress_string_dictionary(string: str) -> bytes:
     return string.encode("ascii")
 
 
-def decompress_string_dictionary(data: bytes, lengths: list[int]) -> list[bytes]:
+def decompress_string_dictionary(
+    data: bytes, lengths: list[int], int_decoder: Callable | None = None
+) -> list[bytes]:
     """Decompress dictionary-encoded strings.
 
-    For compatibility with BGFA, this function works in identity mode:
-    it simply extracts strings using the provided lengths.
-
-    Dictionary encoding is most effective when used via compress_string_list_dictionary,
-    but BGFA uses single-string encoders, so we fall back to identity decoding.
+    When *int_decoder* is provided, *data* is parsed as the list-dictionary
+    payload emitted by ``compress_string_list_dictionary``:
+    ``[dict_size:uint32][blob_len:uint32][dict_offsets][dict_blob][indices]``.
+    Without it, *data* is treated as raw identity bytes (single-string mode).
 
     :param data: Compressed data
     :param lengths: List of original string lengths
+    :param int_decoder: Integer list decoder (required for dictionary payloads)
     :return: List of decompressed byte sequences
     """
     if not data or not lengths:
         return []
 
-    # Simple identity decoding: extract strings by length
+    if int_decoder is None:
+        # Single-string identity mode: extract strings by length.
+        result = []
+        offset = 0
+        for length in lengths:
+            if offset + length > len(data):
+                raise ValueError(f"Data too short: need {offset + length} bytes, have {len(data)}")
+            result.append(data[offset : offset + length])
+            offset += length
+        return result
+
+    if len(data) < 8:
+        raise ValueError("Malformed dictionary payload: too short for header")
+    dict_size = struct.unpack_from("<I", data, 0)[0]
+    blob_len = struct.unpack_from("<I", data, 4)[0]
+    if blob_len > len(data) - 8:
+        raise ValueError(
+            f"Malformed dictionary payload: blob length {blob_len} exceeds available bytes {len(data) - 8}"
+        )
+
+    pos = 8
+    offsets, consumed = int_decoder(data[pos:], dict_size)
+    pos += consumed
+    blob = data[pos : pos + blob_len]
+    pos += blob_len
+    indices, consumed2 = int_decoder(data[pos:], len(lengths))
+    pos += consumed2
+
     result = []
-    offset = 0
-    for length in lengths:
-        if offset + length > len(data):
-            raise ValueError(f"Data too short: need {offset + length} bytes, have {len(data)}")
-        result.append(data[offset : offset + length])
-        offset += length
+    for idx in indices:
+        if idx >= dict_size:
+            raise ValueError(f"Malformed dictionary payload: index {idx} out of range (dict_size={dict_size})")
+        start = offsets[idx]
+        end = offsets[idx + 1] if idx + 1 < dict_size else blob_len
+        result.append(blob[start:end])
     return result
 
 
@@ -73,11 +103,6 @@ def compress_string_list_dictionary_wrapper(
 
 
 def _decompress_string_dictionary_wrapper(payload: bytes, record_num: int, int_decoder: Callable) -> list[bytes]:
-    from pygfa.encoding.string_encoding import decompress_string_none_from_blob
-
     lengths, consumed = int_decoder(payload, record_num)
     remaining = payload[consumed:]
-    try:
-        return decompress_string_dictionary(remaining, lengths)
-    except (ValueError, IndexError):
-        return decompress_string_none_from_blob(remaining, lengths)
+    return decompress_string_dictionary(remaining, lengths, int_decoder)

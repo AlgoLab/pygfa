@@ -163,26 +163,24 @@ _SUPPORTED_STR_NAMES: set[str] = set(
 #
 #   * ``two_bit_dna`` — can only encode ACGTN, corrupts names/sequences
 #     that contain other characters.
-#   * ``rle`` — fails on short/unique strings in the example files.
-#   * ``dictionary`` — same.
-_SKIP_STRING_NAMES: set[str] = {"two_bit_dna", "rle", "dictionary"}
+_SKIP_STRING_NAMES: set[str] = {"two_bit_dna"}
 
-# For integer-type 2-byte fields we vary only the integer encoding.
-# ``elias_gamma`` and ``elias_omega`` fail on the small-to-moderate
-# integer ranges found in example GFA files.
-_SKIP_INT_NAMES: set[str] = {"elias_gamma", "elias_omega"}
+# Integer encodings skipped because they cannot roundtrip the small
+# integer ranges found in example GFA files (currently none; elias
+# gamma/omega were fixed in ENCODING_BUGS.md bugs 7/8).
+_SKIP_INT_NAMES: set[str] = set()
 
 # CIGAR ops-string encoding support in the codec
 # (``_ops_string_encoder_for_code``) is limited to NONE, GZIP, LZMA.
 _SUPPORTED_CIGAR_OPS_NAMES: set[str] = {"none", "gzip", "lzma"}
 
-# Walk decomposition: NONE loses data trivially, ORIENTATION_STRID has
-# a systemic failure for all integer encodings.
-_SKIP_WALK_DECOMP_NAMES: set[str] = {"none", "orientation_strid"}
+# Walk decomposition: NONE loses data trivially (kept excluded by design).
+_SKIP_WALK_DECOMP_NAMES: set[str] = {"none"}
 
-# CIGAR decomposition STRING fails for all sub-encodings in the current
-# codec implementation.
-_SKIP_CIGAR_DECOMP_NAMES: set[str] = {"string"}
+# CIGAR decomposition STRING is fixed (ENCODING_BUGS.md bug 12); the blob
+# string codecs are restricted to the generic compressors, same as the
+# NUM_OPERATIONS ops-string field.
+_SKIP_CIGAR_DECOMP_NAMES: set[str] = set()
 
 
 def _parse_encoding_string(enc_key: str, enc_str: str) -> tuple[str, int] | None:
@@ -266,6 +264,22 @@ def _parse_encoding_string(enc_key: str, enc_str: str) -> tuple[str, int] | None
                 decomp.value,
             )
             return label, code
+
+        # decomp == STRING: vary one sub-field at a time.  int1 (bits 15-8)
+        # is the integer encoding for the lengths list; str (bits 31-24) is
+        # the string encoding for the CIGAR blob.  int2 (bits 16-23) is unused.
+        if decomp == CigarDecomposition.STRING:
+            if int1_name != "varint" and int2_name == "varint" and str_name == "none":
+                label = f"cigar_decomp=STRING_len_int={int1_name}(0x{_INT_FROM_NAME[int1_name].value:02X})"
+                int1 = _INT_FROM_NAME[int1_name]
+                code = make_4byte_code(StringEncoding.NONE.value, 0, int1.value, decomp.value)
+                return label, code
+            if str_name in _SUPPORTED_CIGAR_OPS_NAMES and str_name != "none" and int1_name == "varint" and int2_name == "varint":
+                label = f"cigar_decomp=STRING_blob_str={str_name}(0x{_STR_FROM_NAME[str_name].value:02X})"
+                str_enc = _STR_FROM_NAME[str_name]
+                code = make_4byte_code(str_enc.value, 0, IntegerEncoding.VARINT.value, decomp.value)
+                return label, code
+            return None
 
         return None
 

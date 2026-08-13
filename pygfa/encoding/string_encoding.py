@@ -149,7 +149,9 @@ def compress_string_list(
     elif compression_method == "rle":
         from pygfa.encoding.rle_encoding import compress_string_rle
 
-        blob = compress_string_rle(concatenated.decode("ascii"))
+        # One independent RLE stream per string (empty strings emit no bytes);
+        # the lengths metadata already tells the reader where each stream starts.
+        blob = b"".join(compress_string_rle(s.decode("ascii")) for s in strings if s)
     elif compression_method == "cigar":
         from pygfa.encoding.cigar_encoding import compress_string_cigar
 
@@ -364,7 +366,7 @@ def compress_string_list_dictionary(
     """Compress a list of strings using dictionary encoding.
 
     Format:
-        [dict_size:uint32][dict_offsets:varint...][dict_blob:bytes][indices:varint...]
+        [dict_size:uint32][blob_len:uint32][dict_offsets:varint...][dict_blob:bytes][indices:varint...]
 
     :param string_list: List of strings to compress
     :param int_encoder: Function to encode integer lists
@@ -399,6 +401,7 @@ def compress_string_list_dictionary(
     # Encode everything
     result = bytearray()
     result.extend(struct.pack("<I", len(unique_strings)))
+    result.extend(struct.pack("<I", len(dict_blob)))
     result.extend(int_encoder(offsets))
     result.extend(dict_blob)
     result.extend(int_encoder(indices))
