@@ -12,7 +12,7 @@ import struct
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pygfa.bgfa import ReaderBGFA, compress_integer_list_varint
+from pygfa.bgfa import ReaderBGFA, compress_integer_list_uints_delta, compress_integer_list_varint
 from pygfa.gfa import GFA
 
 
@@ -74,8 +74,8 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         sequences_metadata = compress_integer_list_varint([len(s) for s in test_sequences])
 
         hep_data = compress_integer_list_varint(test_hap_indices)
-        starts_data = compress_integer_list_varint(test_starts)
-        ends_data = compress_integer_list_varint(test_ends)
+        starts_data = compress_integer_list_uints_delta(test_starts)
+        ends_data = compress_integer_list_uints_delta(test_ends)
         positions_data = starts_data + ends_data
 
         # Header format per spec (grouped layout):
@@ -110,8 +110,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
 
         self.assertEqual(len(walks), 1)
         self.assertEqual(walks[0]["sample_id"], "sample1")
-        self.assertEqual(walks[0]["sequence_id"], "seq1")
-        self.assertEqual(walks[0]["haplotype_index"], 0)
+        self.assertEqual(walks[0]["seq_id"], "seq1")
+        self.assertEqual(walks[0]["hapindex"], 0)
+        self.assertEqual(walks[0]["seq_start"], 100)
+        self.assertEqual(walks[0]["seq_end"], 500)
 
     def test_bgfa_reader_integration(self):
         """Test BGFA reader integration with paths and walks sections."""

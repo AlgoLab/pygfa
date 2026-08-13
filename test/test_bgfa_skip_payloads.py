@@ -260,3 +260,29 @@ def test_skip_payloads_with_existing_gfa():
 
     finally:
         os.unlink(bgfa_path)
+
+
+def test_skip_payloads_with_walks():
+    """Test skip_payloads on a BGFA file containing walks (section 5)."""
+    g = GFA.from_gfa("data/test_walks.gfa")
+    assert len(g.walks()) == 2
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
+        bgfa_path = f.name
+        g.to_bgfa(bgfa_path, block_size=1024, compression_options=None, verbose=False, debug=False, logfile=None)
+
+    try:
+        reader = ReaderBGFA()
+
+        # skip_payloads=True must skip the walks block without crashing
+        gfa_skip = reader.read_bgfa(bgfa_path, skip_payloads=True)
+        assert len(gfa_skip.walks()) == 0
+
+        # Full read must recover all walks
+        gfa_full = reader.read_bgfa(bgfa_path, skip_payloads=False)
+        assert len(gfa_full.walks()) == 2
+        assert gfa_full.walks("sample1_0_seqA")["walk"] == "1+2+3+"
+        assert gfa_full.walks("sample2_1_seqB")["walk"] == "1-2+3+"
+
+    finally:
+        os.unlink(bgfa_path)

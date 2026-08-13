@@ -324,7 +324,17 @@ class GFAParserMixin(BaseGFA):
                 value = walk_child.children[0].value
                 walk_data["seq_end"] = None if value == "*" else int(value)
             elif walk_child.data == "walk":
-                walk_data["walk"] = walk_child.children[0].value
+                segments = []
+                for seg_child in walk_child.children:
+                    inner = seg_child.children[0]
+                    if inner.data == "oriented_segment_sign":
+                        seg_name = inner.children[0].value
+                        orn = inner.children[1].value
+                    else:  # oriented_segment_char
+                        orn = "+" if inner.children[0].value == ">" else "-"
+                        seg_name = inner.children[1].value
+                    segments.append(f"{seg_name}{orn}")
+                walk_data["walk"] = "".join(segments)
             elif walk_child.data == "optional_field":
                 tag = walk_child.children[0].children[0].value
                 value_type = walk_child.children[1].children[0].value

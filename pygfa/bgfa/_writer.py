@@ -19,6 +19,7 @@ from pygfa.bgfa._constants import (
     SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
     SECTION_ID_SEGMENTS,
+    SECTION_ID_WALKS,
     STRING_ENCODING_2BIT_DNA,
     STRING_ENCODING_ARITHMETIC,
     STRING_ENCODING_BROTLI,
@@ -34,6 +35,7 @@ from pygfa.bgfa._constants import (
     STRING_ENCODING_ZSTD,
     STRING_ENCODING_ZSTD_DICT,
     WALK_DECOMPOSITION_ORIENTATION_NUMID,
+    WALK_DECOMPOSITION_ORIENTATION_STRID,
     logger,
 )
 from pygfa.bgfa._reader import get_integer_encoder, get_integer_encoder_from_code
@@ -43,6 +45,7 @@ from pygfa.encoding.cigar_encoding import (
 )
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding, make_compression_code
 from pygfa.encoding.heuristic import select_string_encoding
+from pygfa.exceptions import GFAError
 from pygfa.gfa import GFA
 
 # =============================================================================
@@ -76,6 +79,42 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
     method = method_map.get(str_encoding, "none")
     int_encoder = get_integer_encoder(compression_code)
     return compress_string_list(string_list, int_encoder, method, first_byte_strategy=int_encoding)
+
+
+def _parse_walk_string(walk_str: str) -> list[tuple[str, str]]:
+    """Parse a GFA walk string into (segment_name, orientation) pairs.
+
+    Handles both the '>'/'<' char form and the '+'/'-' sign form, e.g.
+    "1+2-3+" and ">1<2>3" both yield [("1", "+"), ("2", "-"), ("3", "+")].
+    """
+    result: list[tuple[str, str]] = []
+    i = 0
+    n = len(walk_str)
+    while i < n:
+        c = walk_str[i]
+        if c == ">":
+            orientation = "+"
+            i += 1
+        elif c == "<":
+            orientation = "-"
+            i += 1
+        else:
+            orientation = None
+        start = i
+        while i < n and walk_str[i] not in "><":
+            if orientation is None and walk_str[i] in "+-":
+                break
+            i += 1
+        name = walk_str[start:i]
+        if orientation is None:
+            if i < n and walk_str[i] in "+-":
+                orientation = "+" if walk_str[i] == "+" else "-"
+                i += 1
+            else:
+                orientation = "+"
+        if name:
+            result.append((name, orientation))
+    return result
 
 
 # =============================================================================
@@ -351,6 +390,96 @@ class BGFAWriter:
             len(p_walk),
         )
 
+    def _write_walks_block(
+        self,
+        buf: io.BytesIO,
+        chunk: list[dict],
+        comp_samples: int,
+        comp_hep: int,
+        comp_seq: int,
+        comp_positions: int,
+        comp_walks: int,
+    ) -> None:
+        """Write a walks block (section id 5) in the layout `_parse_walks_blocks` consumes."""
+        logger.debug(
+            "BGFAWriter._write_walks_block() -> entry, chunk_size=%d, comp_samples=0x%04X, comp_hep=0x%04X, comp_seq=0x%04X, comp_positions=0x%04X, comp_walks=0x%08X",
+            len(chunk),
+            comp_samples,
+            comp_hep,
+            comp_seq,
+            comp_positions,
+            comp_walks,
+        )
+
+        sample_ids = []
+        hap_indices = []
+        seq_ids = []
+        starts = []
+        ends = []
+        all_walk_lengths = []
+        all_seg_ids = []
+        all_orientations = []
+
+        for wd in chunk:
+            sample_ids.append(wd.get("sample_id", ""))
+            hap_indices.append(int(wd.get("hapindex", 0)))
+            seq_ids.append(wd.get("seq_id", ""))
+            start = wd.get("seq_start")
+            end = wd.get("seq_end")
+            starts.append(0 if start is None else int(start))
+            ends.append(0 if end is None else int(end))
+
+            segments = _parse_walk_string(wd.get("walk", ""))
+            all_walk_lengths.append(len(segments))
+            for name, orientation in segments:
+                if name not in self._segment_map:
+                    raise GFAError(f"Walk references unknown segment '{name}'")
+                all_seg_ids.append(self._segment_map[name])
+                all_orientations.append(0 if orientation == "+" else 1)
+
+        p_samples = _compress_string_for_bgfa(sample_ids, comp_samples)
+        int_enc_hep = get_integer_encoder_from_code((comp_hep >> 8) & 0xFF)
+        p_hep = int_enc_hep(hap_indices)
+        p_seq = _compress_string_for_bgfa(seq_ids, comp_seq)
+        int_enc_pos = get_integer_encoder_from_code((comp_positions >> 8) & 0xFF)
+        p_positions = compress_integer_list_uints_delta(starts, int_enc_pos) + compress_integer_list_uints_delta(
+            ends, int_enc_pos
+        )
+        int_enc_walk = get_integer_encoder_from_code(comp_walks & 0xFF)
+        p_walk_lengths = int_enc_walk(all_walk_lengths)
+        p_seg_ids = compress_integer_list_uints_delta(all_seg_ids, int_enc_walk)
+        p_orientations = pack_bits_lsb(all_orientations, use_numpy=getattr(self, "_use_numpy", False))
+        p_walks = p_walk_lengths + p_seg_ids + p_orientations
+
+        buf.write(struct.pack("<B", SECTION_ID_WALKS))
+        buf.write(struct.pack("<H", len(chunk)))
+        buf.write(struct.pack("<H", comp_samples))
+        buf.write(struct.pack("<H", comp_hep))
+        buf.write(struct.pack("<H", comp_seq))
+        buf.write(struct.pack("<H", comp_positions))
+        buf.write(struct.pack("<I", comp_walks))
+        buf.write(struct.pack("<Q", len(p_samples)))
+        buf.write(struct.pack("<Q", sum(len(s) for s in sample_ids)))
+        buf.write(struct.pack("<Q", len(p_hep)))
+        buf.write(struct.pack("<Q", len(hap_indices)))
+        buf.write(struct.pack("<Q", len(p_seq)))
+        buf.write(struct.pack("<Q", sum(len(s) for s in seq_ids)))
+        buf.write(struct.pack("<Q", len(p_positions)))
+        # ulen_positions stores a value count (starts + ends), not a byte sum like
+        # samples/seq; the reader ignores it and validate_bgfa checks structurally.
+        buf.write(struct.pack("<Q", len(starts) * 2))
+        buf.write(struct.pack("<Q", len(p_walks)))
+        buf.write(struct.pack("<Q", sum(all_walk_lengths)))
+        buf.write(p_samples + p_hep + p_seq + p_positions + p_walks)
+        logger.debug(
+            "BGFAWriter._write_walks_block() -> exit, p_samples_size=%d, p_hep_size=%d, p_seq_size=%d, p_positions_size=%d, p_walks_size=%d",
+            len(p_samples),
+            len(p_hep),
+            len(p_seq),
+            len(p_positions),
+            len(p_walks),
+        )
+
     def _write_opt_fields_block(self, buf: io.BytesIO, names: list[str], edges: list, enc: int) -> None:
         """Write a block holding optional fields for segments and links.
 
@@ -506,6 +635,61 @@ class BGFAWriter:
             for i in range(0, len(paths), self._block_size):
                 chunk = paths[i : i + self._block_size]
                 self._write_paths_block(buf, chunk, path_names_enc, paths_walk_enc, paths_cigars_enc)
+
+        walks = list(self._gfa.walks().values())
+        if walks:
+            walk_samples_enc = self._comp_options.get(
+                "walk_sample_ids_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            walk_hep_enc = self._comp_options.get(
+                "walk_haplotype_indices_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            walk_seq_enc = self._comp_options.get(
+                "walk_sequence_ids_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            walk_pos_start_enc = self._comp_options.get(
+                "walk_positions_start_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            # The block stores a single positions code; the end encoding is accepted
+            # for CLI compatibility but the start encoding is used for both.
+            _ = self._comp_options.get(
+                "walk_positions_end_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            walk_steps_enc = self._comp_options.get(
+                "walk_steps_enc",
+                make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
+            )
+            # The block stores a single positions code; use the start encoding.
+            comp_positions = walk_pos_start_enc
+            # 4-byte walk code: int encoding in the low byte, ORIENTATION_NUMID in the top byte.
+            if (walk_steps_enc >> 24) & 0xFF in (
+                WALK_DECOMPOSITION_ORIENTATION_STRID,
+                WALK_DECOMPOSITION_ORIENTATION_NUMID,
+            ):
+                comp_walks = walk_steps_enc
+            else:
+                comp_walks = ((walk_steps_enc >> 8) & 0xFF) | (WALK_DECOMPOSITION_ORIENTATION_NUMID << 24)
+
+            logger.debug(
+                "BGFAWriter.to_bgfa() -> writing %d walks, comp_samples=0x%04X, comp_hep=0x%04X, comp_seq=0x%04X, comp_positions=0x%04X, comp_walks=0x%08X",
+                len(walks),
+                walk_samples_enc,
+                walk_hep_enc,
+                walk_seq_enc,
+                comp_positions,
+                comp_walks,
+            )
+
+            for i in range(0, len(walks), self._block_size):
+                chunk = walks[i : i + self._block_size]
+                self._write_walks_block(
+                    buf, chunk, walk_samples_enc, walk_hep_enc, walk_seq_enc, comp_positions, comp_walks
+                )
 
         opt_fields_enc = self._comp_options.get(
             "opt_fields_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)

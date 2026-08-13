@@ -714,11 +714,11 @@ class ReaderBGFA:
             walks_list.append(
                 {
                     "sample_id": sample_id,
-                    "haplotype_index": hap_idx,
-                    "sequence_id": seq_id,
-                    "start": start_pos,
-                    "end": end_pos,
-                    "walk": walk_segments,
+                    "hapindex": hap_idx,
+                    "seq_id": seq_id,
+                    "seq_start": start_pos,
+                    "seq_end": end_pos,
+                    "walk": "".join(walk_segments),
                 }
             )
 
@@ -869,6 +869,11 @@ class ReaderBGFA:
         return gfa
 
     def _skip_block(self, data: bytes, start_offset: int) -> tuple[None, int]:
+        """Skip a block without reconstructing it, returning (None, bytes consumed).
+
+        Note: paths blocks store no walk-payload length, so skipping one requires
+        fully parsing it via ``_parse_paths_blocks``; that branch is not O(1).
+        """
         offset = start_offset + 1
 
         if len(data) < offset + 2:
@@ -905,19 +910,10 @@ class ReaderBGFA:
                 compressed_len = clen_fromto + clen_cigars
 
             elif section_id == SECTION_ID_PATHS:
-                if len(data) < offset + 2 + 8 + 4 + 8 + 4 + 8 + 8 * 3:
-                    raise ValueError("BGFA file is too short")
-                offset += 2
-                clen_names = struct.unpack_from("<Q", data, offset)[0]
-                offset += 8
-                offset += 4
-                clen_paths = struct.unpack_from("<Q", data, offset)[0]
-                offset += 8
-                offset += 4
-                clen_cigars = struct.unpack_from("<Q", data, offset)[0]
-                offset += 8
-                offset += 8 * 3
-                compressed_len = clen_names + clen_paths + clen_cigars
+                # The paths block stores no walk-payload length, so it cannot be
+                # skipped without parsing it. Delegate to the real parser.
+                _, consumed = self._parse_paths_blocks(data, start_offset, self._segment_names)
+                return None, consumed
 
             elif section_id == SECTION_ID_WALKS:
                 if len(data) < offset + 4 * 2 + 4 + 5 * 16:
@@ -1312,16 +1308,15 @@ def measure_bgfa(
             if verbose:
                 logger.info("  Walks:")
                 for i, w in enumerate(walks_data):
-                    walk_str = ", ".join(w.get("walk", []))
                     logger.info(
                         "    [%d] sample=%s hap=%s seq=%s start=%s end=%s: %s",
                         i,
                         w.get("sample_id", "?"),
-                        w.get("haplotype_index", "?"),
-                        w.get("sequence_id", "?"),
-                        w.get("start", "?"),
-                        w.get("end", "?"),
-                        walk_str,
+                        w.get("hapindex", "?"),
+                        w.get("seq_id", "?"),
+                        w.get("seq_start", "?"),
+                        w.get("seq_end", "?"),
+                        w.get("walk", ""),
                     )
 
             stats.append(

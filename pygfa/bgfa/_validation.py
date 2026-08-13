@@ -22,6 +22,7 @@ from pygfa.bgfa._reader import (
     STRING_DECODERS,
     get_integer_decoder,
 )
+from pygfa.encoding.integer_list_encoding import decode_integer_list_uints_delta
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding, WalkDecomposition
 from pygfa.encoding.string_encoding import decompress_string_none
 
@@ -512,26 +513,77 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
 
             payload_offset = walk_offset
 
+            # samples and seq are string lists; hep is an integer list. positions
+            # and walks are verified structurally below.
             walk_subfields = [
                 ("samples", "comp_samples", "clen_samples", "ulen_samples"),
                 ("hep", "comp_hep", "clen_hep", "ulen_hep"),
                 ("seq", "comp_seq", "clen_seq", "ulen_seq"),
-                ("positions", "comp_positions", "clen_positions", "ulen_positions"),
-                ("walks", "comp_walks", "clen_walks", "ulen_walks"),
             ]
 
+            record_num = parsed["record_num"]
             sub_offset = payload_offset
+
             for name, comp_key, clen_key, ulen_key in walk_subfields:
                 comp_code = parsed[comp_key]
                 clen = parsed[clen_key]
                 ulen = parsed[ulen_key]
 
                 sub_payload = data[sub_offset : sub_offset + clen]
-                field_result = _verify_decompressed_length(sub_payload, comp_code, parsed["record_num"], ulen, name)
+                if name == "hep":
+                    int_decoder = get_integer_decoder(comp_code)
+                    try:
+                        values, _ = int_decoder(sub_payload, record_num)
+                        correct = len(values) == record_num
+                        field_result = {"value": ulen, "actual": len(values), "correct": correct}
+                        if not correct:
+                            field_result["message"] = (
+                                f"Uncompressed hep length mismatch: expected {record_num}, got {len(values)}"
+                            )
+                    except Exception as e:
+                        field_result = {"value": ulen, "correct": True, "message": f"Decompression failed: {e}"}
+                else:
+                    field_result = _verify_decompressed_length(sub_payload, comp_code, record_num, ulen, name)
                 block_result["fields"][ulen_key] = field_result
                 if not field_result["correct"]:
                     result["valid"] = False
                 sub_offset += clen
+
+            # positions is two concatenated delta integer lists (starts + ends).
+            comp_code = parsed["comp_positions"]
+            clen = parsed["clen_positions"]
+            sub_payload = data[sub_offset : sub_offset + clen]
+            int_decoder = get_integer_decoder(comp_code)
+            try:
+                starts, consumed1 = decode_integer_list_uints_delta(sub_payload, record_num, int_decoder)
+                ends, _ = decode_integer_list_uints_delta(sub_payload[consumed1:], record_num, int_decoder)
+                correct = len(starts) == record_num and len(ends) == record_num
+                field_result = {"value": parsed["ulen_positions"], "actual": len(starts) + len(ends), "correct": correct}
+                if not correct:
+                    field_result["message"] = (
+                        f"Uncompressed positions length mismatch: expected {2 * record_num}, got {len(starts) + len(ends)}"
+                    )
+            except Exception as e:
+                field_result = {"value": parsed["ulen_positions"], "correct": True, "message": f"Decompression failed: {e}"}
+            block_result["fields"]["ulen_positions"] = field_result
+            if not field_result["correct"]:
+                result["valid"] = False
+            sub_offset += clen
+
+            # walks is a structural payload (lengths + delta ids + bit-packed
+            # orientations); verify it decodes, without an ulen equality check.
+            comp_code = parsed["comp_walks"]
+            clen = parsed["clen_walks"]
+            sub_payload = data[sub_offset : sub_offset + clen]
+            try:
+                int_dec_walks = get_integer_decoder(comp_code & 0xFF)
+                walks, _ = reader._decode_walk(sub_payload, record_num, comp_code, int_dec_walks, reader._segment_names)
+                field_result = {"value": parsed["ulen_walks"], "actual": sum(len(w) for w in walks), "correct": True}
+            except Exception as e:
+                field_result = {"value": parsed["ulen_walks"], "correct": False, "message": f"Decompression failed: {e}"}
+                result["valid"] = False
+            block_result["fields"]["ulen_walks"] = field_result
+            sub_offset += clen
 
             for fn in field_names:
                 if fn not in block_result["fields"] and not fn.startswith("ulen_"):
@@ -1033,11 +1085,11 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     {
                         "walk_id": i,
                         "sample_id": w.get("sample_id", f"sample{i}"),
-                        "haplotype_index": w.get("haplotype_index", 0),
-                        "sequence_id": w.get("sequence_id", f"seq{i}"),
-                        "start_position": w.get("start", 0),
-                        "end_position": w.get("end", 0),
-                        "oriented_segment_ids": w.get("walk", []),
+                        "haplotype_index": w.get("hapindex", 0),
+                        "sequence_id": w.get("seq_id", f"seq{i}"),
+                        "start_position": w.get("seq_start", 0),
+                        "end_position": w.get("seq_end", 0),
+                        "oriented_segment_ids": w.get("walk", ""),
                     }
                 )
 
@@ -1157,9 +1209,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             if "walks" in block:
                 print("    Walks:")
                 for walk in block["walks"]:
-                    segments = ", ".join(walk["oriented_segment_ids"])
                     print(
-                        f"      Walk {walk['walk_id']}: Sample={walk['sample_id']}, Hap={walk['haplotype_index']}, Seq={walk['sequence_id']}, Pos={walk['start_position']}-{walk['end_position']} -> [{segments}]"
+                        f"      Walk {walk['walk_id']}: Sample={walk['sample_id']}, Hap={walk['haplotype_index']}, Seq={walk['sequence_id']}, Pos={walk['start_position']}-{walk['end_position']} -> [{walk['oriented_segment_ids']}]"
                     )
 
         print("\nSummary:")

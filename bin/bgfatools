@@ -65,8 +65,18 @@ def parse_cli_options():
     strategy_group.add_argument("--compression-walk-sequence-ids", type=str, default="varint+none")
     strategy_group.add_argument("--walk-positions-start", type=str, default="varint+none")
     strategy_group.add_argument("--compression-walk-positions-start", type=str, default="varint+none")
-    strategy_group.add_argument("--walk-positions-end", type=str, default="varint+none")
-    strategy_group.add_argument("--compression-walk-positions-end", type=str, default="varint+none")
+    strategy_group.add_argument(
+        "--walk-positions-end",
+        type=str,
+        default="varint+none",
+        help="Currently unused: the walks block stores a single positions encoding taken from --walk-positions-start",
+    )
+    strategy_group.add_argument(
+        "--compression-walk-positions-end",
+        type=str,
+        default="varint+none",
+        help="Currently unused: the walks block stores a single positions encoding taken from --compression-walk-positions-start",
+    )
     strategy_group.add_argument("--walk-steps", type=str, default="varint+none")
     strategy_group.add_argument("--compression-walk-steps", type=str, default="varint+none")
 
