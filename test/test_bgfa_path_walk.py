@@ -13,6 +13,7 @@ import struct
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pygfa.bgfa import ReaderBGFA, compress_integer_list_uints_delta, compress_integer_list_varint
+from pygfa.bgfa._codec_utils import pack_bits_lsb
 from pygfa.gfa import GFA
 
 
@@ -40,9 +41,10 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         cigars_metadata = compress_integer_list_varint([len(s) for s in test_cigars])
 
         # Header format: section_id(B) + record_num(H) + comp_names(H) + comp_paths(I) +
-        #                comp_cigars(I) + clen_cigars(Q) + ulen_cigars(Q) + clen_names(Q) + ulen_names(Q)
+        #                comp_cigars(I) + clen_cigars(Q) + ulen_cigars(Q) + clen_names(Q) +
+        #                ulen_names(Q) + clen_walks(Q) + ulen_walks(Q)
         header = struct.pack(
-            "<BHHIIQQQQ",
+            "<BHHIIQQQQQQ",
             4,  # section_id
             1,  # record_num
             0x0100,  # compression_path_names
@@ -52,6 +54,8 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             len(cigars_data),
             len(names_metadata) + len(names_data),
             len(names_data),
+            0,  # clen_walks
+            0,  # ulen_walks
         )
 
         bgfa_data = header + names_metadata + names_data + cigars_metadata + cigars_data
@@ -77,19 +81,21 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
         starts_data = compress_integer_list_uints_delta(test_starts)
         ends_data = compress_integer_list_uints_delta(test_ends)
         positions_data = starts_data + ends_data
+        presence_data = pack_bits_lsb([1, 1])  # both positions present
 
         # Header format per spec (grouped layout):
-        # section_id(B) + record_num(H) + 4x compression(H) + comp_walks(I) +
-        # 5x (clen(Q) + ulen(Q)) for samples/hep/seq/positions/walks
-        # Total: 1 + 2 + 12 + 80 = 95 bytes
+        # section_id(B) + record_num(H) + 5x compression(H) + comp_walks(I) +
+        # 6x (clen(Q) + ulen(Q)) for samples/hep/seq/positions/walks/presence
+        # Total: 1 + 2 + 12 + 96 = 111 bytes
         header = struct.pack(
-            "<BHHHHHIQQQQQQQQQQ",
+            "<BHHHHHHIQQQQQQQQQQQQ",
             5,  # section_id
             1,  # record_num
             0x0100,  # compression_samples
             0x0100,  # compression_hep
             0x0100,  # compression_sequence
             0x0100,  # compression_positions
+            0x0100,  # compression_positions_end
             0x00000000,  # compression_walks (empty)
             len(samples_metadata) + len(samples_data),  # clen_samples
             len(samples_data),  # ulen_samples
@@ -101,10 +107,19 @@ class TestBGFAPathWalkParsing(unittest.TestCase):
             len(positions_data),  # ulen_positions
             0,  # clen_walks
             0,  # ulen_walks
+            len(presence_data),  # clen_presence
+            2,  # ulen_presence
         )
 
         bgfa_data = (
-            header + samples_metadata + samples_data + hep_data + sequences_metadata + sequences_data + positions_data
+            header
+            + samples_metadata
+            + samples_data
+            + hep_data
+            + sequences_metadata
+            + sequences_data
+            + positions_data
+            + presence_data
         )
         walks, bytes_read = self.reader._parse_walks_blocks(bgfa_data, 0, [])
 

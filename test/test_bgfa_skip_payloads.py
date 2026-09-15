@@ -281,8 +281,53 @@ def test_skip_payloads_with_walks():
         # Full read must recover all walks
         gfa_full = reader.read_bgfa(bgfa_path, skip_payloads=False)
         assert len(gfa_full.walks()) == 2
-        assert gfa_full.walks("sample1_0_seqA")["walk"] == "1+2+3+"
-        assert gfa_full.walks("sample2_1_seqB")["walk"] == "1-2+3+"
+        assert gfa_full.walks("sample1_0_seqA")["walk"] == ">1>2>3"
+        assert gfa_full.walks("sample2_1_seqB")["walk"] == "<1>2>3"
 
+    finally:
+        os.unlink(bgfa_path)
+
+
+def test_skip_payloads_with_opt_fields():
+    """skip_payloads must skip the extended opt-fields block (section 6)."""
+    from pygfa.graph_element.edge import Edge
+
+    g = GFA()
+    g.add_node(node.Node("seg1", "ACGT", opt_fields={"LN": 100}))
+    g.add_node(node.Node("seg2", "TTTT"))
+    g.add_edge(Edge(None, "seg1", "+", "seg2", "+", (None, None), (None, None), "4M", opt_fields={"NM": 5}))
+    g.add_path({"path_name": "p1", "segments": ["seg1+", "seg2+"], "overlaps": ["4M"], "XX": "foo"})
+    g.add_walk(
+        {
+            "sample_id": "s1",
+            "hapindex": 0,
+            "seq_id": "chr1",
+            "seq_start": 0,
+            "seq_end": 10,
+            "walk": ">seg1>seg2",
+            "YY": 7,
+        }
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".bgfa", delete=False, dir=_test_output_dir) as f:
+        bgfa_path = f.name
+        g.to_bgfa(bgfa_path, block_size=1024, compression_options=None, verbose=False, debug=False, logfile=None)
+
+    try:
+        reader = ReaderBGFA()
+
+        # skip_payloads=True must skip the opt-fields block without crashing
+        gfa_skip = reader.read_bgfa(bgfa_path, skip_payloads=True)
+        assert len(gfa_skip.nodes()) == 0
+        assert len(gfa_skip.edges()) == 0
+        assert len(gfa_skip.paths()) == 0
+        assert len(gfa_skip.walks()) == 0
+
+        # Full read must recover the opt fields on all four element types
+        gfa_full = reader.read_bgfa(bgfa_path, skip_payloads=False)
+        assert gfa_full.nodes(data=True)["seg1"]["LN"] == 100
+        assert list(gfa_full.edges(data=True))[0][2]["NM"] == 5
+        assert gfa_full.paths("p1")["XX"] == "foo"
+        assert gfa_full.walks("s1_0_chr1")["YY"] == 7
     finally:
         os.unlink(bgfa_path)

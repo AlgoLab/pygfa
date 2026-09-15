@@ -53,15 +53,15 @@ class TestBGFAWalkRoundtrip(unittest.TestCase):
         return path
 
     def test_gfa_parsing_preserves_walks(self):
-        """The fixture must parse with both walks intact (sign form)."""
+        """The fixture must parse with both walks intact (char form)."""
         g = GFA.from_gfa(self.gfa_path)
         self.assertEqual(len(g.walks()), 2)
         w1 = g.walks("sample1_0_seqA")
-        self.assertEqual(w1["walk"], "1+2+3+")
+        self.assertEqual(w1["walk"], ">1>2>3")
         self.assertEqual(w1["seq_start"], 1)
         self.assertEqual(w1["seq_end"], 10)
         w2 = g.walks("sample2_1_seqB")
-        self.assertEqual(w2["walk"], "1-2+3+")
+        self.assertEqual(w2["walk"], "<1>2>3")
         self.assertEqual(w2["seq_start"], 5)
         self.assertEqual(w2["seq_end"], 20)
 
@@ -96,8 +96,8 @@ class TestBGFAWalkRoundtrip(unittest.TestCase):
         g.to_bgfa(bgfa)
         h = GFA.from_bgfa(bgfa)
         text = h.to_gfa()
-        self.assertIn("W\tsample1\t0\tseqA\t1\t10\t1+2+3+", text)
-        self.assertIn("W\tsample2\t1\tseqB\t5\t20\t1-2+3+", text)
+        self.assertIn("W\tsample1\t0\tseqA\t1\t10\t>1>2>3", text)
+        self.assertIn("W\tsample2\t1\tseqB\t5\t20\t<1>2>3", text)
 
     def test_no_walks_no_block(self):
         """A GFA without walks must produce a BGFA with no section-5 block."""
@@ -172,7 +172,45 @@ class TestBGFAWalkRoundtrip(unittest.TestCase):
         self.assertEqual(walks[0]["sequence_id"], "seqA")
         self.assertEqual(walks[0]["start_position"], 1)
         self.assertEqual(walks[0]["end_position"], 10)
-        self.assertEqual(walks[0]["oriented_segment_ids"], "1+2+3+")
+        self.assertEqual(walks[0]["oriented_segment_ids"], ">1>2>3")
+
+    def test_walk_star_positions_roundtrip(self):
+        """``*`` (unknown) seq_start/seq_end must survive a BGFA roundtrip as None."""
+        g = GFA.from_gfa(self.gfa_path)
+        g.add_walk(
+            {
+                "sample_id": "sample3",
+                "hapindex": 0,
+                "seq_id": "seqC",
+                "seq_start": None,
+                "seq_end": None,
+                "walk": "1+2+",
+            }
+        )
+        bgfa = self._bgfa_path()
+        g.to_bgfa(bgfa)
+        h = GFA.from_bgfa(bgfa)
+        w = h.walks("sample3_0_seqC")
+        self.assertIsNotNone(w)
+        self.assertIsNone(w["seq_start"])
+        self.assertIsNone(w["seq_end"])
+        # to_gfa() must re-emit the '*' sentinel.
+        self.assertIn("W\tsample3\t0\tseqC\t*\t*\t>1>2", h.to_gfa())
+
+    def test_walk_positions_start_end_encodings(self):
+        """walk_positions_end_enc must be honoured (not silently replaced by start)."""
+        bgfa = self._bgfa_path()
+        g = GFA.from_gfa(self.gfa_path)
+        g.to_bgfa(
+            bgfa,
+            walk_positions_start_enc="varint-none",
+            walk_positions_end_enc="fixed16-none",
+        )
+        h = GFA.from_bgfa(bgfa)
+        for key, expected in g.walks().items():
+            actual = h.walks(key)
+            self.assertEqual(actual["seq_start"], expected["seq_start"])
+            self.assertEqual(actual["seq_end"], expected["seq_end"])
 
     def test_walk_unknown_segment_raises(self):
         """A walk referencing a missing segment must raise GFAError, not corrupt data."""

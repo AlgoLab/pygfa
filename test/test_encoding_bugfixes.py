@@ -39,8 +39,13 @@ from pygfa.encoding.integer_list_encoding import (  # noqa: E402
     decode_integer_list_elias_omega,
     decode_integer_list_varint,
 )
+from pygfa.encoding.cigar_encoding import (  # noqa: E402
+    _ops_string_decoder_for_code,
+    _ops_string_encoder_for_code,
+)
 from pygfa.encoding.rle_encoding import _decompress_string_rle_wrapper  # noqa: E402
 from pygfa.encoding.string_encoding import compress_string_list  # noqa: E402
+from pygfa.exceptions import GFAError  # noqa: E402
 from pygfa.gfa import GFA  # noqa: E402
 
 
@@ -257,24 +262,63 @@ class TestWalkStridDecomposition(unittest.TestCase):
         self.assertEqual(walks, [["1+", "2-", "3+"]])
         self.assertEqual(consumed, len(payload))
 
+    def test_path_strid_compressed_names_roundtrip(self):
+        """Paths block: STRID walk payload with compressed names must roundtrip."""
+        code = self._strid_walk_code(StringEncoding.GZIP, IntegerEncoding.FIXED16)
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "p.bgfa")
+            g, h = _roundtrip_bgfa(GFA_TEXT, out, {"use_heuristic": False, "paths_walk_enc": code})
+        self.assertEqual(
+            {k: v.get("segments") for k, v in h.paths().items()},
+            {k: v.get("segments") for k, v in g.paths().items()},
+        )
+
+    def test_skip_block_paths_consumes_whole_block(self):
+        """_skip_block must advance past a STRID paths block using header arithmetic."""
+        code = self._strid_walk_code(StringEncoding.GZIP, IntegerEncoding.VARINT)
+        with tempfile.TemporaryDirectory() as d:
+            gfa_path = os.path.join(d, "p.gfa")
+            with open(gfa_path, "w") as f:
+                f.write(GFA_TEXT)
+            out = os.path.join(d, "p.bgfa")
+            g = GFA.from_gfa(gfa_path)
+            g.to_bgfa(out, compression_options={"use_heuristic": False, "paths_walk_enc": code})
+            with open(out, "rb") as f:
+                data = f.read()
+        reader = ReaderBGFA(use_numpy=False)
+        header = reader._parse_header(data)
+        offset = header["header_size"]
+        # Locate the paths block (section 4).
+        while offset < len(data) and data[offset] != 4:
+            _, consumed = reader._skip_block(data, offset)
+            offset += consumed
+        self.assertEqual(data[offset], 4)
+        _, consumed = reader._skip_block(data, offset)
+        # The next byte after the paths block must be a valid section id (walks=5
+        # or opt-fields=6) or EOF — never mid-payload garbage. This relies on the
+        # writer's fixed block order (segments, links, paths, walks, opt-fields).
+        self.assertIn(data[offset + consumed : offset + consumed + 1], (b"", b"\x05", b"\x06"))
+
 
 class TestLarkWalkCharForm(unittest.TestCase):
     """Lark grammar: ``>``/``<`` walk char form."""
 
+    @staticmethod
+    def _parse_text(text):
+        with tempfile.TemporaryDirectory() as d:
+            gfa_path = os.path.join(d, "w.gfa")
+            with open(gfa_path, "w") as f:
+                f.write(text)
+            return GFA.from_gfa(gfa_path)
+
     def test_char_form_parses(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".gfa", delete=False) as f:
-            f.write(GFA_TEXT)
-            gfa_path = f.name
-        g = GFA.from_gfa(gfa_path)
-        self.assertEqual(g.walks()["sample1_0_ref"].get("walk"), "1+2-3+")
+        g = self._parse_text(GFA_TEXT)
+        self.assertEqual(g.walks()["sample1_0_ref"].get("walk"), ">1<2>3")
 
     def test_sign_form_still_parses(self):
         text = GFA_TEXT.replace(">1<2>3", "1+2-3+")
-        with tempfile.NamedTemporaryFile("w", suffix=".gfa", delete=False) as f:
-            f.write(text)
-            gfa_path = f.name
-        g = GFA.from_gfa(gfa_path)
-        self.assertEqual(g.walks()["sample1_0_ref"].get("walk"), "1+2-3+")
+        g = self._parse_text(text)
+        self.assertEqual(g.walks()["sample1_0_ref"].get("walk"), ">1<2>3")
 
     def test_char_form_roundtrip_bgfa(self):
         with tempfile.TemporaryDirectory() as d:
@@ -283,6 +327,147 @@ class TestLarkWalkCharForm(unittest.TestCase):
         self.assertEqual(
             {k: v.get("walk") for k, v in h.walks().items()},
             {k: v.get("walk") for k, v in g.walks().items()},
+        )
+
+    def test_char_form_spec_charset(self):
+        """WALK_SEGMENT accepts the full spec walk charset (incl. ``+``/``,``/``-``/``*``)."""
+        text = GFA_TEXT.replace(">1<2>3", ">a+b<c")
+        g = self._parse_text(text)
+        self.assertEqual(g.walks()["sample1_0_ref"].get("walk"), ">a+b<c")
+
+    def test_seq_position_star(self):
+        """W-line SeqStart/SeqEnd accept ``*`` (unknown position)."""
+        text = GFA_TEXT.replace("\t0\t10\t>1<2>3", "\t*\t*\t>1<2>3")
+        g = self._parse_text(text)
+        walk = g.walks()["sample1_0_ref"]
+        self.assertIsNone(walk.get("seq_start"))
+        self.assertIsNone(walk.get("seq_end"))
+
+    def test_seq_position_star_roundtrip_to_gfa(self):
+        """``*`` positions survive a text roundtrip through to_gfa()."""
+        text = GFA_TEXT.replace("\t0\t10\t>1<2>3", "\t*\t*\t>1<2>3")
+        g = self._parse_text(text)
+        g2 = GFA()
+        g2.from_string(g.to_gfa())
+        walk = g2.walks()["sample1_0_ref"]
+        self.assertIsNone(walk.get("seq_start"))
+        self.assertIsNone(walk.get("seq_end"))
+        self.assertEqual(walk.get("walk"), ">1<2>3")
+
+    def test_path_line_still_parses(self):
+        """P lines keep using SEGMENT_NAME after the terminal split."""
+        text = GFA_TEXT.replace("P\tp1\t1+,2-,3+\t4M", "P\tp1\ta?b+,2-\t4M")
+        g = self._parse_text(text)
+        self.assertEqual(g.paths()["p1"].get("segments"), ["a?b+", "2-"])
+
+    def test_segment_name_rejects_angle_brackets(self):
+        """``<``/``>`` in S-line names are rejected (reserved for walk char form)."""
+        g = self._parse_text("H\tVN:Z:1.0\nS\ta<b\tACGT\n")
+        self.assertNotIn("a<b", g.nodes())
+
+    def test_walk_id_with_plus_roundtrips(self):
+        """A spec-legal walk id containing ``+`` must survive a BGFA roundtrip."""
+        from pygfa.graph_element.node import Node
+
+        g = GFA()
+        g.add_node(Node("a+b", "ACGT"))
+        g.add_node(Node("c", "GGGG"))
+        g.add_walk(
+            {
+                "sample_id": "sample1",
+                "hapindex": 0,
+                "seq_id": "ref",
+                "seq_start": 0,
+                "seq_end": 10,
+                "walk": ">a+b<c",
+            }
+        )
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "w.bgfa")
+            g.to_bgfa(out, compression_options={"use_heuristic": False})
+            h = GFA.from_bgfa(out)
+        self.assertEqual(h.walks()["sample1_0_ref"].get("walk"), ">a+b<c")
+        # The walk must re-parse as segments 'a+b' and 'c', not 'a', 'b', 'c'.
+        from pygfa.bgfa._writer import _parse_walk_string
+
+        self.assertEqual(_parse_walk_string(h.walks()["sample1_0_ref"].get("walk")), [("a+b", "+"), ("c", "-")])
+
+
+class TestPathsUnknownSegment(unittest.TestCase):
+    """Paths block: unknown/malformed segments must raise GFAError (Bug 6 residual)."""
+
+    @staticmethod
+    def _parse_text(text):
+        with tempfile.TemporaryDirectory() as d:
+            gfa_path = os.path.join(d, "w.gfa")
+            with open(gfa_path, "w") as f:
+                f.write(text)
+            return GFA.from_gfa(gfa_path)
+
+    def test_path_unknown_segment_raises(self):
+        """A path referencing a missing segment must raise GFAError, not map to id 0."""
+        g = self._parse_text(GFA_TEXT)
+        g.add_path({"path_name": "pbad", "segments": ["1+", "nope+"]})
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "p.bgfa")
+            with self.assertRaises(GFAError):
+                g.to_bgfa(out, compression_options={"use_heuristic": False})
+
+    def test_path_malformed_segment_raises(self):
+        """A segment entry without an orientation must raise GFAError."""
+        g = self._parse_text(GFA_TEXT)
+        g.add_path({"path_name": "pbad", "segments": ["1+", "2"]})
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "p.bgfa")
+            with self.assertRaises(GFAError):
+                g.to_bgfa(out, compression_options={"use_heuristic": False})
+
+    def test_valid_path_still_roundtrips(self):
+        """A valid path must still roundtrip after the strictness change."""
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "p.bgfa")
+            g, h = _roundtrip_bgfa(GFA_TEXT, out, {"use_heuristic": False})
+        self.assertEqual(
+            {k: v.get("segments") for k, v in h.paths().items()},
+            {k: v.get("segments") for k, v in g.paths().items()},
+        )
+
+
+class TestCigarOpsStringCodec(unittest.TestCase):
+    """CIGAR ops-string codec symmetry: zstd support + loud failure on unknown codes."""
+
+    def test_ops_string_roundtrip_all_supported(self):
+        """Codes 0x00/0x01/0x02/0x03 must roundtrip through encoder+decoder."""
+        payload = b"10M2I5D3N"
+        for code in (0x00, 0x01, 0x02, 0x03):
+            enc = _ops_string_encoder_for_code(code)
+            dec = _ops_string_decoder_for_code(code)
+            self.assertEqual(dec(enc(payload)), payload, f"code 0x{code:02X}")
+
+    def test_ops_string_encoder_raises_unknown(self):
+        """The encoder must reject unsupported codes loudly."""
+        with self.assertRaises(ValueError):
+            _ops_string_encoder_for_code(0x04)
+
+    def test_ops_string_decoder_raises_unknown(self):
+        """The decoder must reject unsupported codes instead of silently returning identity."""
+        with self.assertRaises(ValueError):
+            _ops_string_decoder_for_code(0x04)
+
+    def test_link_roundtrip_num_ops_zstd(self):
+        """A full BGFA roundtrip with zstd-compressed CIGAR ops strings."""
+        code = (
+            (StringEncoding.ZSTD << 24)
+            | (IntegerEncoding.VARINT << 16)
+            | (IntegerEncoding.VARINT << 8)
+            | CigarDecomposition.NUM_OPERATIONS
+        )
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "c.bgfa")
+            g, h = _roundtrip_bgfa(GFA_TEXT, out, {"use_heuristic": False, "link_cigars_enc": code})
+        self.assertEqual(
+            sorted((e.get("from_node"), e.get("to_node"), e.get("alignment")) for *_, e in h.edges(data=True)),
+            sorted((e.get("from_node"), e.get("to_node"), e.get("alignment")) for *_, e in g.edges(data=True)),
         )
 
 

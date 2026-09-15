@@ -22,29 +22,29 @@ with open(test_file, "wb") as f:
     f.write(struct.pack("<H", header_len))
     f.write(header_text.encode("ascii") + b"\x00")
 
-    # Walks block
+    # Walks block (grouped layout: all compression codes, then all clen/ulen pairs)
     f.write(struct.pack("<B", 5))  # section_id
     f.write(struct.pack("<H", 1))  # record_num
 
     f.write(struct.pack("<H", 0x0000))  # compression_samples
+    f.write(struct.pack("<H", 0x0000))  # compression_hep
+    f.write(struct.pack("<H", 0x0000))  # compression_sequence
+    f.write(struct.pack("<H", 0x0000))  # compression_positions
+    f.write(struct.pack("<H", 0x0000))  # compression_positions_end
+    f.write(struct.pack("<I", 0x0000))  # compression_walks (4 bytes!)
+
     f.write(struct.pack("<Q", 8))  # compressed_len_samples
     f.write(struct.pack("<Q", 8))  # uncompressed_len_samples
-
-    f.write(struct.pack("<H", 0x0000))  # compression_hep
     f.write(struct.pack("<Q", 8))  # compressed_len_hep
     f.write(struct.pack("<Q", 8))  # uncompressed_len_hep
-
-    f.write(struct.pack("<H", 0x0000))  # compression_sequence
     f.write(struct.pack("<Q", 0))  # compressed_len_sequence
     f.write(struct.pack("<Q", 0))  # uncompressed_len_sequence
-
-    f.write(struct.pack("<H", 0x0000))  # compression_positions
     f.write(struct.pack("<Q", 8))  # compressed_len_positions
     f.write(struct.pack("<Q", 8))  # uncompressed_len_positions
-
-    f.write(struct.pack("<I", 0x0000))  # compression_walks (4 bytes!)
     f.write(struct.pack("<Q", 8))  # compressed_len_walks
     f.write(struct.pack("<Q", 8))  # uncompressed_len_walks
+    f.write(struct.pack("<Q", 0))  # compressed_len_presence
+    f.write(struct.pack("<Q", 0))  # uncompressed_len_presence
 
     f.write(b"\x00" * 8)  # payload data (matching compressed_len)
 

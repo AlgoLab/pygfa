@@ -359,6 +359,100 @@ class TestBGFARoundtripOptFields(unittest.TestCase):
             self.assertIn(f"NM:i:{i}", output, f"Link opt field NM:i:{i} lost in roundtrip")
 
 
+class TestBGFARoundtripPathWalkOptFields(unittest.TestCase):
+    """Bug 4 residual: opt fields on paths and walks must survive a BGFA roundtrip."""
+
+    def setUp(self):
+        self._tmp_files = []
+
+    def tearDown(self):
+        for p in self._tmp_files:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+    def _make_temp(self, suffix):
+        fd, path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        self._tmp_files.append(path)
+        return path
+
+    def test_path_opt_fields_roundtrip(self):
+        """Opt fields on P lines must survive GFA -> BGFA -> GFA."""
+        gfa_content = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACCTT\n"
+            "S\t2\tGGCCA\n"
+            "P\tp1\t1+,2+\t10M\tXX:Z:foo\tYY:i:7\n"
+        )
+        tmp_gfa = self._make_temp(".gfa")
+        with open(tmp_gfa, "w") as f:
+            f.write(gfa_content)
+
+        tmp_bgfa = self._make_temp(".bgfa")
+        g = GFA.from_gfa(tmp_gfa)
+        g.to_bgfa(tmp_bgfa, block_size=1024)
+
+        h = GFA.from_bgfa(tmp_bgfa)
+        p = h.paths("p1")
+        self.assertIsNotNone(p)
+        self.assertEqual(p.get("XX"), "foo")
+        self.assertEqual(p.get("YY"), 7)
+        output = h.to_gfa()
+        self.assertIn("XX:Z:foo", output)
+        self.assertIn("YY:i:7", output)
+
+    def test_walk_opt_fields_roundtrip(self):
+        """Opt fields on W lines must survive GFA -> BGFA -> GFA."""
+        gfa_content = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACCTT\n"
+            "S\t2\tGGCCA\n"
+            "W\tsample1\t0\tchr1\t0\t10\t>1>2\tZZ:Z:bar\tNN:f:1.5\n"
+        )
+        tmp_gfa = self._make_temp(".gfa")
+        with open(tmp_gfa, "w") as f:
+            f.write(gfa_content)
+
+        tmp_bgfa = self._make_temp(".bgfa")
+        g = GFA.from_gfa(tmp_gfa)
+        g.to_bgfa(tmp_bgfa, block_size=1024)
+
+        h = GFA.from_bgfa(tmp_bgfa)
+        w = h.walks("sample1_0_chr1")
+        self.assertIsNotNone(w)
+        self.assertEqual(w.get("ZZ"), "bar")
+        self.assertEqual(w.get("NN"), 1.5)
+        output = h.to_gfa()
+        self.assertIn("ZZ:Z:bar", output)
+        self.assertIn("NN:f:1.5", output)
+
+    def test_no_block_when_only_path_walk_opts_absent(self):
+        """A graph whose paths/walks carry no opt fields must not emit a section-6 block."""
+        gfa_content = (
+            "H\tVN:Z:1.0\n"
+            "S\t1\tACCTT\n"
+            "S\t2\tGGCCA\n"
+            "P\tp1\t1+,2+\t10M\n"
+            "W\tsample1\t0\tchr1\t0\t10\t>1>2\n"
+        )
+        tmp_gfa = self._make_temp(".gfa")
+        with open(tmp_gfa, "w") as f:
+            f.write(gfa_content)
+
+        tmp_bgfa = self._make_temp(".bgfa")
+        g = GFA.from_gfa(tmp_gfa)
+        g.to_bgfa(tmp_bgfa, block_size=1024)
+
+        result = validate_bgfa(tmp_bgfa)
+        for block in result.get("blocks", []):
+            self.assertNotEqual(
+                block.get("section_type"), "opt_fields",
+                "No opt_fields block should be emitted when no element has opt fields",
+            )
+
+
 class TestDumpValidation(unittest.TestCase):
     """Bug 5: dump_bgfa's validate_field is a no-op (compares value against itself)."""
 

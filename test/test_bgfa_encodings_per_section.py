@@ -171,8 +171,8 @@ _SKIP_STRING_NAMES: set[str] = {"two_bit_dna"}
 _SKIP_INT_NAMES: set[str] = set()
 
 # CIGAR ops-string encoding support in the codec
-# (``_ops_string_encoder_for_code``) is limited to NONE, GZIP, LZMA.
-_SUPPORTED_CIGAR_OPS_NAMES: set[str] = {"none", "gzip", "lzma"}
+# (``_ops_string_encoder_for_code``) is limited to NONE, ZSTD, GZIP, LZMA.
+_SUPPORTED_CIGAR_OPS_NAMES: set[str] = {"none", "zstd", "gzip", "lzma"}
 
 # Walk decomposition: NONE loses data trivially (kept excluded by design).
 _SKIP_WALK_DECOMP_NAMES: set[str] = {"none"}

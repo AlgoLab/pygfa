@@ -92,6 +92,18 @@ def pytest_addoption(parser):
         default=DEFAULT_MEMORY_LIMIT,
         help="Memory limit for tests (e.g. '8GB', '4GB'). Default: 8GB",
     )
+    parser.addoption(
+        "--snapshot-update",
+        action="store_true",
+        default=False,
+        help="Regenerate BGFA snapshot reference files instead of comparing against them",
+    )
+    parser.addoption(
+        "--snapshot-tags",
+        action="store",
+        default=None,
+        help="Run snapshot tests only for instances with any of these comma-separated tags",
+    )
 
 
 def _build_rerun_command(nodeid):
