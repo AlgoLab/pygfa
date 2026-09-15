@@ -11,8 +11,8 @@ walk_line        : "W" _TAB sample_id _TAB hapindex _TAB seq_id _TAB seq_start _
 jump_line        : "J" _TAB segment_name _TAB ORIENTATION_CHAR _TAB segment_name _TAB ORIENTATION_CHAR _TAB distance _TAB stddev ( _TAB optional_field )*
 
 seq_id : STRING
-seq_start      : INTEGER
-seq_end        : INTEGER
+seq_start      : SEQ_POSITION
+seq_end        : SEQ_POSITION
 segment_name : SEGMENT_NAME
 segment_from  : SEGMENT_NAME
 segment_to    : SEGMENT_NAME
@@ -24,15 +24,12 @@ link_overlap : CIGAR
 pathname      : STRING
 sample_id    : STRING
 hapindex   : INTEGER
-#segment_list   : segment_sign_list | segment_char_list
 segment_list   : oriented_segment_sign ("," oriented_segment_sign)*
 overlap_list   : overlap_cigar ( "," overlap_cigar )*
 overlap_cigar   : CIGAR
 oriented_segment : oriented_segment_sign | oriented_segment_char
-segment_sign_list : oriented_segment_sign (_TAB oriented_segment_sign)*
-segment_char_list : oriented_segment_char (_TAB oriented_segment_char)*
 oriented_segment_sign : SEGMENT_NAME ORIENTATION_SIGN
-oriented_segment_char : ORIENTATION_CHAR SEGMENT_NAME
+oriented_segment_char : ORIENTATION_CHAR WALK_SEGMENT
 walk : oriented_segment+
 
 ORIENTATION_CHAR   : /[><]/
@@ -47,11 +44,13 @@ type          : /[AifZHB]/
 value         : STRING
 
 
-SEGMENT_NAME   : /[!-)\.-<>-~]+/
+SEGMENT_NAME   : /[!-)\.-;?-~]+/
+WALK_SEGMENT   : /[!-;=?-~]+/
+SEQ_POSITION   : /\*|[0-9]+/
 CIGAR         : /\*|([0-9]+[MIDNSHPX=])+/
 STRING        : /[!-~]+/
 INTEGER       : /[-+]?[0-9]+/
-FLOAT         : /[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?/
+FLOAT         : /[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?/
 _TAB           : "\t"
 SEQUENCE      : /\*|[A-Za-z=.]+/
 

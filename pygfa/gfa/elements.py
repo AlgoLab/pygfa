@@ -455,13 +455,20 @@ class GFAElementsMixin(BaseGFA):
             if walk_data[0] == "W":
                 # Parse the walk line
                 fields = walk_data.strip().split("\t")
+                # Normalize to the unambiguous '>'/'<' char form, matching the
+                # lark parser and the BGFA reader.
+                from pygfa.bgfa._writer import _parse_walk_string
+
                 walk_data = {
                     "sample_id": fields[1],
                     "hapindex": int(fields[2]),
                     "seq_id": fields[3],
                     "seq_start": fields[4] if fields[4] != "*" else None,
                     "seq_end": fields[5] if fields[5] != "*" else None,
-                    "walk": fields[6],
+                    "walk": "".join(
+                        f"{'>' if orn == '+' else '<'}{name}"
+                        for name, orn in _parse_walk_string(fields[6])
+                    ),
                 }
                 # Add optional fields
                 for field in fields[7:]:

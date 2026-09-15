@@ -403,12 +403,9 @@ def compress_cigar_with_strategy(
         if str_enc == 0x00:
             return joined
         elif str_enc == 0x01:
-            try:
-                import compression.zstd as z
+            import zstandard as zstd
 
-                return z.compress(joined)
-            except ImportError:
-                return joined
+            return zstd.ZstdCompressor().compress(joined)
         elif str_enc == 0x02:
             import gzip
 
@@ -428,6 +425,10 @@ def compress_cigar_with_strategy(
 def _ops_string_decoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
     if byte4 == 0x00:
         return lambda x: x
+    elif byte4 == 0x01:
+        import zstandard as zstd
+
+        return zstd.ZstdDecompressor().decompress
     elif byte4 == 0x02:
         import gzip
 
@@ -437,12 +438,16 @@ def _ops_string_decoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
 
         return lzma.decompress
     else:
-        return lambda x: x
+        raise ValueError(f"Unsupported CIGAR ops string encoding code: 0x{byte4:02X}")
 
 
 def _ops_string_encoder_for_code(byte4: int) -> Callable[[bytes], bytes]:
     if byte4 == 0x00:
         return lambda x: x
+    elif byte4 == 0x01:
+        import zstandard as zstd
+
+        return zstd.ZstdCompressor().compress
     elif byte4 == 0x02:
         import gzip
 

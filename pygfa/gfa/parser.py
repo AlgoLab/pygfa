@@ -324,6 +324,8 @@ class GFAParserMixin(BaseGFA):
                 value = walk_child.children[0].value
                 walk_data["seq_end"] = None if value == "*" else int(value)
             elif walk_child.data == "walk":
+                # Normalize to the unambiguous '>'/'<' char form so that segment
+                # names containing '+', '-', '*' or ',' survive a roundtrip.
                 segments = []
                 for seg_child in walk_child.children:
                     inner = seg_child.children[0]
@@ -333,7 +335,7 @@ class GFAParserMixin(BaseGFA):
                     else:  # oriented_segment_char
                         orn = "+" if inner.children[0].value == ">" else "-"
                         seg_name = inner.children[1].value
-                    segments.append(f"{seg_name}{orn}")
+                    segments.append(f"{'>' if orn == '+' else '<'}{seg_name}")
                 walk_data["walk"] = "".join(segments)
             elif walk_child.data == "optional_field":
                 tag = walk_child.children[0].children[0].value

@@ -369,18 +369,23 @@ class ReaderBGFA:
         bytes_consumed = (offset + clen_names + clen_str) - start_offset
         return segments, names, bytes_consumed
 
-    def _parse_opt_fields_block(self, data: bytes, start_offset: int) -> tuple[int, int, list[str], int]:
+    def _parse_opt_fields_block(self, data: bytes, start_offset: int) -> tuple[int, int, int, int, list[str], int]:
         """Parse an optional-fields block.
 
-        Returns ``(num_segments, num_links, opt_strings, bytes_consumed)`` where
-        ``opt_strings`` holds one tab-joined ``TAG:TYPE:VALUE`` string per segment
-        (in segment order) followed by one per link (in link order).
+        Returns ``(num_segments, num_links, num_paths, num_walks, opt_strings, bytes_consumed)``
+        where ``opt_strings`` holds one tab-joined ``TAG:TYPE:VALUE`` string per
+        segment (in segment order), then one per link, then one per path, then
+        one per walk.
         """
         offset = start_offset + 1
 
         num_segments = struct.unpack_from("<H", data, offset)[0]
         offset += 2
         num_links = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        num_paths = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+        num_walks = struct.unpack_from("<H", data, offset)[0]
         offset += 2
         comp = struct.unpack_from("<H", data, offset)[0]
         offset += 2
@@ -392,7 +397,7 @@ class ReaderBGFA:
         payload = data[offset : offset + clen]
         int_dec = get_integer_decoder(comp)
         str_dec = _get_string_decoder(comp & 0xFF)
-        opt_bytes = str_dec(payload, num_segments + num_links, int_dec)
+        opt_bytes = str_dec(payload, num_segments + num_links + num_paths + num_walks, int_dec)
 
         opt_strings = []
         for b in opt_bytes:
@@ -405,7 +410,7 @@ class ReaderBGFA:
                 opt_strings.append("")
 
         bytes_consumed = (offset + clen) - start_offset
-        return num_segments, num_links, opt_strings, bytes_consumed
+        return num_segments, num_links, num_paths, num_walks, opt_strings, bytes_consumed
 
     def _parse_links_block(self, data: bytes, start_offset: int) -> tuple[list[dict], int]:
         offset = start_offset + 1
@@ -586,6 +591,12 @@ class ReaderBGFA:
         _ = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
 
+        clen_walks = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
         int_dec_names = get_integer_decoder(comp_names)
         str_dec_names = _get_string_decoder(comp_names & 0xFF)
 
@@ -599,10 +610,11 @@ class ReaderBGFA:
         )
         offset += clen_cigars
 
-        walks, walk_consumed = self._decode_walk(
-            data[offset:], record_num, comp_paths, get_integer_decoder(comp_paths & 0xFF), segment_names
+        walks_payload = data[offset : offset + clen_walks]
+        walks, _ = self._decode_walk(
+            walks_payload, record_num, comp_paths, get_integer_decoder(comp_paths & 0xFF), segment_names
         )
-        offset += walk_consumed
+        offset += clen_walks
 
         paths = []
         for i in range(record_num):
@@ -645,6 +657,9 @@ class ReaderBGFA:
         comp_positions = struct.unpack_from("<H", data, offset)[0]
         offset += 2
 
+        comp_positions_end = struct.unpack_from("<H", data, offset)[0]
+        offset += 2
+
         comp_walks = struct.unpack_from("<I", data, offset)[0]
         offset += 4
 
@@ -678,12 +693,19 @@ class ReaderBGFA:
         _ = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
 
+        clen_presence = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
+        _ = struct.unpack_from("<Q", data, offset)[0]
+        offset += 8
+
         int_dec_samples = get_integer_decoder(comp_samples)
         str_dec_samples = _get_string_decoder(comp_samples & 0xFF)
         int_dec_hep = get_integer_decoder(comp_hep)
         int_dec_seq = get_integer_decoder(comp_seq)
         str_dec_seq = _get_string_decoder(comp_seq & 0xFF)
         int_dec_positions = get_integer_decoder(comp_positions)
+        int_dec_positions_end = get_integer_decoder(comp_positions_end)
 
         samples_payload = data[offset : offset + clen_samples]
         sample_ids = str_dec_samples(samples_payload, record_num, int_dec_samples)
@@ -699,13 +721,17 @@ class ReaderBGFA:
 
         positions_payload = data[offset : offset + clen_positions]
         starts, consumed1 = decode_integer_list_uints_delta(positions_payload, record_num, int_dec_positions)
-        ends, _ = decode_integer_list_uints_delta(positions_payload[consumed1:], record_num, int_dec_positions)
+        ends, _ = decode_integer_list_uints_delta(positions_payload[consumed1:], record_num, int_dec_positions_end)
         offset += clen_positions
 
         walks_payload = data[offset : offset + clen_walks]
         int_dec_walks = get_integer_decoder(comp_walks & 0xFF)
         walks, _ = self._decode_walk(walks_payload, record_num, comp_walks, int_dec_walks, segment_names)
         offset += clen_walks
+
+        presence_payload = data[offset : offset + clen_presence]
+        presence, _ = unpack_bits_lsb(presence_payload, record_num * 2, use_numpy=self._use_numpy)
+        offset += clen_presence
 
         walks_list = []
         for i in range(record_num):
@@ -724,9 +750,19 @@ class ReaderBGFA:
                     seq_id = sequence_ids[i].decode("latin-1")
             else:
                 seq_id = f"seq{i}"
-            start_pos = starts[i] if i < len(starts) else 0
-            end_pos = ends[i] if i < len(ends) else 0
+            start_pos: int | None = starts[i] if i < len(starts) else 0
+            end_pos: int | None = ends[i] if i < len(ends) else 0
+            if i < len(presence) and not presence[2 * i]:
+                start_pos = None
+            if i < len(presence) and not presence[2 * i + 1]:
+                end_pos = None
             walk_segments = walks[i] if i < len(walks) else []
+
+            # Walks are stored in the unambiguous '>'/'<' char form so that
+            # segment names containing '+', '-', '*' or ',' survive a roundtrip.
+            char_walk = "".join(
+                f"{'>' if seg.endswith('+') else '<'}{seg[:-1]}" for seg in walk_segments if seg
+            )
 
             walks_list.append(
                 {
@@ -735,7 +771,7 @@ class ReaderBGFA:
                     "seq_id": seq_id,
                     "seq_start": start_pos,
                     "seq_end": end_pos,
-                    "walk": "".join(walk_segments),
+                    "walk": char_walk,
                 }
             )
 
@@ -786,7 +822,7 @@ class ReaderBGFA:
                     offset += consumed
                 else:
                     opt_fields_data = self._parse_opt_fields_block(data, offset)
-                    offset += opt_fields_data[3]
+                    offset += opt_fields_data[5]
 
             elif section_id == SECTION_ID_SEGMENTS:
                 if skip_payloads:
@@ -851,10 +887,18 @@ class ReaderBGFA:
         if not skip_payloads:
             seg_opt_strings = []
             link_opt_strings = []
+            path_opt_strings = []
+            walk_opt_strings = []
             if opt_fields_data is not None:
-                num_segments, num_links, opt_strings, _ = opt_fields_data
+                num_segments, num_links, num_paths, num_walks, opt_strings, _ = opt_fields_data
                 seg_opt_strings = opt_strings[:num_segments]
                 link_opt_strings = opt_strings[num_segments : num_segments + num_links]
+                path_opt_strings = opt_strings[
+                    num_segments + num_links : num_segments + num_links + num_paths
+                ]
+                walk_opt_strings = opt_strings[
+                    num_segments + num_links + num_paths : num_segments + num_links + num_paths + num_walks
+                ]
 
             for sid, seg_data in segments.items():
                 name = seg_data.get("name", f"s{sid}")
@@ -877,19 +921,26 @@ class ReaderBGFA:
                 )
                 gfa.add_edge(edge)
 
-            for path_data in all_paths:
-                gfa.add_path(path_data)
+            for i, path_data in enumerate(all_paths):
+                opts = parse_opt_fields(path_opt_strings[i]) if i < len(path_opt_strings) else {}
+                merged = dict(path_data)
+                merged.update(opts)
+                gfa.add_path(merged)
 
-            for walk_data in all_walks:
-                gfa.add_walk(walk_data)
+            for i, walk_data in enumerate(all_walks):
+                opts = parse_opt_fields(walk_opt_strings[i]) if i < len(walk_opt_strings) else {}
+                merged = dict(walk_data)
+                merged.update(opts)
+                gfa.add_walk(merged)
 
         return gfa
 
     def _skip_block(self, data: bytes, start_offset: int) -> tuple[None, int]:
         """Skip a block without reconstructing it, returning (None, bytes consumed).
 
-        Note: paths blocks store no walk-payload length, so skipping one requires
-        fully parsing it via ``_parse_paths_blocks``; that branch is not O(1).
+        All block types are skipped with header arithmetic in O(1); the paths
+        block stores its walk-payload length (``clen_walks``), so it no longer
+        needs to be fully parsed to be skipped.
         """
         offset = start_offset + 1
 
@@ -927,27 +978,40 @@ class ReaderBGFA:
                 compressed_len = clen_fromto + clen_cigars
 
             elif section_id == SECTION_ID_PATHS:
-                # The paths block stores no walk-payload length, so it cannot be
-                # skipped without parsing it. Delegate to the real parser.
-                _, consumed = self._parse_paths_blocks(data, start_offset, self._segment_names)
-                return None, consumed
+                if len(data) < offset + 2 + 4 + 4 + 8 + 8 + 8 + 8 + 8 + 8:
+                    raise ValueError("BGFA file is too short")
+                offset += 2  # comp_names
+                offset += 4  # comp_paths
+                offset += 4  # comp_cigars
+                clen_cigars = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8
+                offset += 8  # ulen_cigars
+                clen_names = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8
+                offset += 8  # ulen_names
+                clen_walks = struct.unpack_from("<Q", data, offset)[0]
+                offset += 8
+                offset += 8  # ulen_walks
+                compressed_len = clen_cigars + clen_names + clen_walks
 
             elif section_id == SECTION_ID_WALKS:
-                if len(data) < offset + 4 * 2 + 4 + 5 * 16:
+                if len(data) < offset + 4 * 2 + 2 + 4 + 6 * 16:
                     raise ValueError("BGFA file is too short")
-                offset += 4 * 2 + 4
+                offset += 4 * 2 + 2 + 4
                 compressed_len = 0
-                for _ in range(5):
+                for _ in range(6):
                     clen = struct.unpack_from("<Q", data, offset)[0]
                     offset += 8
                     offset += 8
                     compressed_len += clen
 
             elif section_id == SECTION_ID_OPT_FIELDS:
-                if len(data) < offset + 2 + 2 + 8 + 8:
+                if len(data) < offset + 2 + 2 + 2 + 2 + 8 + 8:
                     raise ValueError("BGFA file is too short")
                 # offset already advanced past num_segments by the generic prologue
                 offset += 2  # num_links
+                offset += 2  # num_paths
+                offset += 2  # num_walks
                 offset += 2  # comp
                 compressed_len = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8
@@ -1208,6 +1272,10 @@ def measure_bgfa(
             clen_names = struct.unpack_from("<Q", data, path_offset)[0]
             path_offset += 8
             ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            clen_walks = struct.unpack_from("<Q", data, path_offset)[0]
+            path_offset += 8
+            ulen_walks = struct.unpack_from("<Q", data, path_offset)[0]
 
             if verbose:
                 logger.info("  Record count: %d", record_num)
@@ -1218,6 +1286,8 @@ def measure_bgfa(
                 logger.info("  Uncompressed cigars length: %d bytes", ulen_cigars)
                 logger.info("  Compressed names length: %d bytes", clen_names)
                 logger.info("  Uncompressed names length: %d bytes", ulen_names)
+                logger.info("  Compressed walk length: %d bytes", clen_walks)
+                logger.info("  Uncompressed walk length: %d bytes", ulen_walks)
 
             paths_data, consumed = reader._parse_paths_blocks(data, offset, reader._segment_names)
 
@@ -1229,8 +1299,7 @@ def measure_bgfa(
                         "    [%d] %s: %s  overlaps=%s", i, p.get("path_name", "?"), segments_str, p.get("overlaps", [])
                     )
 
-            paths_header_size = 45  # 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8
-            clen_paths = consumed - paths_header_size - clen_names - clen_cigars
+            clen_paths = clen_walks
             total_segments = sum(len(p.get("segments", [])) for p in paths_data)
             ulen_paths = (record_num + 2 * total_segments) * 8  # walk-lengths (×8) + seg-ids (×8) + orientations (×8)
             stats.append(
@@ -1284,6 +1353,8 @@ def measure_bgfa(
             walk_offset += 2
             comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
             walk_offset += 2
+            comp_positions_end = struct.unpack_from("<H", data, walk_offset)[0]
+            walk_offset += 2
             comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
             walk_offset += 4
 
@@ -1306,6 +1377,10 @@ def measure_bgfa(
             clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
             walk_offset += 8
             ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            clen_presence = struct.unpack_from("<Q", data, walk_offset)[0]
+            walk_offset += 8
+            _ulen_presence = struct.unpack_from("<Q", data, walk_offset)[0]
 
             if verbose:
                 logger.info("  Record count: %d", record_num)
@@ -1313,12 +1388,14 @@ def measure_bgfa(
                 logger.info("  Compression haplotype indices: 0x%04X", comp_hep)
                 logger.info("  Compression sequence IDs: 0x%04X", comp_seq)
                 logger.info("  Compression positions: 0x%04X", comp_positions)
+                logger.info("  Compression positions end: 0x%04X", comp_positions_end)
                 logger.info("  Compression walks: 0x%08X", comp_walks)
                 logger.info("  Compressed samples length: %d bytes", clen_samples)
                 logger.info("  Compressed hep length: %d bytes", clen_hep)
                 logger.info("  Compressed sequence IDs length: %d bytes", clen_seq)
                 logger.info("  Compressed positions length: %d bytes", clen_positions)
                 logger.info("  Compressed walks length: %d bytes", clen_walks)
+                logger.info("  Compressed presence length: %d bytes", clen_presence)
 
             walks_data, consumed = reader._parse_walks_blocks(data, offset, reader._segment_names)
 
@@ -1394,11 +1471,13 @@ def measure_bgfa(
             offset += consumed
 
         elif section_id == SECTION_ID_OPT_FIELDS:
-            # Optional-fields block: fixed 23-byte header + compressed payload.
+            # Optional-fields block: fixed 27-byte header + compressed payload.
             # Not part of the per-field compression stats, so just skip it.
             opt_offset = offset + 1
             opt_offset += 2  # num_segments
             opt_offset += 2  # num_links
+            opt_offset += 2  # num_paths
+            opt_offset += 2  # num_walks
             opt_offset += 2  # comp
             clen = struct.unpack_from("<Q", data, opt_offset)[0]
             opt_offset += 8

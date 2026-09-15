@@ -19,9 +19,11 @@ SECTION_ID_SEGMENTS = 2
 SECTION_ID_LINKS = 3
 SECTION_ID_PATHS = 4
 SECTION_ID_WALKS = 5
-# pygfa-specific extension: optional fields for segments/links. Not part of the
-# upstream bgfa-spec. Older readers reject it as an unknown section, so the
-# writer omits the block entirely when no element carries opt fields.
+# pygfa-specific extension: optional fields for segments/links/paths/walks. Not
+# part of the upstream bgfa-spec. Older readers reject it as an unknown section,
+# so the writer omits the block entirely when no element carries opt fields.
+# Header: num_segments(H) num_links(H) num_paths(H) num_walks(H) comp(H)
+#         clen(Q) ulen(Q); payload = seg opts + link opts + path opts + walk opts.
 SECTION_ID_OPT_FIELDS = 6
 
 INTEGER_ENCODING_NONE = IntegerEncoding.NONE

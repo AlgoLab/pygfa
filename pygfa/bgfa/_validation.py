@@ -6,6 +6,7 @@ import json
 import struct
 import sys
 
+from pygfa.bgfa._codec_utils import unpack_bits_lsb
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
     BGFA_VERSION,
@@ -408,9 +409,11 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 "ulen_cigars",
                 "clen_names",
                 "ulen_names",
+                "clen_walks",
+                "ulen_walks",
             ]
-            fmt_chars = ["<H", "<H", "<I", "<I", "<Q", "<Q", "<Q", "<Q"]
-            sizes = [2, 2, 4, 4, 8, 8, 8, 8]
+            fmt_chars = ["<H", "<H", "<I", "<I", "<Q", "<Q", "<Q", "<Q", "<Q", "<Q"]
+            sizes = [2, 2, 4, 4, 8, 8, 8, 8, 8, 8]
 
             parsed = {}
             for fn, fc, sz in zip(field_names, fmt_chars, sizes):
@@ -455,7 +458,7 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 block_result["decompressed"] = paths_data
             except Exception as e:
                 block_result["decompressed"] = {"error": str(e)}
-                consumed = (payload_offset + clen_names + clen_cigars) - offset
+                consumed = (payload_offset + clen_names + clen_cigars + parsed["clen_walks"]) - offset
             offset += consumed
 
         elif section_id == SECTION_ID_WALKS:
@@ -468,6 +471,7 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 "comp_hep",
                 "comp_seq",
                 "comp_positions",
+                "comp_positions_end",
                 "comp_walks",
                 "clen_samples",
                 "ulen_samples",
@@ -479,8 +483,11 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 "ulen_positions",
                 "clen_walks",
                 "ulen_walks",
+                "clen_presence",
+                "ulen_presence",
             ]
             fmt_chars = [
+                "<H",
                 "<H",
                 "<H",
                 "<H",
@@ -497,8 +504,10 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 "<Q",
                 "<Q",
                 "<Q",
+                "<Q",
+                "<Q",
             ]
-            sizes = [2, 2, 2, 2, 2, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+            sizes = [2, 2, 2, 2, 2, 2, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
 
             parsed = {}
             for fn, fc, sz in zip(field_names, fmt_chars, sizes):
@@ -551,12 +560,14 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
 
             # positions is two concatenated delta integer lists (starts + ends).
             comp_code = parsed["comp_positions"]
+            comp_code_end = parsed["comp_positions_end"]
             clen = parsed["clen_positions"]
             sub_payload = data[sub_offset : sub_offset + clen]
             int_decoder = get_integer_decoder(comp_code)
+            int_decoder_end = get_integer_decoder(comp_code_end)
             try:
                 starts, consumed1 = decode_integer_list_uints_delta(sub_payload, record_num, int_decoder)
-                ends, _ = decode_integer_list_uints_delta(sub_payload[consumed1:], record_num, int_decoder)
+                ends, _ = decode_integer_list_uints_delta(sub_payload[consumed1:], record_num, int_decoder_end)
                 correct = len(starts) == record_num and len(ends) == record_num
                 field_result = {"value": parsed["ulen_positions"], "actual": len(starts) + len(ends), "correct": correct}
                 if not correct:
@@ -585,6 +596,27 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
             block_result["fields"]["ulen_walks"] = field_result
             sub_offset += clen
 
+            # presence is a bit-packed payload; verify it decodes to 2*record_num bits.
+            clen = parsed["clen_presence"]
+            sub_payload = data[sub_offset : sub_offset + clen]
+            try:
+                presence, _ = unpack_bits_lsb(sub_payload, record_num * 2, use_numpy=reader._use_numpy)
+                field_result = {
+                    "value": parsed["ulen_presence"],
+                    "actual": len(presence),
+                    "correct": len(presence) == record_num * 2,
+                }
+                if not field_result["correct"]:
+                    field_result["message"] = (
+                        f"Uncompressed presence length mismatch: expected {2 * record_num}, got {len(presence)}"
+                    )
+            except Exception as e:
+                field_result = {"value": parsed["ulen_presence"], "correct": True, "message": f"Decompression failed: {e}"}
+            block_result["fields"]["ulen_presence"] = field_result
+            if not field_result["correct"]:
+                result["valid"] = False
+            sub_offset += clen
+
             for fn in field_names:
                 if fn not in block_result["fields"] and not fn.startswith("ulen_"):
                     block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
@@ -602,9 +634,9 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
             block_result["section_type"] = "opt_fields"
             opt_offset = offset + 1
 
-            field_names = ["num_segments", "num_links", "comp", "clen", "ulen"]
-            fmt_chars = ["<H", "<H", "<H", "<Q", "<Q"]
-            sizes = [2, 2, 2, 8, 8]
+            field_names = ["num_segments", "num_links", "num_paths", "num_walks", "comp", "clen", "ulen"]
+            fmt_chars = ["<H", "<H", "<H", "<H", "<H", "<Q", "<Q"]
+            sizes = [2, 2, 2, 2, 2, 8, 8]
 
             parsed = {}
             for fn, fc, sz in zip(field_names, fmt_chars, sizes):
@@ -621,21 +653,22 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
             clen = parsed["clen"]
             ulen = parsed["ulen"]
             payload = data[payload_offset : payload_offset + clen]
-            field_result = _verify_decompressed_length(
-                payload, parsed["comp"], parsed["num_segments"] + parsed["num_links"], ulen, "opt_fields"
+            num_records = (
+                parsed["num_segments"] + parsed["num_links"] + parsed["num_paths"] + parsed["num_walks"]
             )
+            field_result = _verify_decompressed_length(payload, parsed["comp"], num_records, ulen, "opt_fields")
             block_result["fields"]["ulen"] = field_result
             if not field_result["correct"]:
                 result["valid"] = False
 
-            for fn in ["num_segments", "num_links", "comp", "clen"]:
+            for fn in ["num_segments", "num_links", "num_paths", "num_walks", "comp", "clen"]:
                 if fn not in block_result["fields"]:
                     block_result["fields"][fn] = {"value": parsed[fn], "correct": True}
 
             try:
                 int_dec = get_integer_decoder(parsed["comp"])
                 str_dec = STRING_DECODERS.get(parsed["comp"] & 0xFF, decompress_string_none)
-                opt_bytes = str_dec(payload, parsed["num_segments"] + parsed["num_links"], int_dec)
+                opt_bytes = str_dec(payload, num_records, int_dec)
                 opt_strings = []
                 for b in opt_bytes:
                     if b:
@@ -925,6 +958,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 clen_names = struct.unpack_from("<Q", data, path_offset)[0]
                 path_offset += 8
                 ulen_names = struct.unpack_from("<Q", data, path_offset)[0]
+                path_offset += 8
+                clen_walks = struct.unpack_from("<Q", data, path_offset)[0]
+                path_offset += 8
+                ulen_walks = struct.unpack_from("<Q", data, path_offset)[0]
             except struct.error:
                 block_result["error"] = "Truncated path block header"
                 result["blocks"].append(block_result)
@@ -933,6 +970,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             payload_start = path_offset
             avail_names = len(data) - payload_start
             avail_cigars = max(0, avail_names - clen_names)
+            avail_walks = max(0, avail_cigars - clen_cigars)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -956,6 +994,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                     clen_names, avail_names, "compressed_path_names_length"
                 ),
                 "uncompressed_path_names_length_bytes": {"value": ulen_names},
+                "compressed_oriented_segment_ids_length_bytes": validate_field(
+                    clen_walks, avail_walks, "compressed_oriented_segment_ids_length"
+                ),
+                "uncompressed_oriented_segment_ids_length_bytes": {"value": ulen_walks},
             }
 
             try:
@@ -964,7 +1006,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 block_result["error"] = f"Failed to parse paths block: {e}"
                 paths_data = []
                 # Best-effort advance using the (possibly corrupt) clen fields.
-                consumed = 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8 + clen_names + clen_cigars
+                consumed = 1 + 2 + 2 + 4 + 4 + 8 + 8 + 8 + 8 + 8 + 8 + clen_names + clen_cigars + clen_walks
 
             paths_list = []
             for i, p in enumerate(paths_data):
@@ -997,6 +1039,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 walk_offset += 2
                 comp_positions = struct.unpack_from("<H", data, walk_offset)[0]
                 walk_offset += 2
+                comp_positions_end = struct.unpack_from("<H", data, walk_offset)[0]
+                walk_offset += 2
                 comp_walks = struct.unpack_from("<I", data, walk_offset)[0]
 
                 walk_offset += 4
@@ -1020,6 +1064,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 clen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
                 walk_offset += 8
                 _ulen_walks = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                clen_presence = struct.unpack_from("<Q", data, walk_offset)[0]
+                walk_offset += 8
+                _ulen_presence = struct.unpack_from("<Q", data, walk_offset)[0]
             except struct.error:
                 block_result["error"] = "Truncated walk block header"
                 result["blocks"].append(block_result)
@@ -1031,6 +1079,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             avail_seq = max(0, avail_hep - clen_hep)
             avail_positions = max(0, avail_seq - clen_seq)
             avail_walks = max(0, avail_positions - clen_positions)
+            avail_presence = max(0, avail_walks - clen_walks)
 
             block_result["fields"] = {
                 "record_count": {"value": record_num},
@@ -1049,6 +1098,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 "positions_compression_code": {
                     "value": f"0x{comp_positions:04X}",
                     "description": _describe_compression_code(comp_positions),
+                },
+                "positions_end_compression_code": {
+                    "value": f"0x{comp_positions_end:04X}",
+                    "description": _describe_compression_code(comp_positions_end),
                 },
                 "oriented_segment_ids_compression_code": {
                     "value": f"0x{comp_walks:08X}",
@@ -1069,6 +1122,9 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 "compressed_oriented_segment_ids_length_bytes": validate_field(
                     clen_walks, avail_walks, "compressed_oriented_segment_ids_length"
                 ),
+                "compressed_positions_presence_length_bytes": validate_field(
+                    clen_presence, avail_presence, "compressed_positions_presence_length"
+                ),
             }
 
             try:
@@ -1077,7 +1133,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 block_result["error"] = f"Failed to parse walks block: {e}"
                 walks_data = []
                 # Best-effort advance using the (possibly corrupt) clen fields.
-                consumed = 1 + 2 + 2 + 2 + 2 + 2 + 4 + 5 * 16 + clen_samples + clen_hep + clen_seq + clen_positions + clen_walks
+                consumed = (
+                    1 + 2 + 2 + 2 + 2 + 2 + 2 + 4 + 6 * 16
+                    + clen_samples + clen_hep + clen_seq + clen_positions + clen_walks + clen_presence
+                )
 
             walks_list = []
             for i, w in enumerate(walks_data):
@@ -1107,6 +1166,10 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 opt_offset += 2
                 num_links = struct.unpack_from("<H", data, opt_offset)[0]
                 opt_offset += 2
+                num_paths = struct.unpack_from("<H", data, opt_offset)[0]
+                opt_offset += 2
+                num_walks = struct.unpack_from("<H", data, opt_offset)[0]
+                opt_offset += 2
                 comp = struct.unpack_from("<H", data, opt_offset)[0]
                 opt_offset += 2
                 clen = struct.unpack_from("<Q", data, opt_offset)[0]
@@ -1120,6 +1183,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             block_result["fields"] = {
                 "num_segments": {"value": num_segments},
                 "num_links": {"value": num_links},
+                "num_paths": {"value": num_paths},
+                "num_walks": {"value": num_walks},
                 "opt_fields_compression_code": {
                     "value": f"0x{comp:04X}",
                     "description": _describe_compression_code(comp),

@@ -324,13 +324,12 @@ class BGFAWriter:
             all_walk_lengths.append(len(segments))
             for seg in segments:
                 if len(seg) < 2:
-                    all_seg_ids.append(0)
-                    all_seg_names.append("")
-                    all_orientations.append(0)
-                    continue
+                    raise GFAError(f"Path '{pn}' contains malformed segment '{seg}'")
                 name = seg[:-1]
                 orientation = seg[-1]
-                seg_id = self._segment_map.get(name, 0)
+                if name not in self._segment_map:
+                    raise GFAError(f"Path '{pn}' references unknown segment '{name}'")
+                seg_id = self._segment_map[name]
                 all_seg_ids.append(seg_id)
                 all_seg_names.append(name)
                 all_orientations.append(0 if orientation == "+" else 1)
@@ -393,6 +392,8 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", sum(len(c) for c in all_cigars)))
         buf.write(struct.pack("<Q", len(p_names)))
         buf.write(struct.pack("<Q", sum(len(n) for n in path_names)))
+        buf.write(struct.pack("<Q", len(p_walk)))
+        buf.write(struct.pack("<Q", sum(all_walk_lengths)))
         buf.write(p_names + p_cig + p_walk)
         logger.debug(
             "BGFAWriter._write_paths_block() -> exit, p_names_size=%d, p_cig_size=%d, p_walk_size=%d",
@@ -409,16 +410,18 @@ class BGFAWriter:
         comp_hep: int,
         comp_seq: int,
         comp_positions: int,
+        comp_positions_end: int,
         comp_walks: int,
     ) -> None:
         """Write a walks block (section id 5) in the layout `_parse_walks_blocks` consumes."""
         logger.debug(
-            "BGFAWriter._write_walks_block() -> entry, chunk_size=%d, comp_samples=0x%04X, comp_hep=0x%04X, comp_seq=0x%04X, comp_positions=0x%04X, comp_walks=0x%08X",
+            "BGFAWriter._write_walks_block() -> entry, chunk_size=%d, comp_samples=0x%04X, comp_hep=0x%04X, comp_seq=0x%04X, comp_positions=0x%04X, comp_positions_end=0x%04X, comp_walks=0x%08X",
             len(chunk),
             comp_samples,
             comp_hep,
             comp_seq,
             comp_positions,
+            comp_positions_end,
             comp_walks,
         )
 
@@ -427,6 +430,7 @@ class BGFAWriter:
         seq_ids = []
         starts = []
         ends = []
+        presence = []
         all_walk_lengths = []
         all_seg_ids = []
         all_seg_names = []
@@ -438,6 +442,8 @@ class BGFAWriter:
             seq_ids.append(wd.get("seq_id", ""))
             start = wd.get("seq_start")
             end = wd.get("seq_end")
+            presence.append(0 if start is None else 1)
+            presence.append(0 if end is None else 1)
             starts.append(0 if start is None else int(start))
             ends.append(0 if end is None else int(end))
 
@@ -455,9 +461,11 @@ class BGFAWriter:
         p_hep = int_enc_hep(hap_indices)
         p_seq = _compress_string_for_bgfa(seq_ids, comp_seq)
         int_enc_pos = get_integer_encoder_from_code((comp_positions >> 8) & 0xFF)
+        int_enc_pos_end = get_integer_encoder_from_code((comp_positions_end >> 8) & 0xFF)
         p_positions = compress_integer_list_uints_delta(starts, int_enc_pos) + compress_integer_list_uints_delta(
-            ends, int_enc_pos
+            ends, int_enc_pos_end
         )
+        p_presence = pack_bits_lsb(presence, use_numpy=getattr(self, "_use_numpy", False))
         int_enc_walk = get_integer_encoder_from_code(comp_walks & 0xFF)
         p_walk_lengths = int_enc_walk(all_walk_lengths)
         p_orientations = pack_bits_lsb(all_orientations, use_numpy=getattr(self, "_use_numpy", False))
@@ -477,6 +485,7 @@ class BGFAWriter:
         buf.write(struct.pack("<H", comp_hep))
         buf.write(struct.pack("<H", comp_seq))
         buf.write(struct.pack("<H", comp_positions))
+        buf.write(struct.pack("<H", comp_positions_end))
         buf.write(struct.pack("<I", comp_walks))
         buf.write(struct.pack("<Q", len(p_samples)))
         buf.write(struct.pack("<Q", sum(len(s) for s in sample_ids)))
@@ -490,21 +499,27 @@ class BGFAWriter:
         buf.write(struct.pack("<Q", len(starts) * 2))
         buf.write(struct.pack("<Q", len(p_walks)))
         buf.write(struct.pack("<Q", sum(all_walk_lengths)))
-        buf.write(p_samples + p_hep + p_seq + p_positions + p_walks)
+        buf.write(struct.pack("<Q", len(p_presence)))
+        buf.write(struct.pack("<Q", len(presence)))
+        buf.write(p_samples + p_hep + p_seq + p_positions + p_walks + p_presence)
         logger.debug(
-            "BGFAWriter._write_walks_block() -> exit, p_samples_size=%d, p_hep_size=%d, p_seq_size=%d, p_positions_size=%d, p_walks_size=%d",
+            "BGFAWriter._write_walks_block() -> exit, p_samples_size=%d, p_hep_size=%d, p_seq_size=%d, p_positions_size=%d, p_walks_size=%d, p_presence_size=%d",
             len(p_samples),
             len(p_hep),
             len(p_seq),
             len(p_positions),
             len(p_walks),
+            len(p_presence),
         )
 
-    def _write_opt_fields_block(self, buf: io.BytesIO, names: list[str], edges: list, enc: int) -> None:
-        """Write a block holding optional fields for segments and links.
+    def _write_opt_fields_block(
+        self, buf: io.BytesIO, names: list[str], edges: list, paths: list, walks: list, enc: int
+    ) -> None:
+        """Write a block holding optional fields for segments, links, paths, and walks.
 
         The payload is a list of tab-joined ``TAG:TYPE:VALUE`` strings, one per
-        segment (in segment order) followed by one per link (in link order).
+        segment (in segment order), then one per link (in link order), then one
+        per path, then one per walk.
         """
         nodes_data = dict(self._gfa.nodes(data=True))
         seg_reserved = {"nid", "sequence", "slen"}
@@ -533,7 +548,19 @@ class BGFAWriter:
             opts = {k2: v2 for k2, v2 in d.items() if k2 not in link_reserved}
             link_opts.append(serialize_opt_fields(opts))
 
-        all_opts = seg_opts + link_opts
+        path_reserved = {"path_name", "segments", "overlaps"}
+        path_opts = []
+        for pd in paths:
+            opts = {k: v for k, v in pd.items() if k not in path_reserved}
+            path_opts.append(serialize_opt_fields(opts))
+
+        walk_reserved = {"sample_id", "hapindex", "seq_id", "seq_start", "seq_end", "walk"}
+        walk_opts = []
+        for wd in walks:
+            opts = {k: v for k, v in wd.items() if k not in walk_reserved}
+            walk_opts.append(serialize_opt_fields(opts))
+
+        all_opts = seg_opts + link_opts + path_opts + walk_opts
         if not any(all_opts):
             logger.debug("BGFAWriter._write_opt_fields_block() -> no opt fields, skipping block")
             return
@@ -543,14 +570,18 @@ class BGFAWriter:
         buf.write(struct.pack("<B", SECTION_ID_OPT_FIELDS))
         buf.write(struct.pack("<H", len(seg_opts)))
         buf.write(struct.pack("<H", len(link_opts)))
+        buf.write(struct.pack("<H", len(path_opts)))
+        buf.write(struct.pack("<H", len(walk_opts)))
         buf.write(struct.pack("<H", enc))
         buf.write(struct.pack("<Q", len(payload)))
         buf.write(struct.pack("<Q", sum(len(s) for s in all_opts)))
         buf.write(payload)
         logger.debug(
-            "BGFAWriter._write_opt_fields_block() -> exit, seg_opts=%d, link_opts=%d, payload_size=%d",
+            "BGFAWriter._write_opt_fields_block() -> exit, seg_opts=%d, link_opts=%d, path_opts=%d, walk_opts=%d, payload_size=%d",
             len(seg_opts),
             len(link_opts),
+            len(path_opts),
+            len(walk_opts),
             len(payload),
         )
 
@@ -674,9 +705,7 @@ class BGFAWriter:
                 "walk_positions_start_enc",
                 make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
             )
-            # The block stores a single positions code; the end encoding is accepted
-            # for CLI compatibility but the start encoding is used for both.
-            _ = self._comp_options.get(
+            walk_pos_end_enc = self._comp_options.get(
                 "walk_positions_end_enc",
                 make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
             )
@@ -684,7 +713,6 @@ class BGFAWriter:
                 "walk_steps_enc",
                 make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
             )
-            # The block stores a single positions code; use the start encoding.
             comp_positions = walk_pos_start_enc
             # 4-byte walk code: int encoding in the low byte, ORIENTATION_NUMID in the top byte.
             if (walk_steps_enc >> 24) & 0xFF in (
@@ -708,13 +736,20 @@ class BGFAWriter:
             for i in range(0, len(walks), self._block_size):
                 chunk = walks[i : i + self._block_size]
                 self._write_walks_block(
-                    buf, chunk, walk_samples_enc, walk_hep_enc, walk_seq_enc, comp_positions, comp_walks
+                    buf,
+                    chunk,
+                    walk_samples_enc,
+                    walk_hep_enc,
+                    walk_seq_enc,
+                    comp_positions,
+                    walk_pos_end_enc,
+                    comp_walks,
                 )
 
         opt_fields_enc = self._comp_options.get(
             "opt_fields_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
-        self._write_opt_fields_block(buf, names, edges, opt_fields_enc)
+        self._write_opt_fields_block(buf, names, edges, paths, walks, opt_fields_enc)
 
         result = buf.getvalue()
         logger.debug("BGFAWriter.to_bgfa() -> exit, total_bgfa_size=%d bytes", len(result))
