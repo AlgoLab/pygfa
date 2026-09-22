@@ -150,8 +150,7 @@ def get_all_char_files():
 OPTION_CLI_MAP = {
     "compression_segment_names": "--compression-segment-names",
     "compression_sequences": "--compression-sequences",
-    "compression_from": "--compression-link-endpoints",
-    "compression_to": "--compression-link-endpoints",
+    "compression_fromto": "--compression-link-endpoints",
     "compression_cigars": "--compression-link-cigars",
     "compression_path_names": "--compression-path-names",
     "compression_paths": "--compression-path-sequences",
@@ -184,14 +183,6 @@ def _build_compress_flags(option, encoding):
         else:
             flags.append(f"{cli_flag} none")
     return " ".join(flags)
-
-
-def get_filter_option(option):
-    """Map option names to filter option names for bgfatools measure."""
-    mapping = {
-        "compression_to": "compression_from",
-    }
-    return mapping.get(option, option)
 
 
 rule all:
@@ -259,7 +250,7 @@ rule measure_bgfa:
     params:
         option="{option}",
         encoding="{encoding}",
-        option_filter_flag=lambda wildcards: f"--option-filter {get_filter_option(wildcards.option)}" if wildcards.option != "original" else ""
+        option_filter_flag=lambda wildcards: f"--option-filter {wildcards.option}" if wildcards.option != "original" else ""
     resources:
         mem_mb=MEMORY_LIMIT_MB,
     shell:

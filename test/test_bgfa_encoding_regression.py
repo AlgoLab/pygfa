@@ -14,7 +14,29 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import unittest
 
 from pygfa.bgfa._validation import validate_bgfa, dump_bgfa
+from pygfa.encoding.enums import IntegerEncoding
+from pygfa.exceptions import InvalidEncodingError
 from pygfa.gfa import GFA
+
+
+def _links_block_offset(data: bytes) -> int:
+    """Return the offset of the links block (section_id == 3) in *data*.
+
+    Skips the BGFA header and, when present, the segments block.  Shared by
+    the dump-corruption tests and the ``compression_fromto`` tests so the
+    segments-header arithmetic lives in one place.
+    """
+    hdr_len = struct.unpack_from("<H", data, 6)[0]
+    offset = 8 + hdr_len + 1
+    if data[offset] == 2:
+        # Segments header: section(1)+record(2)+comp_names(2)+clen_names(8)+
+        # ulen_names(8)+comp_str(2)+clen_str(8)+ulen_str(8) = 39 bytes.
+        clen_names = struct.unpack_from("<Q", data, offset + 5)[0]
+        clen_str = struct.unpack_from("<Q", data, offset + 23)[0]
+        offset += 39 + clen_names + clen_str
+    if data[offset] != 3:
+        raise AssertionError(f"Expected a links block at offset {offset}, got {data[offset]}")
+    return offset
 
 
 class TestValidatorUlenSequences(unittest.TestCase):
@@ -601,23 +623,12 @@ class TestDumpValidation(unittest.TestCase):
             data = bytearray(f.read())
 
         # Corrupt the links block clen_cigars to a value past EOF.
-        # Links block: section_id(1) + record_num(2) + comp_fromto(2) +
+        # Links block: section_id(1) + record_num(2) + comp_fromto(1) +
         # clen_fromto(8) + comp_cigars(4) + clen_cigars(8) + ulen_cigars(8).
-        import struct
-        hdr_len = int.from_bytes(data[6:8], "little")
-        offset = 8 + hdr_len + 1
-        # Skip the segments block (section_id=2) to reach the links block.
-        # Segments header: section(1)+record(2)+comp_names(2)+clen_names(8)+
-        # ulen_names(8)+comp_str(2)+clen_str(8)+ulen_str(8) = 39 bytes.
-        if data[offset] == 2:
-            clen_names = struct.unpack_from("<Q", data, offset + 5)[0]
-            clen_str = struct.unpack_from("<Q", data, offset + 23)[0]
-            offset += 39 + clen_names + clen_str
-        if data[offset] != 3:
-            self.fail(f"Expected a links block (section_id=3) at offset {offset}, got {data[offset]}")
-        struct.pack_into("<Q", data, offset + 17, 99999)
+        offset = _links_block_offset(data)
+        struct.pack_into("<Q", data, offset + 16, 99999)
         self.assertEqual(
-            struct.unpack_from("<Q", data, offset + 17)[0], 99999,
+            struct.unpack_from("<Q", data, offset + 16)[0], 99999,
             "Failed to corrupt links block clen_cigars",
         )
         with open(tmp_bgfa, "wb") as f:
@@ -653,13 +664,9 @@ class TestDumpValidation(unittest.TestCase):
             data = bytearray(f.read())
 
         # Truncate the file in the middle of the links block header.
-        hdr_len = int.from_bytes(data[6:8], "little")
-        seg_start = 8 + hdr_len + 1
-        clen_names = struct.unpack_from("<Q", data, seg_start + 5)[0]
-        clen_str = struct.unpack_from("<Q", data, seg_start + 23)[0]
-        links_start = seg_start + 39 + clen_names + clen_str
-        # Keep only section_id + record_num + comp_fromto (5 bytes) of the links header.
-        truncated = data[: links_start + 5]
+        links_start = _links_block_offset(data)
+        # Keep only section_id + record_num + comp_fromto (4 bytes) of the links header.
+        truncated = data[: links_start + 4]
 
         tmp_trunc = self._make_temp(".bgfa")
         with open(tmp_trunc, "wb") as f:
@@ -747,6 +754,133 @@ class TestValidatorLinksBlockConsumption(unittest.TestCase):
             f"Expected 2 blocks (segments+links), got {len(blocks)}. "
             f"Types: {[b.get('section_type','?') for b in blocks]}"
         )
+
+
+class TestLinksFromtoSingleByte(unittest.TestCase):
+    """``compression_fromto`` is a single byte holding the integer encoding.
+
+    Per the BGFA spec the links block header is::
+
+        section_id(1) record_num(2) compression_fromto(1)
+        clen_fromto(8) comp_cigars(4) clen_cigars(8) ulen_cigars(8)
+    """
+
+    def setUp(self):
+        self._tmp_files = []
+
+    def tearDown(self):
+        for p in self._tmp_files:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+    def _make_temp(self, suffix):
+        fd, path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        self._tmp_files.append(path)
+        return path
+
+    def _write_bgfa(self, n_links=4, **options):
+        """Write a segments+links BGFA file and return its bytes."""
+        tmp_gfa = self._make_temp(".gfa")
+        with open(tmp_gfa, "w") as f:
+            f.write("H\tVN:Z:1.0\n")
+            for i in range(1, n_links + 2):
+                f.write(f"S\ts{i}\tACGT\n")
+            for i in range(1, n_links + 1):
+                f.write(f"L\ts{i}\t+\ts{i + 1}\t+\t4M\n")
+
+        tmp_bgfa = self._make_temp(".bgfa")
+        g = GFA.from_gfa(tmp_gfa)
+        g.to_bgfa(tmp_bgfa, block_size=1024, use_heuristic=False, **options)
+        with open(tmp_bgfa, "rb") as f:
+            return f.read(), tmp_bgfa
+
+    def test_compression_fromto_is_one_byte(self):
+        """The field is one byte and holds the integer encoding value."""
+        for name, expected in [
+            ("none+none", IntegerEncoding.NONE),
+            ("varint+none", IntegerEncoding.VARINT),
+            ("vbyte+none", IntegerEncoding.VBYTE),
+            ("bit_packing+none", IntegerEncoding.BIT_PACKING),
+        ]:
+            with self.subTest(encoding=name):
+                data, _ = self._write_bgfa(link_endpoints_enc=name)
+                offset = _links_block_offset(data)
+                self.assertEqual(
+                    struct.unpack_from("<B", data, offset + 3)[0],
+                    int(expected),
+                    f"compression_fromto byte mismatch for {name}",
+                )
+
+    def test_clen_fromto_follows_the_single_byte(self):
+        """clen_fromto sits at offset+4 and the header is 32 bytes long."""
+        data, _ = self._write_bgfa(link_endpoints_enc="varint+none")
+        offset = _links_block_offset(data)
+        clen_fromto = struct.unpack_from("<Q", data, offset + 4)[0]
+        clen_cigars = struct.unpack_from("<Q", data, offset + 16)[0]
+        self.assertGreater(clen_fromto, 0)
+        self.assertGreater(clen_cigars, 0)
+        # section_id(1)+record_num(2)+comp_fromto(1)+clen_fromto(8)
+        # +comp_cigars(4)+clen_cigars(8)+ulen_cigars(8) == 32 bytes of header.
+        self.assertLessEqual(offset + 32 + clen_fromto + clen_cigars, len(data))
+
+    def test_roundtrip_every_integer_encoding(self):
+        """Every integer encoding roundtrips the link endpoints."""
+        for enc in IntegerEncoding:
+            with self.subTest(encoding=enc.name):
+                data, tmp_bgfa = self._write_bgfa(link_endpoints_enc=f"{enc.name.lower()}+none")
+                offset = _links_block_offset(data)
+                self.assertEqual(struct.unpack_from("<B", data, offset + 3)[0], int(enc))
+                h = GFA.from_bgfa(tmp_bgfa)
+                links = {
+                    (d.get("from_node", u), d.get("to_node", v), d.get("alignment", "*"))
+                    for u, v, d in h.edges(data=True)
+                }
+                self.assertEqual(
+                    links,
+                    {(f"s{i}", f"s{i + 1}", "4M") for i in range(1, 5)},
+                    f"Link roundtrip failed for {enc.name}",
+                )
+
+    def test_validate_reports_single_byte_code(self):
+        """validate_bgfa reports the bare integer encoding byte."""
+        _, tmp_bgfa = self._write_bgfa(link_endpoints_enc="bit_packing+none")
+        result = validate_bgfa(tmp_bgfa)
+        links_blocks = [b for b in result["blocks"] if b.get("section_type") == "links"]
+        self.assertTrue(links_blocks, "No links block in validation output")
+        self.assertEqual(links_blocks[0]["fields"]["comp_fromto"]["value"], 0x0F)
+
+    def test_dump_describes_single_byte_code(self):
+        """dump_bgfa describes the field as a bare integer encoding."""
+        _, tmp_bgfa = self._write_bgfa(link_endpoints_enc="bit_packing+none")
+        f = io.StringIO()
+        with contextlib.redirect_stdout(f):
+            dump_bgfa(tmp_bgfa)
+        parsed = json.loads(f.getvalue())
+        links_blocks = [b for b in parsed["blocks"] if b.get("section_type") == "links"]
+        self.assertTrue(links_blocks, "No links block in dump output")
+        field = links_blocks[0]["fields"]["link_endpoints_compression_code"]
+        self.assertEqual(field["value"], "0x0F")
+        self.assertEqual(field["description"], "bit packing")
+
+    def test_show_full_encodings_uses_fromto_key(self):
+        """The compression option is named ``compression_fromto``."""
+        from pygfa.encoding import show_full_encodings
+
+        encodings = show_full_encodings()
+        self.assertIn("compression_fromto", encodings)
+        self.assertNotIn("compression_from", encodings)
+        self.assertNotIn("compression_to", encodings)
+        self.assertIn("varint", encodings["compression_fromto"])
+
+    def test_string_encoding_for_integer_only_field_raises(self):
+        """A string encoding for the integer-only fromto field is rejected."""
+        for bad in ("none+huffman", "huffman", "varint+zstd"):
+            with self.subTest(encoding=bad):
+                with self.assertRaises(InvalidEncodingError):
+                    self._write_bgfa(link_endpoints_enc=bad)
 
 
 if __name__ == "__main__":

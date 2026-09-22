@@ -45,7 +45,7 @@ from pygfa.encoding.cigar_encoding import (
 )
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding, make_compression_code
 from pygfa.encoding.heuristic import select_string_encoding
-from pygfa.exceptions import GFAError
+from pygfa.exceptions import GFAError, InvalidEncodingError
 from pygfa.gfa import GFA
 
 # =============================================================================
@@ -79,6 +79,41 @@ def _compress_string_for_bgfa(string_list: list[str], compression_code: int) -> 
     method = method_map.get(str_encoding, "none")
     int_encoder = get_integer_encoder(compression_code)
     return compress_string_list(string_list, int_encoder, method, first_byte_strategy=int_encoding)
+
+
+# String encoding values other than NONE.  A bare byte equal to one of these is
+# ambiguous for an integer-only field, so it is rejected rather than silently
+# reinterpreted as an integer encoding.
+_STRING_ENCODING_VALUES = frozenset(int(e) for e in StringEncoding if e != StringEncoding.NONE)
+
+
+def _integer_encoding_byte(code: int) -> int:
+    """Return the single-byte integer encoding for an integer-only BGFA field.
+
+    The links block stores ``compression_fromto`` as one byte holding the
+    integer encoding of the link endpoint lists.  Callers supply a 2-byte
+    ``int_enc << 8 | str_enc`` code (as produced by
+    :func:`parse_compression_strategy`); the string encoding byte must be
+    ``NONE`` because the field holds no strings.  A bare byte is accepted only
+    when it cannot be confused with a string encoding.
+
+    :raises InvalidEncodingError: If a string encoding is requested for this
+        integer-only field.
+    """
+    if code > 0xFF:
+        str_enc = code & 0xFF
+        if str_enc != STRING_ENCODING_NONE:
+            raise InvalidEncodingError(
+                f"link_endpoints_enc is an integer-only field, but a string encoding "
+                f"was requested (code {code:#06x}); use '<int>+none'"
+            )
+        return (code >> 8) & 0xFF
+    if code in _STRING_ENCODING_VALUES:
+        raise InvalidEncodingError(
+            f"link_endpoints_enc is an integer-only field, but {code:#04x} is a "
+            f"string encoding; use '<int>+none'"
+        )
+    return code
 
 
 def _parse_walk_string(walk_str: str) -> list[tuple[str, str]]:
@@ -237,8 +272,13 @@ class BGFAWriter:
         logger.debug("BGFAWriter._write_segments_block() -> exit, payload_size=%d", len(payload))
 
     def _write_links_block(self, buf: io.BytesIO, chunk: list, c_ft: int, c_cig: int) -> None:
+        """Write a links block (section id 3).
+
+        ``c_ft`` is the single-byte integer encoding of the link endpoint lists
+        (``compression_fromto``); ``c_cig`` is the 4-byte CIGAR encoding code.
+        """
         logger.debug(
-            "BGFAWriter._write_links_block() -> entry, chunk_size=%d, c_ft=0x%04X, c_cig=0x%08X",
+            "BGFAWriter._write_links_block() -> entry, chunk_size=%d, c_ft=0x%02X, c_cig=0x%08X",
             len(chunk),
             c_ft,
             c_cig,
@@ -260,7 +300,7 @@ class BGFAWriter:
             t_os.append(0 if to_orn == "+" else 1)
             cigs.append(d.get("alignment", "*"))
 
-        int_encoder = get_integer_encoder(c_ft)
+        int_encoder = get_integer_encoder_from_code(c_ft)
         p_from = int_encoder(f_ids)
         p_to = int_encoder(t_ids)
         p_f_or = pack_bits_lsb(f_os)
@@ -290,7 +330,7 @@ class BGFAWriter:
 
         buf.write(struct.pack("<B", SECTION_ID_LINKS))
         buf.write(struct.pack("<H", len(chunk)))
-        buf.write(struct.pack("<H", c_ft))
+        buf.write(struct.pack("<B", c_ft))
         buf.write(struct.pack("<Q", len(p_ft)))
         buf.write(struct.pack("<I", c_cig))
         buf.write(struct.pack("<Q", len(p_cig)))
@@ -637,8 +677,10 @@ class BGFAWriter:
         self._write_segments_block(buf, sorted_segs, names_enc, seqs_enc)
 
         edges = list(self._gfa.edges(data=True, keys=True))
-        links_ft_enc = self._comp_options.get(
-            "link_endpoints_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+        links_ft_enc = _integer_encoding_byte(
+            self._comp_options.get(
+                "link_endpoints_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+            )
         )
         links_cig_enc = self._comp_options.get(
             "link_cigars_enc",

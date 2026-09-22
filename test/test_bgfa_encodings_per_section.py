@@ -337,7 +337,7 @@ def _sections_in_gfa(gfa_path: str) -> set[str]:
 _FIELD_TO_ENC_KEY: dict[str, str] = {
     "segment_names_enc": "compression_segment_names",
     "sequences_enc": "compression_sequences",
-    "link_endpoints_enc": "compression_from",
+    "link_endpoints_enc": "compression_fromto",
     "link_cigars_enc": "compression_cigars",
     "path_names_enc": "compression_path_names",
     "paths_walk_enc": "compression_paths",

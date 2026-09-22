@@ -418,8 +418,8 @@ class ReaderBGFA:
         record_num = struct.unpack_from("<H", data, offset)[0]
         offset += 2
 
-        comp_fromto = struct.unpack_from("<H", data, offset)[0]
-        offset += 2
+        comp_fromto = struct.unpack_from("<B", data, offset)[0]
+        offset += 1
 
         clen_fromto = struct.unpack_from("<Q", data, offset)[0]
         offset += 8
@@ -434,7 +434,7 @@ class ReaderBGFA:
         offset += 8
 
         fromto_payload = data[offset : offset + clen_fromto]
-        int_dec_fromto = get_integer_decoder(comp_fromto)
+        int_dec_fromto = get_integer_decoder_from_code(comp_fromto)
 
         from_ids, c1 = int_dec_fromto(fromto_payload, record_num)
         to_ids, c2 = int_dec_fromto(fromto_payload[c1:], record_num)
@@ -966,9 +966,9 @@ class ReaderBGFA:
                 compressed_len = clen_names + clen_str
 
             elif section_id == SECTION_ID_LINKS:
-                if len(data) < offset + 2 + 8 + 4 + 8 + 8:
+                if len(data) < offset + 1 + 8 + 4 + 8 + 8:
                     raise ValueError("BGFA file is too short")
-                offset += 2
+                offset += 1
                 clen_fromto = struct.unpack_from("<Q", data, offset)[0]
                 offset += 8
                 offset += 4
@@ -1103,8 +1103,7 @@ def measure_bgfa(
     OPTION_SECTION_FIELD_MAP = {
         "compression_segment_names": (SECTION_ID_SEGMENTS, "names"),
         "compression_sequences": (SECTION_ID_SEGMENTS, "sequences"),
-        "compression_from": (SECTION_ID_LINKS, "fromto"),
-        "compression_to": (SECTION_ID_LINKS, "fromto"),
+        "compression_fromto": (SECTION_ID_LINKS, "fromto"),
         "compression_cigars": (SECTION_ID_LINKS, "cigars"),
         "compression_path_names": (SECTION_ID_PATHS, "names"),
         "compression_paths": (SECTION_ID_PATHS, "paths"),
@@ -1193,8 +1192,8 @@ def measure_bgfa(
             lnk_offset = offset + 1
             record_num = struct.unpack_from("<H", data, lnk_offset)[0]
             lnk_offset += 2
-            comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
-            lnk_offset += 2
+            comp_fromto = struct.unpack_from("<B", data, lnk_offset)[0]
+            lnk_offset += 1
             clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
             lnk_offset += 8
             comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
@@ -1205,7 +1204,7 @@ def measure_bgfa(
 
             if verbose:
                 logger.info("  Record count: %d", record_num)
-                logger.info("  Compression from/to: 0x%04X", comp_fromto)
+                logger.info("  Compression from/to: 0x%02X", comp_fromto)
                 logger.info("  Compressed from/to length: %d bytes", clen_fromto)
                 logger.info("  Compression cigars: 0x%08X", comp_cigars)
                 logger.info("  Compressed cigars length: %d bytes", clen_cigars)

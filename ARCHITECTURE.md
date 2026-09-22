@@ -67,6 +67,9 @@ GFAError
 
 - `SECTION_ID_SEGMENTS = 2`, `SECTION_ID_LINKS = 3`, `SECTION_ID_PATHS = 4`, `SECTION_ID_WALKS = 5`
 - Encoding codes packed into 4-byte codes via `make_4byte_code()` / `split_4byte_code()`
+- The links block header carries `compression_fromto` as a **single byte** holding the
+  integer encoding of the link endpoint lists (no string encoding); the reader dispatches
+  it through `get_integer_decoder_from_code()`
 
 ### Integer Encoding Enum (`pygfa/encoding/enums.py`)
 

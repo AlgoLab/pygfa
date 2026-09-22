@@ -68,8 +68,7 @@ fi
 declare -A OPTION_TO_FLAG=(
     ["compression_segment_names"]="--compression-segment-names"
     ["compression_sequences"]="--compression-sequences"
-    ["compression_from"]="--compression-link-endpoints"
-    ["compression_to"]="--compression-link-endpoints"
+    ["compression_fromto"]="--compression-link-endpoints"
     ["compression_cigars"]="--compression-link-cigars"
     ["compression_path_names"]="--compression-path-names"
     ["compression_paths"]="--compression-path-sequences"
@@ -108,8 +107,7 @@ fi
 # --- Use Python to extract (option, encoding) pairs ---
 # Output format: option<TAB>encoding (one per line).
 # JSON is piped via stdin to avoid ARG_MAX limits.
-# Deduplicates options that map to the same CLI flag (e.g., compression_from
-# and compression_to both control --compression-link-endpoints).
+# Deduplicates options that map to the same CLI flag.
 emit_pairs() {
     echo "$1" | python3 -c "
 import json, sys
@@ -122,8 +120,7 @@ include_cigar = sys.argv[2] == '1'
 option_to_flag = {
     'compression_segment_names': '--compression-segment-names',
     'compression_sequences': '--compression-sequences',
-    'compression_from': '--compression-link-endpoints',
-    'compression_to': '--compression-link-endpoints',
+    'compression_fromto': '--compression-link-endpoints',
     'compression_cigars': '--compression-link-cigars',
     'compression_path_names': '--compression-path-names',
     'compression_paths': '--compression-path-sequences',

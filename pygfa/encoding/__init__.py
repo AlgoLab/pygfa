@@ -150,8 +150,7 @@ from pygfa.encoding.ppm_coding import (
 COMPRESSION_OPTIONS: dict[str, str] = {
     "compression_segment_names": "2byte",
     "compression_sequences": "2byte",
-    "compression_from": "1byte_int",
-    "compression_to": "1byte_int",
+    "compression_fromto": "1byte_int",
     "compression_cigars": "4byte_cigar",
     "compression_path_names": "2byte",
     "compression_paths": "4byte_walks",

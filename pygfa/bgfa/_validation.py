@@ -51,6 +51,16 @@ def _describe_compression_code(code: int) -> str:
     return f"{int_name}+{str_name}"
 
 
+def _describe_integer_encoding_code(code: int) -> str:
+    """Return a human-readable description of a single-byte integer encoding.
+
+    Used for fields that carry only an integer encoding, such as the links
+    block ``compression_fromto`` byte.
+    """
+    int_names = {e.value: e.name.lower().replace("_", " ") for e in IntegerEncoding}
+    return int_names.get(code, f"unknown_int({code:02X})")
+
+
 def _is_valid_compression_code(code: int) -> bool:
     """Check if a compression code is valid per the BGFA specification.
 
@@ -355,8 +365,8 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 "clen_cigars",
                 "ulen_cigars",
             ]
-            fmt_chars = ["<H", "<H", "<Q", "<I", "<Q", "<Q"]
-            sizes = [2, 2, 8, 4, 8, 8]
+            fmt_chars = ["<H", "<B", "<Q", "<I", "<Q", "<Q"]
+            sizes = [2, 1, 8, 4, 8, 8]
 
             parsed = {}
             for fn, fc, sz in zip(field_names, fmt_chars, sizes):
@@ -875,8 +885,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 lnk_offset = offset + 1
                 record_num = struct.unpack_from("<H", data, lnk_offset)[0]
                 lnk_offset += 2
-                comp_fromto = struct.unpack_from("<H", data, lnk_offset)[0]
-                lnk_offset += 2
+                comp_fromto = struct.unpack_from("<B", data, lnk_offset)[0]
+                lnk_offset += 1
                 clen_fromto = struct.unpack_from("<Q", data, lnk_offset)[0]
                 lnk_offset += 8
                 comp_cigars = struct.unpack_from("<I", data, lnk_offset)[0]
@@ -896,8 +906,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
             block_result["fields"] = {
                 "record_count": {"value": record_num},
                 "link_endpoints_compression_code": {
-                    "value": f"0x{comp_fromto:04X}",
-                    "description": _describe_compression_code(comp_fromto),
+                    "value": f"0x{comp_fromto:02X}",
+                    "description": _describe_integer_encoding_code(comp_fromto),
                 },
                 "compressed_link_endpoints_length_bytes": validate_field(
                     clen_fromto, avail_fromto, "compressed_link_endpoints_length"
@@ -918,7 +928,7 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
                 block_result["error"] = f"Failed to parse links block: {e}"
                 lnks = []
                 # Best-effort advance using the (possibly corrupt) clen fields.
-                consumed = 1 + 2 + 2 + 8 + 4 + 8 + 8 + clen_fromto + clen_cigars
+                consumed = 1 + 2 + 1 + 8 + 4 + 8 + 8 + clen_fromto + clen_cigars
 
             links_list = []
             for i, link in enumerate(lnks):
