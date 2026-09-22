@@ -32,8 +32,10 @@ Each combination checks:
 from __future__ import annotations
 
 import glob
+import io
 import os
 import sys
+from contextlib import redirect_stdout
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
@@ -53,9 +55,6 @@ from pygfa.encoding.enums import (  # noqa: E402
 )
 from pygfa.bgfa._codec_utils import make_4byte_code  # noqa: E402
 from pygfa.bgfa._validation import dump_bgfa  # noqa: E402
-
-import io
-from contextlib import redirect_stdout
 
 try:
     import pytest
@@ -161,8 +160,11 @@ _SUPPORTED_STR_NAMES: set[str] = set(
 # keeping the integer encoding fixed to VARINT.  Which string names should
 # be skipped because the data won't survive a round-trip?
 #
-#   * ``two_bit_dna`` — can only encode ACGTN, corrupts names/sequences
-#     that contain other characters.
+#   * ``two_bit_dna`` — a DNA codec: lossless for non-ACGTN bytes since
+#     2026-09-16 (ENCODING_BUGS.md), but it still normalizes lowercase
+#     acgt to uppercase and U to T (inherent to the 2-bit scheme).  That is
+#     fine for sequences (IUPAC case-insensitive) but wrong for the
+#     case-sensitive name fields, so it stays out of the generic sweep.
 _SKIP_STRING_NAMES: set[str] = {"two_bit_dna"}
 
 # Integer encodings skipped because they cannot roundtrip the small
@@ -174,8 +176,9 @@ _SKIP_INT_NAMES: set[str] = set()
 # (``_ops_string_encoder_for_code``) is limited to NONE, ZSTD, GZIP, LZMA.
 _SUPPORTED_CIGAR_OPS_NAMES: set[str] = {"none", "zstd", "gzip", "lzma"}
 
-# Walk decomposition: NONE loses data trivially (kept excluded by design).
-_SKIP_WALK_DECOMP_NAMES: set[str] = {"none"}
+# Walk decomposition: NONE (0x00) is upgraded to ORIENTATION_NUMID by the
+# writer since 2026-09-16 (ENCODING_BUGS.md), so it roundtrips like any other.
+_SKIP_WALK_DECOMP_NAMES: set[str] = set()
 
 # CIGAR decomposition STRING is fixed (ENCODING_BUGS.md bug 12); the blob
 # string codecs are restricted to the generic compressors, same as the
@@ -342,6 +345,7 @@ _FIELD_TO_ENC_KEY: dict[str, str] = {
     "path_names_enc": "compression_path_names",
     "paths_walk_enc": "compression_paths",
     "paths_cigars_enc": "compression_cigars",
+    "ext_fields_enc": "compression_ext_fields",
 }
 
 _FIELD_SECTIONS: dict[str, str] = {
@@ -352,6 +356,7 @@ _FIELD_SECTIONS: dict[str, str] = {
     "path_names_enc": "paths",
     "paths_walk_enc": "paths",
     "paths_cigars_enc": "paths",
+    "ext_fields_enc": "paths",
 }
 
 _ALL_FIELD_NAMES = sorted(_FIELD_TO_ENC_KEY.keys())

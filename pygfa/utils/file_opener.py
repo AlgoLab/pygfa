@@ -24,7 +24,7 @@ def open_gfa_file(filepath: str, mode: str = "r") -> IO[Any]:
 
     Args:
         filepath: Path to the file
-        mode: File mode ('r' for text, 'rb' for binary)
+        mode: File mode ('r' for text, 'rb' for binary, and 'w'/'wb'/'a' for writing)
 
     Returns:
         File handle
@@ -32,7 +32,9 @@ def open_gfa_file(filepath: str, mode: str = "r") -> IO[Any]:
     Raises:
         ImportError: If zstd compression is requested but compression package is not installed
     """
-    text_mode = "b" not in mode
+    # The compressed openers default to binary unless 't' is present in the mode.
+    if "b" not in mode and "t" not in mode:
+        mode += "t"
 
     if filepath.endswith(".zst") or filepath.endswith(".zstd"):
         if not _ZSTD_AVAILABLE:
@@ -41,13 +43,13 @@ def open_gfa_file(filepath: str, mode: str = "r") -> IO[Any]:
                 "Install it with: pip install compression"
             )
         assert z is not None
-        return z.open(filepath, "rt" if text_mode else "rb")  # type: ignore
+        return z.open(filepath, mode)  # type: ignore
 
     elif filepath.endswith(".xz"):
-        return lzma.open(filepath, "rt" if text_mode else "rb")
+        return lzma.open(filepath, mode)
 
     elif filepath.endswith(".gz"):
-        return gzip.open(filepath, "rt" if text_mode else "rb")  # type: ignore
+        return gzip.open(filepath, mode)  # type: ignore
 
     else:
         return open(filepath, mode)

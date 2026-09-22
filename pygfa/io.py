@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, cast
 
-from pygfa.gfa import GFA
+from pygfa.bgfa._codec_utils import make_cigar_code
 from pygfa.encoding.enums import IntegerEncoding, StringEncoding
+from pygfa.gfa import GFA
+from pygfa.utils import open_gfa_file
 
 logger = logging.getLogger(__name__)
 
@@ -51,27 +53,28 @@ def load(path: Union[str, Path], format: Optional[str] = None) -> GFA:
     logger.info(f"Loading {format.upper()} file: {path}")
 
     if format == "bgfa":
-        return GFA.from_bgfa(str(path))
+        return cast(GFA, GFA.from_bgfa(str(path)))
     else:
-        return GFA.from_gfa(str(path))
+        return cast(GFA, GFA.from_gfa(str(path)))
 
 
 def save(
     graph: GFA,
     path: Union[str, Path],
     format: Optional[str] = None,
-    gfa_version: int = 2,
     block_size: int = 1024,
     integer_encoding: IntegerEncoding = IntegerEncoding.VARINT,
     string_encoding: StringEncoding = StringEncoding.ZSTD,
 ) -> None:
     """Save a GFA graph to file (auto-detects format from extension).
 
+    Text output is always GFA1 (``to_gfa()``); compressed suffixes
+    (``.gz``, ``.zst``, ``.xz``) are honoured for text output.
+
     Args:
         graph: GFA graph to save
         path: Output file path
         format: Optional format hint ('gfa' or 'bgfa')
-        gfa_version: GFA specification version (1 or 2) for text format
         block_size: Block size for binary format
         integer_encoding: Integer encoding for binary format
         string_encoding: String encoding for binary format
@@ -90,12 +93,7 @@ def save(
     if format == "bgfa":
         int_name = integer_encoding.name.lower()
         str_name = string_encoding.name.lower()
-        cigar_code = (
-            0x01  # DD = numOperations + lengths + operations
-            | (integer_encoding.value << 8)  # RR = int encoding for lengths
-            | (integer_encoding.value << 16)  # II = int encoding for counts
-            | (string_encoding.value << 24)  # SS = string encoding for ops
-        )
+        cigar_code = make_cigar_code(integer_encoding.value, string_encoding.value)
         graph.to_bgfa(
             str(path),
             block_size=block_size,
@@ -105,7 +103,8 @@ def save(
             link_cigars_enc=cigar_code,
         )
     else:
-        graph.dump(gfa_version, str(path))
+        with open_gfa_file(str(path), "w") as handle:
+            handle.write(graph.to_gfa())
 
 
 def load_text(path: Union[str, Path]) -> GFA:
@@ -132,15 +131,14 @@ def load_binary(path: Union[str, Path]) -> GFA:
     return load(path, format="bgfa")
 
 
-def save_text(graph: GFA, path: Union[str, Path], version: int = 2) -> None:
-    """Save as text GFA.
+def save_text(graph: GFA, path: Union[str, Path]) -> None:
+    """Save as text GFA1.
 
     Args:
         graph: GFA graph to save
         path: Output file path
-        version: GFA specification version (1 or 2)
     """
-    save(graph, path, format="gfa", gfa_version=version)
+    save(graph, path, format="gfa")
 
 
 def save_binary(

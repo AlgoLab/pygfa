@@ -3,6 +3,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import argparse
 
+from pygfa.io import save_text
+
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -34,13 +36,10 @@ if __name__ == "__main__":
             plt.show()
 
         if args.convert:
-            version = 1
-            if args.convert[0] in ("1", "gfa1", "GFA1"):
-                version = 1
-            else:
+            if args.convert[0] not in ("1", "gfa1", "GFA1"):
                 raise ValueError("Only GFA1 conversion is supported")
 
-            tmp_pygfa.dump(gfa_version=version, out=args.convert[1])
+            save_text(tmp_pygfa, args.convert[1])
     except SystemExit:
         pass
     except EnvironmentError as env_error:

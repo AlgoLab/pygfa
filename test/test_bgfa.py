@@ -338,6 +338,15 @@ def test_bgfa_idempotent_3(gfa_file_path, int_encoding, str_encoding, test_outpu
     _idempotent_test_helper("data/example_3.gfa", int_encoding, str_encoding, test_output_dir)
 
 
+# The HLA-zoo dataset is large and deliberately not tracked in git, so the
+# regression test below can only run where it has been checked out.
+HLA_ZOO_GFA = "data/HLA-zoo/graphs/pggb/DRB4-3126/DRB4-3126.fa.bab52bb.34ee7b1.6c8dee8.smooth.fix.gfa"
+
+
+@pytest.mark.skipif(
+    not os.path.exists(HLA_ZOO_GFA),
+    reason=f"HLA-zoo dataset not checked out ({HLA_ZOO_GFA})",
+)
 def test_vbyte_encoding_measure(tmp_path):
     """Test that BGFA files with VBYTE encoding can be measured successfully.
 
@@ -347,7 +356,7 @@ def test_vbyte_encoding_measure(tmp_path):
     """
     from pygfa.bgfa import measure_bgfa
 
-    gfa = GFA.from_gfa("data/HLA-zoo/graphs/pggb/DRB4-3126/DRB4-3126.fa.bab52bb.34ee7b1.6c8dee8.smooth.fix.gfa")
+    gfa = GFA.from_gfa(HLA_ZOO_GFA)
 
     bgfa_path = tmp_path / "test_vbyte.bgfa"
     gfa.to_bgfa(str(bgfa_path), sequences_enc="vbyte")

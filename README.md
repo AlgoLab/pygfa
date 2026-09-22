@@ -23,7 +23,8 @@ pixi install
 ## Quick Start
 
 ```python
-from pygfa.gfa import GFA
+from pygfa import GFA
+from pygfa.graph_element import Node, Edge
 
 # Create a new GFA graph
 gfa = GFA()
@@ -35,19 +36,43 @@ gfa.add_node(Node("s2", "TGCA", 4))
 # Add edges (links)
 gfa.add_edge(Edge("e1", "s1", "+", "s2", "+", (None, None), (None, None), "2M", None, None))
 
-# Read from file
-gfa.from_file("example.gfa")
+# Read from file (auto-detects .gfa / .gfa.gz / .gfa.zst / .gfa.xz / .bgfa)
+gfa = GFA.from_file("example.gfa")
 
-# Serialize to GFA1
-gfa1_output = gfa.to_gfa1()
-
-# Serialize to GFA1
-gfa1_output = gfa.to_gfa1()
+# Serialize to GFA1 text
+gfa1_output = gfa.to_gfa()
 ```
+
+## Roundtrip fidelity
+
+Everything the BGFA format can represent roundtrips exactly: segment names and
+sequences, segment lengths (written as `LN:i:<n>` when the sequence is `*`),
+links, orientations, CIGAR strings, path segment lists, **every** overlap of a
+path, walks, and optional fields.
+
+One GFA1 field set has no BGFA representation:
+
+- **Edge positions and gap fields** — `from_positions`, `to_positions`,
+  `distance`, and `variance` are dropped. This is a **GFA1 text-format
+  limitation, not a BGFA gap**: GFA1 `L` lines have no columns for them, and
+  `Edge.from_line` hard-codes them to `(None, None)` / `None` for both `L` and
+  `C` lines. Only programmatically constructed edges can populate them (GFA2 is
+  not supported by this library).
+
+Two further differences are normalizations rather than data loss:
+
+- A path whose overlaps field was absent is written back with the explicit
+  GFA1 `*` sentinel.
+- `two_bit_dna` normalizes lowercase bases to upper case and `U`/`u` to `T`
+  (the 2-bit scheme has no case or U/T bit).
+
+The fidelity guarantees are locked by `test/test_bgfa_snapshots.py` (byte-exact
+output plus roundtrip) and `test/test_bgfa_roundtrip.py`; the exclusions it
+still needs are listed in `test/snapshots/bgfa/README.md`.
 
 ## Documentation
 
-See `AGENTS.md` for development guidelines and `doc/` for API documentation.
+See `AGENTS.md` for development guidelines and `docs/` for API documentation.
 
 See [BGFA specifications](https://github.com/AlgoLab/bgfa-spec/blob/main/gfa_binary_format.md) for the complete
 specifications of the binary GFA format.
@@ -97,7 +122,7 @@ snakemake -s workflow/Snakefile -n
 
 **No more manual configuration files needed** - the workflow automatically discovers and structures benchmark runs based on file comments!
 
-See `docs/benchmark_system.md` for detailed documentation.
+See `BENCHMARK.md` for detailed documentation.
 
 ## Architecture
 
@@ -105,18 +130,21 @@ The project follows a modular architecture organized around core graph concepts:
 
 ```
 pygfa/
-├── gfa.py               # Main GFA class - core graph data structure (NetworkX MultiGraph)
-├── bgfa.py              # Binary GFA format support
+├── gfa/                 # GFA class: BaseGFA (NetworkX MultiGraph) + elements/query/parser mixins
+├── bgfa/                # Binary GFA (BGFA) reader, writer, and validation
+├── io.py                # Unified load/save with format auto-detection
 ├── operations.py        # Graph operations (connected components)
 ├── graph_element/       # Graph element representations
 │   ├── node.py          # Node (segment) representation
 │   ├── edge.py          # Edge (link/containment) representation
-│   ├── subgraph.py      # Subgraph/path representation
+│   ├── path.py          # Path representation
+│   ├── walk.py          # Walk representation
+│   ├── subgraph.py      # Subgraph representation
 │   └── parser/          # GFA line parsers using Lark grammar
 ├── graph_operations/    # Graph algorithms (compression, overlap consistency)
 ├── algorithms/          # Graph traversal algorithms
-├── serializer/          # Output format serializers (GFA1)
-└── encoding/            # Data encoding utilities
+├── encoding/            # Data encoding utilities (integer, string, CIGAR codecs)
+└── utils/               # File opening (gzip/zstd/xz), string helpers
 ```
 
 ### Key Components

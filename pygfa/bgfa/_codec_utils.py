@@ -6,6 +6,8 @@ import math
 import struct
 from typing import Any
 
+from pygfa.encoding.enums import CigarDecomposition, IntegerEncoding, StringEncoding
+
 
 def make_4byte_code(byte1: int, byte2: int, byte3: int, byte4: int) -> int:
     """Create a 4-byte strategy code."""
@@ -15,6 +17,29 @@ def make_4byte_code(byte1: int, byte2: int, byte3: int, byte4: int) -> int:
 def split_4byte_code(code: int) -> tuple[int, int, int, int]:
     """Split a 4-byte strategy code into individual bytes."""
     return (code >> 24) & 0xFF, (code >> 16) & 0xFF, (code >> 8) & 0xFF, code & 0xFF
+
+
+def make_cigar_code(
+    int_encoding: int,
+    string_encoding: int,
+    decomposition: int = CigarDecomposition.NUM_OPERATIONS,
+) -> int:
+    """Build the 4-byte CIGAR strategy code ``[SS, RR, II, DD]``.
+
+    The low byte (``DD``) selects the decomposition.  ``NUM_OPERATIONS`` uses two
+    integer codecs — ``RR`` for the run lengths and ``II`` for the operation
+    counts — plus the ``SS`` string codec for the operation characters.
+
+    :param int_encoding: Integer codec used for both ``RR`` and ``II``.
+    :param string_encoding: String codec used for the operation characters.
+    :param decomposition: CIGAR decomposition byte.
+    """
+    return make_4byte_code(string_encoding, int_encoding, int_encoding, decomposition)
+
+
+# Default CIGAR strategy used when the caller does not pick one: the same code
+# the BGFA writer has always emitted, now defined once for every caller.
+DEFAULT_CIGAR_CODE = make_cigar_code(IntegerEncoding.VARINT, StringEncoding.NONE)
 
 
 def pack_bits_lsb(bits: list[int], use_numpy: bool = False) -> bytes:
@@ -106,6 +131,34 @@ def serialize_opt_fields(opt_fields: dict) -> str:
         else:
             parts.append(f"{tag}:Z:{value}")
     return "\t".join(parts)
+
+
+def serialize_ext_fields(fields: dict) -> str:
+    """Serialize a reserved-field dict into a tab-joined ``TAG:TYPE:VALUE`` string.
+
+    Reserved fields are the ones the upstream BGFA format cannot represent
+    (currently the path overlaps after the first). They share the wire encoding
+    of user optional fields but live in their own block, so the two never mix.
+    An empty dict produces an empty string.
+    """
+    return serialize_opt_fields(fields)
+
+
+def parse_ext_fields(s: str) -> dict:
+    """Parse a reserved-field record back into a dict (see ``serialize_ext_fields``)."""
+    return parse_opt_fields(s)
+
+
+def encode_positions(pos: tuple[int | None, int | None]) -> str:
+    """Encode a ``(start, end)`` position pair as ``start,end`` (``*`` for None)."""
+    start, end = pos
+    return f"{'*' if start is None else start},{'*' if end is None else end}"
+
+
+def decode_positions(text: str) -> tuple[int | None, int | None]:
+    """Decode ``start,end`` (``*`` for None) back into a ``(start, end)`` pair."""
+    start, end = text.split(",", 1)
+    return (None if start == "*" else int(start), None if end == "*" else int(end))
 
 
 def parse_opt_fields(s: str) -> dict:

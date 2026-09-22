@@ -197,6 +197,24 @@ class TestPathRoundtrip(unittest.TestCase):
         _assert_structural_equality(g, h)
         _assert_path_equality(g, h)
 
+    def test_path_roundtrip_multiple_overlaps(self):
+        """Every overlap of a path is stored, not just the first."""
+        gfa_text = (
+            "H\tVN:Z:1.0\n"
+            "S\ts1\tACGT\n"
+            "S\ts2\tTGCA\n"
+            "S\ts3\tGGCC\n"
+            "L\ts1\t+\ts2\t-\t4M\n"
+            "L\ts2\t-\ts3\t+\t4M\n"
+            "P\tp1\ts1+,s2-,s3+\t10M,5M\n"
+            "P\tp2\ts1+,s2-\t*\n"
+        )
+        g, h = _roundtrip(gfa_text)
+        _assert_structural_equality(g, h)
+        _assert_path_equality(g, h)
+        self.assertEqual(h.paths()["p1"]["overlaps"], ["10M", "5M"])
+        self.assertEqual(h.paths()["p2"]["overlaps"], ["*"])
+
     def test_path_roundtrip_with_compression(self):
         gfa_text = (
             "H\tVN:Z:1.0\n"
@@ -229,6 +247,26 @@ class TestStrictRoundtrip:
         gfa_text = "H\tVN:Z:1.0\nS\t1\t*\nS\t2\tACGT\nS\t3\t*\nL\t1\t+\t2\t+\t*\nL\t2\t+\t3\t+\t5M\n"
         g, h = _roundtrip(gfa_text)
         _assert_structural_equality(g, h)
+
+    def test_star_sequence_with_length(self):
+        """A length that cannot be derived from the sequence survives as LN."""
+        gfa_text = "H\tVN:Z:1.0\nS\ts1\t*\tLN:i:25\nS\ts2\tACGT\nL\ts1\t+\ts2\t+\t*\n"
+        g, h = _roundtrip(gfa_text)
+        _assert_structural_equality(g, h)
+        h_s1 = dict(h.nodes(data=True))["s1"]
+        assert h_s1["slen"] == 25, f"length lost: {h_s1}"
+        assert h_s1["sequence"] == "*"
+        # LN is the segment length, not a user optional field.
+        assert "LN" not in h_s1, f"LN leaked into opt fields: {h_s1}"
+        assert "LN:i:25" in h.to_gfa()
+
+    def test_star_sequence_without_length(self):
+        """A "*" sequence with no LN must not gain a spurious length."""
+        gfa_text = "H\tVN:Z:1.0\nS\ts1\t*\nS\ts2\tACGT\n"
+        g, h = _roundtrip(gfa_text)
+        _assert_structural_equality(g, h)
+        assert dict(h.nodes(data=True))["s1"]["slen"] is None
+        assert "LN" not in h.to_gfa()
 
     def test_segments_only(self):
         gfa_text = "H\tVN:Z:1.0\nS\ta\tAAAA\nS\tb\tCCCC\nS\tc\tGGGG\nS\td\tTTTT\n"

@@ -63,7 +63,12 @@ def real_overlap(from_sequence: str, to_sequence: str) -> int:
     return size
 
 
-def consistency(node, sequence, orientation, overlap):
+def consistency(
+    node: tuple[str, str],
+    sequence: tuple[str, str],
+    orientation: tuple[str, str],
+    overlap: int,
+) -> bool:
     """Given node information and overlap
     compare the CIGAR overlap and the sequence overlap.
     :return True: if CIGAR overlap and sequence overlap are consistency
@@ -89,7 +94,7 @@ def consistency(node, sequence, orientation, overlap):
     return True
 
 
-def check_overlap(gfa_, path, external_file):
+def check_overlap(gfa_: Any, path: str, external_file: str | None) -> tuple[list[Any], list[Any]] | None:
     """The function look all the edge and take information
     of the involved node. If there is an external fasta file
     create a dictionary for mapping the id and sequence to use.

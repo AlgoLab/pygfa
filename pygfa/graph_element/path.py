@@ -5,6 +5,7 @@ Modern dataclass implementation with standardized naming.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, List
 
@@ -77,7 +78,7 @@ class Path:
         path_id, _ = sanitize_string(path_id_raw)
 
         # Get segment names/orientations
-        segment_ids = []
+        segment_ids: list[str] = []
         if "segment_names" in fields:
             seg_names = fields["segment_names"]
             if hasattr(seg_names, "value"):
@@ -90,7 +91,7 @@ class Path:
                 segment_ids.append(seg_sanitized)
 
         # Get overlaps
-        overlaps = []
+        overlaps: list[str] = []
         if "overlaps" in fields:
             ov = fields["overlaps"]
             if hasattr(ov, "value"):
@@ -114,7 +115,7 @@ class Path:
         """Return number of segments in path."""
         return len(self.segment_ids)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Iterate over segment IDs."""
         return iter(self.segment_ids)
 

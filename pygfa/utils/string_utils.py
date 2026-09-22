@@ -6,6 +6,9 @@ import logging
 
 STRING_LOGGER = logging.getLogger(__name__)
 
+# Maps every non-ASCII code point to '?'.
+_TRANSLATION_TABLE = {i: ord("?") for i in range(128, 256)}
+
 
 def sanitize_string(s: str) -> tuple[str, bool]:
     """Replace non-ASCII characters with '?' and log warning.
@@ -13,14 +16,7 @@ def sanitize_string(s: str) -> tuple[str, bool]:
     :param s: Input string
     :return: (sanitized string, was_sanitized: bool)
     """
-    # Create translation table once (cached on function)
-    if not hasattr(sanitize_string, "_translation_table"):
-        sanitize_string._translation_table = {}
-        for i in range(128, 256):
-            sanitize_string._translation_table[i] = ord("?")
-
-    # Use translate for bulk of work
-    sanitized = s.translate(sanitize_string._translation_table)
+    sanitized = s.translate(_TRANSLATION_TABLE)
     was_sanitized = sanitized != s
 
     if was_sanitized:

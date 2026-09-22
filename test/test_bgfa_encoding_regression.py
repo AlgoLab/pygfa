@@ -2,6 +2,7 @@
 """Regression tests for BGFA encoding inconsistencies."""
 
 import contextlib
+import csv
 import io
 import json
 import os
@@ -756,6 +757,7 @@ class TestValidatorLinksBlockConsumption(unittest.TestCase):
         )
 
 
+<<<<<<< Updated upstream
 class TestLinksFromtoSingleByte(unittest.TestCase):
     """``compression_fromto`` is a single byte holding the integer encoding.
 
@@ -881,6 +883,232 @@ class TestLinksFromtoSingleByte(unittest.TestCase):
             with self.subTest(encoding=bad):
                 with self.assertRaises(InvalidEncodingError):
                     self._write_bgfa(link_endpoints_enc=bad)
+||||||| Stash base
+=======
+class TestExtFieldsBlock(unittest.TestCase):
+    """Section 7 carries the reserved fields the upstream format cannot hold."""
+
+    MULTI_OVERLAP_GFA = (
+        "H\tVN:Z:1.0\n"
+        "S\ts1\tACGT\n"
+        "S\ts2\tTGCA\n"
+        "S\ts3\tGGCC\n"
+        "L\ts1\t+\ts2\t-\t4M\n"
+        "L\ts2\t-\ts3\t+\t4M\n"
+        "P\tp1\ts1+,s2-,s3+\t10M,5M\n"
+    )
+    SINGLE_OVERLAP_GFA = (
+        "H\tVN:Z:1.0\n"
+        "S\ts1\tACGT\n"
+        "S\ts2\tTGCA\n"
+        "L\ts1\t+\ts2\t-\t4M\n"
+        "P\tp1\ts1+,s2-\t10M\n"
+    )
+
+    def setUp(self):
+        self._tmp_files = []
+
+    def tearDown(self):
+        for p in self._tmp_files:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+    def _make_temp(self, suffix):
+        fd, path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        self._tmp_files.append(path)
+        return path
+
+    def _to_bgfa(self, gfa_content, comp_options=None):
+        tmp_gfa = self._make_temp(".gfa")
+        with open(tmp_gfa, "w") as f:
+            f.write(gfa_content)
+        tmp_bgfa = self._make_temp(".bgfa")
+        g = GFA.from_gfa(tmp_gfa)
+        g.to_bgfa(tmp_bgfa, block_size=1024, compression_options=comp_options)
+        return tmp_bgfa
+
+    def _section_types(self, bgfa_path):
+        return [b.get("section_type") for b in validate_bgfa(bgfa_path).get("blocks", [])]
+
+    def test_multi_overlap_path_emits_ext_fields_block(self):
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        self.assertIn("ext_fields", self._section_types(bgfa))
+
+    def test_no_ext_fields_block_when_nothing_reserved(self):
+        """A file with no reserved data must stay byte-identical to before."""
+        bgfa = self._to_bgfa(self.SINGLE_OVERLAP_GFA)
+        self.assertNotIn("ext_fields", self._section_types(bgfa))
+
+    def test_ext_fields_block_is_last(self):
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        types = self._section_types(bgfa)
+        self.assertEqual(types[-1], "ext_fields")
+
+    def test_multi_overlap_roundtrip(self):
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        h = GFA.from_bgfa(bgfa)
+        self.assertEqual(h.paths()["p1"]["overlaps"], ["10M", "5M"])
+
+    def test_ext_fields_encoding_option_roundtrips(self):
+        for enc in ("varint+zstd", "varint+identity", "varint+huffman"):
+            with self.subTest(enc=enc):
+                bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA, {"use_heuristic": False, "ext_fields_enc": enc})
+                h = GFA.from_bgfa(bgfa)
+                self.assertEqual(h.paths()["p1"]["overlaps"], ["10M", "5M"])
+
+    def _section_offset(self, data, section_id):
+        """Return the offset of the first block with *section_id*."""
+        from pygfa.bgfa._reader import ReaderBGFA
+
+        reader = ReaderBGFA(use_numpy=False)
+        offset = reader._parse_header(bytes(data))["header_size"]
+        while offset < len(data):
+            if data[offset] == section_id:
+                return offset
+            _, consumed = reader._skip_block(bytes(data), offset)
+            offset += consumed
+        self.fail(f"section {section_id} not found")
+
+    def test_skip_block_consumes_ext_fields_exactly(self):
+        """The O(1) skip must consume exactly the 27-byte header plus clen."""
+        from pygfa.bgfa._reader import ReaderBGFA
+
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        with open(bgfa, "rb") as f:
+            data = bytes(f.read())
+
+        offset = self._section_offset(data, 7)
+        clen = struct.unpack_from("<Q", data, offset + 11)[0]
+        _, consumed = ReaderBGFA(use_numpy=False)._skip_block(data, offset)
+        self.assertEqual(consumed, 27 + clen)
+        # The block is written last, so an exact skip lands on the file end.
+        self.assertEqual(offset + consumed, len(data))
+
+    def test_skip_payloads_handles_ext_fields_block(self):
+        from pygfa.bgfa._reader import ReaderBGFA
+
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        gfa = ReaderBGFA(use_numpy=False).read_bgfa(bgfa, skip_payloads=True)
+        self.assertEqual(list(gfa.paths()), [])
+
+    def test_measure_handles_ext_fields_block(self):
+        """measure_bgfa must recognise the ext-fields block, not misattribute it.
+
+        Section 7 is deliberately not a measured field (like section 6), so the
+        observable guarantees are: the block is not reported as an unknown
+        section (which would also abort the scan), and the reported rows match
+        the ones for the same graph with a single-overlap path.
+        """
+        import logging
+
+        from pygfa.bgfa._reader import measure_bgfa
+
+        multi = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        single = self._to_bgfa(self.SINGLE_OVERLAP_GFA)
+
+        def _measure_rows(bgfa):
+            csv_path = self._make_temp(".csv")
+            with contextlib.redirect_stdout(io.StringIO()):
+                measure_bgfa(bgfa, csv_path, verbose=True)
+            with open(csv_path) as f:
+                return list(csv.DictReader(f))
+
+        records = []
+
+        class _Collect(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        # The reader logs through the logger it imports from ``_constants``, so
+        # collect on the root logger instead of naming one module.
+        handler = _Collect()
+        root = logging.getLogger()
+        root.addHandler(handler)
+        try:
+            multi_rows = _measure_rows(multi)
+        finally:
+            root.removeHandler(handler)
+
+        self.assertTrue(multi_rows, "measure produced no rows")
+        self.assertFalse(
+            [msg for msg in records if "Unknown section ID" in msg],
+            f"section 7 treated as unknown: {records}",
+        )
+        single_rows = _measure_rows(single)
+        self.assertEqual(
+            [r["section_type"] for r in multi_rows],
+            [r["section_type"] for r in single_rows],
+        )
+        self.assertNotIn("ext_fields", {r["section_type"] for r in multi_rows})
+
+    def test_dump_lists_ext_fields_block(self):
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        with contextlib.redirect_stdout(io.StringIO()) as captured:
+            dump_bgfa(bgfa)
+        self.assertIn("ext_fields", captured.getvalue())
+
+    def test_string_overlaps_matches_list_overlaps(self):
+        """A comma-joined string and the equivalent list must roundtrip alike.
+
+        ``_write_paths_block`` accepts both spellings, so the ext-fields writer
+        must not disagree with it about where the tail starts.
+        """
+        from pygfa.graph_element import Node
+
+        results = []
+        for overlaps in (["10M", "5M"], "10M,5M"):
+            g = GFA()
+            g.add_node(Node("s1", "ACGT"))
+            g.add_node(Node("s2", "TGCA"))
+            g.add_node(Node("s3", "GGCC"))
+            g.add_path({"path_name": "p1", "segments": ["s1+", "s2-", "s3+"], "overlaps": overlaps})
+            bgfa = self._make_temp(".bgfa")
+            g.to_bgfa(bgfa, block_size=1024, compression_options={"use_heuristic": False})
+            results.append(GFA.from_bgfa(bgfa).paths()["p1"]["overlaps"])
+
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0], ["10M", "5M"])
+
+    def test_malformed_ln_raises_invalid_encoding_error(self):
+        """A non-integer LN record must raise a typed error, not ValueError."""
+        from pygfa.bgfa._reader import InvalidEncodingError
+        from pygfa.graph_element import Node
+
+        g = GFA()
+        g.add_node(Node("s1", "*", None, opt_fields={"LN": "abc"}))
+        bgfa = self._make_temp(".bgfa")
+        g.to_bgfa(bgfa, block_size=1024, compression_options={"use_heuristic": False})
+
+        with self.assertRaises(InvalidEncodingError):
+            GFA.from_bgfa(bgfa)
+
+    def test_validate_flags_corrupt_ext_fields_length(self):
+        """A corrupted ext-fields payload length must make the file invalid."""
+        from pygfa.bgfa._reader import ReaderBGFA
+
+        bgfa = self._to_bgfa(self.MULTI_OVERLAP_GFA)
+        with open(bgfa, "rb") as f:
+            data = bytearray(f.read())
+
+        reader = ReaderBGFA(use_numpy=False)
+        header = reader._parse_header(bytes(data))
+        offset = header["header_size"]
+        while offset < len(data) and data[offset] != 7:
+            _, consumed = reader._skip_block(bytes(data), offset)
+            offset += consumed
+        self.assertEqual(data[offset], 7, "ext-fields block not found")
+
+        # clen sits 11 bytes into the block header (1 + 4*2 + 2).
+        struct.pack_into("<Q", data, offset + 11, 0)
+        with open(bgfa, "wb") as f:
+            f.write(bytes(data))
+
+        result = validate_bgfa(bgfa)
+        self.assertFalse(result["valid"])
+>>>>>>> Stashed changes
 
 
 if __name__ == "__main__":

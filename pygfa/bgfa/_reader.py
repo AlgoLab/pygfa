@@ -7,7 +7,7 @@ import time
 import struct
 from collections.abc import Callable
 
-from pygfa.bgfa._codec_utils import parse_opt_fields, unpack_bits_lsb
+from pygfa.bgfa._codec_utils import parse_ext_fields, parse_opt_fields, unpack_bits_lsb
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
     CIGAR_DECOMPOSITION_NONE,
@@ -32,6 +32,7 @@ from pygfa.bgfa._constants import (
     INTEGER_ENCODING_EXP_GOLOMB,
     INTEGER_ENCODING_BYTE_PACKED,
     INTEGER_ENCODING_MASKED_VBYTE,
+    SECTION_ID_EXT_FIELDS,
     SECTION_ID_LINKS,
     SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
@@ -412,6 +413,14 @@ class ReaderBGFA:
         bytes_consumed = (offset + clen) - start_offset
         return num_segments, num_links, num_paths, num_walks, opt_strings, bytes_consumed
 
+    def _parse_ext_fields_block(self, data: bytes, start_offset: int) -> tuple[int, int, int, int, list[str], int]:
+        """Parse an extended-fields block (the reserved fields, section 7).
+
+        The wire format is identical to the optional-fields block, so the
+        parsing is shared; only the meaning of the records differs.
+        """
+        return self._parse_opt_fields_block(data, start_offset)
+
     def _parse_links_block(self, data: bytes, start_offset: int) -> tuple[list[dict], int]:
         offset = start_offset + 1
 
@@ -476,12 +485,17 @@ class ReaderBGFA:
         if record_num == 0:
             return [], 0
 
-        if walk_compression == 0:
-            return [[] for _ in range(record_num)], 0
-
         walk_byte = (walk_compression >> 24) & 0xFF
 
         if walk_byte == 0x00:
+            # Decomposition NONE (0x00) means "no walk data": the payload must
+            # be empty.  A non-empty payload is malformed (the pre-2026-09-16
+            # writer emitted one for 2-byte paths_walk_enc codes).
+            if walk_data:
+                raise InvalidEncodingError(
+                    f"Walk decomposition NONE (0x00) with a non-empty payload "
+                    f"({len(walk_data)} bytes) is malformed"
+                )
             return [[] for _ in range(record_num)], 0
 
         int_code = walk_compression & 0xFF
@@ -809,6 +823,7 @@ class ReaderBGFA:
         all_paths = []
         all_walks = []
         opt_fields_data = None
+        ext_fields_data = None
 
         while offset < len(data):
             section_id = data[offset]
@@ -823,6 +838,17 @@ class ReaderBGFA:
                 else:
                     opt_fields_data = self._parse_opt_fields_block(data, offset)
                     offset += opt_fields_data[5]
+
+            elif section_id == SECTION_ID_EXT_FIELDS:
+                if skip_payloads:
+                    try:
+                        _, consumed = self._skip_block(data, offset)
+                    except ValueError:
+                        break
+                    offset += consumed
+                else:
+                    ext_fields_data = self._parse_ext_fields_block(data, offset)
+                    offset += ext_fields_data[5]
 
             elif section_id == SECTION_ID_SEGMENTS:
                 if skip_payloads:
@@ -900,11 +926,34 @@ class ReaderBGFA:
                     num_segments + num_links + num_paths : num_segments + num_links + num_paths + num_walks
                 ]
 
+            path_ext_strings = []
+            if ext_fields_data is not None:
+                num_segments, num_links, num_paths, _, ext_strings, _ = ext_fields_data
+                path_ext_strings = ext_strings[
+                    num_segments + num_links : num_segments + num_links + num_paths
+                ]
+
             for sid, seg_data in segments.items():
                 name = seg_data.get("name", f"s{sid}")
                 seq = seg_data.get("sequence", "*")
                 opts = parse_opt_fields(seg_opt_strings[sid]) if sid < len(seg_opt_strings) else {}
-                gfa.add_node(Node(name, seq, opt_fields=opts))
+                # A "*" sequence has no derivable length, so LN is the only
+                # source for it. For a known sequence LN is redundant and stays
+                # a user optional field, so it is never dropped.
+                if seq == "*":
+                    if "LN" in opts:
+                        raw_ln = opts.pop("LN")
+                        try:
+                            seq_len = int(raw_ln)
+                        except (TypeError, ValueError) as err:
+                            raise InvalidEncodingError(
+                                f"Segment {name} carries a non-integer LN field: {raw_ln!r}"
+                            ) from err
+                    else:
+                        seq_len = None
+                else:
+                    seq_len = len(seq)
+                gfa.add_node(Node(name, seq, seq_len, opt_fields=opts))
 
             for i, link in enumerate(links):
                 opts = parse_opt_fields(link_opt_strings[i]) if i < len(link_opt_strings) else {}
@@ -925,6 +974,12 @@ class ReaderBGFA:
                 opts = parse_opt_fields(path_opt_strings[i]) if i < len(path_opt_strings) else {}
                 merged = dict(path_data)
                 merged.update(opts)
+                # The paths block stores only the first overlap; the rest live
+                # in the extended-fields block.
+                if i < len(path_ext_strings):
+                    tail = parse_ext_fields(path_ext_strings[i]).pop("OV", "")
+                    if tail:
+                        merged["overlaps"] = list(merged.get("overlaps", [])) + tail.split(",")
                 gfa.add_path(merged)
 
             for i, walk_data in enumerate(all_walks):
@@ -1005,7 +1060,7 @@ class ReaderBGFA:
                     offset += 8
                     compressed_len += clen
 
-            elif section_id == SECTION_ID_OPT_FIELDS:
+            elif section_id in (SECTION_ID_OPT_FIELDS, SECTION_ID_EXT_FIELDS):
                 if len(data) < offset + 2 + 2 + 2 + 2 + 8 + 8:
                     raise ValueError("BGFA file is too short")
                 # offset already advanced past num_segments by the generic prologue
@@ -1469,9 +1524,9 @@ def measure_bgfa(
             )
             offset += consumed
 
-        elif section_id == SECTION_ID_OPT_FIELDS:
-            # Optional-fields block: fixed 27-byte header + compressed payload.
-            # Not part of the per-field compression stats, so just skip it.
+        elif section_id in (SECTION_ID_OPT_FIELDS, SECTION_ID_EXT_FIELDS):
+            # Optional-/extended-fields block: fixed 27-byte header + compressed
+            # payload. Not part of the per-field compression stats, so just skip it.
             opt_offset = offset + 1
             opt_offset += 2  # num_segments
             opt_offset += 2  # num_links

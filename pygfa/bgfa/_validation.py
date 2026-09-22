@@ -12,6 +12,7 @@ from pygfa.bgfa._constants import (
     BGFA_VERSION,
     CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS,
     CIGAR_DECOMPOSITION_STRING,
+    SECTION_ID_EXT_FIELDS,
     SECTION_ID_LINKS,
     SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
@@ -468,6 +469,7 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
                 block_result["decompressed"] = paths_data
             except Exception as e:
                 block_result["decompressed"] = {"error": str(e)}
+                result["valid"] = False
                 consumed = (payload_offset + clen_names + clen_cigars + parsed["clen_walks"]) - offset
             offset += consumed
 
@@ -640,8 +642,8 @@ def validate_bgfa(input_file: str, verbose: bool = False, debug: bool = False) -
             consumed = sub_offset - offset
             offset += consumed
 
-        elif section_id == SECTION_ID_OPT_FIELDS:
-            block_result["section_type"] = "opt_fields"
+        elif section_id in (SECTION_ID_OPT_FIELDS, SECTION_ID_EXT_FIELDS):
+            block_result["section_type"] = "ext_fields" if section_id == SECTION_ID_EXT_FIELDS else "opt_fields"
             opt_offset = offset + 1
 
             field_names = ["num_segments", "num_links", "num_paths", "num_walks", "comp", "clen", "ulen"]
@@ -1167,8 +1169,8 @@ def dump_bgfa(file_path: str, text_format: bool = False) -> None:
 
             offset += consumed
 
-        elif section_id == SECTION_ID_OPT_FIELDS:
-            block_result["section_type"] = "opt_fields"
+        elif section_id in (SECTION_ID_OPT_FIELDS, SECTION_ID_EXT_FIELDS):
+            block_result["section_type"] = "ext_fields" if section_id == SECTION_ID_EXT_FIELDS else "opt_fields"
 
             try:
                 opt_offset = offset + 1

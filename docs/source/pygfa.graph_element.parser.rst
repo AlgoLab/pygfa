@@ -12,42 +12,10 @@ pygfa\.graph\_element\.parser\.containment module
     :undoc-members:
     :show-inheritance:
 
-pygfa\.graph\_element\.parser\.edge module
-------------------------------------------
-
-.. automodule:: pygfa.graph_element.parser.edge
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 pygfa\.graph\_element\.parser\.field\_validator module
 ------------------------------------------------------
 
 .. automodule:: pygfa.graph_element.parser.field_validator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-pygfa\.graph\_element\.parser\.fragment module
-----------------------------------------------
-
-.. automodule:: pygfa.graph_element.parser.fragment
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-pygfa\.graph\_element\.parser\.gap module
------------------------------------------
-
-.. automodule:: pygfa.graph_element.parser.gap
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-pygfa\.graph\_element\.parser\.group module
--------------------------------------------
-
-.. automodule:: pygfa.graph_element.parser.group
     :members:
     :undoc-members:
     :show-inheritance:

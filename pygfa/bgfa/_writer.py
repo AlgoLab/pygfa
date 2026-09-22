@@ -5,7 +5,12 @@ from __future__ import annotations
 import io
 import struct
 
-from pygfa.bgfa._codec_utils import pack_bits_lsb, serialize_opt_fields
+from pygfa.bgfa._codec_utils import (
+    DEFAULT_CIGAR_CODE,
+    pack_bits_lsb,
+    serialize_ext_fields,
+    serialize_opt_fields,
+)
 from pygfa.encoding.integer_list_encoding import compress_integer_list_uints_delta
 from pygfa.bgfa._constants import (
     BGFA_MAGIC,
@@ -15,6 +20,7 @@ from pygfa.bgfa._constants import (
     CIGAR_DECOMPOSITION_STRING,
     DEFAULT_BLOCK_SIZE,
     INTEGER_ENCODING_VARINT,
+    SECTION_ID_EXT_FIELDS,
     SECTION_ID_LINKS,
     SECTION_ID_OPT_FIELDS,
     SECTION_ID_PATHS,
@@ -150,6 +156,45 @@ def _parse_walk_string(walk_str: str) -> list[tuple[str, str]]:
         if name:
             result.append((name, orientation))
     return result
+
+
+# =============================================================================
+# Walk Decomposition Normalization
+# =============================================================================
+
+
+def _path_overlaps(pd: dict) -> list[str]:
+    """Return a path's overlaps as a list of CIGAR strings.
+
+    The GFA1 text form parses to a list, but a programmatically built path may
+    carry a single comma-joined string; both spellings mean the same thing, so
+    they are normalized here and the two path writers cannot disagree.
+    An absent overlaps field (``""``, ``"*"``, or no value) yields an empty list.
+    """
+    overlaps = pd.get("overlaps", [])
+    if isinstance(overlaps, str):
+        return [] if overlaps in ("", "*") else overlaps.split(",")
+    return [str(o) for o in overlaps]
+
+
+def _normalize_walk_code(code: int) -> int:
+    """Return a walk compression code carrying a valid decomposition byte.
+
+    The BGFA spec reserves decomposition 0x00 (``WalkDecomposition.NONE``) for
+    "no walk data".  A code without a STRID/NUMID top byte is either a legacy
+    2-byte code (integer encoding in bits 8-15) or an explicit NONE; both are
+    upgraded to ORIENTATION_NUMID so the payload is never labeled 0x00 (which
+    readers interpret as "no walk data" and would silently drop).  Any other
+    top byte is not a valid ``WalkDecomposition`` and raises
+    ``InvalidEncodingError``.  For a 0x00 top byte, bits 16-23 (the STRID
+    names code) are discarded; only the integer encoding in bits 8-15 is kept.
+    """
+    decomp = (code >> 24) & 0xFF
+    if decomp in (WALK_DECOMPOSITION_ORIENTATION_STRID, WALK_DECOMPOSITION_ORIENTATION_NUMID):
+        return code
+    if decomp == 0x00:
+        return ((code >> 8) & 0xFF) | (WALK_DECOMPOSITION_ORIENTATION_NUMID << 24)
+    raise InvalidEncodingError(f"Invalid walk decomposition byte 0x{decomp:02X} in code 0x{code:08X}")
 
 
 # =============================================================================
@@ -374,13 +419,8 @@ class BGFAWriter:
                 all_seg_names.append(name)
                 all_orientations.append(0 if orientation == "+" else 1)
 
-            overlaps = pd.get("overlaps", [])
-            if isinstance(overlaps, list) and overlaps:
-                all_cigars.append(overlaps[0])
-            elif isinstance(overlaps, str) and overlaps not in ("*", "", None):
-                all_cigars.append(overlaps)
-            else:
-                all_cigars.append("*")
+            overlaps = _path_overlaps(pd)
+            all_cigars.append(overlaps[0] if overlaps else "*")
 
         p_names = _compress_string_for_bgfa(path_names, names_enc)
 
@@ -567,6 +607,10 @@ class BGFAWriter:
         for name in names:
             data = nodes_data.get(name, {})
             opts = {k: v for k, v in data.items() if k not in seg_reserved}
+            # A "*" sequence has no derivable length, so the length has to be
+            # written explicitly as LN or it is lost.
+            if data.get("sequence", "*") == "*" and isinstance(data.get("slen"), int) and "LN" not in opts:
+                opts["LN"] = data["slen"]
             seg_opts.append(serialize_opt_fields(opts))
 
         link_reserved = {
@@ -622,6 +666,58 @@ class BGFAWriter:
             len(link_opts),
             len(path_opts),
             len(walk_opts),
+            len(payload),
+        )
+
+    def _write_ext_fields_block(
+        self, buf: io.BytesIO, names: list[str], edges: list, paths: list, walks: list, enc: int
+    ) -> None:
+        """Write a block holding the reserved fields the upstream format cannot represent.
+
+        The payload is a list of tab-joined ``TAG:TYPE:VALUE`` strings, one per
+        segment (in segment order), then one per link, then one per path, then
+        one per walk. A record for an element with no reserved data is the empty
+        string; when every record is empty the block is omitted entirely, so
+        files that carry no reserved data stay byte-identical to what a writer
+        that does not know this section would emit.
+
+        A path's ``overlaps`` is read through ``_path_overlaps``, the same
+        helper ``_write_paths_block`` uses, so a comma-joined string and the
+        equivalent list are treated identically: the first overlap stays in the
+        paths block and the tail is stored here.
+        """
+        seg_records = ["" for _ in names]
+        link_records = ["" for _ in edges]
+
+        path_records = []
+        for pd in paths:
+            overlaps = _path_overlaps(pd)
+            if len(overlaps) > 1:
+                path_records.append(serialize_ext_fields({"OV": ",".join(overlaps[1:])}))
+            else:
+                path_records.append("")
+
+        walk_records = ["" for _ in walks]
+
+        all_records = seg_records + link_records + path_records + walk_records
+        if not any(all_records):
+            logger.debug("BGFAWriter._write_ext_fields_block() -> no reserved fields, skipping block")
+            return
+
+        payload = _compress_string_for_bgfa(all_records, enc)
+
+        buf.write(struct.pack("<B", SECTION_ID_EXT_FIELDS))
+        buf.write(struct.pack("<H", len(seg_records)))
+        buf.write(struct.pack("<H", len(link_records)))
+        buf.write(struct.pack("<H", len(path_records)))
+        buf.write(struct.pack("<H", len(walk_records)))
+        buf.write(struct.pack("<H", enc))
+        buf.write(struct.pack("<Q", len(payload)))
+        buf.write(struct.pack("<Q", sum(len(s) for s in all_records)))
+        buf.write(payload)
+        logger.debug(
+            "BGFAWriter._write_ext_fields_block() -> exit, path_records=%d, payload_size=%d",
+            len(path_records),
             len(payload),
         )
 
@@ -682,13 +778,7 @@ class BGFAWriter:
                 "link_endpoints_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
             )
         )
-        links_cig_enc = self._comp_options.get(
-            "link_cigars_enc",
-            (CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS << 0)
-            | (INTEGER_ENCODING_VARINT << 8)
-            | (INTEGER_ENCODING_VARINT << 16)
-            | (STRING_ENCODING_NONE << 24),
-        )
+        links_cig_enc = self._comp_options.get("link_cigars_enc", DEFAULT_CIGAR_CODE)
 
         for i in range(0, len(edges), self._block_size):
             chunk = edges[i : i + self._block_size]
@@ -709,13 +799,8 @@ class BGFAWriter:
                 "paths_walk_enc",
                 (INTEGER_ENCODING_VARINT << 0) | (WALK_DECOMPOSITION_ORIENTATION_NUMID << 24),
             )
-            paths_cigars_enc = self._comp_options.get(
-                "paths_cigars_enc",
-                (CIGAR_DECOMPOSITION_NUM_OPS_LENGTHS_OPS << 0)
-                | (INTEGER_ENCODING_VARINT << 8)
-                | (INTEGER_ENCODING_VARINT << 16)
-                | (STRING_ENCODING_NONE << 24),
-            )
+            paths_walk_enc = _normalize_walk_code(paths_walk_enc)
+            paths_cigars_enc = self._comp_options.get("paths_cigars_enc", DEFAULT_CIGAR_CODE)
 
             logger.debug(
                 "BGFAWriter.to_bgfa() -> writing %d paths, names_enc=0x%04X, walk_enc=0x%08X, cig_enc=0x%08X",
@@ -756,14 +841,7 @@ class BGFAWriter:
                 make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE),
             )
             comp_positions = walk_pos_start_enc
-            # 4-byte walk code: int encoding in the low byte, ORIENTATION_NUMID in the top byte.
-            if (walk_steps_enc >> 24) & 0xFF in (
-                WALK_DECOMPOSITION_ORIENTATION_STRID,
-                WALK_DECOMPOSITION_ORIENTATION_NUMID,
-            ):
-                comp_walks = walk_steps_enc
-            else:
-                comp_walks = ((walk_steps_enc >> 8) & 0xFF) | (WALK_DECOMPOSITION_ORIENTATION_NUMID << 24)
+            comp_walks = _normalize_walk_code(walk_steps_enc)
 
             logger.debug(
                 "BGFAWriter.to_bgfa() -> writing %d walks, comp_samples=0x%04X, comp_hep=0x%04X, comp_seq=0x%04X, comp_positions=0x%04X, comp_walks=0x%08X",
@@ -792,6 +870,11 @@ class BGFAWriter:
             "opt_fields_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
         )
         self._write_opt_fields_block(buf, names, edges, paths, walks, opt_fields_enc)
+
+        ext_fields_enc = self._comp_options.get(
+            "ext_fields_enc", make_compression_code(INTEGER_ENCODING_VARINT, STRING_ENCODING_NONE)
+        )
+        self._write_ext_fields_block(buf, names, edges, paths, walks, ext_fields_enc)
 
         result = buf.getvalue()
         logger.debug("BGFAWriter.to_bgfa() -> exit, total_bgfa_size=%d bytes", len(result))

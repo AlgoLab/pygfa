@@ -39,12 +39,13 @@ Before committing regenerated snapshots, review the diff with
 
 ## Coverage
 
-The 122 instances cover: file header, segments (structure, all string codecs,
-all integer metadata codecs, 2-bit exception tables, uint16 record counts),
-links (orientations, bit-packing at 64-bit word boundaries, all CIGAR
-decompositions, all integer endpoint codecs), paths (structure, NUMID/STRID
-walk decompositions, CIGAR decompositions), walks (structure, decompositions,
-uints-delta positions, string codecs), the opt-fields block (section 6),
+The instances cover: file header, segments (structure, all string codecs,
+all integer metadata codecs, 2-bit exception tables, uint16 record counts,
+star lengths), links (orientations, bit-packing at 64-bit word boundaries, all
+CIGAR decompositions, all integer endpoint codecs), paths (structure, NUMID/STRID
+walk decompositions, CIGAR decompositions, multi-overlap ext-fields), walks
+(structure, decompositions, uints-delta positions, string codecs), the
+opt-fields block (section 6), the extended-fields block (section 7),
 multi-block chunking, and combined graphs.
 
 ## Known fidelity gaps
@@ -53,10 +54,15 @@ The roundtrip comparison in the snapshot test compares the elements the BGFA
 format can represent. The following GFA data is intentionally not preserved
 by the BGFA writer/reader and is excluded from the comparison:
 
-- **Multiple overlaps per path**: only `overlaps[0]` is stored per path
-  (`_write_paths_block`), so a path line `P\tp1\ts1+,s2+,s3+\t10M,5M`
-  (`\t` is a literal tab) roundtrips as a single `10M` overlap.
-- **`slen` / `sequence_length`**: parsed from the text, but not reconstructed
-  by the reader (it is derivable from the sequence).
 - **Edge positions and gap fields**: `from_positions`, `to_positions`,
-  `distance`, and `variance` are dropped by the writer.
+  `distance`, and `variance` are dropped by the writer. This is a GFA1
+  text-format limitation rather than a BGFA gap — GFA1 `L` lines have no
+  columns for them and `Edge.from_line` hard-codes them, so only
+  programmatically constructed edges can populate them (GFA2 is unsupported).
+  `EDGE_RESERVED` in `test/test_bgfa_snapshots.py` names them.
+
+`NODE_RESERVED` lists `slen`, but only because it is filtered out of the
+attribute tuple: a programmatically built node may omit its length. Segment
+lengths are compared by `_assert_segment_lengths`, which asserts the reader
+restores them — from `LN` for a `*` sequence (not derivable) and from the
+sequence itself otherwise — so a reader that drops the length fails the suite.

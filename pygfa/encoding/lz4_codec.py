@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
-import lz4.frame
+import lz4.frame  # type: ignore[import-untyped]
 
 from pygfa.exceptions import InvalidCompressionError
 
@@ -32,8 +32,7 @@ def compress_string_lz4(string: str) -> bytes:
     """
     try:
         data = string.encode("utf-8")
-        compressed = lz4.frame.compress(data)
-        return compressed
+        return bytes(lz4.frame.compress(data))
     except Exception as e:
         raise InvalidCompressionError(f"LZ4 compression failed: {e}") from e
 

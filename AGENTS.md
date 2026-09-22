@@ -9,10 +9,12 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- Write plans in the project root folder, as markdown files, with filename of the form `PLAN-*.md`
 
 ## 2. Simplicity First
 
@@ -31,12 +33,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -47,11 +51,13 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
+
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
@@ -69,6 +75,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Project Overview
 
 pygfa is a Python library for managing GFA (Graphical Fragment Assembly) files used in bioinformatics to represent pangenome graphs. The library uses:
+
 - **Python**: >= 3.14
 - **Build system**: hatchling (via pyproject.toml)
 - **Dependency management**: pixi only
@@ -79,9 +86,8 @@ pygfa is a Python library for managing GFA (Graphical Fragment Assembly) files u
 ## Environment
 
 This project is inside a pixi environment, therefore all commands should be
-prefixed by 
-```pixi run```
-
+prefixed by
+`pixi run`
 
 ### Installation
 
@@ -119,7 +125,7 @@ pixi run python -m pytest test/ -v -s --full-trace --tb=long --log-cli-level=DEB
 
 All tests must pass.
 
-The input files for each test are in the `/data` directory.
+yyyThe input files for each test are in the `/data` directory.
 
 Each `*.gfa*` file has one or more comments of the form `# test: TESTNAME` where `TESTNAME` is the filename of the
 `/test` directory containing some tests. The comment `# test: TESTNAME` means that the gfa file must be used as a test
@@ -162,12 +168,14 @@ The benchmark system allows filtering GFA files based on `# benchmark: NAME` com
 ### Output Locations
 
 All benchmark outputs are stored in `results/benchmark/`:
+
 - Individual benchmark results: `results/benchmark/{benchmark_type}/{dataset}/`
 - Combined results: `results/benchmark/summary.csv.zstd`
 
 ### Benchmark Comments
 
 Add benchmark comments to GFA files:
+
 ```gfa
 # benchmark: bgfa_compression
 H	VN:Z:1.0
@@ -194,7 +202,6 @@ pixi run python test/benchmark_filter.py --config --benchmark-name bgfa_compress
 # Run benchmark workflow
 pixi run snakemake -s workflow/Snakefile --configfile workflow/config.yaml -j 8
 ```
-
 
 ## Code Style Guidelines
 
@@ -291,13 +298,13 @@ This project will run only on Linux and MacOS systems. Drop any support for Wind
 
 ### Testing
 
--  After a code change, you MUST NOT run any test. The exception is, if the code change originates from a test failure,
-   run only the failed test and no other tests.
--  Tests use `unittest.TestCase`
--  Put tests in `test/` directory with `test_*.py` naming
--  Tests add `../` to `sys.path` for imports
--  Use descriptive test method names: `test_node_creation_with_valid_input`
--  Use `assertRaises` for error cases
+- After a code change, you MUST NOT run any test. The exception is, if the code change originates from a test failure,
+  run only the failed test and no other tests.
+- Tests use `unittest.TestCase`
+- Put tests in `test/` directory with `test_*.py` naming
+- Tests add `../` to `sys.path` for imports
+- Use descriptive test method names: `test_node_creation_with_valid_input`
+- Use `assertRaises` for error cases
 
 ### Logging
 
@@ -309,8 +316,8 @@ import logging
 GRAPH_LOGGER = logging.getLogger(__name__)
 ```
 
-*  Use '-v' to activate the default INFO log level option
-*  Use '-d' to activate the DEBUG log level option. If both `-d` and `-v` options are given, we activate `-d`
+- Use '-v' to activate the default INFO log level option
+- Use '-d' to activate the DEBUG log level option. If both `-d` and `-v` options are given, we activate `-d`
 
 ### Graph Element Pattern
 
@@ -328,8 +335,8 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 - Use `networkx.MultiGraph` as base structure
 - Use lark for parsing GFA line formats
 
-
 ## Active Technologies
+
 - Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library) (001-encoding-cli-options)
 - N/A (file-based, reads GFA/BGFA files from disk) (001-encoding-cli-options)
 - Python >= 3.14 + pygfa (existing library), networkx, lark, biopython, numpy, zstandard, lz4, brotli (001-fix-bgfa-measure-unicode-error)
@@ -340,4 +347,5 @@ Graph elements (Node, Edge, Subgraph) follow a consistent pattern:
 - Python ≥ 3.14 + networkx, lark, biopython, numpy, zstandard, lz4, brotli, gzip, lzma (010-bgfa-verify)
 
 ## Recent Changes
+
 - 001-encoding-cli-options: Added Python ≥ 3.14 + networkx, lark, biopython, numpy, pygfa (existing library)

@@ -24,8 +24,6 @@ class TestGraphOperationsBase(unittest.TestCase):
     def setUp(self):
         """Set up test output directory using system temp for parallel safety."""
         # Create output directory in system temp for parallel test safety
-        import tempfile
-
         self.test_output_dir = Path("results/test/graph_ops") / f"run_{os.getpid()}"
         self.test_output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -8,6 +8,8 @@ encoded in 2 bits each, achieving 75% space reduction.
 from __future__ import annotations
 from collections.abc import Callable
 
+from pygfa.exceptions import InvalidEncodingError
+
 # 2-bit encoding: A=00, C=01, G=10, T=11
 _DNA_TO_2BIT = {
     ord("A"): 0b00,
@@ -23,8 +25,6 @@ _DNA_TO_2BIT = {
 }
 
 _2BIT_TO_DNA = [ord("A"), ord("C"), ord("G"), ord("T")]
-# Ambiguity codes including * (wildcard/no sequence) and - (gap)
-_AMBIGUITY_CODES = set(b"NRYKMSWBDHVnrykmswbdhv-*")
 
 
 def compress_string_2bit_dna(
@@ -71,7 +71,7 @@ def compress_string_2bit_dna(
         if byte in _DNA_TO_2BIT:
             packed_bits.append(_DNA_TO_2BIT[byte])
         else:
-            exceptions.append((i, byte if byte in _AMBIGUITY_CODES else ord("N")))
+            exceptions.append((i, byte))
             packed_bits.append(0b00)
 
     packed_bytes = bytearray()
@@ -113,12 +113,16 @@ def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Cal
             results.append(b"")
             continue
 
+        if offset >= len(data):
+            raise InvalidEncodingError("Truncated 2bit DNA payload")
         flags = data[offset]
         offset += 1
         has_exceptions = (flags & 0x01) != 0
 
         packed_byte_count = (length + 3) // 4
         packed_data = data[offset : offset + packed_byte_count]
+        if len(packed_data) < packed_byte_count:
+            raise InvalidEncodingError("Truncated 2bit DNA packed bases")
         offset += packed_byte_count
 
         unpacked = bytearray()
@@ -132,13 +136,23 @@ def decompress_string_2bit_dna(data: bytes, lengths: list[int], int_decoder: Cal
 
         if has_exceptions:
             exc_counts, c1 = int_decoder(data[offset:], 1)
+            if not exc_counts:
+                raise InvalidEncodingError("Truncated 2bit DNA exception count")
             exc_count = exc_counts[0]
             offset += c1
             exc_positions, c2 = int_decoder(data[offset:], exc_count)
             offset += c2
             for pos in exc_positions:
-                if pos < len(unpacked):
-                    unpacked[pos] = data[offset]
+                if offset >= len(data):
+                    raise InvalidEncodingError("Truncated 2bit DNA exception bytes")
+                if pos >= len(unpacked):
+                    # Valid data always has pos < length; anything else would
+                    # silently desynchronise the byte stream and corrupt every
+                    # later exception position of this sequence.
+                    raise InvalidEncodingError(
+                        f"2bit DNA exception position {pos} is out of range for a sequence of length {len(unpacked)}"
+                    )
+                unpacked[pos] = data[offset]
                 offset += 1
 
         results.append(bytes(unpacked))

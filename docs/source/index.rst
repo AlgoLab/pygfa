@@ -3,8 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to PyGFA's documentation!
-=================================
+PyGFA documentation
+===================
+
+``pygfa`` is a Python library for managing GFA (Graphical Fragment Assembly)
+files used in bioinformatics to represent pangenome graphs, and their binary
+BGFA representation.
+
+See the ``README.md`` at the repository root for an overview, and
+``ARCHITECTURE.md`` for the high-level design.
 
 .. toctree::
    :maxdepth: 2

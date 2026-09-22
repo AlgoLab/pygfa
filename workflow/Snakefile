@@ -160,6 +160,7 @@ OPTION_CLI_MAP = {
     "compression_positions_start": "--compression-walk-positions-start",
     "compression_positions_end": "--compression-walk-positions-end",
     "compression_walks": "--compression-walk-steps",
+    "compression_ext_fields": "--compression-ext-fields",
 }
 
 

@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from networkx.algorithms.components.connected import connected_components as nx_connected_components
 from networkx.algorithms.components.connected import (
@@ -22,7 +22,7 @@ def nodes_connected_component(gfa_: GFA, nid: str) -> set[str]:
     """
     if nid not in gfa_:
         raise pygfa.gfa.GFAError("The source node is not in the graph.")
-    return nx_node_connected_component(gfa_._graph, nid)
+    return cast(set[str], nx_node_connected_component(gfa_._graph, nid))
 
 
 def nodes_connected_components(gfa_: GFA) -> Iterator[set[str]]:
@@ -32,4 +32,4 @@ def nodes_connected_components(gfa_: GFA) -> Iterator[set[str]]:
     :param gfa_: The GFA object containing the graph.
     :return: An iterator of sets, where each set contains node IDs.
     """
-    return nx_connected_components(gfa_._graph)
+    return cast(Iterator[set[str]], nx_connected_components(gfa_._graph))

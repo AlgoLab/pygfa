@@ -160,6 +160,7 @@ COMPRESSION_OPTIONS: dict[str, str] = {
     "compression_positions_start": "1byte_int",
     "compression_positions_end": "1byte_int",
     "compression_walks": "4byte_walks",
+    "compression_ext_fields": "2byte",
 }
 
 INTEGER_ENCODING_NAMES: list[str] = [e.name.lower() for e in IntegerEncoding]

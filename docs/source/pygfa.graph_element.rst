@@ -27,10 +27,26 @@ pygfa\.graph\_element\.node module
     :undoc-members:
     :show-inheritance:
 
+pygfa\.graph\_element\.path module
+----------------------------------
+
+.. automodule:: pygfa.graph_element.path
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pygfa\.graph\_element\.subgraph module
 --------------------------------------
 
 .. automodule:: pygfa.graph_element.subgraph
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pygfa\.graph\_element\.walk module
+----------------------------------
+
+.. automodule:: pygfa.graph_element.walk
     :members:
     :undoc-members:
     :show-inheritance:

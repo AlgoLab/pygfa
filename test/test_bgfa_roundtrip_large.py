@@ -15,7 +15,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from pygfa.gfa import GFA  # noqa: E402
-from test_utils import should_run_test_for_gfa  # noqa: E402
+from test_utils import should_run_benchmark_for_gfa, should_run_test_for_gfa  # noqa: E402
 from pygfa.encoding import INTEGER_ENCODINGS as _ALL_INT_ENCODINGS, STRING_ENCODINGS as _ALL_STR_ENCODINGS  # noqa: E402
 
 try:

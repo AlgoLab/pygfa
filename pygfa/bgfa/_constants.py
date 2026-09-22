@@ -25,6 +25,11 @@ SECTION_ID_WALKS = 5
 # Header: num_segments(H) num_links(H) num_paths(H) num_walks(H) comp(H)
 #         clen(Q) ulen(Q); payload = seg opts + link opts + path opts + walk opts.
 SECTION_ID_OPT_FIELDS = 6
+# pygfa-specific extension: the reserved fields the upstream format cannot
+# represent (currently the path overlaps after the first). Same 27-byte header
+# shape as section 6, and likewise omitted entirely when no element carries
+# reserved data, so files without such data stay byte-identical.
+SECTION_ID_EXT_FIELDS = 7
 
 INTEGER_ENCODING_NONE = IntegerEncoding.NONE
 INTEGER_ENCODING_VARINT = IntegerEncoding.VARINT

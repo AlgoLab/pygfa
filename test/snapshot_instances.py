@@ -252,6 +252,11 @@ INSTANCES = [
         "tags": ["segments"],
     },
     {
+        "id": "segments_star_length",
+        "gfa_text": "H\tVN:Z:1.0\nS\ts1\t*\tLN:i:25\nS\ts2\tACGT\n",
+        "tags": ["segments", "star-length"],
+    },
+    {
         "id": "segments_numeric_names",
         "gfa_text": "H\tVN:Z:1.0\nS\t1\tACGT\nS\t2\tTGCA\nS\t3\tAAAA\n",
         "tags": ["segments"],
@@ -330,6 +335,12 @@ INSTANCES = [
         "gfa_text": "H\tVN:Z:1.0\nS\ts1\tACGTNRYKMSWBDHV-ACGT\n",
         "comp_options": {"sequences_enc": "varint-2bit"},
         "tags": ["segments", "string-encoding", "2bit-exceptions"],
+    },
+    {
+        "id": "segments_enc_2bit_lossless",
+        "gfa_text": "H\tVN:Z:1.0\nS\ts1\tACGTXZ.=\nS\ts2\tACGTxz=\n",
+        "comp_options": {"sequences_enc": "varint-2bit"},
+        "tags": ["segments", "string-encoding", "2bit-lossless"],
     },
     {
         "id": "segments_enc_rle",
@@ -669,6 +680,25 @@ INSTANCES = [
         "id": "paths_overlap_star",
         "gfa_text": "H\tVN:Z:1.0\nS\ts1\tACGT\nS\ts2\tTGCA\nP\tp1\ts1+,s2+\t*\n",
         "tags": ["paths"],
+    },
+    {
+        "id": "paths_multi_overlaps_mixed",
+        "gfa_text": (
+            "H\tVN:Z:1.0\nS\ts1\tACGT\nS\ts2\tTGCA\nS\ts3\tAAAA\nS\ts4\tCCCC\n"
+            "P\tp1\ts1+,s2+,s3+,s4+\t10M,5M,2M\n"
+            "P\tp2\ts1+,s2+\t10M\n"
+            "P\tp3\ts1+,s3+\t*\n"
+        ),
+        "tags": ["paths", "ext-fields"],
+    },
+    {
+        "id": "paths_multi_overlaps_enc_zstd",
+        "gfa_text": (
+            "H\tVN:Z:1.0\nS\ts1\tACGT\nS\ts2\tTGCA\nS\ts3\tAAAA\n"
+            "P\tp1\ts1+,s2+,s3+\t10M,5M\n"
+        ),
+        "comp_options": {"ext_fields_enc": "varint+zstd"},
+        "tags": ["paths", "ext-fields", "string-encoding"],
     },
     {
         "id": "paths_reversed",

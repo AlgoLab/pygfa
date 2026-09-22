@@ -29,14 +29,18 @@ SNAPSHOT_DIR = os.path.join(os.path.dirname(__file__), "snapshots", "bgfa")
 
 # Node attributes stored by add_node() that are not part of the BGFA
 # roundtrip: "nid" is the node id (already the dict key), "sequence" is
-# compared explicitly, and "slen" is the parsed sequence length that the
-# BGFA reader does not reconstruct (it is derivable from the sequence).
+# compared explicitly, and "slen" is excluded because a programmatically built
+# node may omit it. Segment lengths are compared by _assert_segment_lengths,
+# which asserts the reader restores them (via LN for a "*" sequence, from the
+# sequence otherwise), so a reader that drops the length still fails.
 NODE_RESERVED = {"nid", "sequence", "slen"}
 # Edge attributes stored by add_edge() that the BGFA writer drops or that
 # are compared explicitly: "eid" is the edge key, from/to_node, orientations
 # and alignment are compared explicitly, and from_positions/to_positions/
-# distance/variance/from_segment_end/to_segment_end are not preserved by the
-# BGFA format (known fidelity gap, see snapshots/bgfa/README.md).
+# distance/variance/from_segment_end/to_segment_end are not preserved. That is
+# a GFA1 text-format limitation, not a BGFA gap: GFA1 L lines have no columns
+# for them and Edge.from_line hard-codes them, so only programmatically
+# constructed edges can populate them (see snapshots/bgfa/README.md).
 EDGE_RESERVED = {
     "eid",
     "from_node",
@@ -108,6 +112,26 @@ def _canonical_nodes(gfa):
     return sorted(out)
 
 
+def _assert_segment_lengths(original, readback):
+    """Assert every readback segment length matches the reader's contract.
+
+    ``slen`` is excluded from ``_canonical_nodes`` because a programmatically
+    built node may legitimately omit it, but the roundtrip must still restore
+    it: from ``LN`` for a ``*`` sequence (not derivable) and from the sequence
+    itself otherwise.  This is what makes a reader that drops the length fail.
+    """
+    orig = dict(original.nodes(data=True))
+    for nid, data in readback.nodes(data=True):
+        seq = data.get("sequence", "*")
+        slen = data.get("slen")
+        if seq == "*":
+            assert slen == orig[nid].get("slen"), (
+                f"length of *-sequence {nid} not restored: {slen} != {orig[nid].get('slen')}"
+            )
+        else:
+            assert slen == len(seq), f"length of {nid} ({seq!r}) not restored: {slen} != {len(seq)}"
+
+
 def _canonical_edges(gfa):
     out = []
     for u, v, _k, data in gfa.edges(data=True, keys=True):
@@ -128,9 +152,9 @@ def _canonical_edges(gfa):
 def _canonical_paths(gfa):
     out = []
     for pid, pdata in gfa.paths().items():
-        overlaps = pdata.get("overlaps", [])
-        first = overlaps[0] if overlaps else "*"
-        out.append((pid, list(pdata.get("segments", [])), first))
+        overlaps = list(pdata.get("overlaps", []))
+        # An absent overlaps field is normalized to the GFA1 "*" sentinel.
+        out.append((pid, list(pdata.get("segments", [])), tuple(overlaps) if overlaps else ("*",)))
     return sorted(out)
 
 
@@ -152,6 +176,7 @@ def _canonical_walks(gfa):
 
 def _assert_roundtrip(original, readback):
     assert _canonical_nodes(original) == _canonical_nodes(readback)
+    _assert_segment_lengths(original, readback)
     assert _canonical_edges(original) == _canonical_edges(readback)
     assert _canonical_paths(original) == _canonical_paths(readback)
     assert _canonical_walks(original) == _canonical_walks(readback)

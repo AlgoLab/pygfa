@@ -142,14 +142,16 @@ class GFAParserMixin(BaseGFA):
                 segment_data[tag] = _coerce_opt_value(value_type, value)
 
         if "segment_name" in segment_data and "sequence" in segment_data:
-            self.add_node(
-                node.Node(
-                    segment_data["segment_name"],
-                    segment_data["sequence"],
-                    len(segment_data["sequence"]),
-                    opt_fields={k: v for k, v in segment_data.items() if k not in ["segment_name", "sequence"]},
-                )
-            )
+            sequence = segment_data["sequence"]
+            opt_fields = {k: v for k, v in segment_data.items() if k not in ["segment_name", "sequence"]}
+            # A "*" sequence has no derivable length: LN is the only source, and
+            # len("*") would be a bogus 1. For a known sequence LN is redundant
+            # and stays a user optional field, so it is never dropped.
+            if sequence == "*":
+                length = opt_fields.pop("LN", None)
+            else:
+                length = len(sequence)
+            self.add_node(node.Node(segment_data["segment_name"], sequence, length, opt_fields=opt_fields))
 
     def _process_link_line(self, child, line_num: int, logger) -> None:
         """Process a parsed link line and add it to the graph.
@@ -572,7 +574,8 @@ class GFAParserMixin(BaseGFA):
         segments = []
         logger.debug("to_gfa(): Processing %s nodes", len(self.nodes()))
         for node_id, data in self.nodes_iter(data=True):
-            line_parts = ["S", node_id, data.get("sequence", "*")]
+            sequence = data.get("sequence", "*")
+            line_parts = ["S", node_id, sequence]
             # Add optional fields
             for key, value in data.items():
                 if key not in ["nid", "sequence", "slen"]:
@@ -582,6 +585,11 @@ class GFAParserMixin(BaseGFA):
                         line_parts.append(f"{key}:f:{value}")
                     elif isinstance(value, str):
                         line_parts.append(f"{key}:Z:{value}")
+            # A "*" sequence has no derivable length, so the length has to be
+            # written explicitly as LN or sequence_length is lost.
+            slen = data.get("slen")
+            if sequence == "*" and isinstance(slen, int) and "LN" not in data:
+                line_parts.append(f"LN:i:{slen}")
             segments.append("\t".join(line_parts))
         segments.sort(key=lambda x: x.split("\t")[1])
         lines.extend(segments)

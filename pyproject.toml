@@ -103,7 +103,9 @@ addopts = [
     "--full-trace",
     "--tb=long",
     "--strict-markers",
-    "--color=yes"
+    "--color=yes",
+    "--memray",
+    "--hide-memray-summary"
 ]
 log_cli = true
 log_cli_level = "DEBUG"
